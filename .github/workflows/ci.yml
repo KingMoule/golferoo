@@ -144,7 +144,7 @@ jobs:
         run: |
           run_captures() {
             rm -rf captures
-            timeout 300 xvfb-run -a -s "-screen 0 1280x720x24" "$GODOT" --path game --audio-driver Dummy "$@" res://tools/Captures.tscn -- --out "$GITHUB_WORKSPACE/captures" 2>&1 | tee captures.log
+            timeout 300 xvfb-run -a -s "-screen 0 1280x720x24" "$GODOT" --path game --audio-driver Dummy "$@" res://tools/Captures.tscn -- --out "$GITHUB_WORKSPACE/captures" --thumbs 2>&1 | tee captures.log
             return "${PIPESTATUS[0]}"
           }
           if run_captures --rendering-method forward_plus --rendering-driver vulkan \

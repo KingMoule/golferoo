@@ -32,6 +32,7 @@ public partial class Captures : Node
     private async Task<int> Run()
     {
         var outDir = Main.CommandLineOption("--out") ?? "captures";
+        var thumbs = OS.GetCmdlineUserArgs().Contains("--thumbs");
         System.IO.Directory.CreateDirectory(outDir);
 
         var main = GD.Load<PackedScene>("res://Main.tscn").Instantiate<Main>();
@@ -65,6 +66,14 @@ public partial class Captures : Node
                 var stddev = LuminanceStdDev(image);
                 var err = image.SavePng(path);
                 GD.Print($"CAPTURE {path} {image.GetWidth()}x{image.GetHeight()} stddev={stddev:F4} save={err}");
+                if (thumbs)
+                {
+                    // Vignette JPEG en base64 dans le journal : on peut regarder les captures sans télécharger l'artefact.
+                    var thumb = (Image)image.Duplicate();
+                    thumb.Resize(384, 216, Image.Interpolation.Bilinear);
+                    GD.Print($"THUMB {System.IO.Path.GetFileName(path)} {Convert.ToBase64String(thumb.SaveJpgToBuffer(0.7f))}");
+                }
+
                 if (err != Error.Ok || stddev <= 0.0001)
                 {
                     GD.PrintErr($"CAPTURES FAIL {path} (écriture ou image uniforme)");
