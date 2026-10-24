@@ -4,6 +4,7 @@ Mis à jour : 2026-10-24
 Dépôt vide côté jeu ; le workflow Claude Code (CLAUDE.md, agents, skills, hooks) est en place.
 
 ## En cours
+- Recensement des features du SimGolf original : `docs/recensement-sim-golf.md`, PR ouverte (R01)
 - Choisir la stack et cadrer le premier chantier avec `/cadrer` [guillaume]
 
 ## Décisions récentes
