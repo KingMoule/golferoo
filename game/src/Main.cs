@@ -14,7 +14,7 @@ namespace Golferoo.Game;
 public partial class Main : Node3D
 {
     public const string HoleFile = "data/holes/proto-par4.json";
-    public const int DefaultFactor = 4;
+    public const int DefaultFactor = 2;
     public const int LoadModeGolfers = 200;
     public const int MaxTicksPerFrame = 16;
 

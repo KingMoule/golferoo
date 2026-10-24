@@ -1,20 +1,26 @@
 Mis à jour : 2026-10-24
 
 ## État
-Lots 1 à 6 de C01 fusionnés (PR #6 à #11) : CI, terrain sim, golfeurs, physique du coup, rendu Godot (blocs, fondu flouté sur 5 m, caméra iso, captures en CI dont les vignettes `THUMB` sont dans le journal du job « Captures »), pinceau (B, F1 à F9, [ ], pas encore essayé à la souris).
+C01 (prototype d'un trou) : lots 1 à 7 fusionnés (PR #6 à #12), lot 8 en PR #14. Bilan dans `docs/prototype-c01-rapport.md` : simulation C# pure, déterministe, très sous ses budgets ; rendu Godot 4.7 .NET à 632 FPS (RTX 2080, 1080p, 200 golfeurs) ; **facteur 2 retenu** (cellules de 4 m, `Main.DefaultFactor`).
 
-## En cours
-- C01, lot 7 (assets), PR #12 : `game/src/Rendering/ProceduralMeshes.cs` (golfeur, balle, drapeau, 4 variantes d'arbre de repli ; budgets 300/80/60/400 triangles, lignes `ASSET nom ms tri` vérifiées par la fumée). Arbre du jeu : `game/assets/trees/tree.glb`, produit par `python -I tools/blender/tree_lowpoly.py` (`pip install bpy==5.2.3`, Python 3.13, graine 7, 340 triangles, 1 s, sortie identique d'un lancement à l'autre). `TreeLayer` exige un seul MeshInstance3D et le recale (pied au sol, centré, 4 m) ; la fumée vérifie qu'il est chargé.
-- Lot 8 (outillage, branche claude/project-thread-we8mvk) : JSON du trou copié dans `game/data/` par le csproj (ignoré par git) et lu par `FileAccess` (`res://`, repli dépôt ; ligne `HOLE source=` vérifiée par la CI) ; mode mesure `-- --fps-bench` (`game/src/Tools/FpsBench.cs`, écrit `fps-result.txt`, ligne `FPSBENCH`) ; `game/export_presets.cfg` + job CI `export-windows` (artefact `golferoo-windows` : exe, `Lancer.bat`, `Mesurer FPS.bat`, `LISEZMOI.txt`) ; captures `--full` (lignes `FULL` en JPEG 85). À savoir : l'eau reste en blocs de cellules ; le liseré du drapeau peut scintiller de près.
+## Outils en place
+- CI : simulation (format, tests, banc JSON), fumée Godot, captures en rendu logiciel (lignes `THUMB`/`FULL` en JPEG base64 dans le journal, facteurs 3 et 4 en plus pour comparaison), export Windows (artefact `golferoo-windows` : `Lancer.bat`, `Mesurer FPS.bat` → `fps-result.txt`).
+- Le JSON du trou est copié dans `game/data/` à la compilation (ignoré par git) et lu en `res://`.
+- Arbre affiché : `game/assets/trees/tree.glb`, produit par `python -I tools/blender/tree_lowpoly.py` (`pip install bpy==5.2.3`). Golfeur, balle, drapeau et arbre de repli : `game/src/Rendering/ProceduralMeshes.cs`.
+- Banc : le champ 512² est jugé sur la médiane, après un tour à blanc qui laisse le JIT optimiser (sinon le facteur 2, mesuré en premier, échouait au hasard).
+
+## Défauts connus (suites proposées dans le rapport)
+- L'eau garde un contour en escalier de cellules ; le liseré du drapeau peut scintiller de près.
+- Chaque champ de flux alloue ~2 Mo (tas des gros objets) : réutiliser les tampons avant les grands parcours. Planifier un drive coûte ~15 ms, non mesuré sous charge.
+- Le pinceau n'a été essayé à la souris que par Guillaume.
 
 ## Décisions récentes
-- Godot.NET.Sdk 4.7.2, jeu et simulation en `net10.0` (confirmé par la fumée en CI).
-- RNG maison (xoshiro256**) pour un déterminisme indépendant de `System.Random`.
-- Pinceau en jeu, assets par code, FPS sur le PC de Guillaume en 1080p.
-- 2026-10-24 : arbre par script Blender (`bpy`) dans le cloud, au lieu de TRELLIS (sa carte, une RTX 2080 de 8 Go, est trop juste). Filière comparée dans `docs/assets-3d.md` (PR #13).
+- Godot.NET.Sdk 4.7.2, jeu et simulation en `net10.0`. RNG maison (xoshiro256**).
+- 2026-10-24 : arbre par script Blender (`bpy`) au lieu de TRELLIS (RTX 2080 de 8 Go trop juste) ; filières dans `docs/assets-3d.md`.
+- 2026-10-24 : facteur 2 (Guillaume, sur le rapport C01).
 
 ## Prochaine étape
-Lot 8 : mesures, captures dans `docs/prototype-c01/`, FPS sur son PC, retouche par agent chronométrée, rapport, facteur choisi.
+Guillaume donne son verdict « en cases ou non » sur les captures, puis fusionne la PR #14 ; C01 passe à « livré ». Chantier suivant à cadrer avec lui.
 
 ## Environnement cloud
-Pas de .NET préinstallé : `apt-get install dotnet-sdk-10.0` marche (dépôt Ubuntu) ; dot.net/builds.dotnet est refusé par le proxy. Godot ne se télécharge pas (github releases en 403) : la CI fait foi pour Godot. `pip install bpy==5.2.3` marche.
+Pas de .NET préinstallé : `apt-get install dotnet-sdk-10.0` marche ; dot.net/builds.dotnet est refusé par le proxy. Godot ne se télécharge pas (github releases en 403) : la CI fait foi pour Godot. `pip install bpy==5.2.3` marche. Artefacts CI non téléchargeables depuis le conteneur : passer par les journaux.

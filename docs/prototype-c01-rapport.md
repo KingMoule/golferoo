@@ -4,9 +4,10 @@ Mis à jour : 2026-10-24. Spec : `specs/C01-prototype-trou.md`. Lots 1 à 8, PR 
 
 ## En bref
 - Les choix de l'ADR 0001 tiennent : la simulation est en C# pur, déterministe et très en dessous de ses budgets, et le rendu Godot 4.7 .NET ne laisse pas voir la grille.
-- **Facteur recommandé : 2** (cellules de 4 m). Les détails sont plus bas, et la décision revient à Guillaume.
+- **Facteur 2 retenu par Guillaume** (cellules de 4 m). Les détails sont plus bas.
+- **632 FPS en moyenne** sur la RTX 2080 de Guillaume, avec 200 golfeurs en 1080p. Le critère est de 60.
 - Un brief d'une ligne confié à un agent a donné une retouche en moins d'une minute, mais seulement à moitié juste : la couleur des bunkers a changé, mais pas l'arbre affiché.
-- Il reste à relever les FPS sur le PC de Guillaume et à noter son verdict sur les captures.
+- Il reste à noter le verdict de Guillaume sur les captures.
 
 ## Critères d'acceptation
 
@@ -17,10 +18,10 @@ Mis à jour : 2026-10-24. Spec : `specs/C01-prototype-trou.md`. Lots 1 à 8, PR 
 | 3 | La CI échoue quand un test casse (sim et fumée Godot) | ✅ prouvé au lot 1 | PR #6 (commits de démonstration puis retrait) |
 | 4 | `Golferoo.Sim` sans Godot | ✅ | étape CI « Golferoo.Sim ne référence pas Godot » et `ArchitectureTests` |
 | 5 | Banc aux facteurs 2, 3 et 4 | ✅ tout passe | tableau ci-dessous, artefact `bench` de la CI |
-| 6 | 60 FPS ou plus à 200 golfeurs en 1080p sur le PC de Guillaume | ⏳ à relever | `Mesurer FPS.bat` de l'artefact `golferoo-windows` |
+| 6 | 60 FPS ou plus à 200 golfeurs en 1080p sur le PC de Guillaume | ✅ 632,5 FPS de moyenne, 600 au 1 % bas | `fps-result.txt`, section « FPS » |
 | 7 | 8 captures dans `docs/prototype-c01/`, verdict de Guillaume « pas en cases » | ⏳ captures prêtes, verdict à noter | `docs/prototype-c01/` |
 | 8 | Retouche par un agent sur un brief d'une ligne, chronométrée | ✅ 54 s et 47 052 tokens, résultat partiel | section « Retouche par agent » |
-| 9 | Le rapport tranche le facteur | ✅ recommandation : 2 | section « Facteur » |
+| 9 | Le rapport tranche le facteur | ✅ facteur 2, choisi par Guillaume | section « Facteur » |
 | 10 | `CLAUDE.md` donne les commandes réelles | ✅ | section « Stack et commandes » |
 
 ## Banc (CI, runner GitHub ubuntu-latest, .NET 10.0.13, commit c99772f)
@@ -37,10 +38,22 @@ Mis à jour : 2026-10-24. Spec : `specs/C01-prototype-trou.md`. Lots 1 à 8, PR 
 - Un coup au driver planifié coûte environ 15 ms. Ce coût n'est pas mesuré quand plusieurs groupes jouent dans le même tick. C'est à surveiller avant d'avoir des parcours chargés.
 
 ## FPS (critère 6)
-À remplir avec `fps-result.txt` : carte graphique, FPS moyen, 1 % bas, tick moyen, résolution, facteur.
+Le relevé a été fait par Guillaume le 2026-10-24, avec `Mesurer FPS.bat` de l'export Windows (commit 74c23a3, encore au facteur 4).
+
+```
+FPS moyen : 632,5
+1 % bas : 600,0 FPS (pire image 2,3 ms, p99 1,7 ms)
+Tick de simulation moyen : 0,133 ms
+Golfeurs : 200
+Résolution : 1920x1080, facteur 4
+Carte graphique : NVIDIA GeForce RTX 2080
+Images mesurées : 18977 en 30,0 s
+```
+
+La marge est d'un facteur 10 sur le critère. Le facteur 2 retenu a moins de cellules, donc moins d'arbres et de blocs à dessiner : il ne peut que faire mieux. Le tick sous Godot vaut 0,13 ms contre 0,015 ms au banc, ce qui inclut la copie de l'état pour le rendu ; il reste négligeable.
 
 ## Captures (critère 7)
-Les captures sont produites par la CI (Forward+ en rendu logiciel lavapipe), en 1280×720, au facteur 4 :
+Les captures sont produites par la CI (Forward+ en rendu logiciel lavapipe), en 1280×720. Celles du dossier ont été prises au facteur 4, avant la décision :
 - 4 rotations de la vue d'ensemble : `capture-00` à `capture-03` ;
 - 4 rotations de la vue du green : `capture-04` à `capture-07` ;
 - pour comparer les facteurs : `f2-capture-00`, `f2-capture-04`, `f3-capture-00` et `f3-capture-04`.
@@ -56,18 +69,17 @@ Ce qu'on y voit :
 Verdict de Guillaume : à noter.
 
 ## Facteur de subdivision (critère 9)
-**Recommandation : facteur 2, soit des cellules de 4 m et 2 × 2 sous-cases par tuile de 8 m.**
+**Décision de Guillaume (2026-10-24) : facteur 2, soit des cellules de 4 m et 2 × 2 sous-cases par tuile de 8 m.** C'était la recommandation du rapport.
 - **Visuellement**, les facteurs 2 et 4 sont presque indiscernables en vue d'ensemble comme au green : comparer `f2-capture-00` et `capture-00`. Le fondu de 5 m domine, et une forme plus petite que 5 m est lissée quel que soit le facteur.
 - **Le coût** est négligeable au tick, mais il croît avec la surface :
   - la retouche p99 passe de 2,3 ms au facteur 2 à 7,2 ms au facteur 4 ;
   - un champ de flux occupe 4 fois plus de mémoire au facteur 4.
   - Pour un 18 trous d'environ 1 500 × 1 000 m, avec une soixantaine de champs en cache, cela donne de l'ordre de 30 Mo au facteur 2 contre 120 Mo au facteur 4. C'est une estimation : 5 octets par cellule et par champ.
 - **Ce que le facteur 4 apporterait** : un pinceau plus fin (2 m) et des pentes plus détaillées. Le prototype ne montre pas que ça se voit.
-- **À changer si Guillaume valide** :
+- **Changements faits dans la PR #14** :
   - `Main.DefaultFactor` passe de 4 à 2 ;
-  - l'ADR 0001 dit « facteur 2 retenu » au lieu de « de l'ordre de 2 à 4 » ;
-  - le coût annoncé du champ de flux dans l'ADR passe de « vers 5 ms en 512×512 » à 13 ms, mesuré.
-- **Si Guillaume préfère la finesse**, le facteur 3 est le compromis : retouche à 4,2 ms.
+  - l'ADR 0001 dit « facteur 2 » et donne le coût mesuré du champ de flux, 13 ms en 512×512 au lieu des 5 ms estimés ;
+  - la CI capture maintenant les facteurs 3 et 4 pour comparaison.
 
 ## Retouche par agent (critère 8)
 - **Brief** : « Dans le jeu Golferoo : bunkers plus clairs et arbres plus ronds. » Seul s'y ajoutait le cadre de rendu : commit dans un worktree, compte rendu en 10 lignes.

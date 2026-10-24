@@ -161,9 +161,9 @@ jobs:
           fi
           test "$(ls captures/*.png | wc -l)" -eq 8
 
-      - name: Captures aux facteurs 2 et 3 (comparaison pour le rapport C01)
+      - name: Captures aux facteurs 3 et 4 (comparaison pour le rapport C01, le jeu est au facteur 2)
         run: |
-          for f in 2 3; do
+          for f in 3 4; do
             timeout 300 xvfb-run -a -s "-screen 0 1280x720x24" "$GODOT" --path game --audio-driver Dummy --rendering-method forward_plus --rendering-driver vulkan \
               res://tools/Captures.tscn -- --out "$GITHUB_WORKSPACE/captures-f$f" --factor $f --prefix "f$f-" --full 2>&1 | tee "captures-f$f.log"
             grep -q '^CAPTURES OK' "captures-f$f.log" || { echo "::error::captures au facteur $f en échec"; exit 1; }
