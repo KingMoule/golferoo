@@ -35,6 +35,9 @@ Trois analystes indépendants ont étudié la question, chacun sous un angle : a
 3. **Rust n'a d'intérêt que pour lier `sg-core`, et ce gain est faible.** L'analyse A montre que `sg-core` n'est pas une fondation. La boucle de simulation et la sauvegarde sont dans `simgolf/src/app.rs`, mêlées au rendu. Les règles dépendent de la position à l'écran, l'état global est partagé, et la simulation a peu de tests (14 tests pour les 4 214 lignes de `golfer.rs`). Sa vraie valeur, ce sont environ 11 700 lignes de docs, qu'on peut reprendre sans contrainte de licence. Lier ce code rendrait tout Golferoo GPL, ce qui ferme les consoles (SDK sous NDA) et le code fermé.
 4. **Moteur maison, Bevy, web, Unreal : écartés.** Un moteur maison obligerait à refaire l'UI, l'animation et les outils. Bevy casse son API tous les 3 à 5 mois et son UI est faible (et Bevy 0.20 exigeait rustc 1.97.1 dans l'essai). La stack web est excellente pour les agents, mais elle n'a ni consoles ni éditeur pour les artistes. Unreal est disproportionné pour un tycoon et peu adapté aux agents (Blueprints binaires).
 
+## Tranché par Guillaume
+- 2026-10-24 : **Golferoo est un jeu à code fermé.** Aucun code d'OpenSGolf n'est lié ni copié ; seuls ses docs et ses chiffres servent de référence. La variante Rust + `sg-core` est écartée.
+
 ## Ce qui reste ouvert
 - **2D isométrique ou 3D stylisée.** B pousse la 3D low-poly en caméra iso orthographique : c'est la norme des tycoons récents, avec rotation libre, et l'art coûte moins cher qu'un set iso dessiné en 4 rotations. C objecte que la 3D est plus dure à vérifier pour des agents, et que personne n'a mesuré le coût de l'art. A accepte la 3D au rendu, mais le terrain de la simulation reste à tuiles avec hauteurs aux coins, pour garder la parité des règles. Godot couvre les deux, donc on tranche par le prototype ci-dessous.
 - **Export web.** Le C# ne s'exporte pas encore sur le web dans Godot 4.7 (forum Godot, avril 2026, à reconfirmer). Si le web devient indispensable, la seule option dans Godot est le tout GDScript, avec la perte de performance mesurée ci-dessus.
@@ -48,4 +51,3 @@ Trois analystes indépendants ont étudié la question, chacun sous un angle : a
 ## Conséquences
 - Stack à reporter dans `CLAUDE.md` après validation : `dotnet test` pour le test rapide, Godot headless pour la suite complète en CI.
 - Les docs d'OpenSGolf deviennent une référence citée. Une règle de dépôt suffit : aucun fichier d'OpenSGolf ni d'EA n'est copié dans `golferoo`.
-- Si Guillaume choisit de mettre Golferoo sous GPL, on réévalue Rust avec gdext, ce qui permet de reprendre `sg-core`. Le reste de la décision tient.
