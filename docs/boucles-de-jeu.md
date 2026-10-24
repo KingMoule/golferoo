@@ -2,7 +2,7 @@
 
 Mis à jour : 2026-10-24. Chantier R03, suite de `docs/pistes-features.md` (groupe D), demandée par Guillaume : analyser chaque boucle en profondeur, avec ses effets sur les autres features et la façon de l'intégrer sous Godot. Les risques R1 à R7 et les efforts S à XL sont ceux de `docs/faisabilite-features.md`.
 
-Rien n'est décidé ici. Chaque fiche finit par une recommandation que Guillaume tranche.
+Rien n'est décidé ici. Chaque fiche finit par une recommandation que Guillaume tranche. Les cinq boucles recommandées pour la première version sont détaillées dans `docs/boucles-v1.md` ; les questions de fin de document sont mises de côté (Guillaume, 2026-10-24).
 
 ## En bref
 - Les 13 boucles se rangent en quatre familles. Celles qui **changent le terrain lui-même** (météo, entretien, écologie, nuit) nourrissent directement le cœur du jeu : construire, regarder, corriger. Ce sont les plus solides.
