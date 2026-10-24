@@ -37,12 +37,13 @@ public static class ProceduralMeshes
         var tint = b.Surface(new StandardMaterial3D { VertexColorUseAsAlbedo = true, Roughness = 0.9f });
         var skin = b.Surface(new StandardMaterial3D { AlbedoColor = new Color(0.86f, 0.66f, 0.5f), Roughness = 0.9f });
         var pants = b.Surface(new StandardMaterial3D { AlbedoColor = new Color(0.78f, 0.72f, 0.55f), Roughness = 0.9f });
+        var shoes = b.Surface(new StandardMaterial3D { AlbedoColor = new Color(0.55f, 0.55f, 0.55f), Roughness = 0.9f });
 
         // Jambes (12 tri chacune) et chaussures.
         b.Box(pants, new Vector3(-0.11f, 0.45f, 0), new Vector3(0.16f, 0.9f, 0.18f), Colors.White);
         b.Box(pants, new Vector3(0.11f, 0.45f, 0), new Vector3(0.16f, 0.9f, 0.18f), Colors.White);
-        b.Box(pants, new Vector3(-0.11f, 0.04f, 0.04f), new Vector3(0.18f, 0.08f, 0.3f), new Color(0.55f, 0.55f, 0.55f));
-        b.Box(pants, new Vector3(0.11f, 0.04f, 0.04f), new Vector3(0.18f, 0.08f, 0.3f), new Color(0.55f, 0.55f, 0.55f));
+        b.Box(shoes, new Vector3(-0.11f, 0.04f, 0.04f), new Vector3(0.18f, 0.08f, 0.3f), new Color(0.55f, 0.55f, 0.55f));
+        b.Box(shoes, new Vector3(0.11f, 0.04f, 0.04f), new Vector3(0.18f, 0.08f, 0.3f), new Color(0.55f, 0.55f, 0.55f));
         // Torse effilé vers la taille, bras, mains.
         b.Frustum(tint, new Vector3(0, 0.88f, 0), 0.2f, 0.27f, 0.62f, 6, Colors.White);
         b.Box(tint, new Vector3(-0.33f, 1.18f, 0), new Vector3(0.11f, 0.4f, 0.13f), new Color(0.85f, 0.85f, 0.85f));
