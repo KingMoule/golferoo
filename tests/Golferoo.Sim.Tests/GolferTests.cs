@@ -9,6 +9,32 @@ public class GolferTests
     private static World NewWorld(ulong seed, int factor = 2) =>
         new(seed, HoleLoader.Load(TerrainTests.HolePath(), factor));
 
+    private sealed class NeverHoleResolver : Golferoo.Sim.Shots.IShotResolver
+    {
+        public Golferoo.Sim.Shots.ShotResult Resolve(in Golferoo.Sim.Shots.ShotRequest request, TerrainGrid terrain, DeterministicRng rng) =>
+            new(request.Ball, Holed: false);
+    }
+
+    [Fact]
+    public void PickUp_AfterMaxStrokes_IsNotCountedAsHoled()
+    {
+        var world = new World(3, HoleLoader.Load(TerrainTests.HolePath(), 2), new NeverHoleResolver());
+        var group = world.SpawnGroup();
+
+        for (var ticks = 0; !group.Finished && ticks < 20 * 3600; ticks++)
+        {
+            world.Step();
+        }
+
+        Assert.True(group.Finished);
+        foreach (var g in group.Golfers)
+        {
+            Assert.Equal(World.MaxStrokes, g.Strokes);
+            Assert.False(g.Holed);
+            Assert.True(g.PickedUp);
+        }
+    }
+
     [Fact]
     public void FullGame_PairPlaysHoleAndExits()
     {

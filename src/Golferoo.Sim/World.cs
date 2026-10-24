@@ -21,7 +21,7 @@ public sealed class World
     private const int SwingTicksCount = TicksPerSecond;
 
     /// <summary>Ramassage de la balle après ce nombre de coups : garde-fou contre une partie sans fin.</summary>
-    private const int MaxStrokes = 12;
+    public const int MaxStrokes = 12;
 
     private const int WaypointPoolSize = 16;
 
@@ -223,6 +223,7 @@ public sealed class World
         Mix(ref hash, (ulong)g.SwingTicks);
         Mix(ref hash, (ulong)g.WaypointIndex);
         Mix(ref hash, g.Holed ? 1UL : 0UL);
+        Mix(ref hash, g.PickedUp ? 1UL : 0UL);
         Mix(ref hash, (ulong)BitConverter.DoubleToInt64Bits(g.Position.X));
         Mix(ref hash, (ulong)BitConverter.DoubleToInt64Bits(g.Position.Z));
         Mix(ref hash, (ulong)BitConverter.DoubleToInt64Bits(g.Ball.X));
@@ -353,7 +354,7 @@ public sealed class World
                 return;
             }
 
-            if (g.Holed || g.State == GolferState.Exiting || g.State == GolferState.Done)
+            if (g.Holed || g.PickedUp || g.State == GolferState.Exiting || g.State == GolferState.Done)
             {
                 continue;
             }
@@ -400,7 +401,8 @@ public sealed class World
         g.Ball = result.Ball;
         if (result.Holed || g.Strokes >= MaxStrokes)
         {
-            g.Holed = true;
+            g.Holed = result.Holed;
+            g.PickedUp = !result.Holed;
             g.State = GolferState.Exiting;
         }
         else

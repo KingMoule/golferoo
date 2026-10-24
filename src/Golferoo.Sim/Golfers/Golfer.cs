@@ -54,6 +54,9 @@ public sealed class Golfer
 
     public bool Holed { get; internal set; }
 
+    /// <summary>Balle ramassée après le nombre maximal de coups, sans être entrée dans le trou.</summary>
+    public bool PickedUp { get; internal set; }
+
     /// <summary>Ticks restants du geste en cours.</summary>
     internal int SwingTicks { get; set; }
 

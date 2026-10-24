@@ -18,6 +18,18 @@ const double holeFieldLimitMs = 5.0;
 const double bigFieldLimitMs = 20.0;
 const double retouchLimitMs = 16.0;
 
+// Tour à blanc : le JIT à paliers optimise le code avant la première mesure,
+// sinon le premier facteur mesuré paie l'échauffement.
+{
+    var warmup = new World(seed: 1, HoleLoader.Load(holePath, 2));
+    warmup.SetLoadMode(200);
+    var until = Stopwatch.GetTimestamp() + Stopwatch.Frequency / 2;
+    while (Stopwatch.GetTimestamp() < until)
+    {
+        warmup.Step();
+    }
+}
+
 var factors = new List<object>();
 var allPassed = true;
 foreach (var factor in new[] { 2, 3, 4 })
