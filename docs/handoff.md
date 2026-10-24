@@ -4,11 +4,11 @@ Mis à jour : 2026-10-24
 Dépôt vide côté jeu ; le workflow Claude Code (CLAUDE.md, agents, skills, hooks) est en place.
 
 ## En cours
-- Recensement des features du SimGolf original : `docs/recensement-sim-golf.md`, PR ouverte (R01)
-- Choisir la stack et cadrer le premier chantier avec `/cadrer` [guillaume]
+- Choix du moteur (C00) : `docs/adr/0001-moteur.md`, accepté, PR #4 ouverte. Code fermé, rendu 3D low-poly, ni web ni consoles. Godot 4.7 .NET + simulation C# pure testée par `dotnet test`.
 
 ## Décisions récentes
+- Recensement des features fusionné (PR #3).
 - Workflow : orchestrateur Opus, codeur et auditeur Sonnet, relecteur Opus, exploration Haiku (voir docs/workflow.md).
 
 ## Prochaine étape
-EN ATTENTE de Guillaume : la plateforme et la stack du simulateur.
+EN ATTENTE de Guillaume : fusionner l'ADR 0001 (tout est tranché), puis cadrer le prototype d'un trou en 3D low-poly.
