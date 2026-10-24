@@ -42,16 +42,16 @@ Le prototype tranche aussi le **facteur de subdivision** (2, 3 ou 4 sous-cases p
 **Risque connu** : `Golferoo.Sim` vise `net10.0` (ADR). Si Godot 4.7 .NET refuse qu'un projet `net10.0` référence la bibliothèque, on cible la version que Godot accepte pour les deux projets et on le note dans le rapport. Premier lot à vérifier.
 
 ## Choix à trancher par Guillaume
-1. **Retouche du terrain en jeu dans le prototype.**
-   - *A, trou figé* : le trou se charge d'un fichier, on ne le modifie pas en jeu. Plus court d'environ un jour, mais la reconstruction du maillage et des champs de flux après une retouche, qui est le cœur d'un jeu de construction, n'est pas mesurée.
-   - *B, pinceau minimal* (recommandé) : peindre une surface et monter ou baisser le relief à la souris, sans coût ni annulation. Ajoute environ un jour et mesure le vrai risque de perf de la grille fine (ADR : un champ de flux passe de 0,31 ms en 128 × 128 vers 5 ms en 512 × 512).
-2. **Origine des assets 3D** (arbre, drapeau, golfeur, balle).
+1. **Origine des assets 3D** (arbre, drapeau, golfeur, balle).
    - *A, procéduraux en code* : maillages générés par script, faits par les agents, sans coût ni licence, style homogène mais limité.
    - *B, pack libre CC0* (par exemple Kenney) : rapide et joli, mais pas notre style et pas une mesure de production.
    - *C, modélisés dans Blender* : la vraie chaîne d'un artiste, mais demande quelqu'un qui modélise.
-   - Recommandation : *A* pour le terrain et les trois props, plus un arbre en *B* pour comparer à l'écran. *C* seulement si Guillaume ou un artiste veut chronométrer un modèle. La mesure est le temps humain et agent par asset, notée dans le rapport.
+   - *D, image vers 3D par IA* : on part d'une image 2D sous licence libre (CC0) ou dessinée par nous, un outil la convertit en modèle 3D, puis un script Blender lancé par un agent réduit les polygones et aplatit les couleurs pour le style low-poly. Outils possibles : TRELLIS (Microsoft, code ouvert, à faire tourner sur une carte NVIDIA) ou un service payant en ligne (Meshy, Tripo, Rodin). Les licences et la propriété des modèles produits sont à vérifier pour l'outil choisi avant tout usage dans le jeu. Jamais à partir des images du SimGolf d'EA.
+   - Recommandation : *A* pour le terrain et les trois props, plus l'arbre en *D* pour comparer à l'écran le coût et le rendu. *B* sert de repère visuel ; *C* seulement si quelqu'un veut chronométrer un modèle. La mesure est le temps humain et agent par asset, notée dans le rapport.
+
 ## Tranché par Guillaume
 - 2026-10-24 : **machine de référence** pour les FPS : son PC en 1080p. Pas de Steam Deck disponible : la tenue sur Steam Deck reste à vérifier plus tard (la CI ne mesure que la simulation).
+- 2026-10-24 : **pinceau minimal** dans le prototype : peindre une surface et monter ou baisser le relief à la souris, sans coût ni annulation. Le lot 6 est donc dans le périmètre.
 
 ## Critères d'acceptation
 1. `dotnet test` passe en local et en CI, avec au moins un test par module de `Golferoo.Sim` et une partie complète du trou par une paire de golfeurs en moins de 5 s de temps réel.
@@ -61,7 +61,7 @@ Le prototype tranche aussi le **facteur de subdivision** (2, 3 ou 4 sous-cases p
 5. Banc (`dotnet run -c Release --project tests/Golferoo.Sim.Bench`), aux facteurs 2, 3 et 4, résultats en JSON dans le rapport :
    - tick moyen à 200 golfeurs en mode charge inférieur à 2 ms, p99 inférieur à 5 ms ;
    - un champ de flux sur la carte du trou inférieur à 5 ms, et sur une carte de 512 × 512 cellules inférieur à 20 ms ;
-   - (si choix 1 B) recalcul après une retouche de 5 × 5 cellules, champs de flux compris, inférieur à 16 ms.
+   - recalcul après une retouche de 5 × 5 cellules, champs de flux compris, inférieur à 16 ms.
 6. Le jeu tourne à 60 FPS au moins sur le PC de Guillaume en 1080p avec 200 golfeurs, compteur affiché à l'écran et relevé dans le rapport.
 7. Un script de captures produit 8 images (4 rotations × 2 zooms) dans `docs/prototype-c01/`. Guillaume juge sur ces images que le terrain ne paraît pas « en cases » ; son verdict est noté dans le rapport.
 8. Une retouche visuelle confiée à un agent par un brief d'une ligne (exemple : « bunkers plus clairs et arbres plus ronds ») est faite et chronométrée ; le rapport donne la durée et les tokens dépensés.
@@ -74,11 +74,11 @@ Le prototype tranche aussi le **facteur de subdivision** (2, 3 ou 4 sous-cases p
 3. Champs de flux, golfeurs, tick, mode charge, banc.
 4. Coup simplifié : planification par échantillonnage, vol, rebond, roulement, eau, putt ; partie complète en test.
 5. Rendu Godot : maillage par blocs, shader de fondu, eau, caméra, golfeurs et balle interpolés, compteur FPS, script de captures.
-6. Pinceau de surface et de relief (si choix 1 B).
-7. Assets selon le choix 2, chronométrés.
+6. Pinceau de surface et de relief.
+7. Assets selon le choix 1, chronométrés.
 8. Mesures, captures, retouche par agent, rapport, facteur choisi, `CLAUDE.md`.
 
-Durée estimée : 2 jours (ADR) avec le trou figé, 3 jours avec le pinceau.
+Durée estimée : 3 jours avec le pinceau (2 selon l'ADR, sans lui).
 
 ## Niveau de contrôle
 complet pour `Golferoo.Sim` (lots 2 à 4 : physique et état de partie), léger pour le rendu et les outils (lots 5 à 7).
