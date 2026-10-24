@@ -14,7 +14,7 @@ namespace Golferoo.Game;
 public partial class Main : Node3D
 {
     public const string HoleFile = "data/holes/proto-par4.json";
-    public const int DefaultFactor = 4;
+    public const int DefaultFactor = 2;
     public const int LoadModeGolfers = 200;
     public const int MaxTicksPerFrame = 16;
 
@@ -86,6 +86,29 @@ public partial class Main : Node3D
         throw new System.IO.FileNotFoundException($"{HoleFile} introuvable au-dessus de res://");
     }
 
+    /// <summary>Chemin réellement utilisé pour lire le JSON du trou (res:// à l'export, dépôt en éditeur).</summary>
+    public static string HoleSource { get; private set; } = string.Empty;
+
+    /// <summary>Lit le JSON du trou : res://data/holes/... (copié par le csproj, embarqué à l'export), sinon le dépôt.</summary>
+    public static string ReadHoleJson()
+    {
+        var resPath = "res://" + HoleFile;
+        if (Godot.FileAccess.FileExists(resPath))
+        {
+            using var file = Godot.FileAccess.Open(resPath, Godot.FileAccess.ModeFlags.Read);
+            HoleSource = resPath;
+            return file.GetAsText();
+        }
+
+        HoleSource = FindHolePath();
+        return System.IO.File.ReadAllText(HoleSource);
+    }
+
+    /// <summary>Temps cumulé passé dans World.Step (ms) et nombre de ticks, pour le mode mesure.</summary>
+    public double TickMsTotal { get; private set; }
+
+    public long TickCount { get; private set; }
+
     public override void _Ready()
     {
         if (int.TryParse(CommandLineOption("--factor"), out var factor))
@@ -93,7 +116,8 @@ public partial class Main : Node3D
             Factor = Math.Clamp(factor, HoleLoader.MinFactor, HoleLoader.MaxFactor);
         }
 
-        var grid = HoleLoader.Load(FindHolePath(), Factor);
+        var grid = HoleLoader.Parse(ReadHoleJson(), Factor);
+        GD.Print($"HOLE source={HoleSource}");
         World = new World(seed: 1, grid);
 
         AddChild(new WorldEnvironment
@@ -131,6 +155,11 @@ public partial class Main : Node3D
         _hud = GetNode<Label>("TickLabel");
         ResetSnapshots();
         UpdateHud(0);
+
+        if (OS.GetCmdlineUserArgs().Contains("--fps-bench"))
+        {
+            AddChild(new FpsBench { Name = "FpsBench" });
+        }
     }
 
     public override void _Process(double delta)
@@ -258,7 +287,10 @@ public partial class Main : Node3D
     private void StepOnce()
     {
         (_previous, _current) = (_current, _previous);
+        var t0 = System.Diagnostics.Stopwatch.GetTimestamp();
         World.Step();
+        TickMsTotal += System.Diagnostics.Stopwatch.GetElapsedTime(t0).TotalMilliseconds;
+        TickCount++;
         World.Snapshot(_current);
         _previousChanged = true;
     }

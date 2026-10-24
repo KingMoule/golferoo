@@ -1,5 +1,5 @@
 # Prototype d'un trou en 3D low-poly
-Statut : validé
+Statut : livré
 Créé : 2026-10-24
 
 ## But
@@ -89,5 +89,5 @@ Durée estimée : 3 jours avec le pinceau (2 selon l'ADR, sans lui).
 complet pour `Golferoo.Sim` (lots 2 à 4 : physique et état de partie), léger pour le rendu et les outils (lots 5 à 7).
 
 ## Clôture
-- [ ] Critères vérifiés
-- [ ] Statut passé à « livré », ligne mise à jour dans docs/chantiers.md
+- [x] Critères vérifiés (`docs/prototype-c01-rapport.md`, 2026-10-24)
+- [x] Statut passé à « livré », ligne mise à jour dans docs/chantiers.md
