@@ -1,0 +1,14 @@
+<Project Sdk="Godot.NET.Sdk/4.7.2">
+
+  <!-- Rendu et UI. Toute la simulation vit dans Golferoo.Sim. -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <EnableDynamicLoading>true</EnableDynamicLoading>
+    <RootNamespace>Golferoo.Game</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\src\Golferoo.Sim\Golferoo.Sim.csproj" />
+  </ItemGroup>
+
+</Project>

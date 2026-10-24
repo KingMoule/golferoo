@@ -9,3 +9,4 @@ Familles : `contexte`, `délégation`, `vérification`, `règle-ignorée`, `outi
 Ajouter sans relire tout le fichier : `echo "- ..." >> docs/lecons.md`. `/ameliorer` vide la liste une fois les leçons traitées.
 
 ## À traiter
+- 2026-10-24 · outil · conteneur cloud sans .NET ni Godot ; dotnet-install.sh refusé par le proxy, `apt-get install dotnet-sdk-10.0` marche, Godot seulement en CI · quelques minutes · C01 lot 1

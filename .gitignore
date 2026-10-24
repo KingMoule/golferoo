@@ -11,3 +11,13 @@ CLAUDE.local.md
 # Divers
 .DS_Store
 node_modules/
+
+# .NET
+bin/
+obj/
+*.user
+TestResults/
+
+# Godot
+game/.godot/
+game/export/
