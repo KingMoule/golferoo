@@ -3,11 +3,12 @@
 Simulateur de golf moderne. Langue de travail : français (code et identifiants en anglais).
 
 ## Stack et commandes
-La stack n'est pas encore choisie : le premier chantier passe par `/cadrer`, puis on remplit cette section.
-- Installer : _à définir_
-- Test rapide (ciblé, pendant le travail) : _à définir_
-- Suite complète : _à définir_ (idéalement en CI, pas dans la session)
-- Lint / format : _à définir_ (le hook `post-edit-format.sh` formate déjà si prettier, ruff ou gdformat sont présents)
+Godot 4.7 (.NET) pour le rendu, l'UI et les outils ; toute la simulation dans `Golferoo.Sim`, bibliothèque C# pure sans dépendance à Godot (`docs/adr/0001-moteur.md`). Les commandes ci-dessous sont prévues par la spec C01 et seront confirmées par son lot 1.
+- Installer : SDK .NET 10 et Godot 4.7 .NET ; `dotnet restore`
+- Test rapide (ciblé, pendant le travail) : `dotnet test tests/Golferoo.Sim.Tests --filter <Nom>`
+- Suite complète : en CI (`.github/workflows/ci.yml`) : `dotnet test`, banc `dotnet run -c Release --project tests/Golferoo.Sim.Bench`, import et test de fumée Godot headless
+- Lint / format : `dotnet format --verify-no-changes` (le hook `post-edit-format.sh` formate les `.cs` si `dotnet` est présent)
+- Jamais de `using Godot` dans `src/Golferoo.Sim/`. Aucun fichier d'OpenSGolf ni d'EA n'est copié dans le dépôt : leurs docs et chiffres se citent.
 
 ## Rôles et modèles
 | Rôle | Où | Modèle / effort | Quand |
