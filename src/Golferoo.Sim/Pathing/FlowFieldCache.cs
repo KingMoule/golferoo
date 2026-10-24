@@ -3,7 +3,7 @@ using Golferoo.Sim.Terrain;
 namespace Golferoo.Sim.Pathing;
 
 /// <summary>
-/// Cache de champs de flux par cellule de destination. Après une édition du terrain (<see cref="TerrainGrid.Version"/>),
+/// Cache de champs de flux par cellule de destination. Après une édition des surfaces (une retouche de relief seule ne coûte rien) (<see cref="TerrainGrid.SurfaceVersion"/>),
 /// tous les champs en cache sont reconstruits : à la prochaine demande, ou tout de suite par <see cref="Refresh"/>.
 /// Capacité bornée : au-delà, le plus ancien est évincé (ordre d'insertion, donc déterministe).
 /// </summary>
@@ -20,7 +20,7 @@ public sealed class FlowFieldCache
     {
         _terrain = terrain ?? throw new ArgumentNullException(nameof(terrain));
         _capacity = Math.Max(1, capacity);
-        _version = terrain.Version;
+        _version = terrain.SurfaceVersion;
         _costs = FlowField.BuildCosts(terrain);
     }
 
@@ -60,12 +60,12 @@ public sealed class FlowFieldCache
 
     private void Sync()
     {
-        if (_version == _terrain.Version)
+        if (_version == _terrain.SurfaceVersion)
         {
             return;
         }
 
-        _version = _terrain.Version;
+        _version = _terrain.SurfaceVersion;
         _costs = FlowField.BuildCosts(_terrain);
         // Les destinations restent franchissables ou se replient ; on reconstruit en ordre d'insertion.
         var keys = _order.ToArray();

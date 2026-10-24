@@ -21,8 +21,23 @@ public sealed class TerrainGrid
 
     public HeightField Heights { get; }
 
-    /// <summary>Compteur incrémenté à chaque édition (hauteur ou surface) : les caches s'y comparent pour s'invalider.</summary>
+    /// <summary>Hauteur minimale d'un coin, en mètres (bornes des retouches de relief).</summary>
+    public const double MinHeight = -5.0;
+
+    /// <summary>Hauteur maximale d'un coin, en mètres (bornes des retouches de relief).</summary>
+    public const double MaxHeight = 15.0;
+
+    /// <summary>Variation maximale de hauteur d'un coin par retouche, en mètres.</summary>
+    public const double MaxRaiseDelta = 2.0;
+
+    /// <summary>Compteur incrémenté à chaque édition (hauteur ou surface).</summary>
     public long Version { get; private set; }
+
+    /// <summary>Compteur incrémenté à chaque changement de surface : les champs de flux (coûts par surface) s'y comparent.</summary>
+    public long SurfaceVersion { get; private set; }
+
+    /// <summary>Compteur incrémenté à chaque changement de hauteur.</summary>
+    public long HeightVersion { get; private set; }
 
     internal ReadOnlySpan<Surface> Surfaces => _surfaces;
 
@@ -77,6 +92,7 @@ public sealed class TerrainGrid
     public void SetCornerHeight(int i, int j, double height)
     {
         Heights.SetCornerHeight(i, j, height);
+        HeightVersion++;
         Version++;
     }
 
@@ -89,7 +105,152 @@ public sealed class TerrainGrid
         }
 
         _surfaces[CellIndex(cx, cz)] = surface;
+        SurfaceVersion++;
         Version++;
+    }
+
+    /// <summary>
+    /// Édition : peint de <paramref name="surface"/> toutes les cellules dont le centre est à au plus <paramref name="radius"/> mètres de <paramref name="center"/>.
+    /// Rend le rectangle de cellules modifiées, ou null si aucune.
+    /// </summary>
+    /// <summary>
+    /// Vrai si peindre <paramref name="surface"/> dans ce disque laisse au moins une cellule franchissable sur la carte
+    /// (sans quoi la repose des golfeurs et les champs de flux n'ont plus de solution).
+    /// </summary>
+    public bool KeepsWalkableCell(Point2 center, double radius, Surface surface)
+    {
+        if (SurfaceTable.Get(surface).Walkable)
+        {
+            return true;
+        }
+
+        var r2 = radius * radius;
+        for (var cz = 0; cz < CellsZ; cz++)
+        {
+            for (var cx = 0; cx < CellsX; cx++)
+            {
+                if (!SurfaceTable.Get(_surfaces[(cz * CellsX) + cx]).Walkable)
+                {
+                    continue;
+                }
+
+                var c = CellCenter(cx, cz);
+                var dx = c.X - center.X;
+                var dz = c.Z - center.Z;
+                if ((dx * dx) + (dz * dz) > r2)
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    public CellRect? PaintDisc(Point2 center, double radius, Surface surface)
+    {
+        ValidateRadius(radius);
+        if ((int)surface < 0 || (int)surface >= SurfaceTable.Count)
+        {
+            throw new ArgumentOutOfRangeException(nameof(surface), surface, "Surface inconnue.");
+        }
+
+        var r2 = radius * radius;
+        var x0 = Math.Max(0, (int)Math.Floor(((center.X - radius) / CellSize) - 0.5));
+        var x1 = Math.Min(CellsX - 1, (int)Math.Ceiling(((center.X + radius) / CellSize) - 0.5));
+        var z0 = Math.Max(0, (int)Math.Floor(((center.Z - radius) / CellSize) - 0.5));
+        var z1 = Math.Min(CellsZ - 1, (int)Math.Ceiling(((center.Z + radius) / CellSize) - 0.5));
+        CellRect? rect = null;
+        for (var cz = z0; cz <= z1; cz++)
+        {
+            for (var cx = x0; cx <= x1; cx++)
+            {
+                var c = CellCenter(cx, cz);
+                var dx = c.X - center.X;
+                var dz = c.Z - center.Z;
+                if ((dx * dx) + (dz * dz) > r2)
+                {
+                    continue;
+                }
+
+                if (_surfaces[(cz * CellsX) + cx] != surface)
+                {
+                    _surfaces[(cz * CellsX) + cx] = surface;
+                    rect = rect is { } r ? r.Include(cx, cz) : new CellRect(cx, cz, cx, cz);
+                }
+            }
+        }
+
+        if (rect is not null)
+        {
+            SurfaceVersion++;
+            Version++;
+        }
+
+        return rect;
+    }
+
+    /// <summary>
+    /// Édition : monte (ou baisse si négatif) les coins à au plus <paramref name="radius"/> mètres de <paramref name="center"/>,
+    /// avec un profil en cosinus (plein au centre, nul au bord). Le delta est borné à ±<see cref="MaxRaiseDelta"/> et
+    /// la hauteur des coins à [<see cref="MinHeight"/>, <see cref="MaxHeight"/>].
+    /// Rend le rectangle des cellules touchant un coin modifié, ou null si rien n'a changé.
+    /// </summary>
+    public CellRect? RaiseDisc(Point2 center, double radius, double deltaMeters)
+    {
+        ValidateRadius(radius);
+        if (!double.IsFinite(deltaMeters))
+        {
+            throw new ArgumentOutOfRangeException(nameof(deltaMeters), deltaMeters, "Le delta doit être fini.");
+        }
+
+        var delta = Math.Clamp(deltaMeters, -MaxRaiseDelta, MaxRaiseDelta);
+        var i0 = Math.Max(0, (int)Math.Ceiling((center.X - radius) / CellSize));
+        var i1 = Math.Min(CellsX, (int)Math.Floor((center.X + radius) / CellSize));
+        var j0 = Math.Max(0, (int)Math.Ceiling((center.Z - radius) / CellSize));
+        var j1 = Math.Min(CellsZ, (int)Math.Floor((center.Z + radius) / CellSize));
+        CellRect? rect = null;
+        for (var j = j0; j <= j1; j++)
+        {
+            for (var i = i0; i <= i1; i++)
+            {
+                var dx = (i * CellSize) - center.X;
+                var dz = (j * CellSize) - center.Z;
+                var d = Math.Sqrt((dx * dx) + (dz * dz));
+                if (d > radius)
+                {
+                    continue;
+                }
+
+                var weight = 0.5 * (1.0 + Math.Cos(Math.PI * d / radius));
+                var old = Heights.GetCornerHeight(i, j);
+                var value = Math.Clamp(old + (delta * weight), MinHeight, MaxHeight);
+                if (value == old)
+                {
+                    continue;
+                }
+
+                Heights.SetCornerHeight(i, j, value);
+                var cell = new CellRect(Math.Max(0, i - 1), Math.Max(0, j - 1), Math.Min(CellsX - 1, i), Math.Min(CellsZ - 1, j));
+                rect = rect is { } r ? r.Union(cell) : cell;
+            }
+        }
+
+        if (rect is not null)
+        {
+            HeightVersion++;
+            Version++;
+        }
+
+        return rect;
+    }
+
+    private static void ValidateRadius(double radius)
+    {
+        if (!double.IsFinite(radius) || radius <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(radius), radius, "Le rayon doit être fini et positif.");
+        }
     }
 
     /// <summary>Empreinte FNV-1a 64 bits de l'état du terrain (hauteurs, surfaces, repères), pour <see cref="World.Checksum"/>.</summary>

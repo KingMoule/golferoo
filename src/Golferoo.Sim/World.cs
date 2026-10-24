@@ -9,7 +9,7 @@ namespace Golferoo.Sim;
 /// Monde simulé, avancé par ticks fixes. Le rendu lit son état et lui envoie des commandes ;
 /// il ne connaît pas Godot.
 /// </summary>
-public sealed class World
+public sealed partial class World
 {
     /// <summary>Fréquence fixe de la simulation (spec C01 : 20 Hz).</summary>
     public const int TicksPerSecond = 20;
@@ -65,10 +65,10 @@ public sealed class World
         get
         {
             var terrain = RequireTerrain();
-            if (_exitPoint is null || _exitPointVersion != terrain.Version)
+            if (_exitPoint is null || _exitPointVersion != terrain.SurfaceVersion)
             {
                 _exitPoint = ComputeExitPoint(terrain);
-                _exitPointVersion = terrain.Version;
+                _exitPointVersion = terrain.SurfaceVersion;
             }
 
             return _exitPoint.Value;
@@ -137,6 +137,7 @@ public sealed class World
     {
         // Le tirage garde l'état du RNG lié au temps : la somme de contrôle prouve le déterminisme même à vide.
         _rng.NextUInt64();
+        ApplyPendingEdits();
         if (Terrain is not null)
         {
             for (var i = 0; i < _groups.Count; i++)
@@ -205,6 +206,8 @@ public sealed class World
         {
             Mix(ref hash, Terrain.Checksum());
         }
+
+        MixPendingEdits(ref hash);
 
         Mix(ref hash, (ulong)_groups.Count);
         foreach (var group in _groups)
@@ -436,11 +439,19 @@ public sealed class World
         g.State = GolferState.BallInFlight;
     }
 
-    private static void Land(Golfer g)
+    private void Land(Golfer g)
     {
         var result = g.Pending;
         g.Strokes += 1 + result.PenaltyStrokes;
         g.Ball = result.Ball;
+
+        // La trajectoire a été calculée avant une éventuelle retouche : si la balle retombe dans une cellule
+        // repeinte en eau ou en arbres, on la repose comme les balles au repos (sans pénalité).
+        if (Terrain is { } terrain && !result.Holed && !terrain.IsWalkable(terrain.CellXOf(g.Ball.X), terrain.CellZOf(g.Ball.Z)))
+        {
+            g.Ball = GridQueries.NearestWalkablePoint(terrain, g.Ball);
+        }
+
         g.FlightPath = null;
         g.FlightIndex = 0;
         g.Pending = default;
