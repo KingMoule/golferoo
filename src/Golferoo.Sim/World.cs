@@ -1,3 +1,5 @@
+using Golferoo.Sim.Terrain;
+
 namespace Golferoo.Sim;
 
 /// <summary>
@@ -14,13 +16,17 @@ public sealed class World
 
     private readonly DeterministicRng _rng;
 
-    public World(ulong seed)
+    public World(ulong seed, TerrainGrid? terrain = null)
     {
         Seed = seed;
+        Terrain = terrain;
         _rng = new DeterministicRng(seed);
     }
 
     public ulong Seed { get; }
+
+    /// <summary>Terrain du trou, s'il y en a un (son état entre dans la somme de contrôle).</summary>
+    public TerrainGrid? Terrain { get; }
 
     /// <summary>Nombre de ticks écoulés depuis la création.</summary>
     public long Tick { get; private set; }
@@ -48,6 +54,11 @@ public sealed class World
         Mix(ref hash, Seed);
         Mix(ref hash, (ulong)Tick);
         Mix(ref hash, _rng.StateHash());
+        if (Terrain is not null)
+        {
+            Mix(ref hash, Terrain.Checksum());
+        }
+
         return hash;
     }
 
