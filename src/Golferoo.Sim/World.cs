@@ -39,7 +39,7 @@ public sealed class World
         Seed = seed;
         Terrain = terrain;
         _rng = new DeterministicRng(seed);
-        _resolver = resolver ?? new StubShotResolver();
+        _resolver = resolver ?? (terrain is null ? new StubShotResolver() : new PhysicalShotResolver());
         Flow = terrain is null ? null : new FlowFieldCache(terrain);
     }
 
@@ -172,16 +172,26 @@ public sealed class World
         {
             foreach (var g in group.Golfers)
             {
-                items.Add(new GolferView(g.Id, group.Id, g.Position, g.Ball, g.State, g.Strokes, g.Holed));
+                items.Add(new GolferView(g.Id, group.Id, g.Position, g.Ball, g.State, g.Strokes, g.Holed, BallPosition(g)));
             }
         }
 
         foreach (var g in _roamers)
         {
-            items.Add(new GolferView(g.Id, -1, g.Position, g.Ball, g.State, g.Strokes, g.Holed));
+            items.Add(new GolferView(g.Id, -1, g.Position, g.Ball, g.State, g.Strokes, g.Holed, BallPosition(g)));
         }
 
         return snap;
+    }
+
+    private Vec3 BallPosition(Golfer g)
+    {
+        if (g.State == GolferState.BallInFlight && g.FlightPath is { } path && path.Count > 0)
+        {
+            return path[Math.Min(g.FlightIndex, path.Count - 1)];
+        }
+
+        return new Vec3(g.Ball.X, Terrain?.Sample(g.Ball.X, g.Ball.Z) ?? 0.0, g.Ball.Z);
     }
 
     /// <summary>Somme de contrôle de l'état (FNV-1a 64 bits) : même graine et mêmes commandes, même valeur.</summary>
@@ -224,6 +234,15 @@ public sealed class World
         Mix(ref hash, (ulong)g.WaypointIndex);
         Mix(ref hash, g.Holed ? 1UL : 0UL);
         Mix(ref hash, g.PickedUp ? 1UL : 0UL);
+        Mix(ref hash, (ulong)g.FlightIndex);
+        if (g.State == GolferState.BallInFlight && g.FlightPath is { } path && path.Count > 0)
+        {
+            var p = path[Math.Min(g.FlightIndex, path.Count - 1)];
+            Mix(ref hash, (ulong)BitConverter.DoubleToInt64Bits(p.X));
+            Mix(ref hash, (ulong)BitConverter.DoubleToInt64Bits(p.Y));
+            Mix(ref hash, (ulong)BitConverter.DoubleToInt64Bits(p.Z));
+        }
+
         Mix(ref hash, (ulong)BitConverter.DoubleToInt64Bits(g.Position.X));
         Mix(ref hash, (ulong)BitConverter.DoubleToInt64Bits(g.Position.Z));
         Mix(ref hash, (ulong)BitConverter.DoubleToInt64Bits(g.Ball.X));
@@ -334,6 +353,13 @@ public sealed class World
                     }
 
                     break;
+                case GolferState.BallInFlight:
+                    if (++g.FlightIndex >= g.FlightPath!.Count - 1)
+                    {
+                        Land(g);
+                    }
+
+                    break;
                 default:
                     break;
             }
@@ -349,7 +375,7 @@ public sealed class World
         var farthest = -1.0;
         foreach (var g in group.Golfers)
         {
-            if (g.State is GolferState.Swinging or GolferState.Putting)
+            if (g.State is GolferState.Swinging or GolferState.Putting or GolferState.BallInFlight)
             {
                 return;
             }
@@ -397,8 +423,27 @@ public sealed class World
     {
         var request = new ShotRequest(g.Ball, terrain.Hole, g.Strokes);
         var result = _resolver.Resolve(request, terrain, _rng);
-        g.Strokes++;
+        g.Pending = result;
+        g.FlightPath = result.Trajectory;
+        g.FlightIndex = 0;
+        if (result.Trajectory is null || result.Trajectory.Count <= 1)
+        {
+            Land(g);
+            return;
+        }
+
+        // La balle part : les coups et pénalités ne sont comptés qu'à son arrêt.
+        g.State = GolferState.BallInFlight;
+    }
+
+    private static void Land(Golfer g)
+    {
+        var result = g.Pending;
+        g.Strokes += 1 + result.PenaltyStrokes;
         g.Ball = result.Ball;
+        g.FlightPath = null;
+        g.FlightIndex = 0;
+        g.Pending = default;
         if (result.Holed || g.Strokes >= MaxStrokes)
         {
             g.Holed = result.Holed;

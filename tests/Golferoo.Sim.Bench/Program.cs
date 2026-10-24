@@ -68,7 +68,8 @@ foreach (var factor in new[] { 2, 3, 4 })
         }
     }
 
-    var bigField = Measure(20, 5, () => FlowField.Build(big, 256, 256));
+    // 30 tours d'échauffement : le JIT à paliers ne promeut une méthode qu'après une trentaine d'appels.
+    var bigField = Measure(50, 30, () => FlowField.Build(big, 256, 256));
 
     // Retouche de 5 x 5 cellules, champs de flux compris (cache : trou, tee, sortie et dix autres destinations).
     var retouchWorld = new World(seed: 2, terrain);
