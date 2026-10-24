@@ -7,6 +7,8 @@ Lots 1 à 5 de C01 fusionnés (PR #6 à #10) : CI, terrain sim, golfeurs, physiq
 - C01, lot 6 (pinceau) : PR ouverte. `World.PaintSurface` / `RaiseTerrain` en file, appliquées au tick suivant ; versions surface et hauteur séparées (un relief ne reconstruit pas les champs de flux) ; repose sans pénalité des golfeurs et balles dans une cellule devenue infranchissable ; peinture qui ne laisserait aucune cellule franchissable ignorée. Jeu : B, F1 à F9, [ ]. Le pinceau n'a pas été essayé à la souris (pas de Godot dans le conteneur).
 - Pour le lot 8 : le JSON du trou est cherché hors de `res://`, à embarquer à l'export ; l'eau reste en blocs de cellules.
 
+- C01, lot 7 partie A (branche `claude/project-thread-we8mvk`) : `game/src/Rendering/ProceduralMeshes.cs` (golfeur, balle, drapeau, 4 variantes d'arbre ; budgets 300/80/60/400 triangles, lignes `ASSET nom ms tri` vérifiées par la fumée). `TreeLayer` charge `res://assets/trees/tree.glb` s'il existe (pied à l'origine, ~4 m), sinon les variantes procédurales. Reste : l'arbre TRELLIS (partie B) et le regard de Guillaume sur les captures CI.
+
 ## Décisions récentes
 - Godot.NET.Sdk 4.7.2, jeu et simulation en `net10.0` (confirmé par la fumée en CI).
 - RNG maison (xoshiro256**) pour un déterminisme indépendant de `System.Random`.

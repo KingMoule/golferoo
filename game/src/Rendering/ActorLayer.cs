@@ -6,8 +6,8 @@ using Golferoo.Sim.Terrain;
 namespace Golferoo.Game.Rendering;
 
 /// <summary>
-/// Golfeurs (capsules), balles (sphères) et drapeau provisoires. Les golfeurs et les balles sont interpolés
-/// entre l'instantané précédent et le courant. Le lot 7 remplacera ces formes.
+/// Golfeurs, balles et drapeau (maillages de <see cref="ProceduralMeshes"/>). Les golfeurs et les balles sont interpolés
+/// entre l'instantané précédent et le courant.
 /// </summary>
 public partial class ActorLayer : Node3D
 {
@@ -28,8 +28,8 @@ public partial class ActorLayer : Node3D
             child.QueueFree();
         }
 
-        _golfers = NewMultiMesh(new CapsuleMesh { Radius = 0.3f, Height = 1.8f, RadialSegments = 8, Rings = 3 });
-        _balls = NewMultiMesh(new SphereMesh { Radius = 0.12f, Height = 0.24f, RadialSegments = 8, Rings = 4 });
+        _golfers = NewMultiMesh(ProceduralMeshes.Golfer());
+        _balls = NewMultiMesh(ProceduralMeshes.Ball());
         AddMulti("Golfers", _golfers);
         AddMulti("Balls", _balls);
         BuildFlag(grid);
@@ -48,7 +48,6 @@ public partial class ActorLayer : Node3D
     {
         Name = name,
         Multimesh = multi,
-        MaterialOverride = new StandardMaterial3D { VertexColorUseAsAlbedo = true, Roughness = 0.8f },
         CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
     });
 
@@ -56,18 +55,7 @@ public partial class ActorLayer : Node3D
     {
         var y = (float)grid.Sample(grid.Hole.X, grid.Hole.Z);
         var root = new Node3D { Name = "Flag", Position = new Vector3((float)grid.Hole.X, y, (float)grid.Hole.Z) };
-        root.AddChild(new MeshInstance3D
-        {
-            Mesh = new CylinderMesh { TopRadius = 0.025f, BottomRadius = 0.025f, Height = 2.4f, RadialSegments = 6, Rings = 1 },
-            Position = new Vector3(0, 1.2f, 0),
-            MaterialOverride = new StandardMaterial3D { AlbedoColor = new Color(0.92f, 0.92f, 0.92f) },
-        });
-        root.AddChild(new MeshInstance3D
-        {
-            Mesh = new BoxMesh { Size = new Vector3(0.6f, 0.4f, 0.02f) },
-            Position = new Vector3(0.3f, 2.2f, 0),
-            MaterialOverride = new StandardMaterial3D { AlbedoColor = new Color(0.9f, 0.15f, 0.12f), CullMode = BaseMaterial3D.CullModeEnum.Disabled },
-        });
+        root.AddChild(new MeshInstance3D { Name = "FlagMesh", Mesh = ProceduralMeshes.Flag() });
         AddChild(root);
     }
 
@@ -103,12 +91,12 @@ public partial class ActorLayer : Node3D
             }
 
             var y = (float)_grid.Sample(pos.X, pos.Z);
-            _golfers.SetInstanceTransform(i, new Transform3D(Basis.Identity, new Vector3((float)pos.X, y + 0.9f, (float)pos.Z)));
+            _golfers.SetInstanceTransform(i, new Transform3D(Basis.Identity, new Vector3((float)pos.X, y, (float)pos.Z)));
             _golfers.SetInstanceColor(i, StateColor(cur.State, cur.Id));
 
             if (cur.State != GolferState.Roaming && cur.State != GolferState.Done && !cur.Holed)
             {
-                _balls.SetInstanceTransform(nb, new Transform3D(Basis.Identity, new Vector3((float)ball.X, (float)ball.Y + 0.12f, (float)ball.Z)));
+                _balls.SetInstanceTransform(nb, new Transform3D(Basis.Identity, new Vector3((float)ball.X, (float)ball.Y + ProceduralMeshes.BallRadius, (float)ball.Z)));
                 _balls.SetInstanceColor(nb, Colors.White);
                 nb++;
             }
