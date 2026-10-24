@@ -3,11 +3,11 @@
 Simulateur de golf moderne. Langue de travail : français (code et identifiants en anglais).
 
 ## Stack et commandes
-Godot 4.7 (.NET) pour le rendu, l'UI et les outils ; toute la simulation dans `Golferoo.Sim`, bibliothèque C# pure sans dépendance à Godot (`docs/adr/0001-moteur.md`). Les commandes ci-dessous sont prévues par la spec C01 et seront confirmées par son lot 1.
-- Installer : SDK .NET 10 et Godot 4.7 .NET ; `dotnet restore`
+Godot 4.7 (.NET) pour le rendu, l'UI et les outils ; toute la simulation dans `Golferoo.Sim`, bibliothèque C# pure sans dépendance à Godot (`docs/adr/0001-moteur.md`). Commandes vérifiées au lot 1 de C01 (PR #6).
+- Installer : SDK .NET 10 (conteneur cloud : `apt-get install dotnet-sdk-10.0`) et Godot 4.7.2 .NET ; `dotnet restore Golferoo.sln`
 - Test rapide (ciblé, pendant le travail) : `dotnet test tests/Golferoo.Sim.Tests --filter <Nom>`
-- Suite complète : en CI (`.github/workflows/ci.yml`) : `dotnet test`, banc `dotnet run -c Release --project tests/Golferoo.Sim.Bench`, import et test de fumée Godot headless
-- Lint / format : `dotnet format --verify-no-changes` (le hook `post-edit-format.sh` formate les `.cs` si `dotnet` est présent)
+- Suite complète : `dotnet test Golferoo.sln` ; banc `dotnet run -c Release --project tests/Golferoo.Sim.Bench` ; Godot (en CI, `.github/workflows/ci.yml`) : `dotnet build game/Golferoo.Game.csproj`, `godot --headless --path game --import`, puis `godot --headless --path game res://tests/Smoke.tscn` qui doit écrire `SMOKE OK`
+- Lint / format : `dotnet format Golferoo.sln --verify-no-changes` (le hook `post-edit-format.sh` formate les `.cs` si `dotnet` est présent)
 - Jamais de `using Godot` dans `src/Golferoo.Sim/`. Aucun fichier d'OpenSGolf ni d'EA n'est copié dans le dépôt : leurs docs et chiffres se citent.
 
 ## Rôles et modèles

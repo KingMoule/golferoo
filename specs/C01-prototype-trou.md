@@ -40,6 +40,7 @@ Le prototype tranche aussi le **facteur de subdivision** (2, 3 ou 4 sous-cases p
 **Temps** : tick de simulation fixe à 20 Hz, accéléré ×1 à ×16 ; le rendu interpole. Tout est déterministe à graine égale (même graine, même partie, même somme de contrôle).
 
 **Risque connu** : `Golferoo.Sim` vise `net10.0` (ADR). Si Godot 4.7 .NET refuse qu'un projet `net10.0` référence la bibliothèque, on cible la version que Godot accepte pour les deux projets et on le note dans le rapport. Premier lot à vérifier.
+_Levé au lot 1 (PR #6) : Godot 4.7.2 .NET charge `Golferoo.Game` et `Golferoo.Sim` en `net10.0`, test de fumée headless vert en CI._
 
 ## Choix à trancher par Guillaume
 Aucun : tout est tranché ci-dessous. Les options étudiées pour les assets restent ici pour mémoire.

@@ -70,9 +70,6 @@ public partial class SmokeTest : Node
             failures.Add("somme de contrôle différente à graine égale");
         }
 
-        // DÉMO du critère 3 de C01 : échec volontaire, retiré au commit suivant.
-        failures.Add("démo : échec volontaire");
-
         return failures;
     }
 }
