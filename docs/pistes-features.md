@@ -5,7 +5,7 @@ Mis à jour : 2026-10-24. Chantier R03. Liste de départ pour la séance de brai
 - le contenu coupé de l'original (section 20) ;
 - ce que la grille fine, la 3D et la simulation déterministe rendent possible (`docs/faisabilite-features.md`).
 
-Rien n'est décidé. Chaque piste a un effort (S, M, L, XL, comme dans R02) et les risques de R02 qu'elle touche. La colonne **Tri** est à remplir pendant la séance : *oui* (première version), *plus tard*, *non*. Premier tri de Guillaume le 2026-10-24 : A et C oui ; en B, oui aux départs multiples, au handicap et à la mémoire, aux tournois avec cut et au swing contrôlable, non aux prix fixés par le joueur ; les autres pistes B restent à trier. Les boucles D sont analysées une par une dans `docs/boucles-de-jeu.md`.
+Rien n'est décidé. Chaque piste a un effort (S, M, L, XL, comme dans R02) et les risques de R02 qu'elle touche. La colonne **Tri** est à remplir pendant la séance : *oui* (première version), *plus tard*, *non*. Premier tri de Guillaume le 2026-10-24 : A et C oui ; en B, oui aux départs multiples, au handicap et à la mémoire, aux tournois avec cut et au swing contrôlable, non aux prix fixés par le joueur ; les autres pistes B restent à trier. Les boucles D sont analysées une par une dans `docs/boucles-de-jeu.md` ; les décisions du 2026-10-24 sur les boucles retenues sont dans `docs/boucles-v1.md`.
 
 ## Ce qu'on garde en tête en triant
 - La devise de l'original : un trou doit « avoir l'air dur et se jouer facilement ». Une piste qui ajoute de la gestion sans rien changer à la façon de construire ou de regarder son parcours s'éloigne du jeu.
@@ -85,19 +85,19 @@ Chacune est une boucle à part entière, qui ajouterait une raison de revenir au
 
 | # | Boucle | Ce que fait le joueur | Ce qu'elle apporte | Effort | Risques | Tri |
 |---|---|---|---|---|---|---|
-| D1 | **Météo et saisons** | composer avec le vent, la pluie et les saisons ; fermer ou ouvrir le parcours | le vent agit sur la balle (la physique existe) ; l'hiver donne un rythme à l'année | M | R1 | |
-| D2 | **Agronomie et entretien** | arroser, tondre, régler la vitesse des greens, réparer l'usure des zones jouées | une gestion quotidienne qui modifie le jeu lui-même : greens rapides, fairways fermes ou gras | M | | |
+| D1 | **Météo et saisons** | composer avec le vent, la pluie et les saisons ; fermer ou ouvrir le parcours | le vent agit sur la balle (la physique existe) ; l'hiver donne un rythme à l'année | M | R1 | oui |
+| D2 | **Agronomie et entretien** | arroser, tondre, régler la vitesse des greens, réparer l'usure des zones jouées | une gestion quotidienne qui modifie le jeu lui-même : greens rapides, fairways fermes ou gras | M | | oui |
 | D3 | **Réputation et presse** | lire les critiques, viser les classements des magazines, répondre aux avis | un objectif lisible au-delà de l'argent ; prolonge l'évaluation SGA | M | R4 | |
 | D4 | **Événements privés** | louer le club pour des tournois d'entreprise, des œuvres caritatives, des mariages | revenus ponctuels avec des exigences propres (un mariage veut un beau paysage, une entreprise un jeu rapide) | M | R4 | |
-| D5 | **Ligues de membres** | organiser une ligue au fil de la saison, suivre le classement | donne un sens à l'adhésion et des rivalités entre membres (B12) | S | | |
+| D5 | **Ligues de membres** | organiser une ligue au fil de la saison, suivre le classement | donne un sens à l'adhésion et des rivalités entre membres (B12) | S | | oui |
 | D6 | **École de golf** | former des juniors qui progressent et deviennent pros | une boucle longue et attachante, liée au pro jouable | M | R2 | |
-| D7 | **Scénarios** | relever un défi écrit : sauver un club en faillite, construire un links en 3 ans, un parcours sur un terrain impossible | des parties courtes et rejouables, un bon terrain pour le tutoriel | M | R4 | |
+| D7 | **Scénarios** | relever un défi écrit : sauver un club en faillite, construire un links en 3 ans, un parcours sur un terrain impossible | des parties courtes et rejouables, un bon terrain pour le tutoriel | M | R4 | non pour l'instant (tutoriel simple seulement) |
 | D8 | **Écologie** | préserver la faune, gérer l'eau, obtenir une certification environnementale | prolonge la faune de l'original ; tension entre beauté, coût et jeu | M | | |
 | D9 | **Rivaux** | un club concurrent sur la carte du monde vous dispute les golfeurs et les tournois | une pression extérieure au parcours | L | | |
 | D10 | **Chaîne de clubs** | garder ses anciennes propriétés et en gérer plusieurs (l'original oblige à quitter l'ancienne) | une progression de fin de partie | L | R1 | |
 | D11 | **Partage et défis** | publier un parcours (Steam Workshop), battre le score de son pro sur le parcours d'un autre | durée de vie et communauté ; la sim déterministe permet des scores vérifiables | L | R6 | |
-| D12 | **Mode photo et visite libre** | se promener sur son parcours au ras du sol, prendre des photos | montre la 3D, que l'original n'avait pas ; prolonge SimFoto | S | | |
-| D13 | **Golf de nuit** | éclairer des trous pour jouer le soir (balles lumineuses, practice éclairé) | un rendu nouveau et des revenus en soirée | M | | |
+| D12 | **Mode photo et visite libre** | se promener sur son parcours au ras du sol, prendre des photos | montre la 3D, que l'original n'avait pas ; prolonge SimFoto | S | | plus tard (caméra prête) |
+| D13 | **Golf de nuit** | éclairer des trous pour jouer le soir (balles lumineuses, practice éclairé) | un rendu nouveau et des revenus en soirée | M | | non (pas de nuit) |
 
 ## Après le tri
 Les pistes gardées passeront dans `docs/chantiers.md` sous forme de chantiers à cadrer, dans l'ordre fixé avec Guillaume, après les preuves P1 à P3 de R02. Les pistes *plus tard* restent ici.

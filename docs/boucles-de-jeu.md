@@ -306,6 +306,8 @@ Rien n'est décidé ici. Chaque fiche finit par une recommandation que Guillaume
 
 **Recommandation : ensuite**, une fois le cycle jour et nuit de D1 en place.
 
+**Décidé (2026-10-24)** : abandonné. Pas de nuit dans le jeu, le golf se joue de jour.
+
 ## Récapitulatif
 
 | Boucle | Dépend de | Effort | Risques | Recommandation | Tri |

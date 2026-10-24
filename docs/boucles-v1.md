@@ -5,11 +5,92 @@ Mis à jour : 2026-10-24. Chantier R03. Suite de `docs/boucles-de-jeu.md`. Guill
 Les coûts sont donnés en **lots** (un lot ≈ une PR d'agent, comme les 8 lots de C01). Les chiffres de performance viennent de `docs/prototype-c01-rapport.md`, ou sont des estimations, marquées comme telles. Les noms de fichiers renvoient au code actuel.
 
 ## En bref
-- Les cinq boucles demandent **environ 27 lots**, dont 10 pour des **fondations communes** que plusieurs boucles partagent (calendrier, propriétés du sol par cellule, shader de terrain v2, sauvegarde, moteur de score, caméra et niveaux de détail). Une fois les fondations posées, chaque boucle coûte 2 à 4 lots.
-- **Aucune ne menace la performance de la simulation** si l'on respecte deux règles : l'état du gazon ne change jamais le coût de marche (sinon tous les champs de flux se reconstruisent sans arrêt, R1), et les propriétés du sol sont lues dans un tableau précalculé, pas recalculées à chaque pas de la balle.
-- **Le rendu coûte surtout pour la caméra libre** : une vue rasante sur un 18 trous montre tous les blocs de terrain et tous les arbres d'un coup. Il faudra des niveaux de détail (LOD) pour le terrain et les arbres. Les quatre autres boucles ne coûtent presque rien en rendu : ce sont des paramètres de shader et des particules attachées à la caméra.
-- **Découverte en relisant le shader** : `terrain.gdshader` ne peut afficher que **8 surfaces** (deux textures RGBA, un canal par surface), et les 8 sont prises. Toute surface de plus (contenu coupé, thèmes, entretien) passe par un shader v2 à texture d'indices. C'est la fondation F3.
-- Ordre proposé : fondations F1 et F2, puis météo (D1), puis entretien (D2) avec F3. En parallèle : ligues (D5) avec le handicap et F5, et scénarios (D7) avec la sauvegarde F4. Mode photo (D12) après C02, puisqu'une caméra libre montre l'échelle de tout.
+- **Guillaume a tranché le 2026-10-24** (section suivante) : ses réponses aux questions des fiches sont « oui à tout », sauf ce qu'il a commenté. Pour la première version, on garde la météo et les saisons, l'entretien du gazon et les ligues. Les scénarios cèdent la place à un **tutoriel simple** de construction et d'ouverture d'un trou. Le **mode photo est reporté**, avec une caméra prête à le recevoir. Il n'y a **ni nuit ni golf de nuit**.
+- Une nouvelle boucle naît de ses réponses : les **arbres vivants**. Les arbres déjà présents sur le terrain sont gardés ou rasés, ceux qu'on plante sont jeunes et grandissent, et une tempête peut en abattre un. Le parcours évolue ainsi dans le temps. Elle rejoint C02 (échelle des arbres), qui devient « Arbres et échelle du monde ».
+- La pluie et le vent ne doivent pas être qu'une punition tirée au hasard : neuf côtés positifs sont proposés plus bas, à trier.
+- Le total passe d'environ 27 lots à **environ 25**, dont 8 de fondations. Les scénarios et la photo sortent, les arbres vivants entrent. La sauvegarde (F4) reste nécessaire pour le jeu, mais elle n'est plus portée par une boucle de cette liste.
+- Les deux règles de performance tiennent : l'usure et la croissance ne changent jamais le coût de marche, et les propriétés du sol sont précalculées.
+- **Le shader de terrain ne peut afficher que 8 surfaces**, et elles sont toutes prises. C'est la fondation F3, nécessaire à l'entretien et au contenu coupé.
+
+## Décisions de Guillaume (2026-10-24)
+Toutes les propositions des fiches sont acceptées, sauf ce qui suit.
+
+**Calendrier (F1).** Pas d'heure affichée et pas de nuit : le golf se joue de jour. La lumière du jour reste, avec des ombres qui tournent au fil de la journée, si le rendu le permet. *Coût vérifié : Godot recalcule déjà les ombres de la lumière directionnelle à chaque image ; faire tourner le soleil ne coûte rien de plus.* La sim garde donc un « moment de la journée » de l'ouverture à la fermeture, sans horloge à l'écran. Le golf de nuit (D13) est abandonné.
+
+**Saisons et végétation.** Les saisons changent la végétation et le jeu, pas seulement les couleurs :
+- au printemps, les feuillus ont moins de feuilles : la balle a plus de chances de traverser un arbre ; il y a plus de fleurs ;
+- en automne, les feuillus prennent leurs couleurs ;
+- les conifères et les palmiers changent peu.
+
+**Météo, point 5.** Une pluie tirée au hasard qui ne fait que baisser l'affluence n'est pas intéressante. Il faut des côtés positifs, différents ou inhabituels. Voir « Côtés positifs de la pluie et du vent ».
+
+**Arbres, et lien avec le passage du temps.** Plus d'arbres matures qui apparaissent d'un coup. Le terrain de départ porte des arbres déjà là, matures ou plus jeunes, et le joueur décide ce qu'il garde et ce qu'il rase pour ses premiers trous. Un arbre ajouté commence jeune et pousse lentement : la difficulté d'un trou change avec le temps, et le terrain évolue. Voir « Arbres vivants ».
+
+**Vent dans la ligne de visée (D1 Q4).** Ça dépend du prestige de l'épreuve : le vent est inclus en partie amicale, en ligue et en tournoi local ; il ne l'est pas dans les tournois prestigieux, où le joueur doit lui-même anticiper le vent.
+
+**Fermeture par l'orage (D1 Q5).** Pas d'orage qui ferme le parcours. À la place, par grand vent ou forte pluie, un arbre a un faible pourcentage de chances de tomber : le parcours évolue dans le temps.
+
+**Gazon (D2).** Ni mauvaises herbes ni maladies : c'est de la gestion « plate ». Les mauvaises herbes de l'original disparaissent aussi (voir la fiche D2 pour ce qu'il faut remplacer).
+
+**Ligue (D5).** Votre pro joue la ligue. Il commence dans la division la plus basse, parce que ses statistiques de départ sont faibles, et il cherche à monter. Seuls ses scores de ligue comptent pour son handicap.
+
+**Scénarios (D7).** Pas de scénarios pour l'instant. Un tutoriel très simple pour la boucle de construction et d'ouverture d'un trou.
+
+**Mode photo (D12).** Pas pour l'instant. On le laisse prêt, sans l'activer, si ça ne coûte pas trop de code.
+
+## Côtés positifs de la pluie et du vent (propositions à trier)
+Le but : que le mauvais temps change la journée plutôt que de seulement la gâcher. Chaque proposition s'appuie sur un système déjà prévu, pour rester peu coûteuse.
+
+| # | Idée | Ce qui se passe | S'appuie sur | Coût |
+|---|---|---|---|---|
+| M1 | **Arrosage gratuit** | la pluie remplace l'arrosage (économie) et répare l'usure plus vite | D2 | nul |
+| M2 | **Greens réceptifs** | après la pluie, la balle s'arrête sur le green : les scores baissent, journée à birdies, humeur en hausse et records possibles | F2 (sol mouillé) | nul |
+| M3 | **Les purs et durs** | un trait de golfeur « aime le mauvais temps », surtout sur les links : ces golfeurs viennent par la pluie, gagnent plus vite des points d'adhésion et profitent d'un parcours sans attente | profils (9.2), adhésion | S |
+| M4 | **Le club-house se remplit** | pendant une averse, les golfeurs s'abritent au snack-bar ou au pub : les ventes montent ; une scène d'histoire « à l'abri » peut se déclencher | bâtiments, histoires | S |
+| M5 | **Après la pluie** | arc-en-ciel et lumière rasante donnent une pensée « vue panoramique » plus forte ; les animaux sortent (canards, grenouilles) | pensées, faune | S, et le rendu de l'arc-en-ciel |
+| M6 | **Le vent fait le prestige** | un trou qui reste jouable par grand vent fait monter la note de compétence et l'évaluation SGA ; les tournois prestigieux préfèrent les parcours venteux et paient mieux | évaluation, tournois | S |
+| M7 | **L'arbre tombé, une occasion** | il ouvre une nouvelle ligne de jeu à garder, ou une place à replanter ; le bois se vend (petit revenu) ; la souche peut rester comme décor | arbres vivants | S |
+| M8 | **La tempête légendaire** | un tournoi joué dans la tempête entre au journal du club, donne un accomplissement et fait parler du club | tournois, accomplissements | S |
+| M9 | **La pluie de printemps** | les jeunes arbres et l'herbe poussent plus vite après la pluie | arbres vivants, D2 | nul |
+
+## Arbres vivants (nouvelle boucle, liée à C02)
+
+### La boucle
+Le terrain d'une propriété arrive boisé : des arbres matures, d'autres plus jeunes, de plusieurs essences selon le thème. Pour tracer ses premiers trous, le joueur choisit ce qu'il garde et ce qu'il rase. Raser coûte, et un vieil arbre ne se remplace pas vite. Un arbre planté est un jeune plant qui grandit sur plusieurs saisons. Le trou qu'on a dessiné change donc avec les années : un couloir se resserre, un dogleg se ferme, une ligne de jeu disparaît. Une tempête peut abattre un arbre et en rouvrir une autre.
+
+### Idées concrètes
+1. **Chaque arbre est un objet de la simulation**, avec son essence, son âge, sa hauteur et le rayon de sa couronne, et non plus une cellule « arbres ». C'est aussi ce que C02 demande déjà : découpler les arbres de la grille.
+2. **Le sous-bois reste une surface.** La surface « Trees » actuelle devient le sous-bois infranchissable des massifs. Les arbres isolés, eux, peuvent pousser dans le rough ou au bord du fairway, où l'on marche.
+3. **Essences par thème** : feuillus et conifères en Parkland, palmiers en Tropical, arbres de Josué et cactus en Desert, peu d'arbres et des ajoncs en Links. Chaque essence a sa vitesse de croissance, sa taille adulte et sa réaction aux saisons.
+4. **La balle et l'arbre.** La couronne a une densité qui dépend de l'essence et de la saison : au printemps, un feuillu laisse plus souvent passer la balle. Le tronc arrête la balle. Un jeune arbre gêne peu.
+5. **Garder ou raser.** Outil de sélection : un arbre, une zone, ou « tout sauf les arbres remarquables ». Les vieux arbres remarquables plaisent aux golfeurs (pensée positive, comme les arbres décoratifs de l'original) et valorisent les lots (immobilier).
+6. **Planter.** Un jeune plant coûte peu. Un arbre plus grand, planté en motte, coûte cher mais pousse moins longtemps : c'est le compromis entre l'argent et le temps.
+7. **La difficulté suit la croissance.** La classe du trou et sa difficulté (note du parcours, D5) sont recalculées à chaque saison. Le joueur reçoit un avis quand un trou change de classe (« le 7 est devenu un trou de précision »).
+8. **Chute d'un arbre** par grand vent ou forte pluie, avec un faible pourcentage. L'arbre tombé est à dégager, ou à garder un temps comme obstacle ; voir M7.
+9. **Élagage**, plus tard : relever la couronne d'un arbre pour rouvrir une ligne sans l'abattre.
+
+### Effets sur les autres boucles et features
+- **C02, échelle du monde** : la taille adulte, l'espacement et la densité des massifs deviennent des paramètres par essence. C02 devient « Arbres et échelle du monde » et porte cette boucle.
+- **Météo et saisons (D1)** : chute par tempête, densité des feuilles au printemps, couleurs en automne, pousse après la pluie (M9).
+- **Ligues (D5)** : la note du parcours change avec les saisons. Un handicap mesuré sur un parcours qui évolue reste juste, puisqu'on le rapporte à la note du jour de la partie.
+- **Immobilier (section 7)** : la valeur des lots dépend déjà des arbres proches ; les vieux arbres comptent plus.
+- **Génération du terrain (3.2)** : elle doit produire des boisements crédibles, avec des âges variés.
+- **Construction** : le coût de défrichage de l'original (section 5.1) s'applique aux arbres rasés.
+- **Plusieurs départs (B1)** : quand un arbre ferme une ligne, on recule ou on décale le départ.
+
+### Coût en code (≈ 4 lots)
+- **Arbres de la simulation (≈ 2 lots).** Une liste d'arbres et un index spatial (les arbres rangés par cellule). Pendant le vol, la balle ne teste les arbres que si elle est plus basse que l'arbre le plus haut de la cellule : un test de plus, rare. La densité de la couronne donne une probabilité de traverser, tirée du hasard déterministe. Les tests remplacent ceux de `BallSimulator` sur la surface « Trees » et sa hauteur fixe de 8 m.
+- **Croissance et saisons (≈ 1 lot).** La croissance est calculée une fois par mois de jeu, pas à chaque tick : quelques milliers d'arbres, coût négligeable. **Règle de performance** : un arbre isolé ne rend pas sa cellule infranchissable et sa croissance ne change jamais le coût de marche. Seuls le sous-bois, une plantation ou une chute (événements rares) touchent les champs de flux.
+- **Outils (≈ 1 lot).** Garder, raser, planter, avec leur coût.
+- **Recalcul de la difficulté des trous** à chaque saison, en arrière-plan, avec le même calcul que la note du parcours (D5).
+- Sauvegarde : quelques octets par arbre.
+
+### Coût en rendu
+- Les arbres restent en `MultiMesh`, coupés en un `MultiMesh` par bloc de terrain (fondation F6). La croissance met à jour l'échelle des instances une fois par mois, bloc par bloc : coût négligeable.
+- **Jeunes plants** : un modèle à part par essence (script `bpy`), parce qu'un arbre adulte réduit ne ressemble pas à un jeune arbre.
+- **Saisons** : couleur par instance (`use_colors` ou données personnalisées du `MultiMesh`). Pour le feuillage plus clairsemé du printemps, les sommets du feuillage sont marqués dans le modèle et le shader les resserre ou les écarte. Il n'y a pas de modèle en plus par saison.
+- **Chute** : une courte animation de l'arbre qui bascule (`Tween`), puis un modèle de tronc couché.
+- Le nombre total d'arbres, fixé par C02, décide du besoin de niveaux de détail (F6).
 
 ## Questions mises de côté pour plus tard
 À la demande de Guillaume (2026-10-24), ces trois questions de `docs/boucles-de-jeu.md` attendent :
@@ -23,17 +104,19 @@ Les fiches ci-dessous sont conçues pour que ces choix restent ouverts : l'hiver
 
 | # | Fondation | Sert à | Contenu | Lots |
 |---|---|---|---|---|
-| F1 | Calendrier et heure du jour | D1, D2, D5, D7, D13 | jours, mois, saisons, heure ; événements datés ; C01 ne connaît que des ticks | 1 |
+| F1 | Calendrier et moment de la journée | D1, D2, D5, arbres | jours, mois, saisons ; moment de la journée pour le soleil, sans horloge ni nuit (Guillaume) ; événements datés ; C01 ne connaît que des ticks | 1 |
 | F2 | Propriétés du sol par cellule | D1, D2, balle, putt | un tableau précalculé (roulement, rebond, frottement) = table de base × état du gazon × humidité ; remplace les appels à `SurfaceTable.Get` dans `BallSimulator` et `PhysicalShotResolver` | 1 |
 | F3 | Shader de terrain v2 | D2, contenu coupé (C), thèmes | texture d'indices de surface (au-delà de 8 surfaces) et texture d'état du gazon | 2 |
-| F4 | Sauvegarde et journal des commandes | D7, D11, R7, tests | format versionné ; rechargement à somme de contrôle égale ; chaque action du joueur enregistrée comme commande rejouable | 2 |
+| F4 | Sauvegarde et journal des commandes | le jeu (R7), D11 et des scénarios plus tard, tests | format versionné ; rechargement à somme de contrôle égale ; chaque action du joueur enregistrée comme commande rejouable. Hors de cette liste depuis le report des scénarios, mais nécessaire au jeu | 2 |
 | F5 | Moteur de score | D5, tournois (B18), formats (B20), défis | carte de score, brut, net, stableford, classement | 1 |
-| F6 | Caméra et niveaux de détail | D12, A9, swing (B17), C02 | caméra à modes ; LOD des blocs de terrain et des arbres ; horizon | 3 |
+| F6 | Caméra et niveaux de détail | A9, swing (B17), C02, arbres vivants ; D12 plus tard | caméra à modes, dont un mode photo prêt mais désactivé ; un `MultiMesh` d'arbres par bloc ; LOD du terrain et des arbres ; horizon | 3 |
 | F7 | Fondation d'UI | toutes | la preuve P3 de R02 : thème, dock, composants (liste, tableau, fiche, graphique) | (P3) |
 
 ---
 
 ## D1. Météo et saisons
+
+> **Décidé (2026-10-24)** : propositions acceptées, sauf : pas d'orage qui ferme le parcours, mais une chute d'arbre possible par grand vent ou forte pluie (Q5) ; le vent est dans la ligne de visée selon le prestige de l'épreuve (Q4) ; pas de nuit ; la pluie doit avoir des côtés positifs (voir M1 à M9) ; les saisons agissent sur la végétation (voir « Arbres vivants »).
 
 ### Idées concrètes
 1. **Un climat par thème, une météo par jour.** Une table de climat par thème (Links venteux et pluvieux, Desert sec et chaud, Tropical avec des averses l'après-midi et des orages, Parkland tempéré), corrigée par la propriété (côtier = plus de vent). Le temps du jour suit une chaîne simple : un jour de pluie a plus de chances d'être suivi d'un autre. Dans la journée, le vent se lève l'après-midi et la brume se dissipe le matin.
@@ -92,6 +175,14 @@ Les fiches ci-dessous sont conçues pour que ces choix restent ouverts : l'hiver
 ---
 
 ## D2. Entretien du gazon
+
+> **Décidé (2026-10-24)** : propositions acceptées, **sans mauvaises herbes ni maladies**. Ce que l'original attachait aux mauvaises herbes est à remplacer :
+> - l'effet « No Dandelions » de 4 landmarks devient « gazon soigné » (usure réduite autour du landmark) ;
+> - un golfeur mécontent ne fait plus naître de mauvaise herbe ; à la place, un golfeur en colère arrache une motte (usure, D2) ;
+> - la difficulté accélère l'usure au lieu de multiplier les mauvaises herbes ;
+> - le parterre de fleurs « envahi » devient un parterre fané faute d'arrosage ;
+> - l'événement d'humeur « mauvaises herbes (−2) » devient « gazon abîmé (−2) ».
+> Les idées 6 (maladies, Q6) et 12 (mauvaises herbes) ci-dessous sont retirées. Effort : environ 5 lots au lieu de 6.
 
 ### Idées concrètes
 1. **Un état par cellule** : santé, hauteur de l'herbe, humidité et tassement, soit 4 octets. Pour ~100 000 cellules, 0,4 Mo.
@@ -156,6 +247,8 @@ Les fiches ci-dessous sont conçues pour que ces choix restent ouverts : l'hiver
 
 ## D5. Ligues de membres
 
+> **Décidé (2026-10-24)** : propositions acceptées. Votre pro joue la ligue **en classement** (Q5 modifiée). Il commence dans la division la plus basse, parce que ses statistiques de départ sont faibles, et cherche à monter. **Seuls ses scores de ligue comptent pour son handicap.** Les catégories par handicap (idée 4) deviennent donc des **divisions avec montées et descentes** en fin de saison. Proposition par défaut : classement en brut dans chaque division, pour qu'une montée récompense un vrai progrès ; le handicap reste affiché.
+
 ### Idées concrètes
 1. **Le handicap (B10) sert de base.** On le calcule comme dans la réalité, en simplifié : moyenne des meilleurs écarts sur les dernières parties, rapportés à la difficulté du parcours.
 2. **La difficulté du parcours est mesurée par la simulation.** Un golfeur fictif « scratch » joue chaque trou à son ouverture, comme le faisait déjà l'original pour calculer le par et le dogleg. On en tire une note de difficulté (« course rating » et « slope »), affichable comme sur une vraie carte de score.
@@ -205,6 +298,8 @@ Les fiches ci-dessous sont conçues pour que ces choix restent ouverts : l'hiver
 ---
 
 ## D7. Scénarios et tutoriel
+
+> **Décidé (2026-10-24)** : **pas de scénarios pour l'instant.** On garde seulement un **tutoriel très simple** de la boucle de construction et d'ouverture d'un trou : peindre un départ, un fairway et un green, poser le trou, l'ouvrir, regarder la première paire le jouer. C'est environ 2 lots : des étapes déclenchées par les actions du joueur, et une mise en évidence des éléments d'interface (ils doivent avoir un identifiant stable, à prévoir dans P3). La fiche ci-dessous reste comme référence pour plus tard. La sauvegarde (F4) reste nécessaire au jeu, indépendamment.
 
 ### Idées concrètes
 1. **Un scénario est un fichier JSON** qui donne : la carte de départ (générée à partir d'une graine et de paramètres, ou une sauvegarde faite à la main), l'argent, les bâtiments débloqués, des modificateurs de règles (pas d'eau à peindre, mauvaises herbes deux fois plus rapides, année de sécheresse), des objectifs datés et des conditions d'échec.
@@ -267,6 +362,8 @@ Les fiches ci-dessous sont conçues pour que ces choix restent ouverts : l'hiver
 
 ## D12. Mode photo et caméra libre (avec A9)
 
+> **Décidé (2026-10-24)** : **pas de mode photo pour l'instant.** On le laisse prêt sans l'activer : la caméra à modes (`CameraRig`, lot 1 ci-dessous) prévoit un mode « photo » désactivé. Ça ne coûte rien de plus, puisque ce lot est nécessaire de toute façon pour la caméra libre (A9) et le swing contrôlable (B17). Les lots 6 (mode photo, caméra de télévision) et l'album sont reportés. La caméra libre (A9) et les niveaux de détail restent prévus, après C02.
+
 ### Idées concrètes
 1. **Une caméra à modes** :
    - *Iso* : la vue actuelle, orthographique, par défaut ;
@@ -328,24 +425,24 @@ Les fiches ci-dessous sont conçues pour que ces choix restent ouverts : l'hiver
 
 ---
 
-## Récapitulatif
+## Récapitulatif (après les décisions du 2026-10-24)
 
 | Boucle | Lots | Dont fondations | Coût de simulation | Coût de rendu | Dépend de |
 |---|---|---|---|---|---|
-| D1 Météo et saisons | 5 | F1, F2 | faible ; planification par vent fort à mesurer dans P1 | faible : ciel, particules, paramètres de shader | |
-| D2 Entretien | 6 | F3 | faible si la mise à jour est étalée et l'usure n'agit pas sur la marche | faible ; réécriture moyenne du shader (F3) | F1, F2 ; D1 conseillé |
-| D5 Ligues | 4 | F5 | faible ; note du parcours en arrière-plan | nul | B10 (handicap), F1, F7 |
-| D7 Scénarios et tutoriel | 6 | F4 | tests longs avec le résolveur simplifié | nul | F4, F7 ; les autres boucles pour le contenu |
-| D12 Photo et caméra libre | 6 | F6 | nul | **élevé** : LOD, horizon, ombres | C02, F7 |
-| **Total** | **≈ 27** | | | | |
+| D1 Météo et saisons, avec M1 à M9 retenus | 5 à 6 | F1, F2 | faible ; planification par vent fort à mesurer dans P1 | faible : ciel, soleil qui tourne, particules, paramètres de shader | |
+| Arbres vivants (dans C02) | 4 | | faible : croissance mensuelle, index spatial des arbres | faible : `MultiMesh` par bloc, jeunes plants en `bpy` | C02, F1, F6 (`MultiMesh` par bloc) |
+| D2 Entretien, sans mauvaises herbes | 5 | F3 | faible si la mise à jour est étalée et l'usure n'agit pas sur la marche | faible ; réécriture moyenne du shader (F3) | F1, F2 ; D1 conseillé |
+| D5 Ligues à divisions, avec votre pro | 4 | F5 | faible ; note du parcours en arrière-plan | nul | B10 (handicap), F1, F7 |
+| Tutoriel de construction | 2 | | nul | nul | F7 (P3) |
+| Caméra à modes et LOD (A9, photo prête) | 5 | F6 | nul | **élevé** : LOD, horizon, ombres en cascades | C02, F7 |
+| **Total** | **≈ 25 à 26** | | | | |
 
-Les fondations F1 à F6 comptent pour 10 de ces 27 lots, et elles servent ensuite à d'autres features : tournois, contenu coupé, swing contrôlable, partage.
+Les scénarios (D7) et le mode photo (D12) sortent de la première version ; la sauvegarde (F4, 2 lots) reste à faire pour le jeu, hors de ce total.
 
 ## Ordre proposé
-1. **P1 (parcours chargé)** reste la première preuve : D1 ajoute du travail au planificateur.
-2. **F1 et F2**, puis **D1** : les fondations les plus partagées, et la boucle la plus visible pour le moins de code.
-3. **D2** avec **F3** : il touche le shader de terrain, à valider sur les captures.
-4. En parallèle, sur des zones de code disjointes :
-   - **B10 et F5**, puis **D5** ;
-   - **F4**, puis **D7** et le tutoriel.
-5. **D12** après **C02** et la preuve **P2**, avec les niveaux de détail de F6.
+1. **P1 (parcours chargé)** reste la première preuve : la météo ajoute du travail au planificateur.
+2. **C02, devenu « Arbres et échelle du monde »**, avec les arbres vivants : il fixe le nombre d'arbres, donc le besoin de niveaux de détail.
+3. **F1 et F2**, puis **D1** avec les côtés positifs retenus.
+4. **D2** avec **F3** : il touche le shader de terrain, à valider sur les captures.
+5. En parallèle, sur des zones de code disjointes : **B10 et F5**, puis **D5** ; la preuve **P3** (UI), puis le **tutoriel**.
+6. **Caméra à modes et LOD (F6)**, puis la caméra libre (A9).
