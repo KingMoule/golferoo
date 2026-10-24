@@ -40,6 +40,7 @@ La stack n'est pas encore choisie : le premier chantier passe par `/cadrer`, pui
 - `docs/handoff.md` : où on en est (40 lignes au plus). À lire avant de reprendre un chantier, inutile si la demande nomme déjà la tâche.
 - `docs/chantiers.md` : registre vivant des chantiers.
 - `specs/` : un fichier par chantier cadré, avec ses critères d'acceptation.
+- `docs/lecons.md` : frictions du workflow, une ligne chacune (`echo "- ..." >> docs/lecons.md`, sans relire). `/ameliorer` les traite par lot.
 - `docs/workflow.md` : pourquoi le workflow est ainsi (à lire seulement pour le modifier).
 
 ## Instructions de compaction

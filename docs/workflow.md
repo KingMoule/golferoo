@@ -66,7 +66,22 @@ Retenu : formatage et lint par hook PostToolUse, hooks de sécurité en PreToolU
 
 Écarté : les équipes d'agents (expérimentales, environ 7 fois plus de tokens selon Anthropic), les gros « frameworks » de prompts et les listes de 20 agents spécialisés (contexte gonflé, descriptions chargées à chaque session), les hooks `UserPromptSubmit` qui ajoutent du contexte à chaque message, les hooks qui appellent un modèle (lents et payants).
 
+## Auto-amélioration
+Une boucle en trois temps, conçue pour coûter presque rien entre deux revues.
+
+1. **Capturer en continu, pour une ligne.** Chaque rendu d'agent finit par `Friction : <une ligne ou aucune>`. L'orchestrateur ajoute les vraies frictions à `docs/lecons.md` par `echo >>`, sans relire le fichier ; `/prevenir` y journalise aussi chaque règle ignorée. Coût : quelques dizaines de tokens par chantier.
+2. **Déclencher sans y penser.** `verif-budgets.sh` mesure la taille de `CLAUDE.md` (60 lignes max), du handoff (40), des descriptions de skills et d'agents (4 000 caractères, chargées à chaque session) et le nombre de leçons en attente (8). Le reçu de démarrage n'imprime une ligne que si un budget est dépassé : zéro token quand tout va bien. Une revue se lance aussi en fin de vague, après le relecteur.
+3. **Réviser par lot, avec un humain.** `/ameliorer` regroupe les leçons par famille. Une leçon isolée attend (sauf si elle est grave) ; deux occurrences de la même famille déclenchent une correction dans la couche la plus étroite (hook, skill, agent, et `CLAUDE.md` en dernier). Chaque revue doit aussi élaguer, et vise un solde de lignes nul ou négatif dans `CLAUDE.md`. Tout passe par une PR que Guillaume fusionne : le workflow ne se modifie jamais seul.
+
+La revue suivante vérifie si les leçons traitées sont revenues : si oui, la correction était dans la mauvaise couche. C'est ce qui ferme la boucle.
+
+**Pourquoi pas plus automatique ?** Un hook `Stop` ou `UserPromptSubmit` qui ferait réfléchir Claude à chaque tour coûterait des tokens à chaque tour pour un gain rare, et la doc d'Anthropic met en garde contre un `CLAUDE.md` qui grossit d'une règle par incident (« Claude ignore la moitié des règles »). La règle des deux occurrences et l'élagage obligatoire empêchent cette dérive. La seule mesure objective du coût est `/usage` (part des skills, agents et MCP, avec recommandations) : on la colle dans la revue quand on l'a sous la main.
+
+### Journal des revues
+- 2026-10-24 · mise en place de la boucle (aucune leçon encore).
+
 ## Pour faire évoluer le workflow
+- Une friction : une ligne dans `docs/lecons.md`. Une revue : `/ameliorer`.
 - Une règle oubliée deux fois : `/prevenir` la déplace dans la couche qui sera sûrement lue (hook, skill, agent, `CLAUDE.md`).
 - `/usage` montre la part des skills, agents et serveurs MCP dans la consommation, avec des recommandations.
 - `/insights` produit un rapport sur les frictions récentes.

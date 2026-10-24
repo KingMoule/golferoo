@@ -29,3 +29,4 @@ Filtre toutes les sorties. Une suite complète se lit en CI (`gh pr checks`, `gh
 - Critère par critère : vérifié comment, résultat.
 - Constats : gravité, scénario, preuve (commande et sortie utile).
 - Ce que tu as réutilisé de la CI (commit) et ce que tu n'as pas pu vérifier.
+- `Friction :` une ligne sur ce qui a gêné l'audit (critère invérifiable, brief incomplet, outil manquant), ou « aucune ».

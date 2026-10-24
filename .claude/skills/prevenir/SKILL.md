@@ -14,7 +14,8 @@ description: Corriger une erreur répétée ou déjà documentée, puis renforce
    - règle valable pour toute session : `CLAUDE.md`, seulement si chaque session en a besoin (il coûte à chaque tour) ;
    - état ou décision en cours : `docs/handoff.md`.
 5. **Vérifie la portée** : le flux fautif charge-t-il vraiment le changement ? Pour un hook, teste un cas fautif et un cas légitime.
-6. **Rends brièvement** : correction faite, règle et trou trouvés, changement durable et sa vérification.
+6. **Journalise** une ligne dans `docs/lecons.md` (famille `règle-ignorée`) : `/ameliorer` verra si la correction a tenu.
+7. **Rends brièvement** : correction faite, règle et trou trouvés, changement durable et sa vérification.
 
 Ne crée pas de modification juste pour dire « c'est prévenu ». Pour un même type d'erreur qui revient par plusieurs entrées, renforce la famille, pas un cas à la fois.
 

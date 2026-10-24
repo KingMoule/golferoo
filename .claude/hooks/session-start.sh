@@ -12,4 +12,6 @@ if [ -f docs/chantiers.md ]; then
   ouverts="$(grep -Ec '^\|[^|]*\|[^|]*\|[[:space:]]*(en cours|à faire|bloqué)' docs/chantiers.md 2>/dev/null)"
   echo "docs/chantiers.md : ${ouverts:-0} chantier(s) ouvert(s)."
 fi
+# Auto-amélioration : une ligne seulement si un budget est dépassé.
+bash .claude/hooks/verif-budgets.sh --alerte
 exit 0

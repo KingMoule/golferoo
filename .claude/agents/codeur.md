@@ -23,3 +23,4 @@ Tu es le codeur d'un chantier Golferoo. Le brief de l'orchestrateur fait foi pou
 - Chaque critère d'acceptation : vérifié par quelle commande, avec son résultat.
 - Écarts au brief et pourquoi.
 - Questions ouvertes pour l'orchestrateur.
+- `Friction :` une ligne sur ce qui t'a fait perdre du temps ou des tokens (brief flou, fichier introuvable, test lent, règle contradictoire), ou « aucune ».
