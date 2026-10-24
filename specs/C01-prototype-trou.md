@@ -56,6 +56,7 @@ Aucun : tout est tranché ci-dessous. Les options étudiées pour les assets res
 - 2026-10-24 : **machine de référence** pour les FPS : son PC en 1080p. Pas de Steam Deck disponible : la tenue sur Steam Deck reste à vérifier plus tard (la CI ne mesure que la simulation).
 - 2026-10-24 : **pinceau minimal** dans le prototype : peindre une surface et monter ou baisser le relief à la souris, sans coût ni annulation. Le lot 6 est donc dans le périmètre.
 - 2026-10-24 : **assets** : terrain, drapeau, golfeur et balle générés par code (*A*) ; l'arbre converti d'une image 2D libre en 3D par TRELLIS (*D*), lancé sur le PC de Guillaume (carte NVIDIA) par une session Remote Control, puis simplifié par script Blender. Vérifier au lot 7 la mémoire vidéo demandée par TRELLIS et la licence de ses poids ; si le rendu déçoit, comparaison avec un mois de Meshy Pro (20 $, modèles privés avec usage commercial) ; si tout bloque, repli sur l'arbre en *A*.
+- 2026-10-24 : TRELLIS abandonné (carte de Guillaume : RTX 2080, 8 Go, sous les ~16 Go demandés) ; l'arbre est construit par script Blender (`bpy`) dans le cloud, `tools/blender/tree_lowpoly.py`, d'après la comparaison de `docs/assets-3d.md`.
 
 ## Critères d'acceptation
 1. `dotnet test` passe en local et en CI, avec au moins un test par module de `Golferoo.Sim` et une partie complète du trou par une paire de golfeurs en moins de 5 s de temps réel.

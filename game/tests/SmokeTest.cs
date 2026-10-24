@@ -83,6 +83,17 @@ public partial class SmokeTest : Node
         CheckBrush(failures);
         CheckAssets(failures);
 
+        // L'arbre de tools/blender/tree_lowpoly.py doit être chargé dès que le .glb est présent.
+        var trees = _main.TerrainView.GetNodeOrNull<TreeLayer>("Trees");
+        if (trees is null || trees.TreeCount == 0)
+        {
+            failures.Add("aucun arbre affiché");
+        }
+        else if (trees.UsesExternalTree != ResourceLoader.Exists(TreeLayer.ExternalTreePath))
+        {
+            failures.Add($"{TreeLayer.ExternalTreePath} présent mais non chargé");
+        }
+
         // Même graine, mêmes ticks : la simulation doit être déterministe aussi sous Godot.
         var a = new World(seed: 99);
         var b = new World(seed: 99);
