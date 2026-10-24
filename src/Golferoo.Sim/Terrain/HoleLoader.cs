@@ -141,7 +141,9 @@ public static class HoleLoader
                 throw new HoleDataException($"Légende : la clé '{key}' doit être une seule lettre.");
             }
 
-            if (!Enum.TryParse<Surface>(name, ignoreCase: true, out var surface) || !Enum.IsDefined(surface))
+            // Nom exact d'une surface : Enum.TryParse accepterait aussi « 1 » ou « Tee, Green ».
+            var match = Enum.GetNames<Surface>().FirstOrDefault(n => string.Equals(n, name, StringComparison.OrdinalIgnoreCase));
+            if (match is null || !Enum.TryParse<Surface>(match, out var surface))
             {
                 throw new HoleDataException($"Légende : surface inconnue '{name}' pour la lettre '{key}'.");
             }
@@ -163,6 +165,11 @@ public static class HoleLoader
         for (var z = 0; z < tilesZ; z++)
         {
             var row = rows[z];
+            if (row is null)
+            {
+                throw new HoleDataException($"Ligne de surfaces {z} absente (null).");
+            }
+
             if (row.Length != tilesX)
             {
                 throw new HoleDataException($"Dimensions incohérentes : la ligne de surfaces {z} a {row.Length} caractères, {tilesX} attendus.");

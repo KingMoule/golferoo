@@ -292,6 +292,36 @@ public class TerrainTests
         Assert.Contains("Lave", e.Message, StringComparison.Ordinal);
     }
 
+    [Theory]
+    [InlineData("1")]
+    [InlineData("Tee, Green")]
+    public void Parse_RejectsNumericOrCombinedSurfaceInLegend(string name)
+    {
+        var legend = $"{{\"T\":\"{name}\",\"G\":\"Green\",\"F\":\"Fairway\",\"W\":\"Water\"}}";
+
+        var e = Assert.Throws<HoleDataException>(() => HoleLoader.Parse(Doc(legend: legend), 2));
+
+        Assert.Contains("surface inconnue", e.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Parse_RejectsNullSurfaceRow()
+    {
+        var e = Assert.Throws<HoleDataException>(() => HoleLoader.Parse(Doc(surfaces: "[\"TG\", null]"), 2));
+
+        Assert.Contains("Ligne de surfaces 1", e.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ProtoHole_IsAbout400YardsTeeToHole()
+    {
+        var t = HoleLoader.Load(HolePath(), 4);
+
+        var yards = Math.Sqrt(Math.Pow(t.Hole.X - t.Tee.X, 2) + Math.Pow(t.Hole.Z - t.Tee.Z, 2)) / 0.9144;
+
+        Assert.InRange(yards, 370, 420);
+    }
+
     [Fact]
     public void Parse_RejectsTeeOrHoleOffMap()
     {
