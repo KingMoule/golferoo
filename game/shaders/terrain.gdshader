@@ -11,7 +11,7 @@ uniform float noise_scale = 0.35;
 uniform float stripe_width = 6.0;
 // Rayon du flou des poids, en mètres. Le trou est dessiné par tuiles de 8 m : sans flou plus large
 // qu'une cellule, les bords gardent l'escalier des tuiles.
-uniform float blur_meters = 2.5;
+uniform float blur_meters = 5.0;
 
 varying vec3 wpos;
 
