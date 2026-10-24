@@ -1,4 +1,5 @@
 using Godot;
+using Golferoo.Game.Rendering;
 using Golferoo.Game.Tools;
 using Golferoo.Sim;
 using Golferoo.Sim.Terrain;
@@ -80,6 +81,18 @@ public partial class SmokeTest : Node
         }
 
         CheckBrush(failures);
+        CheckAssets(failures);
+
+        // L'arbre de tools/blender/tree_lowpoly.py doit être chargé dès que le .glb est présent.
+        var trees = _main.TerrainView.GetNodeOrNull<TreeLayer>("Trees");
+        if (trees is null || trees.TreeCount == 0)
+        {
+            failures.Add("aucun arbre affiché");
+        }
+        else if (trees.UsesExternalTree != ResourceLoader.Exists(TreeLayer.ExternalTreePath))
+        {
+            failures.Add($"{TreeLayer.ExternalTreePath} présent mais non chargé");
+        }
 
         // Même graine, mêmes ticks : la simulation doit être déterministe aussi sous Godot.
         var a = new World(seed: 99);
@@ -92,6 +105,42 @@ public partial class SmokeTest : Node
         }
 
         return failures;
+    }
+
+    /// <summary>Maillages générés par code : chacun construit (ligne ASSET déjà imprimée), non vide et dans son budget de triangles.</summary>
+    private static void CheckAssets(List<string> failures)
+    {
+        _ = ProceduralMeshes.Golfer();
+        _ = ProceduralMeshes.Ball();
+        _ = ProceduralMeshes.Flag();
+        for (var v = 0; v < ProceduralMeshes.TreeVariants; v++)
+        {
+            _ = ProceduralMeshes.Tree(v);
+        }
+
+        var budgets = new Dictionary<string, int>
+        {
+            ["Golfer"] = ProceduralMeshes.GolferBudget,
+            ["Ball"] = ProceduralMeshes.BallBudget,
+            ["Flag"] = ProceduralMeshes.FlagBudget,
+        };
+        for (var v = 0; v < ProceduralMeshes.TreeVariants; v++)
+        {
+            budgets[$"Tree{v}"] = ProceduralMeshes.TreeBudget;
+        }
+
+        foreach (var (name, budget) in budgets)
+        {
+            var stat = ProceduralMeshes.Stats.FirstOrDefault(s => s.Name == name);
+            if (stat.Name is null || stat.Triangles < 1)
+            {
+                failures.Add($"asset {name} absent ou vide");
+            }
+            else if (stat.Triangles > budget)
+            {
+                failures.Add($"asset {name} : {stat.Triangles} triangles, budget {budget}");
+            }
+        }
     }
 
     /// <summary>Retouche par code : peinture d'eau puis montée de relief, vérifiées dans la simulation et dans le rendu.</summary>
