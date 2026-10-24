@@ -9,7 +9,7 @@ Mis à jour : 2026-10-24. Demandé par Guillaume, qui ne modélise pas en 3D : c
 3. **Blender MCP sur le PC de Guillaume : optionnel.** Utile pour une séance « je regarde et j'ajuste » dans la fenêtre de Blender, pas comme chaîne de production : non reproductible, PC allumé requis, captures d'écran coûteuses en tokens.
 4. **IA image vers 3D : à mettre de côté pour le low-poly.** Sur 8 Go, seuls des modes dégradés tournent (non garantis sur une carte RTX 20), les maillages sortent denses et organiques, et les nettoyer en low-poly propre est justement le travail d'un modeleur. TRELLIS (v1 : 16 Go ; TRELLIS.2 : 24 Go officiellement) ne tourne pas tel quel sur la 2080.
 
-Pour le lot 7 de C01 : l'arbre par script `bpy` remplace TRELLIS. `tools/blender/arbre_lowpoly.py` en est l'essai.
+Décision de Guillaume (2026-10-24) : Blender par script. L'arbre du lot 7 de C01 est `tools/blender/tree_lowpoly.py` (PR #12, 340 triangles, GLB identique d'un lancement à l'autre). La vignette ci-dessous vient du premier essai fait pour ce rapport.
 
 ![Arbre généré par script bpy, graine 7](assets-3d/arbre-essai.png)
 
@@ -93,7 +93,7 @@ Utile pour un essai ponctuel d'une forme organique difficile (un animal, une sta
 
 ## Recommandation et suite
 
-1. **Lot 7 de C01** : arbre par script `bpy` (avenue B), généré dans le cloud, plus de TRELLIS ni de session sur le PC de Guillaume. L'essai `tools/blender/arbre_lowpoly.py` sort déjà un seul maillage à facettes plates, à étoffer vers ~400 triangles (branches, plusieurs silhouettes : feuillu, conifère, palmier) et à écrire en `game/assets/trees/tree.glb` comme l'attend `TreeLayer` (PR #12).
+1. **Lot 7 de C01** : fait par `tools/blender/tree_lowpoly.py` (PR #12), sans TRELLIS ni session sur le PC de Guillaume. Prochaines variantes possibles : plusieurs silhouettes (feuillu, conifère, palmier) par graine.
 2. **Chantier suivant (court)** : bibliothèque commune `tools/blender/` et job CI « Assets » décrits en B.
 3. **Quand viendront les golfeurs animés** : partir de Quaternius (personnages + animations CC0), normalisés par B.
 4. **Blender MCP** : à installer seulement si Guillaume veut voir et ajuster un style en direct ; le serveur officiel du Blender Lab est le choix par défaut.
