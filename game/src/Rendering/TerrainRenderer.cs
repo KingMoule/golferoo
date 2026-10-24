@@ -72,8 +72,9 @@ public partial class TerrainRenderer : Node3D
     }
 
     /// <summary>
-    /// Reconstruit les blocs touchés par le rectangle de cellules (et leurs voisins si le rectangle touche un bord de bloc,
-    /// car les normales lisent les hauteurs voisines).
+    /// Reconstruit les blocs touchés par le rectangle de cellules modifiées. La Catmull-Rom d'une cellule lit les coins
+    /// c-1 à c+2 : modifier les coins d'une cellule change la hauteur jusqu'à 2 cellules autour, d'où la marge de 2,
+    /// qui peut déborder sur le bloc voisin.
     /// </summary>
     public void RebuildChunks(Rect2I cellRect)
     {
@@ -82,10 +83,10 @@ public partial class TerrainRenderer : Node3D
             return;
         }
 
-        var x0 = Math.Max(cellRect.Position.X - 1, 0);
-        var z0 = Math.Max(cellRect.Position.Y - 1, 0);
-        var x1 = Math.Min(cellRect.End.X + 1, _grid.CellsX);
-        var z1 = Math.Min(cellRect.End.Y + 1, _grid.CellsZ);
+        var x0 = Math.Max(cellRect.Position.X - 2, 0);
+        var z0 = Math.Max(cellRect.Position.Y - 2, 0);
+        var x1 = Math.Min(cellRect.End.X + 2, _grid.CellsX);
+        var z1 = Math.Min(cellRect.End.Y + 2, _grid.CellsZ);
         if (x1 <= x0 || z1 <= z0)
         {
             return;
@@ -140,7 +141,13 @@ public partial class TerrainRenderer : Node3D
 
     private void ReplaceChunk(MeshInstance3D?[,] store, int ci, int cj, string name, ArrayMesh? mesh, Material material)
     {
-        store[ci, cj]?.QueueFree();
+        // Retirer avant de libérer : sinon le nouveau bloc hérite d'un nom renommé par Godot.
+        if (store[ci, cj] is { } old)
+        {
+            RemoveChild(old);
+            old.QueueFree();
+        }
+
         store[ci, cj] = null;
         if (mesh is null)
         {

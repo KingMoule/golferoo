@@ -15,7 +15,7 @@ public partial class Main : Node3D
     public const string HoleFile = "data/holes/proto-par4.json";
     public const int DefaultFactor = 4;
     public const int LoadModeGolfers = 200;
-    public const int MaxTicksPerFrame = 400;
+    public const int MaxTicksPerFrame = 16;
 
     private static readonly int[] Speeds = [1, 2, 4, 8, 16];
 
@@ -128,7 +128,8 @@ public partial class Main : Node3D
     {
         if (!Paused)
         {
-            _accumulator += delta * Speed;
+            // Écrêté à 0,25 s : une fenêtre déplacée ou un gel ne doit pas rattraper des secondes de jeu d'un coup.
+            _accumulator += Math.Min(delta, 0.25) * Speed;
         }
 
         var steps = 0;
