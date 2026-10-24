@@ -4,7 +4,7 @@ namespace Golferoo.Game.Tools;
 
 /// <summary>
 /// Produit 8 captures (4 rotations x 2 zooms : ensemble et green) du trou avec une paire de golfeurs, graine fixe.
-/// Usage : godot --path game res://tools/Captures.tscn -- --out dossier [--factor n] [--thumbs] [--full]
+/// Usage : godot --path game res://tools/Captures.tscn -- --out dossier [--factor n] [--prefix texte] [--thumbs] [--full]
 /// Code de sortie 0 si les 8 images existent, ont la même taille et ne sont pas uniformes ; non nul sinon.
 /// </summary>
 public partial class Captures : Node
@@ -34,6 +34,7 @@ public partial class Captures : Node
         var outDir = Main.CommandLineOption("--out") ?? "captures";
         var thumbs = OS.GetCmdlineUserArgs().Contains("--thumbs");
         var full = OS.GetCmdlineUserArgs().Contains("--full");
+        var prefix = Main.CommandLineOption("--prefix") ?? "";
         System.IO.Directory.CreateDirectory(outDir);
 
         var main = GD.Load<PackedScene>("res://Main.tscn").Instantiate<Main>();
@@ -62,7 +63,7 @@ public partial class Captures : Node
                 }
 
                 var image = GetViewport().GetTexture().GetImage();
-                var path = System.IO.Path.Combine(outDir, $"capture-{index:00}-{zoomName}-{(int)yaw}.png");
+                var path = System.IO.Path.Combine(outDir, $"{prefix}capture-{index:00}-{zoomName}-{(int)yaw}.png");
                 index++;
                 var stddev = LuminanceStdDev(image);
                 var err = image.SavePng(path);
