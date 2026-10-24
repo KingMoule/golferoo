@@ -42,7 +42,9 @@ Le prototype tranche aussi le **facteur de subdivision** (2, 3 ou 4 sous-cases p
 **Risque connu** : `Golferoo.Sim` vise `net10.0` (ADR). Si Godot 4.7 .NET refuse qu'un projet `net10.0` référence la bibliothèque, on cible la version que Godot accepte pour les deux projets et on le note dans le rapport. Premier lot à vérifier.
 
 ## Choix à trancher par Guillaume
-1. **Origine des assets 3D** (arbre, drapeau, golfeur, balle).
+Aucun : tout est tranché ci-dessous. Les options étudiées pour les assets restent ici pour mémoire.
+
+**Origine des assets 3D** (arbre, drapeau, golfeur, balle).
    - *A, procéduraux en code* : maillages générés par script, faits par les agents, sans coût ni licence, style homogène mais limité.
    - *B, pack libre CC0* (par exemple Kenney) : rapide et joli, mais pas notre style et pas une mesure de production.
    - *C, modélisés dans Blender* : la vraie chaîne d'un artiste, mais demande quelqu'un qui modélise.
@@ -52,6 +54,7 @@ Le prototype tranche aussi le **facteur de subdivision** (2, 3 ou 4 sous-cases p
 ## Tranché par Guillaume
 - 2026-10-24 : **machine de référence** pour les FPS : son PC en 1080p. Pas de Steam Deck disponible : la tenue sur Steam Deck reste à vérifier plus tard (la CI ne mesure que la simulation).
 - 2026-10-24 : **pinceau minimal** dans le prototype : peindre une surface et monter ou baisser le relief à la souris, sans coût ni annulation. Le lot 6 est donc dans le périmètre.
+- 2026-10-24 : **assets** : terrain, drapeau, golfeur et balle générés par code (*A*) ; l'arbre converti d'une image 2D libre en 3D par TRELLIS (*D*), lancé sur le PC de Guillaume (carte NVIDIA) par une session Remote Control, puis simplifié par script Blender. Vérifier au lot 7 la mémoire vidéo demandée par TRELLIS et la licence de ses poids ; si ça bloque, repli sur l'arbre en *A*.
 
 ## Critères d'acceptation
 1. `dotnet test` passe en local et en CI, avec au moins un test par module de `Golferoo.Sim` et une partie complète du trou par une paire de golfeurs en moins de 5 s de temps réel.
