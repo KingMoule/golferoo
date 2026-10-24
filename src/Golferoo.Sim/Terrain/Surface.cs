@@ -32,7 +32,7 @@ public readonly record struct SurfaceProperties(
     double Friction,
     double WalkCost = 1.0);
 
-/// <summary>Table des propriétés par surface. Valeurs plausibles, sans réglage fin (à calibrer au lot 4).</summary>
+/// <summary>Table des propriétés par surface. Valeurs plausibles, calibrées au lot 4 sur les portées des clubs.</summary>
 public static class SurfaceTable
 {
     private static readonly SurfaceProperties[] Table =
@@ -40,11 +40,11 @@ public static class SurfaceTable
         // Tee : herbe tondue ras, dur.
         new(Walkable: true, IsHazard: false, PenaltyStrokes: 0, RollResistance: 0.06, Restitution: 0.50, Friction: 0.25, WalkCost: 1.0),
         // Green : le plus rapide au roulement, rebond doux.
-        new(Walkable: true, IsHazard: false, PenaltyStrokes: 0, RollResistance: 0.05, Restitution: 0.40, Friction: 0.30, WalkCost: 1.0),
+        new(Walkable: true, IsHazard: false, PenaltyStrokes: 0, RollResistance: 0.05, Restitution: 0.30, Friction: 0.45, WalkCost: 1.0),
         // Fairway : herbe courte.
-        new(Walkable: true, IsHazard: false, PenaltyStrokes: 0, RollResistance: 0.10, Restitution: 0.45, Friction: 0.35, WalkCost: 1.0),
+        new(Walkable: true, IsHazard: false, PenaltyStrokes: 0, RollResistance: 0.10, Restitution: 0.35, Friction: 0.55, WalkCost: 1.0),
         // Rough : herbe haute, freine fort et amortit.
-        new(Walkable: true, IsHazard: false, PenaltyStrokes: 0, RollResistance: 0.40, Restitution: 0.25, Friction: 0.60, WalkCost: 1.4),
+        new(Walkable: true, IsHazard: false, PenaltyStrokes: 0, RollResistance: 0.40, Restitution: 0.20, Friction: 0.70, WalkCost: 1.4),
         // Bunker : sable, la balle s'y plante (obstacle sans pénalité de coup).
         new(Walkable: true, IsHazard: true, PenaltyStrokes: 0, RollResistance: 1.00, Restitution: 0.05, Friction: 0.90, WalkCost: 2.2),
         // Water : la balle est perdue, un coup de pénalité.

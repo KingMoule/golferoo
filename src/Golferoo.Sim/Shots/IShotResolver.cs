@@ -8,13 +8,46 @@ namespace Golferoo.Sim.Shots;
 /// <param name="StrokeNumber">Nombre de coups déjà joués par ce golfeur sur le trou (0 pour le drive).</param>
 public readonly record struct ShotRequest(Point2 Ball, Point2 Hole, int StrokeNumber);
 
+/// <summary>Issue d'un coup : où la balle s'est arrêtée, ou ce qui lui est arrivé.</summary>
+public enum ShotOutcome : byte
+{
+    Fairway = 0,
+    Tee = 1,
+    Green = 2,
+    Rough = 3,
+    Bunker = 4,
+    Path = 5,
+
+    /// <summary>La balle a heurté un bosquet et est tombée à son pied.</summary>
+    Trees = 6,
+
+    /// <summary>Balle à l'eau : un coup de pénalité et un drop côté tee.</summary>
+    Water = 7,
+
+    /// <summary>Balle hors carte : un coup de pénalité, on rejoue du point précédent.</summary>
+    OutOfBounds = 8,
+
+    Holed = 9,
+}
+
 /// <summary>Résultat d'un coup.</summary>
-/// <param name="Ball">Nouvelle position de la balle, en mètres (franchissable à pied).</param>
+/// <param name="Ball">Nouvelle position de la balle, en mètres (franchissable à pied), après drop éventuel.</param>
 /// <param name="Holed">Vrai si la balle est dans le trou.</param>
-public readonly record struct ShotResult(Point2 Ball, bool Holed);
+/// <param name="PenaltyStrokes">Coups de pénalité à ajouter au coup joué.</param>
+/// <param name="Outcome">Issue du coup.</param>
+/// <param name="Trajectory">
+/// Positions 3D de la balle, une par tick de simulation (1/20 s), la première au point de départ et la dernière au repos.
+/// Nul ou d'un seul point : la balle arrive aussitôt.
+/// </param>
+public readonly record struct ShotResult(
+    Point2 Ball,
+    bool Holed,
+    int PenaltyStrokes = 0,
+    ShotOutcome Outcome = ShotOutcome.Fairway,
+    IReadOnlyList<Vec3>? Trajectory = null);
 
 /// <summary>
-/// Résout un coup. Le lot 4 y branche le vrai vol et roulement ; la machine à états des golfeurs n'en dépend que par cette interface.
+/// Résout un coup. Le résolveur physique (lot 4) simule le vol et le roulement ; la machine à états des golfeurs n'en dépend que par cette interface.
 /// Toute l'aléa vient du RNG passé en argument.
 /// </summary>
 public interface IShotResolver
