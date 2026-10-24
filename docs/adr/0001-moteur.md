@@ -37,12 +37,12 @@ Trois analystes indépendants ont étudié la question, chacun sous un angle : a
 
 ## Tranché par Guillaume
 - 2026-10-24 : **Golferoo est un jeu à code fermé.** Aucun code d'OpenSGolf n'est lié ni copié ; seuls ses docs et ses chiffres servent de référence. La variante Rust + `sg-core` est écartée.
-- 2026-10-24 : **rendu en 3D stylisée (low-poly)**, parce qu'elle ouvre plus de possibilités pour les features modernes. La caméra par défaut est iso orthographique, avec rotation et zoom libres. Le terrain de la simulation reste à tuiles avec hauteurs aux coins (analyse A), pour garder la parité des règles ; la 3D n'existe que côté rendu.
+- 2026-10-24 : **rendu en 3D stylisée (low-poly)**, parce qu'elle ouvre plus de possibilités pour les features modernes. La caméra par défaut est iso orthographique, avec rotation et zoom libres. Le terrain de la simulation reste une grille avec hauteurs aux coins (analyse A), mais **beaucoup plus fine que l'original** pour plus de liberté créative sur les trous (facteur à fixer par le prototype, de l'ordre de 2 à 4 sous-cases par tuile d'origine). Les règles décodées sont adaptées à cette échelle. Le rendu lisse le relief et fond les surfaces avec des bords courbes : la grille ne se voit pas. La balle suit la surface lissée. Coût attendu : un champ de flux C# mesuré à 0,31 ms en 128×128 passe vers 5 ms en 512×512, acceptable avec un cache par destination ; le prototype le mesure.
 - 2026-10-24 : **pas de version jouable dans le navigateur.** L'absence d'export web du C# dans Godot 4.7 est donc sans objet.
 - 2026-10-24 : **pas de consoles.** Cibles : PC Windows, Mac, Linux et Steam Deck. Unity n'a plus d'avantage décisif ; il reste le second choix si Godot bloquait.
 
 ## Vérifications avant de construire (chantier suivant)
-1. **Prototype d'un trou** (2 jours environ) : `Golferoo.Sim` minimal (terrain à tuiles, 200 golfeurs, champs de flux) testé par `dotnet test` en CI, dessiné par Godot en 3D low-poly avec la caméra iso. On mesure le temps par tick, le temps d'un agent pour faire une modification visuelle, et le coût de production d'un asset 3D.
+1. **Prototype d'un trou** (2 jours environ) : `Golferoo.Sim` minimal (grille fine, rendu lissé, 200 golfeurs, champs de flux) testé par `dotnet test` en CI, dessiné par Godot en 3D low-poly avec la caméra iso. On mesure le temps par tick, le temps d'un agent pour faire une modification visuelle, le coût de production d'un asset 3D, et on vérifie que le terrain ne paraît pas « en cases ».
 2. Vérifier que `godot --headless` en version .NET tourne en CI GitHub Actions et sort avec un code non nul quand un test échoue.
 
 ## Conséquences
