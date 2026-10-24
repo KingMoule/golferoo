@@ -50,7 +50,8 @@ Le prototype tranche aussi le **facteur de subdivision** (2, 3 ou 4 sous-cases p
    - *B, pack libre CC0* (par exemple Kenney) : rapide et joli, mais pas notre style et pas une mesure de production.
    - *C, modélisés dans Blender* : la vraie chaîne d'un artiste, mais demande quelqu'un qui modélise.
    - Recommandation : *A* pour le terrain et les trois props, plus un arbre en *B* pour comparer à l'écran. *C* seulement si Guillaume ou un artiste veut chronométrer un modèle. La mesure est le temps humain et agent par asset, notée dans le rapport.
-3. **Machine de référence pour les images par seconde.** Hypothèse : le PC de Guillaume en 1080p, plus le Steam Deck s'il en a un. La CI ne mesure que la simulation, pas les FPS.
+## Tranché par Guillaume
+- 2026-10-24 : **machine de référence** pour les FPS : son PC en 1080p. Pas de Steam Deck disponible : la tenue sur Steam Deck reste à vérifier plus tard (la CI ne mesure que la simulation).
 
 ## Critères d'acceptation
 1. `dotnet test` passe en local et en CI, avec au moins un test par module de `Golferoo.Sim` et une partie complète du trou par une paire de golfeurs en moins de 5 s de temps réel.
@@ -61,7 +62,7 @@ Le prototype tranche aussi le **facteur de subdivision** (2, 3 ou 4 sous-cases p
    - tick moyen à 200 golfeurs en mode charge inférieur à 2 ms, p99 inférieur à 5 ms ;
    - un champ de flux sur la carte du trou inférieur à 5 ms, et sur une carte de 512 × 512 cellules inférieur à 20 ms ;
    - (si choix 1 B) recalcul après une retouche de 5 × 5 cellules, champs de flux compris, inférieur à 16 ms.
-6. Le jeu tourne à 60 FPS au moins sur la machine de référence en 1080p avec 200 golfeurs, compteur affiché à l'écran et relevé dans le rapport.
+6. Le jeu tourne à 60 FPS au moins sur le PC de Guillaume en 1080p avec 200 golfeurs, compteur affiché à l'écran et relevé dans le rapport.
 7. Un script de captures produit 8 images (4 rotations × 2 zooms) dans `docs/prototype-c01/`. Guillaume juge sur ces images que le terrain ne paraît pas « en cases » ; son verdict est noté dans le rapport.
 8. Une retouche visuelle confiée à un agent par un brief d'une ligne (exemple : « bunkers plus clairs et arbres plus ronds ») est faite et chronométrée ; le rapport donne la durée et les tokens dépensés.
 9. Le rapport tranche le facteur de subdivision, chiffres et captures à l'appui, et liste ce qu'il faut changer dans l'ADR s'il y a lieu.
