@@ -4,7 +4,8 @@ using Golferoo.Sim.Terrain;
 namespace Golferoo.Game.Rendering;
 
 /// <summary>
-/// Arbres, un par cellule d'arbres, via un MultiMesh par variante. Si <c>res://assets/trees/tree.glb</c> existe,
+/// Arbres, un par cellule d'arbres, via un MultiMesh par variante. Si <c>res://assets/trees/tree.glb</c> existe
+/// (produit par <c>tools/blender/tree_lowpoly.py</c> : c'est l'arbre affiché, à retoucher là),
 /// son unique MeshInstance3D sert de modèle, recalé pied au sol, centré et mis à <see cref="ExternalTreeHeight"/> ;
 /// sinon quatre variantes procédurales.
 /// Variante, rotation, échelle et décalage dépendent seulement du hachage de la cellule.
