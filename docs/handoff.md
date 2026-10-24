@@ -5,7 +5,7 @@ Lots 1 à 6 de C01 fusionnés (PR #6 à #11) : CI, terrain sim, golfeurs, physiq
 
 ## En cours
 - C01, lot 7 (assets), PR #12 : `game/src/Rendering/ProceduralMeshes.cs` (golfeur, balle, drapeau, 4 variantes d'arbre de repli ; budgets 300/80/60/400 triangles, lignes `ASSET nom ms tri` vérifiées par la fumée). Arbre du jeu : `game/assets/trees/tree.glb`, produit par `python -I tools/blender/tree_lowpoly.py` (`pip install bpy==5.2.3`, Python 3.13, graine 7, 340 triangles, 1 s, sortie identique d'un lancement à l'autre). `TreeLayer` exige un seul MeshInstance3D et le recale (pied au sol, centré, 4 m) ; la fumée vérifie qu'il est chargé.
-- Pour le lot 8 : le JSON du trou est cherché hors de `res://`, à embarquer à l'export ; l'eau reste en blocs de cellules ; le liseré du drapeau peut scintiller de près.
+- Lot 8 (outillage, branche claude/project-thread-we8mvk) : JSON du trou copié dans `game/data/` par le csproj (ignoré par git) et lu par `FileAccess` (`res://`, repli dépôt ; ligne `HOLE source=` vérifiée par la CI) ; mode mesure `-- --fps-bench` (`game/src/Tools/FpsBench.cs`, écrit `fps-result.txt`, ligne `FPSBENCH`) ; `game/export_presets.cfg` + job CI `export-windows` (artefact `golferoo-windows` : exe, `Lancer.bat`, `Mesurer FPS.bat`, `LISEZMOI.txt`) ; captures `--full` (lignes `FULL` en JPEG 85). À savoir : l'eau reste en blocs de cellules ; le liseré du drapeau peut scintiller de près.
 
 ## Décisions récentes
 - Godot.NET.Sdk 4.7.2, jeu et simulation en `net10.0` (confirmé par la fumée en CI).
@@ -14,7 +14,7 @@ Lots 1 à 6 de C01 fusionnés (PR #6 à #11) : CI, terrain sim, golfeurs, physiq
 - 2026-10-24 : arbre par script Blender (`bpy`) dans le cloud, au lieu de TRELLIS (sa carte, une RTX 2080 de 8 Go, est trop juste). Filière comparée dans `docs/assets-3d.md` (PR #13).
 
 ## Prochaine étape
-Guillaume fusionne la PR #12, puis lot 8 : mesures, captures dans `docs/prototype-c01/`, FPS sur son PC, retouche par agent chronométrée, rapport, facteur choisi.
+Lot 8 : mesures, captures dans `docs/prototype-c01/`, FPS sur son PC, retouche par agent chronométrée, rapport, facteur choisi.
 
 ## Environnement cloud
 Pas de .NET préinstallé : `apt-get install dotnet-sdk-10.0` marche (dépôt Ubuntu) ; dot.net/builds.dotnet est refusé par le proxy. Godot ne se télécharge pas (github releases en 403) : la CI fait foi pour Godot. `pip install bpy==5.2.3` marche.

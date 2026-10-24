@@ -11,4 +11,12 @@
     <ProjectReference Include="..\src\Golferoo.Sim\Golferoo.Sim.csproj" />
   </ItemGroup>
 
+  <!-- Source de vérité : data/holes/ à la racine. Copié dans game/data/ (ignoré par git) pour être dans res:// et exporté. -->
+  <Target Name="CopierTrous" BeforeTargets="BeforeBuild">
+    <ItemGroup>
+      <TrouSource Include="$(MSBuildProjectDirectory)\..\data\holes\*.json" />
+    </ItemGroup>
+    <Copy SourceFiles="@(TrouSource)" DestinationFolder="$(MSBuildProjectDirectory)\data\holes" SkipUnchangedFiles="true" />
+  </Target>
+
 </Project>

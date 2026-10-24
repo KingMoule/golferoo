@@ -12,3 +12,4 @@ Ajouter sans relire tout le fichier : `echo "- ..." >> docs/lecons.md`. `/amelio
 - 2026-10-24 · outil · conteneur cloud sans .NET ni Godot ; dotnet-install.sh refusé par le proxy, `apt-get install dotnet-sdk-10.0` marche, Godot seulement en CI · quelques minutes · C01 lot 1
 - 2026-10-24 · délégation · les agents du dépôt (codeur, auditeur, relecteur) ne sont pas chargés dans la session cloud de projet : repli sur general-purpose en Sonnet avec renvoi au fichier .claude/agents/<rôle>.md · un appel raté · C01 lot 2
 - 2026-10-24 · outil · branche recréée depuis main + cherry-pick non poussé : le codeur a trouvé l'ancien commit en distant et a dû fusionner · un aller-retour · C01 lot 4
+- Retouche par brief d'une ligne (C01 lot 8) : l'agent a arrondi l'arbre de repli par code alors que le jeu affiche tree.glb (script Blender) ; une source d'asset doit être évidente depuis le code qui l'affiche, ou le brief la nomme.
