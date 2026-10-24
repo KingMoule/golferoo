@@ -43,7 +43,7 @@ public sealed class FlowField
 
     public int DestZ { get; }
 
-    /// <summary>Version du terrain au moment du calcul.</summary>
+    /// <summary>Version des surfaces (<see cref="TerrainGrid.SurfaceVersion"/>) au moment du calcul.</summary>
     public long TerrainVersion { get; }
 
     /// <summary>
@@ -175,7 +175,7 @@ public sealed class FlowField
             bucket.Clear();
         }
 
-        return new FlowField(nx, nz, terrain.CellSize, dx, dz, terrain.Version, dist, next);
+        return new FlowField(nx, nz, terrain.CellSize, dx, dz, terrain.SurfaceVersion, dist, next);
     }
 
     /// <summary>Distance pondérée de la cellule à la destination ; infinie si inatteignable ou hors grille.</summary>

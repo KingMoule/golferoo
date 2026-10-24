@@ -151,7 +151,7 @@ public class PathingTests
     }
 
     [Fact]
-    public void Cache_ReusesInstanceThenInvalidatesAfterPaint()
+    public void Cache_ReusesInstanceThenInvalidatesAfterPaintNotAfterHeight()
     {
         var t = Flat(10, 10);
         var cache = new FlowFieldCache(t);
@@ -166,8 +166,9 @@ public class PathingTests
         Assert.False(c.IsReachable(6, 6));
         Assert.Same(c, cache.Get(new Point2(3, 3)));
 
+        // Les coûts ne dépendent que des surfaces : un relief seul ne reconstruit rien.
         t.SetCornerHeight(1, 1, 5.0);
-        Assert.NotSame(c, cache.Get(new Point2(3, 3)));
+        Assert.Same(c, cache.Get(new Point2(3, 3)));
     }
 
     [Fact]

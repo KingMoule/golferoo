@@ -9,7 +9,7 @@ namespace Golferoo.Sim;
 /// Monde simulé, avancé par ticks fixes. Le rendu lit son état et lui envoie des commandes ;
 /// il ne connaît pas Godot.
 /// </summary>
-public sealed class World
+public sealed partial class World
 {
     /// <summary>Fréquence fixe de la simulation (spec C01 : 20 Hz).</summary>
     public const int TicksPerSecond = 20;
@@ -65,10 +65,10 @@ public sealed class World
         get
         {
             var terrain = RequireTerrain();
-            if (_exitPoint is null || _exitPointVersion != terrain.Version)
+            if (_exitPoint is null || _exitPointVersion != terrain.SurfaceVersion)
             {
                 _exitPoint = ComputeExitPoint(terrain);
-                _exitPointVersion = terrain.Version;
+                _exitPointVersion = terrain.SurfaceVersion;
             }
 
             return _exitPoint.Value;
@@ -137,6 +137,7 @@ public sealed class World
     {
         // Le tirage garde l'état du RNG lié au temps : la somme de contrôle prouve le déterminisme même à vide.
         _rng.NextUInt64();
+        ApplyPendingEdits();
         if (Terrain is not null)
         {
             for (var i = 0; i < _groups.Count; i++)
