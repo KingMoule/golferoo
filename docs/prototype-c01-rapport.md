@@ -7,7 +7,7 @@ Mis à jour : 2026-10-24. Spec : `specs/C01-prototype-trou.md`. Lots 1 à 8, PR 
 - **Facteur 2 retenu par Guillaume** (cellules de 4 m). Les détails sont plus bas.
 - **632 FPS en moyenne** sur la RTX 2080 de Guillaume, avec 200 golfeurs en 1080p. Le critère est de 60.
 - Un brief d'une ligne confié à un agent a donné une retouche en moins d'une minute, mais seulement à moitié juste : la couleur des bunkers a changé, mais pas l'arbre affiché.
-- Il reste à noter le verdict de Guillaume sur les captures.
+- Guillaume juge que le terrain ne paraît pas « en cases ». Il demande en revanche de revoir l'échelle des arbres par rapport aux golfeurs et au trou : c'est le chantier C02.
 
 ## Critères d'acceptation
 
@@ -19,7 +19,7 @@ Mis à jour : 2026-10-24. Spec : `specs/C01-prototype-trou.md`. Lots 1 à 8, PR 
 | 4 | `Golferoo.Sim` sans Godot | ✅ | étape CI « Golferoo.Sim ne référence pas Godot » et `ArchitectureTests` |
 | 5 | Banc aux facteurs 2, 3 et 4 | ✅ tout passe | tableau ci-dessous, artefact `bench` de la CI |
 | 6 | 60 FPS ou plus à 200 golfeurs en 1080p sur le PC de Guillaume | ✅ 632,5 FPS de moyenne, 600 au 1 % bas | `fps-result.txt`, section « FPS » |
-| 7 | 8 captures dans `docs/prototype-c01/`, verdict de Guillaume « pas en cases » | ⏳ captures prêtes, verdict à noter | `docs/prototype-c01/` |
+| 7 | 8 captures dans `docs/prototype-c01/`, verdict de Guillaume « pas en cases » | ✅ « Non, ça ne paraît pas en cases » | `docs/prototype-c01/`, section « Captures » |
 | 8 | Retouche par un agent sur un brief d'une ligne, chronométrée | ✅ 54 s et 47 052 tokens, résultat partiel | section « Retouche par agent » |
 | 9 | Le rapport tranche le facteur | ✅ facteur 2, choisi par Guillaume | section « Facteur » |
 | 10 | `CLAUDE.md` donne les commandes réelles | ✅ | section « Stack et commandes » |
@@ -34,7 +34,7 @@ Mis à jour : 2026-10-24. Spec : `specs/C01-prototype-trou.md`. Lots 1 à 8, PR 
 | Champ de flux sur 512×512, médiane (< 20 ms) | ≈ 14 ms | 13,3 ms | 13,1 ms |
 | Retouche 5×5 avec 13 champs en cache, p99 (< 16 ms) | 2,3 ms | 4,2 ms | 7,2 ms |
 
-- Le champ 512×512 porte sur la même carte aux trois facteurs. Il est jugé sur la médiane depuis le lot 8 : sur un runner partagé, une fois sur une dizaine, la moyenne a dépassé 20 ms (pire valeur, 36 ms) à cause des pauses du ramasse-miettes. Chaque champ alloue environ 2 Mo sur le tas des gros objets. Pour les vraies cartes, il faudra réutiliser ces tampons.
+- Le champ 512×512 porte sur la même carte aux trois facteurs. Depuis le lot 8, il est jugé sur la médiane, après un tour à blanc suivi d'une pause qui laisse le JIT finir le code optimisé. Sans ce tour, le facteur 2, mesuré en premier, a échoué deux fois : 21,5 ms de moyenne, puis 25,8 ms de médiane contre 9,4 ms au facteur 4 sur la même carte. Chaque champ alloue environ 2 Mo sur le tas des gros objets. Pour les vraies cartes, il faudra réutiliser ces tampons.
 - Un coup au driver planifié coûte environ 15 ms. Ce coût n'est pas mesuré quand plusieurs groupes jouent dans le même tick. C'est à surveiller avant d'avoir des parcours chargés.
 
 ## FPS (critère 6)
@@ -66,7 +66,13 @@ Ce qu'on y voit :
 - Les arbres Blender, posés un par cellule, forment des massifs denses. À la lisière, le bord de la carte se lit encore comme une rangée.
 - Le zoom « green » de la caméra est trop serré pour juger le trou en entier. C'est un réglage de capture, pas un défaut du jeu.
 
-Verdict de Guillaume : à noter.
+Verdict de Guillaume (2026-10-24) : « Non, ça ne paraît pas en case. » Il ajoute, pour la suite : « la grosseur et le nombre d'arbres en ratio avec le reste du terrain et la grosseur des golfeurs est à revoir », en partant de références réelles. Ces références sont un golfeur d'environ 1,80 m, un par 4 d'environ 400 yards (366 m) et la taille d'un arbre mature.
+
+Ce que le code fait aujourd'hui, et qui explique la remarque :
+- Les arbres mesurent 4 m, mis à l'échelle entre 0,8 et 1,5, soit 3,2 à 6 m.
+- Il y a un arbre par cellule de surface « arbres » : un tous les 4 m au facteur 2, et un tous les 2 m sur les captures au facteur 4.
+- Un feuillu mature fait plutôt 15 à 25 m de haut, avec un houppier de 8 à 12 m. Ces ordres de grandeur sont à confirmer au cadrage de C02.
+- Les arbres sont donc à la fois trop petits et trop serrés. Le golfeur (1,8 m) et le trou (348 m du tee au drapeau) sont, eux, à l'échelle réelle.
 
 ## Facteur de subdivision (critère 9)
 **Décision de Guillaume (2026-10-24) : facteur 2, soit des cellules de 4 m et 2 × 2 sous-cases par tuile de 8 m.** C'était la recommandation du rapport.
@@ -101,6 +107,7 @@ Verdict de Guillaume : à noter.
 - Le JSON du trou est copié dans `game/data/` à la compilation et embarqué dans l'export.
 
 ## Suites proposées
+0. **C02, échelle du monde** (demandée par Guillaume) : des références réelles pour le golfeur, le trou et l'arbre mature, puis la taille, la densité et l'espacement des arbres, découplés de la grille.
 1. Contour lissé pour l'eau.
 2. Réutiliser les tampons des champs de flux, et mesurer la planification des coups sous charge.
 3. Un job CI « Assets » qui régénère les `.glb`, comme le propose `docs/assets-3d.md`.

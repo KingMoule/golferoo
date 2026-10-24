@@ -20,7 +20,7 @@ C01 (prototype d'un trou) : lots 1 à 7 fusionnés (PR #6 à #12), lot 8 en PR #
 - 2026-10-24 : facteur 2 (Guillaume, sur le rapport C01).
 
 ## Prochaine étape
-Guillaume donne son verdict « en cases ou non » sur les captures, puis fusionne la PR #14 ; C01 passe à « livré ». Chantier suivant à cadrer avec lui.
+Guillaume fusionne la PR #14 (C01 livré ; terrain jugé « pas en cases »). Ensuite, cadrer C02 « échelle du monde » (`docs/chantiers.md`) : arbres trop petits (3 à 6 m) et un par cellule, à recaler sur un golfeur de 1,80 m, un par 4 de ~400 yards et un arbre mature.
 
 ## Environnement cloud
 Pas de .NET préinstallé : `apt-get install dotnet-sdk-10.0` marche ; dot.net/builds.dotnet est refusé par le proxy. Godot ne se télécharge pas (github releases en 403) : la CI fait foi pour Godot. `pip install bpy==5.2.3` marche. Artefacts CI non téléchargeables depuis le conteneur : passer par les journaux.
