@@ -5,7 +5,7 @@ Mis à jour : 2026-10-24. Chantier R03. Liste de départ pour la séance de brai
 - le contenu coupé de l'original (section 20) ;
 - ce que la grille fine, la 3D et la simulation déterministe rendent possible (`docs/faisabilite-features.md`).
 
-Rien n'est décidé. Chaque piste a un effort (S, M, L, XL, comme dans R02) et les risques de R02 qu'elle touche. La colonne **Tri** est à remplir pendant la séance : *oui* (première version), *plus tard*, *non*.
+Rien n'est décidé. Chaque piste a un effort (S, M, L, XL, comme dans R02) et les risques de R02 qu'elle touche. La colonne **Tri** est à remplir pendant la séance : *oui* (première version), *plus tard*, *non*. Premier tri de Guillaume le 2026-10-24 : A et C oui ; en B, oui aux départs multiples, au handicap et à la mémoire, aux tournois avec cut et au swing contrôlable, non aux prix fixés par le joueur ; les autres pistes B restent à trier. Les boucles D sont analysées une par une dans `docs/boucles-de-jeu.md`.
 
 ## Ce qu'on garde en tête en triant
 - La devise de l'original : un trou doit « avoir l'air dur et se jouer facilement ». Une piste qui ajoute de la gestion sans rien changer à la façon de construire ou de regarder son parcours s'éloigne du jeu.
@@ -16,21 +16,22 @@ Rien n'est décidé. Chaque piste a un effort (S, M, L, XL, comme dans R02) et l
 
 | # | Piste | Pourquoi | Effort | Risques | Tri |
 |---|---|---|---|---|---|
-| A1 | Vitesse du temps réglable (×1 à ×16, déjà dans la sim) et avance rapide jusqu'au prochain événement | un tournoi durait plus de deux années de jeu, sans accélération | S | R1 | |
-| A2 | Caméra : sauter de trou en trou, suivre un golfeur, revenir au pavillon | défilement lent et pas de raccourci, reproché par les tests | S | | |
-| A3 | Messages regroupés et triés par importance, journal consultable | messages qui se chevauchent et disparaissent | S | R3 | |
-| A4 | Pensées et dialogues générés par morceaux pour varier les formulations | dialogues répétitifs | M | R4 | |
-| A5 | Golfeurs plus grands à l'écran et plus expressifs (animations de réaction) | golfeurs petits et sommaires | M | R2 | |
-| A6 | Tutoriel et conseiller jouables, pas seulement sur Easy la première année | le jeu livré n'a pas de tutoriel | M | R3, R4 | |
-| A7 | Plus de 18 trous et de 50 × 50 tuiles : 27 ou 36 trous, carte plus grande | limites de l'original, parcours vite encombrés | M | R1 | |
-| A8 | Accomplissements Grand Slam atteignables, record du parcours annoncé | bugs de l'original | S | | |
+| A1 | Vitesse du temps réglable (×1 à ×16, déjà dans la sim) et avance rapide jusqu'au prochain événement | un tournoi durait plus de deux années de jeu, sans accélération | S | R1 | oui |
+| A2 | Caméra : sauter de trou en trou, suivre un golfeur, revenir au pavillon | défilement lent et pas de raccourci, reproché par les tests | S | | oui |
+| A3 | Messages regroupés et triés par importance, journal consultable | messages qui se chevauchent et disparaissent | S | R3 | oui |
+| A4 | Pensées et dialogues générés par morceaux pour varier les formulations | dialogues répétitifs | M | R4 | oui |
+| A5 | Golfeurs plus grands à l'écran et plus expressifs (animations de réaction) | golfeurs petits et sommaires | M | R2 | oui |
+| A6 | Tutoriel et conseiller jouables, pas seulement sur Easy la première année | le jeu livré n'a pas de tutoriel | M | R3, R4 | oui |
+| A7 | Plus de 18 trous et de 50 × 50 tuiles : 27 ou 36 trous, carte plus grande | limites de l'original, parcours vite encombrés | M | R1 | oui |
+| A9 | Caméra libre en perspective à la Cities: Skylines (hauteur, inclinaison, ras du sol), en plus de la vue iso par défaut | demandée par Guillaume ; sert aussi au mode photo (D12) | S à M | R2, R5 : de près, la qualité des modèles se voit ; au loin, il faut un horizon et des niveaux de détail | proposé |
+| A8 | Accomplissements Grand Slam atteignables, record du parcours annoncé | bugs de l'original | S | | oui |
 
 ## B. Approfondir les features existantes
 
 ### Construction
 | # | Piste | Effort | Risques | Tri |
 |---|---|---|---|---|
-| B1 | Plusieurs départs par trou (rouge, blanc, bleu, noir) et positions de drapeau à changer au fil des jours | M | | |
+| B1 | Plusieurs départs par trou (rouge, blanc, bleu, noir) et positions de drapeau à changer au fil des jours | M | | oui |
 | B2 | Outils de forme : fairway et bunker tracés à la courbe, lissage du relief, copier-coller d'une zone | M | | |
 | B3 | Gabarits de trous (par 3 en île, dogleg, par 5 à risque) à poser puis retoucher | S | | |
 | B4 | Analyse de coup étendue : carte de chaleur des chutes de balle, trajectoires par profil de golfeur | S | R1 | |
@@ -40,14 +41,14 @@ Rien n'est décidé. Chaque piste a un effort (S, M, L, XL, comme dans R02) et l
 ### Économie
 | # | Piste | Effort | Risques | Tri |
 |---|---|---|---|---|
-| B7 | Fixer soi-même le green fee, les cotisations et les prix des services (l'original ne le permet pas) | S | | |
+| B7 | Fixer soi-même le green fee, les cotisations et les prix des services (l'original ne le permet pas) | S | | non |
 | B8 | Prêts bancaires, entretien des bâtiments, budget d'entretien du terrain (l'original n'en a pas) | S | | |
 | B9 | Rapports financiers en vrais graphiques, prévisions simples | M | R3 | |
 
 ### Golfeurs
 | # | Piste | Effort | Risques | Tri |
 |---|---|---|---|---|
-| B10 | Handicap qui progresse, mémoire des trous joués (« j'ai raté ce bunker la dernière fois ») | M | | |
+| B10 | Handicap qui progresse, mémoire des trous joués (« j'ai raté ce bunker la dernière fois ») | M | | oui |
 | B11 | Profils plus variés : juniors, seniors, familles, groupes de quatre, golfeurs d'affaires pressés | M | R1 | |
 | B12 | Relations persistantes entre membres (amis, rivaux) qui alimentent les histoires | M | R4 | |
 | B13 | Golfeurs qui prennent des risques selon leur caractère (prudent ou téméraire sur le même trou) | S | | |
@@ -62,8 +63,8 @@ Rien n'est décidé. Chaque piste a un effort (S, M, L, XL, comme dans R02) et l
 ### Votre pro et les tournois
 | # | Piste | Effort | Risques | Tri |
 |---|---|---|---|---|
-| B17 | Contrôle du swing optionnel (jauge de puissance et d'effet), en plus de la visée de l'original | M | | |
-| B18 | Tournois sur plusieurs tours avec cut, calendrier d'une saison de tournois | M | R1 | |
+| B17 | Contrôle du swing optionnel (jauge de puissance et d'effet), en plus de la visée de l'original | M | | oui |
+| B18 | Tournois sur plusieurs tours avec cut, calendrier d'une saison de tournois | M | R1 | oui |
 | B19 | Spectateurs, tribunes, caméras de télévision pendant les tournois | L | R1, R2 | |
 | B20 | Autres formats : skins, scramble, match play en équipe | S | | |
 
@@ -71,12 +72,12 @@ Rien n'est décidé. Chaque piste a un effort (S, M, L, XL, comme dans R02) et l
 
 | # | Piste | Effort | Risques | Tri |
 |---|---|---|---|---|
-| C1 | Landmarks coupés : chapelle, jardins suspendus, voie ferrée, rocaille, ruines de cathédrale, pyramide, volcan | M | R5 | |
-| C2 | Décors coupés : bambou, pin noir, étang à carpes koï, source chaude, oasis, fontaine du désert | M | R5 | |
-| C3 | Accessoires des maisons de célébrités (piscine, jacuzzi, voitures), qui augmentent la valeur des lots voisins | M | R5 | |
-| C4 | Chariot à boissons et voiturette du ranger : employés mobiles plutôt qu'à poste fixe | S | R2 | |
-| C5 | Visiteur célébrité qui achète une maison (code mort de l'original) | S | R2 | |
-| C6 | Écran de choix de la paire au départ (code sans appel dans l'original) | S | | |
+| C1 | Landmarks coupés : chapelle, jardins suspendus, voie ferrée, rocaille, ruines de cathédrale, pyramide, volcan | M | R5 | oui |
+| C2 | Décors coupés : bambou, pin noir, étang à carpes koï, source chaude, oasis, fontaine du désert | M | R5 | oui |
+| C3 | Accessoires des maisons de célébrités (piscine, jacuzzi, voitures), qui augmentent la valeur des lots voisins | M | R5 | oui |
+| C4 | Chariot à boissons et voiturette du ranger : employés mobiles plutôt qu'à poste fixe | S | R2 | oui |
+| C5 | Visiteur célébrité qui achète une maison (code mort de l'original) | S | R2 | oui |
+| C6 | Écran de choix de la paire au départ (code sans appel dans l'original) | S | | oui |
 
 ## D. Nouvelles boucles de jeu
 
