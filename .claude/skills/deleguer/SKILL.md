@@ -33,7 +33,7 @@ CRITÈRES D'ACCEPTATION : <liste numérotée, chacun vérifiable par une command
 TESTS : <tests à écrire, commande de test ciblée>
 BRANCHE : <claude/<id>-<slug>> ; PR vers main : oui | non
 À LIRE : <specs/<id>.md, sections précises>
-RENDU : 30 lignes au plus (statut, critères, commandes et résultats, écarts, questions)
+RENDU : 30 lignes au plus (statut, critères, commandes et résultats, écarts, questions, friction)
 ```
 
 ## Lancer
@@ -45,4 +45,5 @@ RENDU : 30 lignes au plus (statut, critères, commandes et résultats, écarts, 
 1. Lis le rendu court. Ouvre le diff seulement si un critère est non vérifié, si la CI est rouge ou s'il y a un écart au brief.
 2. Niveau complet ou léger : lance l'`auditeur` avec le même brief et le lien de la PR.
 3. Mets à jour `docs/chantiers.md` en une ligne (statut, PR, constat ouvert).
-4. Le `relecteur` passe à la fin d'une vague ou avant une publication, pas à chaque chantier.
+4. Une ligne `Friction :` autre que « aucune », ou un aller-retour que tu as dû faire toi-même : ajoute-la à `docs/lecons.md` par `echo "- ..." >> docs/lecons.md`, sans relire le fichier.
+5. Le `relecteur` passe à la fin d'une vague ou avant une publication, pas à chaque chantier ; suis-le de `/ameliorer`.

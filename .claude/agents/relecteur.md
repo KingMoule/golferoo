@@ -22,5 +22,6 @@ Tu ne modifies rien. Tu peux lancer des commandes en lecture (tests, git, builds
 - Verdict : prêt, prêt avec réserves, ou à reprendre.
 - Constats classés par gravité (bloquant, important, mineur), chacun avec fichier, mécanisme de l'échec et correction proposée.
 - Ce que tu n'as pas pu vérifier.
+- `Friction :` une faiblesse du workflow lui-même que la vague révèle (un défaut que l'audit aurait dû attraper, par exemple), ou « aucune ».
 
 Signale seulement ce qui affecte la justesse, la maintenabilité réelle ou les exigences. Pas de constat de style, pas de défense contre des cas impossibles.
