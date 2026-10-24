@@ -60,6 +60,23 @@ public partial class SmokeTest : Node
             failures.Add("TickLabel absent de Main.tscn");
         }
 
+        if (_main.TerrainView.ChunkCount != 12)
+        {
+            failures.Add($"blocs de terrain attendus 12 au facteur {_main.Factor}, obtenus {_main.TerrainView.ChunkCount}");
+        }
+
+        if (_main.World.Tick <= 0)
+        {
+            failures.Add("la simulation n'avance pas");
+        }
+
+        _main.SpawnGroup();
+        var golfers = _main.World.Snapshot().Golfers.Count;
+        if (golfers != 2)
+        {
+            failures.Add($"G devait créer 2 golfeurs, obtenu {golfers}");
+        }
+
         // Même graine, mêmes ticks : la simulation doit être déterministe aussi sous Godot.
         var a = new World(seed: 99);
         var b = new World(seed: 99);

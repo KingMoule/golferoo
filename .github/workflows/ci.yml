@@ -3,7 +3,7 @@ name: CI
 on:
   pull_request:
   push:
-    branches: [main]
+    branches: [main, "claude/**"]
 
 env:
   DOTNET_NOLOGO: "1"
@@ -93,3 +93,77 @@ jobs:
           set -o pipefail
           timeout 120 "$GODOT" --headless --path game res://tests/Smoke.tscn 2>&1 | tee smoke.log
           grep -q '^SMOKE OK' smoke.log || { echo "::error::la ligne SMOKE OK est absente"; exit 1; }
+          if grep -E '^(ERROR:|SCRIPT ERROR)' smoke.log; then echo "::error::erreurs Godot dans la fumée"; exit 1; fi
+
+  captures:
+    name: Captures (rendu logiciel)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      GODOT_VERSION: 4.7.2
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-dotnet@v5
+        with:
+          global-json-file: global.json
+
+      - name: Cache Godot
+        id: cache-godot
+        uses: actions/cache@v4
+        with:
+          path: ~/godot
+          key: godot-${{ env.GODOT_VERSION }}-mono-linux-x86_64
+
+      - name: Télécharger Godot .NET
+        if: steps.cache-godot.outputs.cache-hit != 'true'
+        run: |
+          name="Godot_v${GODOT_VERSION}-stable_mono_linux_x86_64"
+          curl -fsSL -o godot.zip "https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable/${name}.zip"
+          mkdir -p ~/godot
+          unzip -q godot.zip -d ~/godot
+
+      - name: Repérer l'exécutable
+        run: |
+          bin="$(find ~/godot -maxdepth 2 -type f -name 'Godot_v*_mono_linux.x86_64' | head -n 1)"
+          test -n "$bin" || { echo "::error::exécutable Godot introuvable"; exit 1; }
+          chmod +x "$bin"
+          echo "GODOT=$bin" >> "$GITHUB_ENV"
+
+      - name: Pilotes de rendu logiciel
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q xvfb mesa-vulkan-drivers libgl1-mesa-dri libvulkan1 libxcursor1 libxinerama1 libxi6 libxrandr2
+
+      - name: Compiler et importer
+        run: |
+          dotnet build game/Golferoo.Game.csproj
+          timeout 300 "$GODOT" --headless --path game --import
+
+      - name: Captures (Forward+ via lavapipe, sinon Compatibility via llvmpipe)
+        run: |
+          run_captures() {
+            rm -rf captures
+            timeout 300 xvfb-run -a -s "-screen 0 1280x720x24" "$GODOT" --path game --audio-driver Dummy "$@" res://tools/Captures.tscn -- --out "$GITHUB_WORKSPACE/captures" --thumbs 2>&1 | tee captures.log
+            return "${PIPESTATUS[0]}"
+          }
+          if run_captures --rendering-method forward_plus --rendering-driver vulkan \
+              && grep -q '^CAPTURES OK' captures.log && ! grep -E '^(ERROR:|SCRIPT ERROR)' captures.log; then
+            echo "Rendu : Forward+ via lavapipe" | tee -a "$GITHUB_STEP_SUMMARY"
+          else
+            echo "::warning::Forward+ logiciel indisponible ou en erreur, repli sur Compatibility (llvmpipe)"
+            mv captures.log captures-forwardplus.log 2>/dev/null || true
+            run_captures --rendering-method gl_compatibility --rendering-driver opengl3 || { echo "::error::captures en échec"; exit 1; }
+            grep -q '^CAPTURES OK' captures.log || { echo "::error::CAPTURES OK absent"; exit 1; }
+            if grep -E '^(ERROR:|SCRIPT ERROR)' captures.log; then echo "::error::erreurs Godot dans les captures"; exit 1; fi
+            echo "Rendu : Compatibility via llvmpipe" | tee -a "$GITHUB_STEP_SUMMARY"
+          fi
+          test "$(ls captures/*.png | wc -l)" -eq 8
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: captures
+          path: |
+            captures/*.png
+            captures*.log
