@@ -77,7 +77,7 @@ void fragment() {
 	} else if (best == 3) {
 		col = vec3(0.24, 0.48, 0.21); // rough
 	} else if (best == 4) {
-		col = vec3(0.89, 0.82, 0.55); // sable
+		col = vec3(0.96, 0.91, 0.68); // sable (clair)
 	} else if (best == 5) {
 		col = vec3(0.20, 0.42, 0.55); // fond d'eau
 	} else if (best == 6) {

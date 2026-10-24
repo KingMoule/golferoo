@@ -105,15 +105,15 @@ public static class ProceduralMeshes
             var radius = 1.2f + (rng.Next() * 0.35f);
             for (var m = 0; m < 3; m++)
             {
-                var center = new Vector3((rng.Next() - 0.5f) * 0.5f, y, (rng.Next() - 0.5f) * 0.5f);
-                var squash = 0.75f + (rng.Next() * 0.35f);
+                var center = new Vector3((rng.Next() - 0.5f) * 0.3f, y, (rng.Next() - 0.5f) * 0.3f);
+                var squash = 0.92f + (rng.Next() * 0.12f);
                 var green = new Color(0.10f + (0.04f * m), 0.33f + (0.05f * m), 0.14f + (0.02f * m));
                 var seed = (uint)((v * 31) + m + 1);
                 foreach (var (p, q, r) in Icosphere(1))
                 {
                     Vector3 Shape(Vector3 d)
                     {
-                        var k = 0.82f + (Hash.OfVector(d, seed) * 0.36f);
+                        var k = 0.95f + (Hash.OfVector(d, seed) * 0.10f);
                         return center + new Vector3(d.X * radius * k, d.Y * radius * k * squash, d.Z * radius * k);
                     }
 
@@ -122,7 +122,7 @@ public static class ProceduralMeshes
                 }
 
                 y += radius * squash * 0.85f;
-                radius *= 0.78f;
+                radius *= 0.82f;
             }
 
             return b.Build();
