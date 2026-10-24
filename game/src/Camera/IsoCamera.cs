@@ -5,6 +5,7 @@ namespace Golferoo.Game.CameraRig;
 /// <summary>
 /// Caméra orthographique isométrique : rotation par quarts (Q/E, animée) et libre (clic du milieu glissé),
 /// zoom à la molette, déplacement ZQSD/WASD et flèches.
+/// Elle ne lit jamais le clic gauche (réservé au pinceau, voir Tools/Brush.cs) ni le clic droit.
 /// </summary>
 public partial class IsoCamera : Node3D
 {
@@ -24,6 +25,9 @@ public partial class IsoCamera : Node3D
     public float Size => _size;
 
     public Vector3 Target => _target;
+
+    /// <summary>Caméra 3D sous-jacente (projection de la souris sur le terrain).</summary>
+    public Camera3D? View => _camera;
 
     public override void _Ready()
     {

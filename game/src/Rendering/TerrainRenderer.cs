@@ -22,6 +22,7 @@ public partial class TerrainRenderer : Node3D
     private ShaderMaterial? _terrainMaterial;
     private ShaderMaterial? _waterMaterial;
     private TreeLayer? _trees;
+    private bool[] _treeCells = [];
 
     /// <summary>Sommets par cellule dans chaque direction (plus fin que la grille).</summary>
     public int VerticesPerCell { get; set; } = 2;
@@ -31,6 +32,12 @@ public partial class TerrainRenderer : Node3D
     public int ChunksZ { get; private set; }
 
     public int ChunkCount => ChunksX * ChunksZ;
+
+    /// <summary>Blocs reconstruits par <see cref="RebuildChunks"/> depuis la construction (cumul, pour les vérifications).</summary>
+    public int RebuiltChunks { get; private set; }
+
+    /// <summary>Reconstructions de la couche d'arbres par <see cref="RebuildChunks"/> (cumul).</summary>
+    public int TreeRebuilds { get; private set; }
 
     /// <summary>Construit tout le terrain depuis la grille.</summary>
     public void Build(TerrainGrid grid)
@@ -46,6 +53,7 @@ public partial class TerrainRenderer : Node3D
         _terrainChunks = new MeshInstance3D?[ChunksX, ChunksZ];
         _waterChunks = new MeshInstance3D?[ChunksX, ChunksZ];
 
+        _treeCells = new bool[grid.CellsX * grid.CellsZ];
         _imageA = Image.CreateEmpty(grid.CellsX, grid.CellsZ, false, Image.Format.Rgba8);
         _imageB = Image.CreateEmpty(grid.CellsX, grid.CellsZ, false, Image.Format.Rgba8);
         UpdateWeights(0, 0, grid.CellsX, grid.CellsZ);
@@ -74,13 +82,14 @@ public partial class TerrainRenderer : Node3D
     /// <summary>
     /// Reconstruit les blocs touchés par le rectangle de cellules modifiées. La Catmull-Rom d'une cellule lit les coins
     /// c-1 à c+2 : modifier les coins d'une cellule change la hauteur jusqu'à 2 cellules autour, d'où la marge de 2,
-    /// qui peut déborder sur le bloc voisin.
+    /// qui peut déborder sur le bloc voisin. Les arbres (toute la couche, une cellule d'arbres posant un tronc à la hauteur du sol)
+    /// ne sont refaits que si la zone contient des arbres, avant ou après la retouche. Rend le nombre de blocs reconstruits.
     /// </summary>
-    public void RebuildChunks(Rect2I cellRect)
+    public int RebuildChunks(Rect2I cellRect)
     {
         if (_grid is null)
         {
-            return;
+            return 0;
         }
 
         var x0 = Math.Max(cellRect.Position.X - 2, 0);
@@ -89,36 +98,54 @@ public partial class TerrainRenderer : Node3D
         var z1 = Math.Min(cellRect.End.Y + 2, _grid.CellsZ);
         if (x1 <= x0 || z1 <= z0)
         {
-            return;
+            return 0;
         }
 
-        UpdateWeights(x0, z0, x1, z1);
+        var treesTouched = UpdateWeights(x0, z0, x1, z1);
         _textureA!.Update(_imageA);
         _textureB!.Update(_imageB);
+        var rebuilt = 0;
         for (var j = z0 / ChunkCells; j <= (z1 - 1) / ChunkCells; j++)
         {
             for (var i = x0 / ChunkCells; i <= (x1 - 1) / ChunkCells; i++)
             {
                 BuildChunk(i, j);
+                rebuilt++;
             }
         }
 
-        _trees?.Build(_grid);
+        RebuiltChunks += rebuilt;
+        if (treesTouched && _trees is not null)
+        {
+            _trees.Build(_grid);
+            TreeRebuilds++;
+        }
+
+        return rebuilt;
     }
 
-    private void UpdateWeights(int x0, int z0, int x1, int z1)
+    /// <summary>Met à jour les textures de poids ; vrai si la zone contient des arbres, avant ou après.</summary>
+    private bool UpdateWeights(int x0, int z0, int x1, int z1)
     {
+        var treesTouched = false;
         for (var cz = z0; cz < z1; cz++)
         {
             for (var cx = x0; cx < x1; cx++)
             {
-                var s = (int)_grid!.GetCellSurface(cx, cz);
+                var surface = _grid!.GetCellSurface(cx, cz);
+                var isTree = surface == Surface.Trees;
+                var index = (cz * _grid.CellsX) + cx;
+                treesTouched |= isTree || _treeCells[index];
+                _treeCells[index] = isTree;
+                var s = (int)surface;
                 var a = s < 4 ? OneHot(s) : new Color(0, 0, 0, 0);
                 var b = s >= 4 ? OneHot(s - 4) : new Color(0, 0, 0, 0);
                 _imageA!.SetPixel(cx, cz, a);
                 _imageB!.SetPixel(cx, cz, b);
             }
         }
+
+        return treesTouched;
     }
 
     private static Color OneHot(int channel) => new(

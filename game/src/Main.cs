@@ -1,6 +1,7 @@
 using Godot;
 using Golferoo.Game.CameraRig;
 using Golferoo.Game.Rendering;
+using Golferoo.Game.Tools;
 using Golferoo.Sim;
 using Golferoo.Sim.Terrain;
 
@@ -28,6 +29,7 @@ public partial class Main : Node3D
     private int _speedIndex;
     private bool _loadMode;
     private Label? _hud;
+    private Rect2I? _dirtyCells;
 
     public Main()
     {
@@ -42,6 +44,8 @@ public partial class Main : Node3D
     public ActorLayer Actors { get; private set; } = null!;
 
     public IsoCamera Camera { get; private set; } = null!;
+
+    public Brush Brush { get; private set; } = null!;
 
     public int Factor { get; private set; } = DefaultFactor;
 
@@ -119,6 +123,11 @@ public partial class Main : Node3D
         AddChild(Camera);
         Camera.SetView(45f, 150f, new Vector3(width / 2f, 0f, depth / 2f));
 
+        World.TerrainEdited += OnTerrainEdited;
+        Brush = new Brush { Name = "Brush" };
+        AddChild(Brush);
+        Brush.Init(this);
+
         _hud = GetNode<Label>("TickLabel");
         ResetSnapshots();
         UpdateHud(0);
@@ -155,6 +164,18 @@ public partial class Main : Node3D
         {
             case InputEventKey { Pressed: true, Echo: false } key:
                 HandleKey(key.Keycode);
+                break;
+            case InputEventMouseButton when Brush.Active:
+                // Le pinceau garde les clics : la caméra ne reçoit plus que la molette et le clic du milieu.
+                if (@event is InputEventMouseButton { Pressed: true, ButtonIndex: MouseButton.WheelUp })
+                {
+                    Camera.Zoom(0.85f);
+                }
+                else if (@event is InputEventMouseButton { Pressed: true, ButtonIndex: MouseButton.WheelDown })
+                {
+                    Camera.Zoom(1f / 0.85f);
+                }
+
                 break;
             case InputEventMouseButton { Pressed: true } button:
                 if (button.ButtonIndex == MouseButton.WheelUp)
@@ -204,6 +225,11 @@ public partial class Main : Node3D
 
     private void HandleKey(Key key)
     {
+        if (Brush.HandleKey(key))
+        {
+            return;
+        }
+
         switch (key)
         {
             case Key.Key1 or Key.Key2 or Key.Key3 or Key.Key4 or Key.Key5:
@@ -247,8 +273,25 @@ public partial class Main : Node3D
     private void Render()
     {
         var alpha = (float)Math.Clamp(_accumulator / World.TickSeconds, 0.0, 1.0);
+        FlushTerrainEdits();
         Actors.Update(_current, _previous, alpha, _previousChanged);
         _previousChanged = false;
+    }
+
+    private void OnTerrainEdited(CellRect rect)
+    {
+        var r = new Rect2I(rect.MinX, rect.MinZ, rect.MaxX - rect.MinX + 1, rect.MaxZ - rect.MinZ + 1);
+        _dirtyCells = _dirtyCells is { } d ? d.Merge(r) : r;
+    }
+
+    /// <summary>Reconstruit une fois par image la zone modifiée depuis la dernière (les retouches d'un même tick se fusionnent).</summary>
+    private void FlushTerrainEdits()
+    {
+        if (_dirtyCells is { } rect)
+        {
+            _dirtyCells = null;
+            TerrainView.RebuildChunks(rect);
+        }
     }
 
     private void UpdateHud(double delta)

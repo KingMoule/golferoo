@@ -1,5 +1,7 @@
 using Godot;
+using Golferoo.Game.Tools;
 using Golferoo.Sim;
+using Golferoo.Sim.Terrain;
 
 namespace Golferoo.Game.Tests;
 
@@ -77,6 +79,8 @@ public partial class SmokeTest : Node
             failures.Add($"G devait créer 2 golfeurs, obtenu {golfers}");
         }
 
+        CheckBrush(failures);
+
         // Même graine, mêmes ticks : la simulation doit être déterministe aussi sous Godot.
         var a = new World(seed: 99);
         var b = new World(seed: 99);
@@ -88,5 +92,53 @@ public partial class SmokeTest : Node
         }
 
         return failures;
+    }
+
+    /// <summary>Retouche par code : peinture d'eau puis montée de relief, vérifiées dans la simulation et dans le rendu.</summary>
+    private void CheckBrush(List<string> failures)
+    {
+        var world = _main!.World;
+        var grid = world.Terrain!;
+        var center = new Point2(grid.CellsX * grid.CellSize * 0.5, grid.CellsZ * grid.CellSize * 0.5);
+        var cx = grid.CellXOf(center.X);
+        var cz = grid.CellZOf(center.Z);
+
+        var chunksBefore = _main.TerrainView.RebuiltChunks;
+        world.PaintSurface(center, 6.0, Surface.Water);
+        _main.StepTicks(1);
+        if (grid.GetCellSurface(cx, cz) != Surface.Water)
+        {
+            failures.Add("PaintSurface n'a pas changé la surface");
+        }
+
+        var h0 = grid.Sample(center.X, center.Z);
+        world.RaiseTerrain(center, 6.0, 1.0);
+        _main.StepTicks(1);
+        if (grid.Sample(center.X, center.Z) <= h0)
+        {
+            failures.Add("RaiseTerrain n'a pas monté le relief");
+        }
+
+        if (_main.TerrainView.RebuiltChunks <= chunksBefore)
+        {
+            failures.Add("RebuildChunks n'a reconstruit aucun bloc");
+        }
+
+        var brush = _main.Brush;
+        brush.SetActive(true);
+        brush.SelectSurface(Surface.Bunker);
+        brush.ChangeRadius(4f);
+        if (!brush.Describe().Contains("Bunker") || !brush.Describe().Contains("10"))
+        {
+            failures.Add($"panneau du pinceau inattendu : {brush.Describe()}");
+        }
+
+        if (!Brush.TryPick(grid, new Vector3((float)center.X, 200f, (float)center.Z), Vector3.Down, 400f, out var hit)
+            || Mathf.Abs(hit.Y - (float)grid.Sample(center.X, center.Z)) > 0.05f)
+        {
+            failures.Add("la projection du rayon sur le terrain échoue");
+        }
+
+        brush.SetActive(false);
     }
 }
