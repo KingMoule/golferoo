@@ -1,14 +1,18 @@
 Mis à jour : 2026-10-24
 
 ## État
-Dépôt vide côté jeu ; le workflow Claude Code (CLAUDE.md, agents, skills, hooks) est en place. Stack reportée dans CLAUDE.md.
+Spec C01 (prototype d'un trou) validée et fusionnée (PR #5). Lot 1 en PR : solution `Golferoo.sln` (Golferoo.Sim, tests xUnit, banc, projet Godot `game/`), CI GitHub Actions (format, tests, banc, import et fumée Godot 4.7.2 headless).
 
 ## En cours
-- Prototype d'un trou (C01) : `specs/C01-prototype-trou.md`, proposé. Tous les choix sont tranchés : pinceau de terrain en jeu, assets générés par code, arbre converti en 3D par TRELLIS sur le PC de Guillaume, FPS mesurés sur son PC en 1080p. FPS mesurés sur son PC en 1080p (pas de Steam Deck).
+- C01, lot 1 : branche `claude/project-thread-we8mvk`. Reste : preuve du critère 3 (CI rouge sur un test faux, puis sur une fumée Godot fausse, puis retrait), commandes confirmées dans `CLAUDE.md`.
 
 ## Décisions récentes
-- ADR 0001 fusionné (PR #4) : Godot 4.7 .NET + simulation C# pure, 3D low-poly, caméra iso, grille fine lissée, code fermé, PC/Mac/Linux/Steam Deck.
-- Recensement des features fusionné (PR #3).
+- Godot.NET.Sdk 4.7.2, jeu et simulation en `net10.0` (risque de la spec à confirmer par la fumée en CI).
+- RNG maison (xoshiro256**) pour un déterminisme indépendant de `System.Random`.
+- Pinceau en jeu, assets par code, arbre par TRELLIS sur le PC de Guillaume au lot 7 (Meshy Pro en repli), FPS sur son PC en 1080p.
 
 ## Prochaine étape
-EN ATTENTE de Guillaume : fusionner la PR #5 (spec C01), puis déléguer le lot 1 (squelette et CI) au codeur.
+Guillaume fusionne la PR du lot 1, puis lot 2 (terrain sim : grille, `HeightField`, surfaces, trou JSON), contrôle complet.
+
+## Environnement cloud
+Pas de .NET préinstallé : `apt-get install dotnet-sdk-10.0` marche (dépôt Ubuntu) ; dot.net/builds.dotnet est refusé par le proxy. Godot ne se télécharge pas (github releases en 403) : la CI fait foi pour Godot.

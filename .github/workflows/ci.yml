@@ -1,0 +1,95 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+env:
+  DOTNET_NOLOGO: "1"
+  DOTNET_CLI_TELEMETRY_OPTOUT: "1"
+
+jobs:
+  sim:
+    name: Simulation (format, tests, banc)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-dotnet@v5
+        with:
+          global-json-file: global.json
+
+      - name: Golferoo.Sim ne référence pas Godot
+        run: |
+          if grep -rnE 'using Godot|GodotSharp|Godot\.NET\.Sdk' src/Golferoo.Sim --include='*.cs' --include='*.csproj'; then
+            echo "::error::Golferoo.Sim doit rester sans dépendance à Godot (ADR 0001)."
+            exit 1
+          fi
+
+      - run: dotnet restore Golferoo.sln
+
+      - name: Format
+        run: dotnet format Golferoo.sln --verify-no-changes --no-restore
+
+      - run: dotnet build Golferoo.sln -c Release --no-restore
+
+      - name: Tests
+        run: dotnet test Golferoo.sln -c Release --no-build --logger "console;verbosity=normal"
+
+      - name: Banc
+        run: dotnet run -c Release --no-build --project tests/Golferoo.Sim.Bench -- --out bench.json
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bench
+          path: bench.json
+
+  godot:
+    name: Godot headless (import et fumée)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      GODOT_VERSION: 4.7.2
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-dotnet@v5
+        with:
+          global-json-file: global.json
+
+      - name: Cache Godot
+        id: cache-godot
+        uses: actions/cache@v4
+        with:
+          path: ~/godot
+          key: godot-${{ env.GODOT_VERSION }}-mono-linux-x86_64
+
+      - name: Télécharger Godot .NET
+        if: steps.cache-godot.outputs.cache-hit != 'true'
+        run: |
+          name="Godot_v${GODOT_VERSION}-stable_mono_linux_x86_64"
+          curl -fsSL -o godot.zip "https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable/${name}.zip"
+          mkdir -p ~/godot
+          unzip -q godot.zip -d ~/godot
+
+      - name: Repérer l'exécutable
+        run: |
+          bin="$(find ~/godot -maxdepth 2 -type f -name 'Godot_v*_mono_linux.x86_64' | head -n 1)"
+          test -n "$bin" || { echo "::error::exécutable Godot introuvable"; exit 1; }
+          chmod +x "$bin"
+          echo "GODOT=$bin" >> "$GITHUB_ENV"
+          "$bin" --version
+
+      - name: Compiler le jeu
+        run: dotnet build game/Golferoo.Game.csproj
+
+      - name: Import
+        run: timeout 300 "$GODOT" --headless --path game --import
+
+      - name: Test de fumée
+        run: |
+          set -o pipefail
+          timeout 120 "$GODOT" --headless --path game res://tests/Smoke.tscn 2>&1 | tee smoke.log
+          grep -q '^SMOKE OK' smoke.log || { echo "::error::la ligne SMOKE OK est absente"; exit 1; }

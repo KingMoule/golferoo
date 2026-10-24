@@ -1,5 +1,5 @@
 # Prototype d'un trou en 3D low-poly
-Statut : proposé
+Statut : validé
 Créé : 2026-10-24
 
 ## But
