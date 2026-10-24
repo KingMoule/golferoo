@@ -16,7 +16,10 @@ public sealed partial class World
 
     /// <summary>
     /// Met en file la peinture de <paramref name="surface"/> sur les cellules dont le centre est dans le rayon (mètres, coordonnées monde).
-    /// Appliquée au début du tick suivant, sans coût ni annulation.
+    /// Appliquée au début du tick suivant, sans coût ni annulation. Une peinture qui ne laisserait aucune cellule
+    /// franchissable sur la carte est ignorée. Golfeurs et balles au repos dans une cellule devenue infranchissable sont
+    /// reposés sur la cellule franchissable la plus proche, sans pénalité ; une balle en vol qui retombe dans une telle
+    /// cellule est reposée de même à l'atterrissage.
     /// </summary>
     public void PaintSurface(Point2 center, double radius, Surface surface)
     {
@@ -64,7 +67,9 @@ public sealed partial class World
             CellRect? rect;
             if (e.IsPaint)
             {
-                rect = terrain.PaintDisc(e.Center, e.Radius, e.Surface);
+                rect = terrain.KeepsWalkableCell(e.Center, e.Radius, e.Surface)
+                    ? terrain.PaintDisc(e.Center, e.Radius, e.Surface)
+                    : null;
             }
             else
             {
@@ -123,6 +128,20 @@ public sealed partial class World
         if (rect.Contains(cx, cz) && !terrain.IsWalkable(cx, cz))
         {
             g.Ball = GridQueries.NearestWalkablePoint(terrain, g.Ball);
+        }
+    }
+
+    private void MixPendingEdits(ref ulong hash)
+    {
+        Mix(ref hash, (ulong)_edits.Count);
+        foreach (var e in _edits)
+        {
+            Mix(ref hash, (ulong)BitConverter.DoubleToInt64Bits(e.Center.X));
+            Mix(ref hash, (ulong)BitConverter.DoubleToInt64Bits(e.Center.Z));
+            Mix(ref hash, (ulong)BitConverter.DoubleToInt64Bits(e.Radius));
+            Mix(ref hash, (ulong)BitConverter.DoubleToInt64Bits(e.Delta));
+            Mix(ref hash, (ulong)e.Surface);
+            Mix(ref hash, e.IsPaint ? 1UL : 0UL);
         }
     }
 

@@ -113,6 +113,40 @@ public sealed class TerrainGrid
     /// Édition : peint de <paramref name="surface"/> toutes les cellules dont le centre est à au plus <paramref name="radius"/> mètres de <paramref name="center"/>.
     /// Rend le rectangle de cellules modifiées, ou null si aucune.
     /// </summary>
+    /// <summary>
+    /// Vrai si peindre <paramref name="surface"/> dans ce disque laisse au moins une cellule franchissable sur la carte
+    /// (sans quoi la repose des golfeurs et les champs de flux n'ont plus de solution).
+    /// </summary>
+    public bool KeepsWalkableCell(Point2 center, double radius, Surface surface)
+    {
+        if (SurfaceTable.Get(surface).Walkable)
+        {
+            return true;
+        }
+
+        var r2 = radius * radius;
+        for (var cz = 0; cz < CellsZ; cz++)
+        {
+            for (var cx = 0; cx < CellsX; cx++)
+            {
+                if (!SurfaceTable.Get(_surfaces[(cz * CellsX) + cx]).Walkable)
+                {
+                    continue;
+                }
+
+                var c = CellCenter(cx, cz);
+                var dx = c.X - center.X;
+                var dz = c.Z - center.Z;
+                if ((dx * dx) + (dz * dz) > r2)
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
     public CellRect? PaintDisc(Point2 center, double radius, Surface surface)
     {
         ValidateRadius(radius);

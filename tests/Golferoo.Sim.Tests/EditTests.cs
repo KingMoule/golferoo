@@ -139,4 +139,29 @@ public class EditTests
 
         Assert.Equal(200, world.Tick);
     }
+
+    [Fact]
+    public void PaintWater_OverWholeMap_IsIgnored()
+    {
+        var world = NewWorld();
+        world.SetLoadMode(3);
+
+        world.PaintSurface(new Point2(30, 30), 100, Surface.Water);
+        world.Step();
+
+        var t = world.Terrain!;
+        Assert.Equal(Surface.Fairway, t.SurfaceAt(30, 30));
+        Assert.Equal(1, world.Tick);
+    }
+
+    [Fact]
+    public void PendingEdit_ChangesChecksum()
+    {
+        var a = NewWorld();
+        var b = NewWorld();
+
+        a.RaiseTerrain(new Point2(10, 10), 4, 1.0);
+
+        Assert.NotEqual(a.Checksum(), b.Checksum());
+    }
 }
