@@ -11,4 +11,4 @@ Dépôt vide côté jeu ; le workflow Claude Code (CLAUDE.md, agents, skills, ho
 - Workflow : orchestrateur Opus, codeur et auditeur Sonnet, relecteur Opus, exploration Haiku (voir docs/workflow.md).
 
 ## Prochaine étape
-EN ATTENTE de Guillaume : valider l'ADR 0001 (licence, web, consoles), puis cadrer le prototype d'un trou (2D iso contre 3D).
+EN ATTENTE de Guillaume : valider l'ADR 0001 (licence, web, consoles), puis cadrer le prototype d'un trou en 3D low-poly.
