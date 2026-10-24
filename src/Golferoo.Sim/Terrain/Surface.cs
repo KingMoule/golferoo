@@ -22,13 +22,15 @@ public enum Surface : byte
 /// <param name="RollResistance">Décélération de roulement, sans unité (fraction de g) : plus c'est grand, plus la balle ralentit.</param>
 /// <param name="Restitution">Part de la vitesse normale conservée au rebond (0 = mou, 1 = parfait).</param>
 /// <param name="Friction">Part de la vitesse tangentielle perdue au rebond (0 = glisse, 1 = accroche).</param>
+/// <param name="WalkCost">Coût de marche relatif (1 = fairway) : multiplie la distance dans les champs de flux et divise la vitesse de marche. Infini si la surface est infranchissable.</param>
 public readonly record struct SurfaceProperties(
     bool Walkable,
     bool IsHazard,
     int PenaltyStrokes,
     double RollResistance,
     double Restitution,
-    double Friction);
+    double Friction,
+    double WalkCost = 1.0);
 
 /// <summary>Table des propriétés par surface. Valeurs plausibles, sans réglage fin (à calibrer au lot 4).</summary>
 public static class SurfaceTable
@@ -36,21 +38,21 @@ public static class SurfaceTable
     private static readonly SurfaceProperties[] Table =
     [
         // Tee : herbe tondue ras, dur.
-        new(Walkable: true, IsHazard: false, PenaltyStrokes: 0, RollResistance: 0.06, Restitution: 0.50, Friction: 0.25),
+        new(Walkable: true, IsHazard: false, PenaltyStrokes: 0, RollResistance: 0.06, Restitution: 0.50, Friction: 0.25, WalkCost: 1.0),
         // Green : le plus rapide au roulement, rebond doux.
-        new(Walkable: true, IsHazard: false, PenaltyStrokes: 0, RollResistance: 0.05, Restitution: 0.40, Friction: 0.30),
+        new(Walkable: true, IsHazard: false, PenaltyStrokes: 0, RollResistance: 0.05, Restitution: 0.40, Friction: 0.30, WalkCost: 1.0),
         // Fairway : herbe courte.
-        new(Walkable: true, IsHazard: false, PenaltyStrokes: 0, RollResistance: 0.10, Restitution: 0.45, Friction: 0.35),
+        new(Walkable: true, IsHazard: false, PenaltyStrokes: 0, RollResistance: 0.10, Restitution: 0.45, Friction: 0.35, WalkCost: 1.0),
         // Rough : herbe haute, freine fort et amortit.
-        new(Walkable: true, IsHazard: false, PenaltyStrokes: 0, RollResistance: 0.40, Restitution: 0.25, Friction: 0.60),
+        new(Walkable: true, IsHazard: false, PenaltyStrokes: 0, RollResistance: 0.40, Restitution: 0.25, Friction: 0.60, WalkCost: 1.4),
         // Bunker : sable, la balle s'y plante (obstacle sans pénalité de coup).
-        new(Walkable: true, IsHazard: true, PenaltyStrokes: 0, RollResistance: 1.00, Restitution: 0.05, Friction: 0.90),
+        new(Walkable: true, IsHazard: true, PenaltyStrokes: 0, RollResistance: 1.00, Restitution: 0.05, Friction: 0.90, WalkCost: 2.2),
         // Water : la balle est perdue, un coup de pénalité.
-        new(Walkable: false, IsHazard: true, PenaltyStrokes: 1, RollResistance: 1.00, Restitution: 0.00, Friction: 1.00),
+        new(Walkable: false, IsHazard: true, PenaltyStrokes: 1, RollResistance: 1.00, Restitution: 0.00, Friction: 1.00, WalkCost: double.PositiveInfinity),
         // Trees : bosquet, infranchissable à pied, la balle rebondit mal.
-        new(Walkable: false, IsHazard: false, PenaltyStrokes: 0, RollResistance: 0.60, Restitution: 0.20, Friction: 0.70),
+        new(Walkable: false, IsHazard: false, PenaltyStrokes: 0, RollResistance: 0.60, Restitution: 0.20, Friction: 0.70, WalkCost: double.PositiveInfinity),
         // Path : chemin dur de golfeurettes, roule vite, rebond vif.
-        new(Walkable: true, IsHazard: false, PenaltyStrokes: 0, RollResistance: 0.08, Restitution: 0.55, Friction: 0.20),
+        new(Walkable: true, IsHazard: false, PenaltyStrokes: 0, RollResistance: 0.08, Restitution: 0.55, Friction: 0.20, WalkCost: 0.9),
     ];
 
     /// <summary>Nombre de surfaces définies.</summary>

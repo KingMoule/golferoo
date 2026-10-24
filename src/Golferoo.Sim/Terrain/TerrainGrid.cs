@@ -21,6 +21,11 @@ public sealed class TerrainGrid
 
     public HeightField Heights { get; }
 
+    /// <summary>Compteur incrémenté à chaque édition (hauteur ou surface) : les caches s'y comparent pour s'invalider.</summary>
+    public long Version { get; private set; }
+
+    internal ReadOnlySpan<Surface> Surfaces => _surfaces;
+
     public string Name { get; }
 
     /// <summary>Position de départ, en mètres.</summary>
@@ -53,10 +58,27 @@ public sealed class TerrainGrid
         return _surfaces[(cz * CellsX) + cx];
     }
 
+    /// <summary>Indice de la cellule contenant l'abscisse x, borné à la carte.</summary>
+    public int CellXOf(double x) => Math.Clamp((int)Math.Floor(x / CellSize), 0, CellsX - 1);
+
+    /// <summary>Indice de la cellule contenant la profondeur z, borné à la carte.</summary>
+    public int CellZOf(double z) => Math.Clamp((int)Math.Floor(z / CellSize), 0, CellsZ - 1);
+
+    /// <summary>Centre de la cellule (cx, cz), en mètres.</summary>
+    public Point2 CellCenter(int cx, int cz) => new((cx + 0.5) * CellSize, (cz + 0.5) * CellSize);
+
+    /// <summary>Vrai si un golfeur peut marcher sur la cellule ; faux hors grille.</summary>
+    public bool IsWalkable(int cx, int cz) =>
+        cx >= 0 && cx < CellsX && cz >= 0 && cz < CellsZ && SurfaceTable.Get(_surfaces[(cz * CellsX) + cx]).Walkable;
+
     public SurfaceProperties PropertiesAt(double x, double z) => SurfaceTable.Get(SurfaceAt(x, z));
 
     /// <summary>Édition : change la hauteur du coin (i, j) de la grille de cellules.</summary>
-    public void SetCornerHeight(int i, int j, double height) => Heights.SetCornerHeight(i, j, height);
+    public void SetCornerHeight(int i, int j, double height)
+    {
+        Heights.SetCornerHeight(i, j, height);
+        Version++;
+    }
 
     /// <summary>Édition : peint la surface de la cellule (cx, cz).</summary>
     public void PaintCell(int cx, int cz, Surface surface)
@@ -67,6 +89,7 @@ public sealed class TerrainGrid
         }
 
         _surfaces[CellIndex(cx, cz)] = surface;
+        Version++;
     }
 
     /// <summary>Empreinte FNV-1a 64 bits de l'état du terrain (hauteurs, surfaces, repères), pour <see cref="World.Checksum"/>.</summary>
