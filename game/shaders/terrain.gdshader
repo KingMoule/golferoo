@@ -9,6 +9,9 @@ uniform vec2 grid_size = vec2(384.0, 128.0);
 uniform float noise_amount = 0.45;
 uniform float noise_scale = 0.35;
 uniform float stripe_width = 6.0;
+// Rayon du flou des poids, en mètres. Le trou est dessiné par tuiles de 8 m : sans flou plus large
+// qu'une cellule, les bords gardent l'escalier des tuiles.
+uniform float blur_meters = 2.5;
 
 varying vec3 wpos;
 
@@ -34,8 +37,21 @@ void vertex() {
 
 void fragment() {
 	vec2 uv = wpos.xz / grid_size;
-	vec4 a = texture(weights_a, uv);
-	vec4 b = texture(weights_b, uv);
+	// Flou en deux couronnes (8 + 8 prises) autour du centre.
+	vec4 a = texture(weights_a, uv) * 2.0;
+	vec4 b = texture(weights_b, uv) * 2.0;
+	float total = 2.0;
+	for (int k = 0; k < 8; k++) {
+		float ang = float(k) * 0.785398;
+		vec2 dir = vec2(cos(ang), sin(ang));
+		vec2 o1 = dir * (blur_meters * 0.5) / grid_size;
+		vec2 o2 = vec2(cos(ang + 0.392699), sin(ang + 0.392699)) * blur_meters / grid_size;
+		a += texture(weights_a, uv + o1) + 0.6 * texture(weights_a, uv + o2);
+		b += texture(weights_b, uv + o1) + 0.6 * texture(weights_b, uv + o2);
+		total += 1.6;
+	}
+	a /= total;
+	b /= total;
 	float w[8];
 	w[0] = a.r; w[1] = a.g; w[2] = a.b; w[3] = a.a;
 	w[4] = b.r; w[5] = b.g; w[6] = b.b; w[7] = b.a;
