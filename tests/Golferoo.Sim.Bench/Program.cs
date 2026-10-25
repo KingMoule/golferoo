@@ -26,6 +26,7 @@ const double treeGrowLimitMs = 5.0;
 const double windFlightRatioLimit = 1.05;
 const double windPlanRatioLimit = 1.2;
 const double dayChangeLimitMs = 5.0;
+const double puddleFloodLimitMs = 20.0;
 
 // Carte plate de 512 x 512 cellules, la même à tous les facteurs.
 var big = new TerrainGrid(new HeightField(512, 512, 2.0), "plat", new Point2(2, 2), new Point2(1000, 1000), new Point2(1000, 1000));
@@ -172,9 +173,17 @@ allPassed &= wind.FlightRatio <= windFlightRatioLimit && wind.PlanRatio <= windP
 var dayChange = MeasureDayChange();
 allPassed &= dayChange.Median < dayChangeLimitMs;
 
+// Cuvettes des flaques (C04 lot 4) : remplissage depuis les bords sur 320 x 320 cellules (102 400) après une retouche du relief,
+// médiane de 11 passes. Critère sur un relief de collines et de creux comme en peint le pinceau ; le bruit pur à chaque coin
+// (pire cas, des creux partout) est donné pour information. Au sec, rien n'est calculé.
+var flood = MeasurePuddleFlood(noise: false);
+var floodNoise = MeasurePuddleFlood(noise: true);
+allPassed &= flood.Median < puddleFloodLimitMs;
+
 var report = new
 {
-    benchmark = "c04-lot3",
+    benchmark = "c04-lot4",
+    puddleFlood = new { cells = 320 * 320, medianMs = flood.Median, maxMs = flood.Max, noiseMedianMs = floodNoise.Median, limitMs = puddleFloodLimitMs, passed = flood.Median < puddleFloodLimitMs },
     dayChange = new { trees = dayChange.Trees, medianMs = dayChange.Median, maxMs = dayChange.Max, fallen = dayChange.Fallen, limitMs = dayChangeLimitMs, passed = dayChange.Median < dayChangeLimitMs },
     wind = new
     {
@@ -366,6 +375,36 @@ static (double FlightRatio, double PlanCalmMs, double PlanWindyMs, double PlanRa
     Array.Sort(planCalm);
     Array.Sort(planWindy);
     return (blow[7] / calm[7], planCalm[15], planWindy[15], planWindy[15] / planCalm[15]);
+}
+
+static (double Median, double Max) MeasurePuddleFlood(bool noise)
+{
+    var map = new TerrainGrid(new HeightField(320, 320, 2.0), "relief", new Point2(2, 2), new Point2(600, 600), new Point2(600, 600));
+    var rng = new DeterministicRng(41);
+    for (var j = 0; j <= 320; j++)
+    {
+        for (var i = 0; i <= 320; i++)
+        {
+            // Collines de 60 à 100 m et creux de 1 à 2 m, ou bruit pur.
+            map.SetCornerHeight(i, j, noise ? rng.NextDouble() * 2.0 : (3.0 * Math.Sin(i * 0.1) * Math.Cos(j * 0.07)) + (1.5 * Math.Sin((i + j) * 0.23)));
+        }
+    }
+
+    map.Soil.Wetness = 1.0;
+    var samples = new double[11];
+    for (var k = -2; k < samples.Length; k++)
+    {
+        map.SetCornerHeight(160, 160, rng.NextDouble() * 2.0);
+        var t0 = Stopwatch.GetTimestamp();
+        map.Puddles.DepthAt(0, 0);
+        if (k >= 0)
+        {
+            samples[k] = Stopwatch.GetElapsedTime(t0).TotalMilliseconds;
+        }
+    }
+
+    Array.Sort(samples);
+    return (samples[samples.Length / 2], samples[^1]);
 }
 
 static (int Trees, double Median, double Max, int Fallen) MeasureDayChange()

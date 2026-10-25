@@ -18,10 +18,14 @@ public sealed class TerrainGrid
         _surfaces = new Surface[heights.CellsX * heights.CellsZ];
         Array.Fill(_surfaces, Surface.Rough);
         Soil = new SoilGrid(this);
+        Puddles = new Puddles(this);
     }
 
     /// <summary>Sol par cellule (roulement, rebond, frottement) que lit la balle ; la saison s'y règle.</summary>
     public SoilGrid Soil { get; }
+
+    /// <summary>Flaques après la pluie, selon le relief et l'humidité du sol.</summary>
+    public Puddles Puddles { get; }
 
     public HeightField Heights { get; }
 

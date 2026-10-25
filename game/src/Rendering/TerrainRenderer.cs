@@ -43,6 +43,8 @@ public partial class TerrainRenderer : Node3D
     public void Build(TerrainGrid grid, TreeStand stand)
     {
         _grid = grid;
+        _puddles = null;
+        _puddlesFor = (-1, -1, -1);
         foreach (var child in GetChildren())
         {
             child.QueueFree();
@@ -86,6 +88,57 @@ public partial class TerrainRenderer : Node3D
         new(1.12f, 1.02f, 0.75f), // automne : un peu jaune
         new(1.05f, 0.9f, 0.8f), // hiver : terne
     ];
+
+    private (double Wetness, long Heights, long Surfaces) _puddlesFor = (-1, -1, -1);
+    private MeshInstance3D? _puddles;
+
+    /// <summary>Cellules en flaque affichées.</summary>
+    public int PuddleCells { get; private set; }
+
+    /// <summary>
+    /// Redessine les flaques (un carré d'eau par cellule, au niveau de sa flaque, shader d'eau) si l'humidité, le relief
+    /// ou les surfaces ont changé : au plus une fois par jour de jeu hors retouches. Rend vrai s'il a fallu redessiner.
+    /// </summary>
+    public bool RefreshPuddles()
+    {
+        if (_grid is null)
+        {
+            return false;
+        }
+
+        var key = (_grid.Soil.Wetness, _grid.HeightVersion, _grid.SurfaceVersion);
+        if (key == _puddlesFor)
+        {
+            return false;
+        }
+
+        _puddlesFor = key;
+        _puddles?.QueueFree();
+        _puddles = null;
+        var cells = new List<(int X, int Z, float Y)>();
+        if (_grid.Soil.Wetness > 0)
+        {
+            for (var cz = 0; cz < _grid.CellsZ; cz++)
+            {
+                for (var cx = 0; cx < _grid.CellsX; cx++)
+                {
+                    if (_grid.Puddles.LevelAt(cx, cz) is { } level)
+                    {
+                        cells.Add((cx, cz, (float)level));
+                    }
+                }
+            }
+        }
+
+        PuddleCells = cells.Count;
+        if (cells.Count > 0)
+        {
+            _puddles = new MeshInstance3D { Name = "Puddles", Mesh = Quads(_grid, cells), MaterialOverride = _waterMaterial, CastShadow = GeometryInstance3D.ShadowCastingSetting.Off };
+            AddChild(_puddles);
+        }
+
+        return true;
+    }
 
     /// <summary>Sol mouillé : le terrain s'assombrit (0 sec, 1 pluie du jour).</summary>
     public void SetWetness(float wetness) => _terrainMaterial?.SetShaderParameter("wetness", wetness);
@@ -263,13 +316,19 @@ public partial class TerrainRenderer : Node3D
         }
 
         var y = (float)level + 0.05f;
+        return Quads(grid, cells.Select(c => (c.X, c.Z, y)).ToList());
+    }
+
+    /// <summary>Un carré horizontal par cellule, à la hauteur donnée.</summary>
+    private static ArrayMesh Quads(TerrainGrid grid, List<(int X, int Z, float Y)> cells)
+    {
         var vertices = new Vector3[cells.Count * 4];
         var normals = new Vector3[cells.Count * 4];
         var indices = new int[cells.Count * 6];
         var cs = (float)grid.CellSize;
         for (var n = 0; n < cells.Count; n++)
         {
-            var (cx, cz) = cells[n];
+            var (cx, cz, y) = cells[n];
             var x = cx * cs;
             var z = cz * cs;
             var o = n * 4;
