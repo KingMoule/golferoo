@@ -182,7 +182,7 @@ public sealed class PhysicalShotResolver : IShotResolver
         var ux = ex / dist;
         var uz = ez / dist;
         var target = dist + PuttOvershoot;
-        var resistance = SurfaceTable.Get(Surface.Green).RollResistance * BallSimulator.Gravity;
+        var resistance = terrain.Soil.RollResistanceAt(ball.X, ball.Z) * BallSimulator.Gravity;
         var speed = Math.Min(Math.Sqrt(2.0 * resistance * target), MaxPuttSpeed);
         var aimX = ux;
         var aimZ = uz;

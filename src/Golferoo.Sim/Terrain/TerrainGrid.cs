@@ -17,7 +17,11 @@ public sealed class TerrainGrid
         Hole = hole;
         _surfaces = new Surface[heights.CellsX * heights.CellsZ];
         Array.Fill(_surfaces, Surface.Rough);
+        Soil = new SoilGrid(this);
     }
+
+    /// <summary>Sol par cellule (roulement, rebond, frottement) que lit la balle ; la saison s'y règle.</summary>
+    public SoilGrid Soil { get; }
 
     public HeightField Heights { get; }
 

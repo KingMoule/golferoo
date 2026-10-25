@@ -21,6 +21,8 @@ const double bigFieldLimitMs = 20.0;
 const double retouchLimitMs = 16.0;
 const double treeFlightRatioLimit = 1.2;
 const double treeGrowLimitMs = 5.0;
+const double soilFlightRatioLimit = 1.05;
+const double flightBeforeSoilMs = 0.225; // vol sans arbres avant F2 (C03 lot 2), mesuré sur la machine de développement : indicatif, dépend du processeur
 
 // Carte plate de 512 x 512 cellules, la même à tous les facteurs.
 var big = new TerrainGrid(new HeightField(512, 512, 2.0), "plat", new Point2(2, 2), new Point2(1000, 1000), new Point2(1000, 1000));
@@ -157,6 +159,9 @@ allPassed &= treeFlight.Ratio <= treeFlightRatioLimit;
 var grow = MeasureTreeGrowth(big);
 allPassed &= grow.Median < treeGrowLimitMs;
 
+var soilFlightRatio = treeFlight.NoTreesMs / flightBeforeSoilMs;
+Console.Error.WriteLine($"vol avec sol / vol d'avant F2 : {soilFlightRatio:F3} (limite {soilFlightRatioLimit}, indicatif)");
+
 var report = new
 {
     benchmark = "c02-lot3",
@@ -199,7 +204,15 @@ static (int Trees, double Mean, double Median, double Max) MeasureTreeGrowth(Ter
         stand.Add(2 + (placer.NextDouble() * (size - 4)), 2 + (placer.NextDouble() * (size - 4)), (TreeSpeciesId)(i % TreeSpeciesTable.Count), (int)(placer.NextDouble() * 30 * 12));
     }
 
-    var m = Measure(200, 20, () => stand.Grow(Golferoo.Sim.Time.Calendar.TreeMonthsPerMonth));
+    // Un mois de jeu : les arbres vieillissent et le sol est recalculé (saison changée à chaque passe, lecture qui force le recalcul).
+    var summer = true;
+    var m = Measure(200, 20, () =>
+    {
+        stand.Grow(Golferoo.Sim.Time.Calendar.TreeMonthsPerMonth);
+        summer = !summer;
+        map.Soil.Season = summer ? Season.Summer : Season.Autumn;
+        map.Soil.RollResistanceAt(0, 0);
+    });
     return (treeCount, m.Mean, m.Median, m.Max);
 }
 
