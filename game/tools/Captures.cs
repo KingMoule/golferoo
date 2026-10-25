@@ -1,13 +1,18 @@
 using Godot;
 using Golferoo.Game.Rendering;
+using Golferoo.Sim;
+using Golferoo.Sim.Terrain;
+using Golferoo.Sim.Trees;
 
 namespace Golferoo.Game.Tools;
 
 /// <summary>
-/// Produit 10 captures du trou avec une paire de golfeurs, graine fixe : 4 rotations x 2 zooms (ensemble et green),
-/// puis 2 vues proches d'un golfeur à côté d'un arbre mature (la balle suivie sert de point focal : couronnes tramées).
+/// Produit 13 captures du trou avec une paire de golfeurs, graine fixe : 4 rotations x 2 zooms (ensemble et green),
+/// puis 2 vues proches d'un golfeur à côté d'un arbre mature (la balle suivie sert de point focal : couronnes tramées),
+/// une vue d'ensemble après 15 ans, puis un défrichage replanté (6 à 10 jeunes plants et une motte au milieu du sous-bois rasé),
+/// vu de près, puis vingt ans plus tard avec la motte tombée en tronc couché.
 /// Usage : godot --path game res://tools/Captures.tscn -- --out dossier [--factor n] [--prefix texte] [--thumbs] [--full]
-/// Code de sortie 0 si les 10 images existent, ont la même taille et ne sont pas uniformes ; non nul sinon.
+/// Code de sortie 0 si les 13 images existent, ont la même taille et ne sont pas uniformes ; non nul sinon.
 /// </summary>
 public partial class Captures : Node
 {
@@ -16,6 +21,11 @@ public partial class Captures : Node
     private const float CloseUpSize = 36f;
     private const float CloseUpDistance = 20f;
     private const int CloseUpMaxSteps = 300;
+    private const float ClearingSize = 40f;
+    private const double ClearingRadius = 12.0;
+    private const int FallWaitFrames = 300;
+
+    private int? _clearingMound;
 
     private static readonly float[] Yaws = [45f, 135f, 225f, 315f];
 
@@ -65,6 +75,7 @@ public partial class Captures : Node
         }
 
         var failures = 0;
+        var clearingTarget = center;
         Vector2I? size = null;
         var index = 0;
         var views = new List<(string Name, float Size, Vector3 Target, float[] Yaws, Vector3? Followed)>
@@ -74,6 +85,8 @@ public partial class Captures : Node
         };
         views.Add(("closeup", CloseUpSize, center, [45f, 225f], null));
         views.Add(("aged15", 240f, center, [Yaws[0]], null));
+        views.Add(("clearing", ClearingSize, center, [Yaws[0]], null));
+        views.Add(("clearing20", ClearingSize, center, [Yaws[0]], null));
 
         foreach (var (zoomName, viewSize, target0, yaws0, followed0) in views)
         {
@@ -102,6 +115,41 @@ public partial class Captures : Node
                 {
                     var (n, h, c) = aged.RenderedStats();
                     GD.Print($"TREES après n={n} h_moy={h:F1} couronne_moy={c:F1} age_moy={main.World.Trees.MeanAgeMonths / 12.0:F1}");
+                }
+            }
+
+            if (zoomName == "clearing")
+            {
+                if (ReplantClearing(main) is not { } spot)
+                {
+                    GD.PrintErr("CAPTURES FAIL aucun sous-bois à défricher");
+                    failures++;
+                    continue;
+                }
+
+                target = spot;
+                clearingTarget = spot;
+            }
+
+            if (zoomName == "clearing20")
+            {
+                // Vingt ans plus tard : la motte est un grand arbre isolé, qu'on fait tomber ; on attend la fin de la chute.
+                for (var year = 0; year < 20; year++)
+                {
+                    main.AdvanceTreesOneYear();
+                }
+
+                target = clearingTarget;
+                if (_clearingMound is { } mound)
+                {
+                    main.World.FellTree(mound, Math.PI / 3.0);
+                    main.StepTicks(1);
+                    for (var f = 0; f < FallWaitFrames && main.TerrainView.Trees is { FallingCount: > 0 }; f++)
+                    {
+                        await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+                    }
+
+                    GD.Print($"CLEARING20 {main.World.Trees.Count} arbres, tombés {main.TerrainView.Trees?.FallenCount}, chutes en cours {main.TerrainView.Trees?.FallingCount}, dépenses {main.World.TreeSpending}");
                 }
             }
 
@@ -149,13 +197,74 @@ public partial class Captures : Node
             }
         }
 
-        if (failures == 0 && index == 11)
+        if (failures == 0 && index == 13)
         {
             GD.Print($"CAPTURES OK {index} images");
             return 0;
         }
 
         return 1;
+    }
+
+    /// <summary>
+    /// Rase (rayon <see cref="ClearingRadius"/>) le sous-bois le plus proche du centre de la carte, y plante une motte au milieu
+    /// et 8 jeunes plants mélangés (chêne, bouleau, sapin) sur deux couronnes, et rend le point visé ; null sans sous-bois.
+    /// </summary>
+    private Vector3? ReplantClearing(Main main)
+    {
+        var world = main.World;
+        var grid = world.Terrain!;
+        var mid = new Point2(grid.CellsX * grid.CellSize * 0.5, grid.CellsZ * grid.CellSize * 0.5);
+        Point2? best = null;
+        var bestDistance = double.MaxValue;
+        for (var cz = 0; cz < grid.CellsZ; cz++)
+        {
+            for (var cx = 0; cx < grid.CellsX; cx++)
+            {
+                if (grid.GetCellSurface(cx, cz) != Surface.Trees)
+                {
+                    continue;
+                }
+
+                var c = grid.CellCenter(cx, cz);
+                var d = ((c.X - mid.X) * (c.X - mid.X)) + ((c.Z - mid.Z) * (c.Z - mid.Z));
+                if (d < bestDistance)
+                {
+                    bestDistance = d;
+                    best = c;
+                }
+            }
+        }
+
+        if (best is not { } centre)
+        {
+            return null;
+        }
+
+        var before = world.Trees.Count;
+        world.RazeArea(centre, ClearingRadius, keepRemarkable: false);
+        main.StepTicks(1);
+        var species = new[] { Golferoo.Sim.Trees.TreeSpeciesId.Oak, Golferoo.Sim.Trees.TreeSpeciesId.Birch, Golferoo.Sim.Trees.TreeSpeciesId.Fir };
+        world.PlantTree(centre.X, centre.Z, Golferoo.Sim.Trees.TreeSpeciesId.Oak, TreePlantStage.Mound);
+        for (var i = 0; i < 8; i++)
+        {
+            var ring = i % 2 == 0 ? 5.0 : 9.0;
+            var a = i * Math.PI / 4.0;
+            world.PlantTree(centre.X + (Math.Cos(a) * ring), centre.Z + (Math.Sin(a) * ring), species[i % 3], TreePlantStage.Sapling);
+        }
+
+        main.StepTicks(1);
+        _clearingMound = null;
+        foreach (var t in world.Trees.Trees)
+        {
+            if (t.AgeMonths is >= 96 and <= 120 && Math.Abs(t.X - centre.X) < 0.01 && Math.Abs(t.Z - centre.Z) < 0.01)
+            {
+                _clearingMound = t.Id;
+            }
+        }
+
+        GD.Print($"CLEARING centre=({centre.X:F0},{centre.Z:F0}) arbres {before} puis {world.Trees.Count}, refusées {world.TreeCommandsRefused}, dépenses {world.TreeSpending}");
+        return new Vector3((float)centre.X, (float)grid.Sample(centre.X, centre.Z) + 2f, (float)centre.Z);
     }
 
     /// <summary>

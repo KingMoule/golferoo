@@ -39,6 +39,9 @@ public sealed class TreeStand
 
     public int Count => _trees.Count;
 
+    /// <summary>Identifiant du prochain arbre ajouté.</summary>
+    public int NextId => _nextId;
+
     /// <summary>Âge moyen des arbres en mois, 0 sans arbre.</summary>
     public double MeanAgeMonths => _trees.Count == 0 ? 0.0 : (double)_ageSum / _trees.Count;
 
@@ -60,6 +63,26 @@ public sealed class TreeStand
     }
 
     public bool TryGet(int id, out Tree tree) => _byId.TryGetValue(id, out tree);
+
+    /// <summary>
+    /// Change l'état d'un arbre (tombé : <paramref name="fallYaw"/> donne la direction de chute). Un arbre qui n'est plus debout
+    /// sort de l'altitude de cime, donc de <see cref="MaxTopNear"/> : la balle passe là où il l'arrêtait. Faux si l'arbre n'existe pas.
+    /// </summary>
+    public bool SetState(int id, TreeState state, float fallYaw = 0f)
+    {
+        if (!_byId.TryGetValue(id, out var tree))
+        {
+            return false;
+        }
+
+        var updated = tree with { State = state, FallYaw = fallYaw };
+        _byId[id] = updated;
+        var index = _trees.FindIndex(t => t.Id == id);
+        _trees[index] = updated;
+        RecomputeCell(CellIndex(tree.X, tree.Z));
+        Version++;
+        return true;
+    }
 
     /// <summary>Retire l'arbre ; faux s'il n'existe pas.</summary>
     public bool Remove(int id) => RemoveWhere(t => t.Id == id) > 0;

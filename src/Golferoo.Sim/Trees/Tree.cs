@@ -10,10 +10,17 @@ public enum TreeState : byte
 
 /// <summary>
 /// Arbre de la simulation. Hauteur et couronne ne sont pas stockées : elles se déduisent de l'essence et de l'âge
-/// par une fonction pure (<see cref="Height"/>, <see cref="CrownDiameter"/>).
+/// par une fonction pure (<see cref="Height"/>, <see cref="CrownDiameter"/>). <paramref name="FallYaw"/> : direction de chute
+/// en radians dans le plan (cos = X, sin = Z), significative seulement pour un arbre <see cref="TreeState.Fallen"/>.
 /// </summary>
-public readonly record struct Tree(int Id, double X, double Z, TreeSpeciesId Species, int AgeMonths, TreeState State = TreeState.Standing, bool Remarkable = false)
+public readonly record struct Tree(int Id, double X, double Z, TreeSpeciesId Species, int AgeMonths, TreeState State = TreeState.Standing, bool Remarkable = false, float FallYaw = 0f)
 {
+    /// <summary>Un arbre est remarquable à partir de ce multiple de l'âge adulte de son essence.</summary>
+    public const double RemarkableAgeFactor = 1.5;
+
+    /// <summary>Vrai si un arbre de cette essence et de cet âge est remarquable (âge d'au moins 1,5 fois l'âge adulte).</summary>
+    public static bool IsRemarkableAge(TreeSpecies species, int ageMonths) => ageMonths >= RemarkableAgeFactor * species.AdultAgeMonths;
+
     /// <summary>Avancement de la croissance, de 0 (plant) à 1 (adulte) ; courbe rapide au début, qui s'aplatit.</summary>
     public static double Growth(TreeSpecies species, int ageMonths)
     {

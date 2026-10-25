@@ -30,6 +30,7 @@ public partial class Main : Node3D
     private bool _loadMode;
     private Label? _hud;
     private Rect2I? _dirtyCells;
+    private Rect2I? _dirtyTreeCells;
 
     public Main()
     {
@@ -46,6 +47,8 @@ public partial class Main : Node3D
     public IsoCamera Camera { get; private set; } = null!;
 
     public Brush Brush { get; private set; } = null!;
+
+    public TreeTool TreeTool { get; private set; } = null!;
 
     public int Factor { get; private set; } = DefaultFactor;
 
@@ -119,6 +122,10 @@ public partial class Main : Node3D
         var grid = HoleLoader.Parse(ReadHoleJson(), Factor);
         GD.Print($"HOLE source={HoleSource}");
         World = new World(seed: 1, grid);
+        if (OS.GetCmdlineUserArgs().Contains("--fps-bench"))
+        {
+            FpsBench.FillTrees(World.Trees, grid);
+        }
 
         AddChild(new WorldEnvironment
         {
@@ -151,6 +158,11 @@ public partial class Main : Node3D
         Brush = new Brush { Name = "Brush" };
         AddChild(Brush);
         Brush.Init(this);
+        World.TreesEdited += OnTreesEdited;
+        World.TreeFelled += tree => TerrainView.Trees?.PlayFall(tree);
+        TreeTool = new TreeTool { Name = "TreeTool" };
+        AddChild(TreeTool);
+        TreeTool.Init(this);
 
         _hud = GetNode<Label>("TickLabel");
         ResetSnapshots();
@@ -194,7 +206,7 @@ public partial class Main : Node3D
             case InputEventKey { Pressed: true, Echo: false } key:
                 HandleKey(key.Keycode);
                 break;
-            case InputEventMouseButton when Brush.Active:
+            case InputEventMouseButton when Brush.Active || TreeTool.Active:
                 // Le pinceau garde les clics : la caméra ne reçoit plus que la molette et le clic du milieu.
                 if (@event is InputEventMouseButton { Pressed: true, ButtonIndex: MouseButton.WheelUp })
                 {
@@ -254,6 +266,16 @@ public partial class Main : Node3D
 
     private void HandleKey(Key key)
     {
+        if (TreeTool.HandleKey(key))
+        {
+            return;
+        }
+
+        if (key == Key.B && !Brush.Active)
+        {
+            TreeTool.SetActive(false);
+        }
+
         if (Brush.HandleKey(key))
         {
             return;
@@ -327,9 +349,22 @@ public partial class Main : Node3D
         _dirtyCells = _dirtyCells is { } d ? d.Merge(r) : r;
     }
 
+    private void OnTreesEdited(CellRect rect)
+    {
+        var r = new Rect2I(rect.MinX, rect.MinZ, rect.MaxX - rect.MinX + 1, rect.MaxZ - rect.MinZ + 1);
+        _dirtyTreeCells = _dirtyTreeCells is { } d ? d.Merge(r) : r;
+    }
+
     /// <summary>Reconstruit une fois par image la zone modifiée depuis la dernière (les retouches d'un même tick se fusionnent).</summary>
     private void FlushTerrainEdits()
     {
+        if (_dirtyTreeCells is { } trees)
+        {
+            // Arbres seuls (plantés, rasés, tombés) : les blocs d'arbres touchés, pas le terrain.
+            _dirtyTreeCells = null;
+            TerrainView.Trees?.RebuildCells(trees.Position.X, trees.Position.Y, trees.End.X, trees.End.Y);
+        }
+
         if (_dirtyCells is { } rect)
         {
             _dirtyCells = null;
@@ -341,7 +376,7 @@ public partial class Main : Node3D
     {
         if (_hud is not null)
         {
-            _hud.Text = $"{Engine.GetFramesPerSecond()} FPS | {Actors.VisibleGolfers} golfeurs | tick {World.Tick} | x{Speed}{(Paused ? " (pause)" : string.Empty)} | arbres {World.Trees.MeanAgeMonths / 12.0:F1} ans (F10 : +1 an)";
+            _hud.Text = $"{Engine.GetFramesPerSecond()} FPS | {Actors.VisibleGolfers} golfeurs | tick {World.Tick} | x{Speed}{(Paused ? " (pause)" : string.Empty)} | arbres {World.Trees.MeanAgeMonths / 12.0:F1} ans (F10 : +1 an, T : outil arbres) | travaux arbres {World.TreeSpending}";
         }
     }
 }

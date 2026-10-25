@@ -3,6 +3,7 @@ using Golferoo.Game.Rendering;
 using Golferoo.Game.Tools;
 using Golferoo.Sim;
 using Golferoo.Sim.Terrain;
+using Golferoo.Sim.Trees;
 
 namespace Golferoo.Game.Tests;
 
@@ -102,7 +103,7 @@ public partial class SmokeTest : Node
                 failures.Add($"{TreeLayer.ExternalTreePath} présent mais non chargé");
             }
 
-            if (trees.TreeCount != simTrees)
+            if (trees.TotalCount != simTrees)
             {
                 failures.Add($"TreeLayer affiche {trees.TreeCount} arbres, la simulation en compte {simTrees}");
             }
@@ -111,7 +112,7 @@ public partial class SmokeTest : Node
             var rebuildsBefore = trees.BlockRebuilds;
             _main.World.PaintSurface(new Point2(grid.Tee.X + 40.0, grid.Tee.Z + 30.0), 12.0, Surface.Trees);
             _main.StepTicks(1);
-            if (trees.TreeCount != _main.World.Trees.Count)
+            if (trees.TotalCount != _main.World.Trees.Count)
             {
                 failures.Add($"après plantation, TreeLayer affiche {trees.TreeCount} arbres, la simulation en compte {_main.World.Trees.Count}");
             }
@@ -129,10 +130,12 @@ public partial class SmokeTest : Node
                 failures.Add($"AdvanceYear : âge moyen {ageBefore:F1} → {_main.World.Trees.MeanAgeMonths:F1} mois");
             }
 
-            if (trees.TreeCount != _main.World.Trees.Count)
+            if (trees.TotalCount != _main.World.Trees.Count)
             {
                 failures.Add($"après AdvanceYear, TreeLayer affiche {trees.TreeCount} arbres, la simulation en compte {_main.World.Trees.Count}");
             }
+
+            CheckTreeTools(trees, failures);
 
             if (trees.SpeciesModelCount != 18)
             {
@@ -151,6 +154,107 @@ public partial class SmokeTest : Node
         }
 
         return failures;
+    }
+
+    /// <summary>Outil arbres : plante, rase, fait tomber et dégage un arbre ; la couche compte toujours les arbres de la sim (debout, tombés, souches).</summary>
+    private void CheckTreeTools(TreeLayer trees, List<string> failures)
+    {
+        var world = _main!.World;
+        var grid = world.Terrain!;
+        var tool = _main.TreeTool;
+        var spot = FreeSpot(world, grid);
+        if (spot is not { } p)
+        {
+            failures.Add("outil arbres : aucun emplacement libre pour planter");
+            return;
+        }
+
+        var before = world.Trees.Count;
+        tool.PlantAt(p, TreePlantStage.Mound);
+        _main.StepTicks(1);
+        if (world.Trees.Count != before + 1 || trees.TotalCount != world.Trees.Count)
+        {
+            failures.Add($"outil arbres, plantation : sim {world.Trees.Count} (attendu {before + 1}), couche {trees.TotalCount}");
+            return;
+        }
+
+        var planted = world.Trees.Trees[^1];
+        if (world.TreeSpending != TreeCosts.Mound || !tool.Select(planted.Id) || !tool.Describe().Contains("ans"))
+        {
+            failures.Add($"outil arbres : dépenses {world.TreeSpending}, panneau « {tool.Describe()} »");
+        }
+
+        var standing = trees.TreeCount;
+        if (!tool.FellSelected())
+        {
+            failures.Add("outil arbres : FellSelected refusé");
+        }
+
+        _main.StepTicks(1);
+        if (trees.FallenCount != 1 || trees.TreeCount != standing - 1 || trees.FallingCount != 1 || trees.TotalCount != world.Trees.Count)
+        {
+            failures.Add($"outil arbres, chute : tombés {trees.FallenCount}, debout {trees.TreeCount} (avant {standing}), chutes {trees.FallingCount}");
+        }
+
+        if (!tool.ClearSelected())
+        {
+            failures.Add("outil arbres : ClearSelected refusé");
+        }
+
+        _main.StepTicks(1);
+        if (trees.StumpCount != 1 || trees.FallenCount != 0 || trees.TotalCount != world.Trees.Count)
+        {
+            failures.Add($"outil arbres, dégagement : souches {trees.StumpCount}, tombés {trees.FallenCount}");
+        }
+
+        var second = FreeSpot(world, grid);
+        tool.PlantAt(second ?? p, TreePlantStage.Sapling);
+        _main.StepTicks(1);
+        var sapling = world.Trees.Trees[^1];
+        tool.Select(sapling.Id);
+        if (!tool.RazeSelected())
+        {
+            failures.Add("outil arbres : RazeSelected refusé");
+        }
+
+        _main.StepTicks(1);
+        if (world.Trees.TryGet(sapling.Id, out _) || trees.TotalCount != world.Trees.Count)
+        {
+            failures.Add($"outil arbres, abattage : sim {world.Trees.Count}, couche {trees.TotalCount}");
+        }
+
+        var expected = TreeCosts.Mound + TreeCosts.ClearFallen + TreeCosts.Sapling + TreeCosts.Raze;
+        if (world.TreeSpending != expected)
+        {
+            failures.Add($"outil arbres : dépenses {world.TreeSpending}, attendu {expected}");
+        }
+
+        tool.SetActive(false);
+    }
+
+    /// <summary>Point de surface plantable (ni eau, green, tee, bunker, sous-bois) à plus de 15 m de tout arbre, ou null.</summary>
+    private static Point2? FreeSpot(World world, TerrainGrid grid)
+    {
+        var near = new List<Golferoo.Sim.Trees.Tree>();
+        for (var z = 10.0; z < grid.CellsZ * grid.CellSize - 10.0; z += 10.0)
+        {
+            for (var x = 10.0; x < grid.CellsX * grid.CellSize - 10.0; x += 10.0)
+            {
+                if (grid.SurfaceAt(x, z) is not (Surface.Fairway or Surface.Rough))
+                {
+                    continue;
+                }
+
+                near.Clear();
+                world.Trees.Query(x, z, 15.0, near);
+                if (near.Count == 0)
+                {
+                    return new Point2(x, z);
+                }
+            }
+        }
+
+        return null;
     }
 
     /// <summary>Maillages générés par code : chacun construit (ligne ASSET déjà imprimée), non vide et dans son budget de triangles.</summary>
