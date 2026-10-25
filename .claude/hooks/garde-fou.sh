@@ -16,10 +16,6 @@ if printf '%s' "$cmd" | grep -Eq '(^|[;&|[:space:]])git[[:space:]]+push([[:space
     && refuse "push vers main refusé. Pousse ta branche de chantier et ouvre une PR vers main."
 fi
 
-# Fusion : seul Guillaume fusionne.
-printf '%s' "$cmd" | grep -Eq '(^|[;&|[:space:]])gh[[:space:]]+pr[[:space:]]+merge' \
-  && refuse "un agent ne fusionne jamais une PR. Signale-la comme prête."
-
 # Suppression récursive de la racine, du home, du parent ou d'un joker nu.
 printf '%s' "$cmd" | grep -Eq -- 'rm[[:space:]]+(-[-a-zA-Z]+[[:space:]]+)+(/|~|\$HOME|\.\.?|\*)/?\*?([[:space:];&|]|$)' \
   && refuse "suppression récursive trop large. Vise un chemin précis."

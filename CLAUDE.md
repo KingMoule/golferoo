@@ -30,7 +30,7 @@ Less is more. You see elegance in simplicity. You favour concise, clean solution
 
 ## Règles du dépôt
 - Une branche par chantier, PR vers `main`. Jamais de push sur `main`, jamais de `--force` (le hook `garde-fou.sh` les refuse).
-- Personne d'autre que Guillaume ne fusionne une PR.
+- La session principale fusionne elle-même une PR prête (`merge_pull_request`, méthode *merge*, avec `expectedHeadSha`) : les quatre jobs de CI verts sur ce commit, audit prévu par la spec sans bloquant, aucun commentaire de revue ouvert. Exception : une PR qui touche le workflow (`CLAUDE.md`, `.claude/`, `docs/workflow.md`) attend Guillaume.
 - Une tâche n'est finie que si sa vérification a tourné : montre la commande et son résultat, pas une affirmation.
 - Corrige la cause, jamais le symptôme : pas de test désactivé, pas de règle de lint coupée pour passer.
 
