@@ -1,5 +1,5 @@
 # Météo et saisons
-Statut : cadré
+Statut : livré (2026-10-25)
 Créé : 2026-10-25
 
 ## But
@@ -95,5 +95,5 @@ Ce qui prouve la réussite : les captures montrent le même trou aux quatre sais
 complet (le lot 2 touche la physique de la balle et le planificateur ; le lot 1 peut être léger)
 
 ## Clôture
-- [ ] Critères vérifiés
-- [ ] Statut passé à « livré », ligne mise à jour dans docs/chantiers.md
+- [x] Critères vérifiés (PR #36, #37, #39, #40 et lot 5 ; 172 tests, banc : vol avec vent ≈ 1,0 fois, plan 1,07 fois, changement de jour 0,95 ms, cuvettes 16,3 ms pour 102 400 cellules ; critère 5 à juger par Guillaume sur les captures, critère 6 à mesurer par Guillaume avec `Mesurer FPS.bat` sous la pluie)
+- [x] Statut passé à « livré », ligne mise à jour dans docs/chantiers.md
