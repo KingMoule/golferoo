@@ -188,12 +188,23 @@ public sealed partial class World
         }
 
         var species = TreeSpeciesTable.Get(c.Species);
-        var age = c.Stage == TreePlantStage.Mound ? TreeCosts.MoundAgeMonths(Trees.Count) : 0;
+        var age = c.Stage == TreePlantStage.Mound ? TreeCosts.MoundAgeMonths(Trees.NextId) : 0;
         var crown = Tree.CrownDiameter(species, age) * 0.5;
         var near = new List<Tree>();
-        Trees.Query(c.X, c.Z, crown + TreeSpeciesTable.MaxCrownRadius, near);
+        // Rayon de recherche : un tronc couché s'étend jusqu'à la hauteur de l'arbre (20 m au plus) depuis son pied.
+        Trees.Query(c.X, c.Z, Math.Max(crown + TreeSpeciesTable.MaxCrownRadius, 25.0), near);
         foreach (var other in near)
         {
+            if (other.State == TreeState.Stump && Dist2(other.X, other.Z, c.X, c.Z) < StumpClearance * StumpClearance)
+            {
+                return false;
+            }
+
+            if (other.State == TreeState.Fallen && SegmentDistance(c.X, c.Z, other.X, other.Z, other.X + (Math.Cos(other.FallYaw) * other.Height()), other.Z + (Math.Sin(other.FallYaw) * other.Height())) < LogClearance)
+            {
+                return false;
+            }
+
             if (other.State != TreeState.Standing)
             {
                 continue;
@@ -212,6 +223,21 @@ public sealed partial class World
         Trees.Add(c.X, c.Z, c.Species, age);
         NotifyTrees(terrain, c.X, c.Z, c.X, c.Z);
         return true;
+    }
+
+    /// <summary>Distance minimale d'une plantation à une souche, en mètres.</summary>
+    private const double StumpClearance = 1.5;
+
+    /// <summary>Distance minimale d'une plantation au segment pied-cime d'un tronc couché, en mètres.</summary>
+    private const double LogClearance = 1.0;
+
+    private static double Dist2(double x0, double z0, double x1, double z1) => ((x1 - x0) * (x1 - x0)) + ((z1 - z0) * (z1 - z0));
+
+    private static double SegmentDistance(double px, double pz, double ax, double az, double bx, double bz)
+    {
+        var len2 = Dist2(ax, az, bx, bz);
+        var t = len2 <= 0 ? 0.0 : Math.Clamp((((px - ax) * (bx - ax)) + ((pz - az) * (bz - az))) / len2, 0.0, 1.0);
+        return Math.Sqrt(Dist2(px, pz, ax + (t * (bx - ax)), az + (t * (bz - az))));
     }
 
     private bool ApplyFell(TerrainGrid terrain, int id, double direction)

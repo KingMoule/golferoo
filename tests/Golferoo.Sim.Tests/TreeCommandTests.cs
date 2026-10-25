@@ -44,8 +44,10 @@ public class TreeCommandTests
         w.PlantTree(100, 40, TreeSpeciesId.Birch, TreePlantStage.Sapling);
         w.Step();
 
+        // Le plant est bien planté, le champ de flux est resté le même après l'abattage et la plantation.
         Assert.False(w.Trees.TryGet(tree.Id, out _));
         Assert.Equal(1, w.Trees.Count);
+        Assert.Equal(TreeSpeciesId.Birch, w.Trees.Trees[0].Species);
         Assert.Equal(version, w.Terrain.SurfaceVersion);
         Assert.Same(field, w.Flow.Get(dest));
     }
@@ -168,6 +170,66 @@ public class TreeCommandTests
         w.Step();
         Assert.Equal(TreeState.Stump, w.Trees.Trees[0].State);
         Assert.Equal(double.NegativeInfinity, w.Trees.MaxTopAt(40, 40));
+        Assert.Equal(1, w.TreeCommandsRefused);
+        Assert.Equal(TreeCosts.ClearFallen, w.TreeSpending);
+    }
+
+    [Fact]
+    public void Commands_OnGoneOrWrongStateTrees_AreRefusedOnceAndCostRight()
+    {
+        var w = Open();
+        var a = Isolated(w, 40, 40);
+        var b = Isolated(w, 100, 40);
+        var c = Isolated(w, 40, 100);
+        w.RazeTree(a.Id);
+        w.RazeTree(a.Id); // déjà rasé
+        w.FellTree(b.Id, 0.0);
+        w.RazeTree(b.Id); // tombé : refusé
+        w.FellTree(c.Id, 0.0);
+        w.ClearFallen(c.Id); // même tick : accepté
+        w.Step();
+        Assert.Equal(2, w.TreeCommandsRefused);
+        Assert.Equal(TreeCosts.Raze + TreeCosts.ClearFallen, w.TreeSpending);
+    }
+
+    [Fact]
+    public void RazeArea_CostsClearingForLogAndNothingForStump()
+    {
+        var w = Open();
+        var log = Isolated(w, 40, 40);
+        var stump = Isolated(w, 100, 100);
+        w.FellTree(log.Id, 0.0);
+        w.FellTree(stump.Id, 0.0);
+        w.ClearFallen(stump.Id);
+        w.Step();
+        var before = w.TreeSpending;
+        w.RazeArea(new Point2(40, 40), 5, keepRemarkable: false);
+        w.Step();
+        Assert.Equal(before + TreeCosts.ClearFallen, w.TreeSpending);
+        w.RazeArea(new Point2(100, 100), 5, keepRemarkable: false);
+        w.Step();
+        Assert.Equal(before + TreeCosts.ClearFallen, w.TreeSpending);
+        Assert.Equal(0, w.Trees.Count);
+    }
+
+    [Fact]
+    public void PlantTree_IsRefusedNearStumpAndOnFallenLog()
+    {
+        var w = Open();
+        var stump = Isolated(w, 40, 40);
+        var log = Isolated(w, 100, 100);
+        w.FellTree(stump.Id, 0.0);
+        w.ClearFallen(stump.Id);
+        w.FellTree(log.Id, 0.0);
+        w.Step();
+        w.PlantTree(41, 40, TreeSpeciesId.Birch, TreePlantStage.Sapling); // 1 m de la souche
+        w.PlantTree(110, 100.5, TreeSpeciesId.Birch, TreePlantStage.Sapling); // sur le tronc couché
+        w.Step();
+        Assert.Equal(2, w.TreeCommandsRefused);
+        w.PlantTree(42, 40, TreeSpeciesId.Birch, TreePlantStage.Sapling);
+        w.Step();
+        Assert.Equal(2, w.TreeCommandsRefused);
+        Assert.Equal(3, w.Trees.Count);
     }
 
     [Fact]

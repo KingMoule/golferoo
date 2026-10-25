@@ -186,17 +186,9 @@ public partial class TreeTool : Node3D
         return true;
     }
 
-    public bool RazeAreaAt(Point2 center)
-    {
-        _main!.World.RazeArea(center, _main.Brush.Radius, KeepRemarkable);
-        return true;
-    }
+    public void RazeAreaAt(Point2 center) => _main!.World.RazeArea(center, _main.Brush.Radius, KeepRemarkable);
 
-    public bool PlantAt(Point2 position, TreePlantStage stage)
-    {
-        _main!.World.PlantTree(position.X, position.Z, Species, stage);
-        return true;
-    }
+    public void PlantAt(Point2 position, TreePlantStage stage) => _main!.World.PlantTree(position.X, position.Z, Species, stage);
 
     /// <summary>Fait tomber l'arbre sélectionné vers la droite de l'écran (direction de la caméra), pour être bien vu.</summary>
     public bool FellSelected()
@@ -222,9 +214,21 @@ public partial class TreeTool : Node3D
         return true;
     }
 
-    private bool RazeAreaAtCursor() => _hit is { } h && RazeAreaAt(new Point2(h.X, h.Z));
+    private void RazeAreaAtCursor()
+    {
+        if (_hit is { } h)
+        {
+            RazeAreaAt(new Point2(h.X, h.Z));
+        }
+    }
 
-    private bool PlantAtCursor(TreePlantStage stage) => _hit is { } h && PlantAt(new Point2(h.X, h.Z), stage);
+    private void PlantAtCursor(TreePlantStage stage)
+    {
+        if (_hit is { } h)
+        {
+            PlantAt(new Point2(h.X, h.Z), stage);
+        }
+    }
 
     /// <summary>
     /// Arbre le plus proche du rayon (origine, direction), comparé à son tronc (un segment vertical pour un arbre debout, couché
@@ -242,12 +246,9 @@ public partial class TreeTool : Node3D
         {
             var ground = new Vector3((float)t.X, (float)grid.Sample(t.X, t.Z), (float)t.Z);
             var length = t.State == TreeState.Stump ? 0.6f : (float)t.Height();
-            var tip = t.State switch
-            {
-                TreeState.Standing => ground + (Vector3.Up * length),
-                TreeState.Fallen => ground + (new Vector3(Mathf.Cos(t.FallYaw), 0f, Mathf.Sin(t.FallYaw)) * length),
-                _ => ground + (Vector3.Up * length),
-            };
+            var tip = t.State == TreeState.Fallen
+                ? ground + (new Vector3(Mathf.Cos(t.FallYaw), 0f, Mathf.Sin(t.FallYaw)) * length)
+                : ground + (Vector3.Up * length);
             var distance = RaySegmentDistance(origin, dir, ground, tip);
             var threshold = Math.Max(0.8, t.State == TreeState.Standing ? t.CrownRadius() * 0.33 : 0.8);
             if (distance <= threshold && distance < bestDistance)
@@ -260,23 +261,21 @@ public partial class TreeTool : Node3D
         return best;
     }
 
-    /// <summary>Plus courte distance entre une demi-droite et un segment [a, b].</summary>
-    private static double RaySegmentDistance(Vector3 origin, Vector3 dir, Vector3 a, Vector3 b) => ClosestDistance(origin, dir, a, b - a);
-
-    private static double ClosestDistance(Vector3 origin, Vector3 u, Vector3 a, Vector3 v)
+    /// <summary>Plus courte distance entre la demi-droite (origine, direction unitaire) et le segment [a, b] (formule exacte, paramètres bornés).</summary>
+    private static double RaySegmentDistance(Vector3 origin, Vector3 dir, Vector3 a, Vector3 b)
     {
-        // Échantillonne le segment : 24 points suffisent pour un tronc, et restent insensibles aux cas dégénérés.
-        const int samples = 24;
-        var best = double.MaxValue;
-        for (var i = 0; i <= samples; i++)
-        {
-            var p = a + (v * (i / (float)samples));
-            var s = Math.Max(0f, (p - origin).Dot(u));
-            var q = origin + (u * s);
-            best = Math.Min(best, (p - q).Length());
-        }
-
-        return best;
+        var v = b - a;
+        var w0 = origin - a;
+        var vv = v.Dot(v);
+        var dv = dir.Dot(v);
+        var dw = dir.Dot(w0);
+        var vw = v.Dot(w0);
+        var denom = vv - (dv * dv);
+        // Point du segment le plus proche de la droite, puis point de la demi-droite le plus proche de ce point.
+        var t = denom > 1e-6f ? Mathf.Clamp((vw - (dv * dw)) / denom, 0f, 1f) : 0f;
+        var p = a + (v * t);
+        var s = Math.Max(0f, (p - origin).Dot(dir));
+        return (p - (origin + (dir * s))).Length();
     }
 
     public override void _Process(double delta)

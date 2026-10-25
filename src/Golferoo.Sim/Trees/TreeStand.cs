@@ -39,6 +39,9 @@ public sealed class TreeStand
 
     public int Count => _trees.Count;
 
+    /// <summary>Identifiant du prochain arbre ajouté.</summary>
+    public int NextId => _nextId;
+
     /// <summary>Âge moyen des arbres en mois, 0 sans arbre.</summary>
     public double MeanAgeMonths => _trees.Count == 0 ? 0.0 : (double)_ageSum / _trees.Count;
 

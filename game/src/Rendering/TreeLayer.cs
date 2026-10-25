@@ -290,7 +290,7 @@ public partial class TreeLayer : Node3D
         _blockOthers[key] = fallen ? (others.Fallen + 1, others.Stumps) : (others.Fallen, others.Stumps + 1);
         var slot = (int)(hash % VariantsPerStage);
         var index = fallen ? _logLookup[slot] : _stumpLookup[slot];
-        if (index < 0 || (fallen && _falling.ContainsKey(t.Id)))
+        if (index < 0 || _falling.ContainsKey(t.Id))
         {
             return;
         }
@@ -309,7 +309,7 @@ public partial class TreeLayer : Node3D
             var angle = longIsX ? -t.FallYaw : (Mathf.Pi / 2f) - t.FallYaw;
             var dir = new Vector3(Mathf.Cos(t.FallYaw), 0f, Mathf.Sin(t.FallYaw));
             var centre = new Vector3((float)t.X, ground, (float)t.Z) + (dir * (length * 0.5f));
-            centre.Y = (float)_grid.Sample(centre.X, centre.Z);
+            // Le tronc reste à plat à l'altitude de son pied : il ne suit pas la pente.
             place = new Transform3D(Basis.FromEuler(new Vector3(0, angle, 0)) * Basis.FromScale(scale), centre);
         }
         else
