@@ -61,6 +61,26 @@ public sealed class TreeStand
 
     public bool TryGet(int id, out Tree tree) => _byId.TryGetValue(id, out tree);
 
+    /// <summary>
+    /// Change l'état d'un arbre (tombé : <paramref name="fallYaw"/> donne la direction de chute). Un arbre qui n'est plus debout
+    /// sort de l'altitude de cime, donc de <see cref="MaxTopNear"/> : la balle passe là où il l'arrêtait. Faux si l'arbre n'existe pas.
+    /// </summary>
+    public bool SetState(int id, TreeState state, float fallYaw = 0f)
+    {
+        if (!_byId.TryGetValue(id, out var tree))
+        {
+            return false;
+        }
+
+        var updated = tree with { State = state, FallYaw = fallYaw };
+        _byId[id] = updated;
+        var index = _trees.FindIndex(t => t.Id == id);
+        _trees[index] = updated;
+        RecomputeCell(CellIndex(tree.X, tree.Z));
+        Version++;
+        return true;
+    }
+
     /// <summary>Retire l'arbre ; faux s'il n'existe pas.</summary>
     public bool Remove(int id) => RemoveWhere(t => t.Id == id) > 0;
 

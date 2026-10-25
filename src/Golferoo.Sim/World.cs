@@ -185,6 +185,7 @@ public sealed partial class World
         // Le tirage garde l'état du RNG lié au temps : la somme de contrôle prouve le déterminisme même à vide.
         _rng.NextUInt64();
         ApplyPendingEdits();
+        ApplyTreeCommands();
         if (Terrain is not null)
         {
             for (var i = 0; i < _groups.Count; i++)
@@ -262,13 +263,15 @@ public sealed partial class World
         }
 
         MixPendingEdits(ref hash);
+        MixTreeCommands(ref hash);
         Mix(ref hash, (ulong)Trees.Count);
         foreach (var t in Trees.Trees)
         {
             Mix(ref hash, (ulong)t.Id);
             Mix(ref hash, (ulong)BitConverter.DoubleToInt64Bits(t.X));
             Mix(ref hash, (ulong)BitConverter.DoubleToInt64Bits(t.Z));
-            Mix(ref hash, ((ulong)t.Species << 32) ^ (uint)t.AgeMonths ^ ((ulong)t.State << 48));
+            Mix(ref hash, ((ulong)t.Species << 32) ^ (uint)t.AgeMonths ^ ((ulong)t.State << 48) ^ (t.Remarkable ? 1UL << 56 : 0UL));
+            Mix(ref hash, (ulong)BitConverter.SingleToInt32Bits(t.FallYaw));
         }
 
         Mix(ref hash, (ulong)_groups.Count);

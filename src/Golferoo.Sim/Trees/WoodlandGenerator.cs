@@ -90,7 +90,7 @@ public static class WoodlandGenerator
 
             if (free)
             {
-                stand.Add(x, z, species, age);
+                stand.Add(x, z, species, age, Tree.IsRemarkableAge(spec, age));
                 added++;
             }
         }

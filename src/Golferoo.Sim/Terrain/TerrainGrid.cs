@@ -91,7 +91,11 @@ public sealed class TerrainGrid
 
     public SurfaceProperties PropertiesAt(double x, double z) => SurfaceTable.Get(SurfaceAt(x, z));
 
-    /// <summary>Édition : change la hauteur du coin (i, j) de la grille de cellules.</summary>
+    /// <summary>
+    /// Édition : change la hauteur du coin (i, j) de la grille de cellules. Bas niveau : sur un monde peuplé, les altitudes de cime
+    /// des arbres ne sont pas recalculées ; passer par <see cref="World.RaiseTerrain"/>, qui appelle ensuite
+    /// <see cref="Golferoo.Sim.Trees.TreeStand.RefreshTops"/>, ou l'appeler soi-même sur la zone modifiée.
+    /// </summary>
     public void SetCornerHeight(int i, int j, double height)
     {
         Heights.SetCornerHeight(i, j, height);
@@ -150,8 +154,15 @@ public sealed class TerrainGrid
         return false;
     }
 
-    public CellRect? PaintDisc(Point2 center, double radius, Surface surface)
+    public CellRect? PaintDisc(Point2 center, double radius, Surface surface) => PaintDisc(center, radius, surface, null, out _);
+
+    /// <summary>
+    /// Comme <see cref="PaintDisc(Point2, double, Surface)"/>, mais seules les cellules de surface <paramref name="only"/> sont changées
+    /// (toutes si null) ; <paramref name="changed"/> reçoit leur nombre.
+    /// </summary>
+    public CellRect? PaintDisc(Point2 center, double radius, Surface surface, Surface? only, out int changed)
     {
+        changed = 0;
         ValidateRadius(radius);
         if ((int)surface < 0 || (int)surface >= SurfaceTable.Count)
         {
@@ -176,9 +187,11 @@ public sealed class TerrainGrid
                     continue;
                 }
 
-                if (_surfaces[(cz * CellsX) + cx] != surface)
+                var current = _surfaces[(cz * CellsX) + cx];
+                if (current != surface && (only is null || current == only))
                 {
                     _surfaces[(cz * CellsX) + cx] = surface;
+                    changed++;
                     rect = rect is { } r ? r.Include(cx, cz) : new CellRect(cx, cz, cx, cz);
                 }
             }

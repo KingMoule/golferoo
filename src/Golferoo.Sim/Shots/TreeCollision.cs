@@ -84,6 +84,12 @@ public static class TreeCollision
         var near = Margin * Margin;
         foreach (var tree in probe.Candidates)
         {
+            // Un tronc tombé ou une souche n'arrête pas la balle (lot 4 de C02) : seuls les arbres debout comptent.
+            if (tree.State != TreeState.Standing)
+            {
+                continue;
+            }
+
             var tx = tree.X - mx;
             var tz = tree.Z - mz;
             if ((tx * tx) + (tz * tz) > near)

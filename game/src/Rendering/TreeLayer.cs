@@ -14,6 +14,9 @@ namespace Golferoo.Game.Rendering;
 /// (horizontale, d'après la plus grande largeur du modèle, donc l'axe long d'une couronne ovale), pied au sol, rotation stable au hasard.
 /// Les matériaux du modèle sont remplacés par <c>tree.gdshader</c> (même couleur) qui trame les couronnes autour des
 /// points focaux (<see cref="SetFocus"/>, <see cref="SetTrackedBall"/>).
+/// Les arbres tombés s'affichent avec <c>fallen_log_01</c> à <c>03</c>, allongé à la hauteur de l'arbre et tourné selon sa direction de chute,
+/// les souches avec <c>stump_01</c> à <c>03</c> (une instance par arbre, dans le MultiMesh du bloc de son pied). Une chute
+/// (<see cref="PlayFall"/>) joue un Tween de <see cref="FallSeconds"/> s : l'arbre debout bascule autour de son pied, puis le tronc couché apparaît.
 /// </summary>
 public partial class TreeLayer : Node3D
 {
@@ -21,6 +24,9 @@ public partial class TreeLayer : Node3D
 
     /// <summary>Sous cette hauteur, un arbre est un jeune plant, en mètres.</summary>
     public const float SaplingMaxHeight = 4f;
+
+    /// <summary>Durée de la chute d'un arbre, en secondes.</summary>
+    public const float FallSeconds = 1.5f;
 
     /// <summary>Variantes par essence et par stade.</summary>
     public const int VariantsPerStage = 3;
@@ -47,20 +53,39 @@ public partial class TreeLayer : Node3D
     private static bool _globalsDeclared;
     private static Shader? _shader;
 
-    private readonly record struct Model(Mesh Mesh, Vector3 Offset, float Height, float Width);
+    private readonly record struct Model(Mesh Mesh, Vector3 Offset, float Height, float Width, Vector3 Size);
 
     private readonly Dictionary<(int X, int Z), Node3D> _blocks = [];
     private readonly Dictionary<(int X, int Z), int> _blockCounts = [];
     private readonly Dictionary<(int X, int Z), (double Height, double Crown)> _blockSums = [];
+    private readonly Dictionary<(int X, int Z), (int Fallen, int Stumps)> _blockOthers = [];
+    private readonly Dictionary<int, Node3D> _falling = [];
     private TerrainGrid? _grid;
     private TreeStand? _stand;
     private Model[] _models = [];
     private int[] _lookup = [];
     private int _fallbackCount = 1;
+    private int[] _logLookup = [-1, -1, -1];
+    private int[] _stumpLookup = [-1, -1, -1];
     private float _blockMeters;
 
     /// <summary>Arbres affichés (debout) dans tous les blocs.</summary>
     public int TreeCount { get; private set; }
+
+    /// <summary>Arbres tombés comptés dans tous les blocs (y compris ceux dont la chute est en cours de lecture).</summary>
+    public int FallenCount { get; private set; }
+
+    /// <summary>Souches comptées dans tous les blocs.</summary>
+    public int StumpCount { get; private set; }
+
+    /// <summary>Arbres de la simulation que la couche compte : debout, tombés et souches. Égal à <see cref="TreeStand.Count"/>.</summary>
+    public int TotalCount => TreeCount + FallenCount + StumpCount;
+
+    /// <summary>Chutes en cours de lecture.</summary>
+    public int FallingCount => _falling.Count;
+
+    /// <summary>Modèles de troncs couchés et de souches chargés (sur 3 + 3).</summary>
+    public int DebrisModelCount => _logLookup.Count(i => i >= 0) + _stumpLookup.Count(i => i >= 0);
 
     /// <summary>Nombre, hauteur moyenne et largeur de couronne moyenne des instances rendues, mesurées sur leurs transformations.</summary>
     public (int Count, double MeanHeight, double MeanCrown) RenderedStats()
@@ -97,6 +122,8 @@ public partial class TreeLayer : Node3D
         _blocks.Clear();
         _blockCounts.Clear();
         _blockSums.Clear();
+        _blockOthers.Clear();
+        _falling.Clear();
         LoadModels();
 
         var keys = new HashSet<(int, int)>();
@@ -199,16 +226,12 @@ public partial class TreeLayer : Node3D
 
             _blockCounts[key] = 0;
             _blockSums[key] = (0, 0);
+            _blockOthers[key] = (0, 0);
             lists[key] = new List<Transform3D>[_models.Length];
         }
 
         foreach (var t in _stand!.Trees)
         {
-            if (t.State != TreeState.Standing)
-            {
-                continue;
-            }
-
             var key = ((int)(t.X / _blockMeters), (int)(t.Z / _blockMeters));
             if (!lists.TryGetValue(key, out var perVariant))
             {
@@ -216,6 +239,12 @@ public partial class TreeLayer : Node3D
             }
 
             var h = Hash(t.Id, 17);
+            if (t.State != TreeState.Standing)
+            {
+                AddDebris(t, h, key, perVariant);
+                continue;
+            }
+
             var variant = ModelIndex(t, h);
             var model = _models[variant];
             var yaw = (((h >> 8) & 0xFF) / 255f) * Mathf.Tau;
@@ -246,6 +275,112 @@ public partial class TreeLayer : Node3D
         }
 
         TreeCount = _blockCounts.Values.Sum();
+        FallenCount = _blockOthers.Values.Sum(v => v.Fallen);
+        StumpCount = _blockOthers.Values.Sum(v => v.Stumps);
+    }
+
+    /// <summary>
+    /// Tronc couché (<c>fallen_log</c>, long axe aligné sur la direction de chute, longueur = hauteur de l'arbre, épaisseur du tronc)
+    /// ou souche (<c>stump</c>, à l'épaisseur du tronc) ; compte l'arbre même si son modèle manque ou si sa chute se joue encore.
+    /// </summary>
+    private void AddDebris(Golferoo.Sim.Trees.Tree t, uint hash, (int X, int Z) key, List<Transform3D>[] perVariant)
+    {
+        var others = _blockOthers[key];
+        var fallen = t.State == TreeState.Fallen;
+        _blockOthers[key] = fallen ? (others.Fallen + 1, others.Stumps) : (others.Fallen, others.Stumps + 1);
+        var slot = (int)(hash % VariantsPerStage);
+        var index = fallen ? _logLookup[slot] : _stumpLookup[slot];
+        if (index < 0 || (fallen && _falling.ContainsKey(t.Id)))
+        {
+            return;
+        }
+
+        var model = _models[index];
+        var ground = (float)_grid!.Sample(t.X, t.Z);
+        var trunk = (float)(2.0 * Golferoo.Sim.Trees.Tree.TrunkRadius(TreeSpeciesTable.Get(t.Species), t.AgeMonths));
+        Transform3D place;
+        if (fallen)
+        {
+            var longIsX = model.Size.X >= model.Size.Z;
+            var longest = Math.Max(model.Size.X, model.Size.Z);
+            var length = (float)t.Height();
+            var thick = Mathf.Clamp(trunk / Math.Max(model.Size.Y, 0.01f), 0.3f, 4f);
+            var scale = longIsX ? new Vector3(length / longest, thick, thick) : new Vector3(thick, thick, length / longest);
+            var angle = longIsX ? -t.FallYaw : (Mathf.Pi / 2f) - t.FallYaw;
+            var dir = new Vector3(Mathf.Cos(t.FallYaw), 0f, Mathf.Sin(t.FallYaw));
+            var centre = new Vector3((float)t.X, ground, (float)t.Z) + (dir * (length * 0.5f));
+            centre.Y = (float)_grid.Sample(centre.X, centre.Z);
+            place = new Transform3D(Basis.FromEuler(new Vector3(0, angle, 0)) * Basis.FromScale(scale), centre);
+        }
+        else
+        {
+            var yaw = (((hash >> 8) & 0xFF) / 255f) * Mathf.Tau;
+            var s = Mathf.Clamp(trunk / Math.Max(Math.Max(model.Size.X, model.Size.Z), 0.01f), 0.4f, 3f);
+            place = new Transform3D(Basis.FromEuler(new Vector3(0, yaw, 0)) * Basis.FromScale(new Vector3(s, s, s)), new Vector3((float)t.X, ground, (float)t.Z));
+        }
+
+        (perVariant[index] ??= []).Add(place * new Transform3D(Basis.Identity, model.Offset));
+    }
+
+    /// <summary>
+    /// Joue la chute de l'arbre <paramref name="tree"/> (déjà à l'état tombé dans la simulation) : l'arbre debout bascule autour de son pied
+    /// vers sa direction de chute en <see cref="FallSeconds"/> s (Tween, accélération de la pesanteur), puis le tronc couché apparaît
+    /// (le bloc est reconstruit). D'ici là le bloc n'affiche ni arbre ni tronc pour lui.
+    /// </summary>
+    public void PlayFall(Golferoo.Sim.Trees.Tree tree)
+    {
+        if (_grid is null || !IsInsideTree())
+        {
+            return;
+        }
+
+        if (_falling.Remove(tree.Id, out var previous))
+        {
+            previous.QueueFree();
+        }
+
+        var h = Hash(tree.Id, 17);
+        var model = _models[ModelIndex(tree, h)];
+        var yaw = (((h >> 8) & 0xFF) / 255f) * Mathf.Tau;
+        var basis = Basis.FromEuler(new Vector3(0, yaw, 0)) * Basis.FromScale(new Vector3((float)tree.CrownDiameter() / model.Width, (float)tree.Height() / model.Height, (float)tree.CrownDiameter() / model.Width));
+        var pivot = new Node3D { Name = $"Falling{tree.Id}", Position = new Vector3((float)tree.X, (float)_grid.Sample(tree.X, tree.Z), (float)tree.Z) };
+        pivot.AddChild(new MeshInstance3D { Mesh = model.Mesh, Transform = new Transform3D(basis, Vector3.Zero) * new Transform3D(Basis.Identity, model.Offset) });
+        AddChild(pivot);
+        _falling[tree.Id] = pivot;
+
+        var dir = new Vector3(Mathf.Cos(tree.FallYaw), 0f, Mathf.Sin(tree.FallYaw));
+        var axis = Vector3.Up.Cross(dir).Normalized();
+        var id = tree.Id;
+        var tween = CreateTween();
+        tween.TweenMethod(Callable.From<float>(angle =>
+        {
+            if (IsInstanceValid(pivot))
+            {
+                pivot.Basis = new Basis(axis, angle);
+            }
+        }), 0f, Mathf.Pi / 2f, FallSeconds).SetTrans(Tween.TransitionType.Quad).SetEase(Tween.EaseType.In);
+        tween.TweenCallback(Callable.From(() => FinishFall(id, pivot)));
+    }
+
+    private void FinishFall(int id, Node3D pivot)
+    {
+        if (IsInstanceValid(pivot))
+        {
+            pivot.QueueFree();
+        }
+
+        if (!_falling.TryGetValue(id, out var current) || current != pivot)
+        {
+            return;
+        }
+
+        _falling.Remove(id);
+        if (_grid is not null && _stand is not null && _stand.TryGet(id, out var tree))
+        {
+            var cx = _grid.CellXOf(tree.X);
+            var cz = _grid.CellZOf(tree.Z);
+            RebuildCells(cx, cz, cx + 1, cz + 1);
+        }
     }
 
     /// <summary>Modèle d'un arbre : jeune plant ou adulte de son essence, variante par hachage de l'Id ; repli si le fichier manque.</summary>
@@ -325,7 +460,30 @@ public partial class TreeLayer : Node3D
             }
         }
 
+        _logLookup = LoadDebris(models, "fallen_log");
+        _stumpLookup = LoadDebris(models, "stump");
         _models = [.. models];
+    }
+
+    /// <summary>Charge les trois variantes <c>nom_01</c> à <c>03</c> ; indice dans <paramref name="models"/>, ou -1 si le fichier manque.</summary>
+    private static int[] LoadDebris(List<Model> models, string name)
+    {
+        var lookup = new int[VariantsPerStage];
+        for (var v = 0; v < VariantsPerStage; v++)
+        {
+            var path = $"res://assets/trees/{name}_{v + 1:00}.glb";
+            if (ResourceLoader.Exists(path) && LoadExternalMesh(path) is { } mesh)
+            {
+                models.Add(Describe(mesh));
+                lookup[v] = models.Count - 1;
+            }
+            else
+            {
+                lookup[v] = -1;
+            }
+        }
+
+        return lookup;
     }
 
     /// <summary>Mesure le modèle (AABB) et remplace ses matériaux par le shader des arbres, à couleur égale.</summary>
@@ -349,7 +507,7 @@ public partial class TreeLayer : Node3D
 
         var aabb = mesh.GetAabb();
         var center = aabb.GetCenter();
-        return new Model(mesh, new Vector3(-center.X, -aabb.Position.Y, -center.Z), aabb.Size.Y, Math.Max(Math.Max(aabb.Size.X, aabb.Size.Z), 0.01f));
+        return new Model(mesh, new Vector3(-center.X, -aabb.Position.Y, -center.Z), aabb.Size.Y, Math.Max(Math.Max(aabb.Size.X, aabb.Size.Z), 0.01f), aabb.Size);
     }
 
     /// <summary>Maillage du .glb, ou null s'il manque, est illisible, plat, ou ne contient pas exactement un MeshInstance3D.</summary>
