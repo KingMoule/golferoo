@@ -65,7 +65,10 @@ public sealed class TerrainGrid
     public Point2 Green { get; }
 
     /// <summary>Position du trou, en mètres.</summary>
-    public Point2 Hole { get; }
+    public Point2 Hole { get; private set; }
+
+    /// <summary>Déplace le drapeau (changement de jour) ; la balle et les golfeurs lisent <see cref="Hole"/> à chaque coup, aucun champ de flux n'en dépend.</summary>
+    internal void MovePin(Point2 hole) => Hole = hole;
 
     public int CellsX => Heights.CellsX;
 
@@ -100,6 +103,9 @@ public sealed class TerrainGrid
     /// <summary>Vrai si un golfeur peut marcher sur la cellule ; faux hors grille.</summary>
     public bool IsWalkable(int cx, int cz) =>
         cx >= 0 && cx < CellsX && cz >= 0 && cz < CellsZ && SurfaceTable.Get(_surfaces[(cz * CellsX) + cx]).Walkable;
+
+    internal bool IsOutsideGreen(int cx, int cz) =>
+        cx < 0 || cx >= CellsX || cz < 0 || cz >= CellsZ || _surfaces[(cz * CellsX) + cx] != Surface.Green;
 
     public SurfaceProperties PropertiesAt(double x, double z) => SurfaceTable.Get(SurfaceAt(x, z));
 

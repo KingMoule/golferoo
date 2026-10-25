@@ -27,6 +27,7 @@ public class TurfTests
     {
         var world = new World(1, Flat(surface)) { Climate = Climate.Calm };
         world.SetTurfSettings(settings ?? TurfSettings.Normal);
+        world.Step(); // la consigne est une commande : appliquée au début du tick
         return world;
     }
 
