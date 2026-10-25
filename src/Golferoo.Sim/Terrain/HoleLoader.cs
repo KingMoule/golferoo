@@ -126,6 +126,9 @@ public static class HoleLoader
         return terrain;
     }
 
+    private static bool IsRetiredSpecies(string? name) =>
+        string.Equals(name, "Feuillu", StringComparison.OrdinalIgnoreCase) || string.Equals(name, "Pin", StringComparison.OrdinalIgnoreCase);
+
     /// <summary>Arbres isolés : position en coordonnées de tuile (comme tee, green, hole), âge en années.</summary>
     private static List<TreePlacement> ParseTrees(List<TreeFile>? trees, int tilesX, int tilesZ, double tileSize)
     {
@@ -140,7 +143,9 @@ public static class HoleLoader
             var t = trees[i];
             var where = $"'trees[{i}]'";
             var species = TreeSpeciesTable.FindByName(t.Species ?? string.Empty)
-                ?? throw new HoleDataException($"{where} : essence inconnue '{t.Species}'.");
+                ?? throw new HoleDataException(IsRetiredSpecies(t.Species)
+                    ? $"{where} : l'essence '{t.Species}' n'existe plus (C02 lot 3) ; utiliser Chêne, Bouleau ou Sapin."
+                    : $"{where} : essence inconnue '{t.Species}' (Chêne, Bouleau ou Sapin).");
             if (!(t.X >= 0 && t.X < tilesX && t.Z >= 0 && t.Z < tilesZ))
             {
                 throw new HoleDataException(string.Create(CultureInfo.InvariantCulture, $"{where} hors carte : ({t.X}, {t.Z}) en tuiles."));

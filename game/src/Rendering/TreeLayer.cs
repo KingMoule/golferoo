@@ -5,17 +5,28 @@ using Golferoo.Sim.Trees;
 namespace Golferoo.Game.Rendering;
 
 /// <summary>
-/// Arbres de la simulation (<see cref="TreeStand"/>), à leur taille réelle, un MultiMesh par bloc de terrain et par variante.
-/// Modèle : si <c>res://assets/trees/tree.glb</c> existe (produit par <c>tools/blender/tree_lowpoly.py</c> : c'est l'arbre
-/// affiché, à retoucher là, un seul MeshInstance3D), il sert de modèle pour toutes les essences ; sinon quatre variantes
-/// procédurales (<see cref="ProceduralMeshes.Tree"/>). Le modèle garde sa hauteur native (mesurée sur son AABB) ;
-/// chaque arbre est mis à l'échelle de sa hauteur (verticale) et de son diamètre de couronne (horizontale), pied au sol.
+/// Arbres de la simulation (<see cref="TreeStand"/>), à leur taille réelle, un MultiMesh par bloc de terrain et par modèle.
+/// Modèle : selon l'essence et le stade, <c>oak</c>, <c>birch</c> ou <c>conifer</c> de <c>res://assets/trees/</c> (adulte
+/// <c>_01</c> à <c>_03</c>, jeune plant <c>_sapling_01</c> à <c>_03</c> sous <see cref="SaplingMaxHeight"/> m, variante par hachage de l'Id) ;
+/// un modèle manquant retombe sur <c>tree.glb</c> (produit par <c>tools/blender/tree_lowpoly.py</c>, un seul MeshInstance3D),
+/// ou à défaut sur quatre variantes procédurales (<see cref="ProceduralMeshes.Tree"/>). Le modèle garde sa taille native
+/// (mesurée sur son AABB) ; chaque arbre est mis à l'échelle de sa hauteur (verticale) et de son diamètre de couronne
+/// (horizontale, d'après la plus grande largeur du modèle, donc l'axe long d'une couronne ovale), pied au sol, rotation stable au hasard.
 /// Les matériaux du modèle sont remplacés par <c>tree.gdshader</c> (même couleur) qui trame les couronnes autour des
 /// points focaux (<see cref="SetFocus"/>, <see cref="SetTrackedBall"/>).
 /// </summary>
 public partial class TreeLayer : Node3D
 {
     public const string ExternalTreePath = "res://assets/trees/tree.glb";
+
+    /// <summary>Sous cette hauteur, un arbre est un jeune plant, en mètres.</summary>
+    public const float SaplingMaxHeight = 4f;
+
+    /// <summary>Variantes par essence et par stade.</summary>
+    public const int VariantsPerStage = 3;
+
+    /// <summary>Préfixe des fichiers de modèles, indexé par <see cref="TreeSpeciesId"/>.</summary>
+    private static readonly string[] SpeciesPrefixes = ["oak", "birch", "conifer"];
 
     /// <summary>Emplacement du point focal du curseur.</summary>
     public const int CursorSlot = 0;
@@ -44,6 +55,8 @@ public partial class TreeLayer : Node3D
     private TerrainGrid? _grid;
     private TreeStand? _stand;
     private Model[] _models = [];
+    private int[] _lookup = [];
+    private int _fallbackCount = 1;
     private float _blockMeters;
 
     /// <summary>Arbres affichés (debout) dans tous les blocs.</summary>
@@ -60,10 +73,13 @@ public partial class TreeLayer : Node3D
     /// <summary>Blocs de terrain reconstruits depuis la construction, hors construction initiale (cumul, pour les vérifications).</summary>
     public int BlockRebuilds { get; private set; }
 
-    /// <summary>Vrai si l'arbre externe a été chargé.</summary>
+    /// <summary>Vrai si l'arbre externe <c>tree.glb</c> a été chargé.</summary>
     public bool UsesExternalTree { get; private set; }
 
-    /// <summary>Hauteur native du modèle de la variante, en mètres (avant mise à l'échelle).</summary>
+    /// <summary>Nombre de modèles par essence et stade effectivement chargés (sur 3 essences x 2 stades x 3 variantes).</summary>
+    public int SpeciesModelCount { get; private set; }
+
+    /// <summary>Hauteur native du modèle, en mètres (avant mise à l'échelle).</summary>
     public float NativeHeight(int variant = 0) => _models[variant % _models.Length].Height;
 
     /// <summary>Construit tous les blocs depuis la sim. <paramref name="blockCells"/> : côté d'un bloc de terrain, en cellules.</summary>
@@ -81,8 +97,7 @@ public partial class TreeLayer : Node3D
         _blocks.Clear();
         _blockCounts.Clear();
         _blockSums.Clear();
-        _models = LoadModels(out var external);
-        UsesExternalTree = external;
+        LoadModels();
 
         var keys = new HashSet<(int, int)>();
         var bx = (int)Math.Ceiling(grid.CellsX * grid.CellSize / _blockMeters);
@@ -120,6 +135,23 @@ public partial class TreeLayer : Node3D
             }
         }
 
+        BuildBlocks(keys);
+        BlockRebuilds += keys.Count;
+        return keys.Count;
+    }
+
+    /// <summary>
+    /// Reconstruit les blocs après un vieillissement : tout arbre a changé d'échelle, et peut avoir changé de modèle (plant devenu adulte),
+    /// donc tous les blocs le sont. Rend le nombre de blocs reconstruits.
+    /// </summary>
+    public int Regrow()
+    {
+        if (_grid is null)
+        {
+            return 0;
+        }
+
+        var keys = new HashSet<(int, int)>(_blocks.Keys);
         BuildBlocks(keys);
         BlockRebuilds += keys.Count;
         return keys.Count;
@@ -184,7 +216,7 @@ public partial class TreeLayer : Node3D
             }
 
             var h = Hash(t.Id, 17);
-            var variant = _models.Length == 1 ? 0 : (int)(h % (uint)_models.Length);
+            var variant = ModelIndex(t, h);
             var model = _models[variant];
             var yaw = (((h >> 8) & 0xFF) / 255f) * Mathf.Tau;
             var sy = (float)t.Height() / model.Height;
@@ -216,6 +248,20 @@ public partial class TreeLayer : Node3D
         TreeCount = _blockCounts.Values.Sum();
     }
 
+    /// <summary>Modèle d'un arbre : jeune plant ou adulte de son essence, variante par hachage de l'Id ; repli si le fichier manque.</summary>
+    private int ModelIndex(Golferoo.Sim.Trees.Tree t, uint hash)
+    {
+        var species = (int)t.Species;
+        var variant = (int)(hash % VariantsPerStage);
+        if (species < SpeciesPrefixes.Length)
+        {
+            var stage = t.Height() < SaplingMaxHeight ? 0 : 1;
+            return _lookup[(((species * 2) + stage) * VariantsPerStage) + variant];
+        }
+
+        return (int)(hash % (uint)_fallbackCount);
+    }
+
     private static MultiMeshInstance3D MakeInstance(string name, Mesh mesh, List<Transform3D> transforms)
     {
         var multi = new MultiMesh
@@ -232,22 +278,54 @@ public partial class TreeLayer : Node3D
         return new MultiMeshInstance3D { Name = name, Multimesh = multi };
     }
 
-    private static Model[] LoadModels(out bool external)
+    /// <summary>
+    /// Remplit <c>_models</c> : d'abord les modèles de repli (<c>tree.glb</c> ou variantes procédurales), puis ceux des essences ;
+    /// <c>_lookup</c> donne, pour (essence, stade, variante), le modèle de l'essence ou à défaut un modèle de repli.
+    /// </summary>
+    private void LoadModels()
     {
-        var mesh = LoadExternalMesh();
-        external = mesh is not null;
-        if (mesh is not null)
+        var models = new List<Model>();
+        var external = LoadExternalMesh(ExternalTreePath);
+        UsesExternalTree = external is not null;
+        if (external is not null)
         {
-            return [Describe(mesh)];
+            models.Add(Describe(external));
+        }
+        else
+        {
+            for (var v = 0; v < ProceduralMeshes.TreeVariants; v++)
+            {
+                models.Add(Describe(ProceduralMeshes.Tree(v)));
+            }
         }
 
-        var result = new Model[ProceduralMeshes.TreeVariants];
-        for (var v = 0; v < result.Length; v++)
+        _fallbackCount = models.Count;
+        _lookup = new int[SpeciesPrefixes.Length * 2 * VariantsPerStage];
+        SpeciesModelCount = 0;
+        for (var species = 0; species < SpeciesPrefixes.Length; species++)
         {
-            result[v] = Describe(ProceduralMeshes.Tree(v));
+            for (var stage = 0; stage < 2; stage++)
+            {
+                for (var v = 0; v < VariantsPerStage; v++)
+                {
+                    var name = stage == 0 ? $"{SpeciesPrefixes[species]}_sapling_{v + 1:00}" : $"{SpeciesPrefixes[species]}_{v + 1:00}";
+                    var slot = (((species * 2) + stage) * VariantsPerStage) + v;
+                    var path = $"res://assets/trees/{name}.glb";
+                    if (ResourceLoader.Exists(path) && LoadExternalMesh(path) is { } mesh)
+                    {
+                        models.Add(Describe(mesh));
+                        _lookup[slot] = models.Count - 1;
+                        SpeciesModelCount++;
+                    }
+                    else
+                    {
+                        _lookup[slot] = v % _fallbackCount;
+                    }
+                }
+            }
         }
 
-        return result;
+        _models = [.. models];
     }
 
     /// <summary>Mesure le modèle (AABB) et remplace ses matériaux par le shader des arbres, à couleur égale.</summary>
@@ -275,17 +353,17 @@ public partial class TreeLayer : Node3D
     }
 
     /// <summary>Maillage du .glb, ou null s'il manque, est illisible, plat, ou ne contient pas exactement un MeshInstance3D.</summary>
-    private static Mesh? LoadExternalMesh()
+    private static Mesh? LoadExternalMesh(string path)
     {
-        if (!ResourceLoader.Exists(ExternalTreePath))
+        if (!ResourceLoader.Exists(path))
         {
             return null;
         }
 
-        var root = GD.Load<PackedScene>(ExternalTreePath)?.Instantiate();
+        var root = GD.Load<PackedScene>(path)?.Instantiate();
         if (root is null)
         {
-            GD.PushWarning($"{ExternalTreePath} : scène illisible, arbres procéduraux utilisés");
+            GD.PushWarning($"{path} : scène illisible, modèle de repli utilisé");
             return null;
         }
 
@@ -295,7 +373,7 @@ public partial class TreeLayer : Node3D
             CollectMeshes(root, found);
             if (found.Count != 1)
             {
-                GD.PushWarning($"{ExternalTreePath} : {found.Count} MeshInstance3D au lieu d'un seul (à fusionner dans Blender), arbres procéduraux utilisés");
+                GD.PushWarning($"{path} : {found.Count} MeshInstance3D au lieu d'un seul (à fusionner dans Blender), modèle de repli utilisé");
                 return null;
             }
 
@@ -303,11 +381,11 @@ public partial class TreeLayer : Node3D
             var aabb = mesh.GetAabb();
             if (aabb.Size.Y <= 0f)
             {
-                GD.PushWarning($"{ExternalTreePath} : maillage plat, arbres procéduraux utilisés");
+                GD.PushWarning($"{path} : maillage plat, modèle de repli utilisé");
                 return null;
             }
 
-            GD.Print($"ASSET {ExternalTreePath} externe {mesh.GetSurfaceCount()} surfaces, hauteur native {aabb.Size.Y:0.###} m, largeur {Math.Max(aabb.Size.X, aabb.Size.Z):0.###} m");
+            GD.Print($"ASSET {path} externe {mesh.GetSurfaceCount()} surfaces, hauteur native {aabb.Size.Y:0.###} m, largeur {Math.Max(aabb.Size.X, aabb.Size.Z):0.###} m");
             return mesh;
         }
         finally

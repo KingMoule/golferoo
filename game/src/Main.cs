@@ -273,6 +273,9 @@ public partial class Main : Node3D
             case Key.L:
                 ToggleLoadMode();
                 break;
+            case Key.F10:
+                AdvanceTreesOneYear();
+                break;
             case Key.Q:
                 Camera.RotateQuarter(-1);
                 break;
@@ -282,6 +285,14 @@ public partial class Main : Node3D
             default:
                 break;
         }
+    }
+
+    /// <summary>Commande de debug « avancer d'un an » (F10) : les arbres vieillissent de 12 mois et la couche les redessine. C03 la branchera sur le calendrier.</summary>
+    public void AdvanceTreesOneYear()
+    {
+        World.AdvanceYear();
+        TerrainView.Trees?.Regrow();
+        GD.Print($"ARBRES +1 an : {World.Trees.Count} arbres, âge moyen {World.Trees.MeanAgeMonths / 12.0:F1} ans");
     }
 
     private void StepOnce()
@@ -330,7 +341,7 @@ public partial class Main : Node3D
     {
         if (_hud is not null)
         {
-            _hud.Text = $"{Engine.GetFramesPerSecond()} FPS | {Actors.VisibleGolfers} golfeurs | tick {World.Tick} | x{Speed}{(Paused ? " (pause)" : string.Empty)}";
+            _hud.Text = $"{Engine.GetFramesPerSecond()} FPS | {Actors.VisibleGolfers} golfeurs | tick {World.Tick} | x{Speed}{(Paused ? " (pause)" : string.Empty)} | arbres {World.Trees.MeanAgeMonths / 12.0:F1} ans (F10 : +1 an)";
         }
     }
 }

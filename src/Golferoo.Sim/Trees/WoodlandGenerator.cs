@@ -24,8 +24,10 @@ public static class WoodlandGenerator
     /// <summary>Plus grand rayon de couronne possible : borne de la recherche des voisins.</summary>
     private const double MaxCrownRadius = 7.0;
 
-    /// <summary>Part de feuillus dans un massif.</summary>
-    private const double DeciduousShare = 0.6;
+    /// <summary>Bornes cumulées du tirage de l'essence : 40 % de chêne, puis 20 % de bouleau, le reste (40 %) de sapin.</summary>
+    private const double OakShare = 0.4;
+
+    private const double BirchUpTo = 0.6;
 
     /// <summary>Plante des arbres dans les cellules de <paramref name="rect"/> dont la surface est Trees ; avec <paramref name="center"/>, seulement à moins de <paramref name="radius"/> mètres de ce centre (le rectangle englobe le disque peint).</summary>
     public static int Fill(TreeStand stand, TerrainGrid terrain, CellRect rect, DeterministicRng rng, Point2? center = null, double radius = double.PositiveInfinity)
@@ -55,7 +57,8 @@ public static class WoodlandGenerator
         {
             var x = x0 + (((k % nx) + rng.NextDouble()) * Pitch);
             var z = z0 + (((k / nx) + rng.NextDouble()) * Pitch);
-            var species = rng.NextDouble() < DeciduousShare ? TreeSpeciesId.Deciduous : TreeSpeciesId.Pine;
+            var pick = rng.NextDouble();
+            var species = pick < OakShare ? TreeSpeciesId.Oak : pick < BirchUpTo ? TreeSpeciesId.Birch : TreeSpeciesId.Fir;
             var spec = TreeSpeciesTable.Get(species);
             var age = (int)(spec.AdultAgeMonths * (0.5 + (rng.NextDouble() * 1.1)));
             if (x >= x1 || z >= z1 || terrain.SurfaceAt(x, z) != Surface.Trees ||

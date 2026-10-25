@@ -61,7 +61,7 @@ public partial class Captures : Node
         if (main.TerrainView.Trees is { } layer)
         {
             var (n, h, c) = layer.RenderedStats();
-            GD.Print($"TREES n={n} h_moy={h:F1} couronne_moy={c:F1}");
+            GD.Print($"TREES avant n={n} h_moy={h:F1} couronne_moy={c:F1} age_moy={main.World.Trees.MeanAgeMonths / 12.0:F1}");
         }
 
         var failures = 0;
@@ -73,6 +73,7 @@ public partial class Captures : Node
             ("green", 30f, green, Yaws, null),
         };
         views.Add(("closeup", CloseUpSize, center, [45f, 225f], null));
+        views.Add(("aged15", 240f, center, [Yaws[0]], null));
 
         foreach (var (zoomName, viewSize, target0, yaws0, followed0) in views)
         {
@@ -87,6 +88,21 @@ public partial class Captures : Node
                 }
 
                 (target, yaws, followed) = (close.Target, close.Yaws, close.Golfer);
+            }
+
+            if (zoomName == "aged15")
+            {
+                // Quinze ans de plus (commande de debug F10) : les plants ont grandi, les bouleaux sont adultes.
+                for (var year = 0; year < 15; year++)
+                {
+                    main.AdvanceTreesOneYear();
+                }
+
+                if (main.TerrainView.Trees is { } aged)
+                {
+                    var (n, h, c) = aged.RenderedStats();
+                    GD.Print($"TREES après n={n} h_moy={h:F1} couronne_moy={c:F1} age_moy={main.World.Trees.MeanAgeMonths / 12.0:F1}");
+                }
             }
 
             main.TerrainView.Trees?.SetTrackedBall(followed);

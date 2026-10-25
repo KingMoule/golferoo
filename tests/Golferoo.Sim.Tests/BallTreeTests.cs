@@ -68,7 +68,7 @@ public class BallTreeTests
     public void Trunk_AlwaysStopsOrBouncesTheBall()
     {
         var terrain = Flat();
-        var stand = StandWith(TreeSpeciesId.Deciduous, 100 * 12);
+        var stand = StandWith(TreeSpeciesId.Oak, 100 * 12);
         for (var seed = 1; seed <= 100; seed++)
         {
             // À 1,5 m : sous la couronne (base à 3 m), face au tronc.
@@ -82,10 +82,10 @@ public class BallTreeTests
     public void Crown_BroadleafLetsMorePassInSpringThanSummer()
     {
         var terrain = Flat();
-        var summer = PassRate(terrain, TreeSpeciesId.Deciduous, 100 * 12, Season.Summer, 10_000);
-        var spring = PassRate(terrain, TreeSpeciesId.Deciduous, 100 * 12, Season.Spring, 10_000);
-        var winter = PassRate(terrain, TreeSpeciesId.Deciduous, 100 * 12, Season.Winter, 10_000);
-        Console.WriteLine($"Feuillu, 10 000 tirages : passent été {summer:P1}, printemps {spring:P1}, hiver {winter:P1}");
+        var summer = PassRate(terrain, TreeSpeciesId.Oak, 100 * 12, Season.Summer, 10_000);
+        var spring = PassRate(terrain, TreeSpeciesId.Oak, 100 * 12, Season.Spring, 10_000);
+        var winter = PassRate(terrain, TreeSpeciesId.Oak, 100 * 12, Season.Winter, 10_000);
+        Console.WriteLine($"Chêne, 10 000 tirages : passent été {summer:P1}, printemps {spring:P1}, hiver {winter:P1}");
         Assert.True(spring > summer + 0.15, $"été {summer:P1}, printemps {spring:P1}");
         Assert.True(winter > spring);
     }
@@ -95,8 +95,8 @@ public class BallTreeTests
     {
         var terrain = Flat();
         var rates = new[] { Season.Spring, Season.Summer, Season.Autumn, Season.Winter }
-            .Select(s => PassRate(terrain, TreeSpeciesId.Pine, 100 * 12, s, 3_000)).ToArray();
-        Console.WriteLine($"Pin, 10 000 tirages : printemps {rates[0]:P1}, été {rates[1]:P1}, automne {rates[2]:P1}, hiver {rates[3]:P1}");
+            .Select(s => PassRate(terrain, TreeSpeciesId.Fir, 100 * 12, s, 3_000)).ToArray();
+        Console.WriteLine($"Sapin, 10 000 tirages : printemps {rates[0]:P1}, été {rates[1]:P1}, automne {rates[2]:P1}, hiver {rates[3]:P1}");
         Assert.True(rates.Max() - rates.Min() < 0.06, string.Join(" ; ", rates.Select(r => r.ToString("P1"))));
     }
 
@@ -104,8 +104,8 @@ public class BallTreeTests
     public void Crown_SaplingStopsFewerBallsThanAdult()
     {
         var terrain = Flat();
-        var adult = PassRate(terrain, TreeSpeciesId.Deciduous, 100 * 12, Season.Summer, 2_000);
-        var sapling = PassRate(terrain, TreeSpeciesId.Deciduous, 0, Season.Summer, 2_000);
+        var adult = PassRate(terrain, TreeSpeciesId.Oak, 100 * 12, Season.Summer, 2_000);
+        var sapling = PassRate(terrain, TreeSpeciesId.Oak, 0, Season.Summer, 2_000);
         Console.WriteLine($"Passent : adulte {adult:P1}, plant {sapling:P1}");
         Assert.True(sapling > adult + 0.5, $"adulte {adult:P1}, plant {sapling:P1}");
     }
@@ -114,7 +114,7 @@ public class BallTreeTests
     public void SameSeed_GivesBitIdenticalTrajectory()
     {
         var terrain = Flat();
-        var stand = StandWith(TreeSpeciesId.Deciduous, 100 * 12);
+        var stand = StandWith(TreeSpeciesId.Oak, 100 * 12);
         var a = Fly(terrain, stand, Season.Spring, 77, 9.5, path: true).Shot.Trajectory!;
         var b = Fly(terrain, stand, Season.Spring, 77, 9.5, path: true).Shot.Trajectory!;
         Assert.Equal(a.Count, b.Count);
@@ -130,11 +130,11 @@ public class BallTreeTests
     public void BallAboveMaxHeight_ConsumesNoDrawAndIsUnchanged()
     {
         var terrain = Flat();
-        var stand = StandWith(TreeSpeciesId.Deciduous, 100 * 12);
-        Assert.Equal(16.0, stand.MaxHeightAt(TreeX, TreeZ), 1e-9);
+        var stand = StandWith(TreeSpeciesId.Oak, 100 * 12);
+        Assert.Equal(17.5, stand.MaxTopAt(TreeX, TreeZ), 1e-9);
         var rng = new DeterministicRng(5);
         var before = rng.StateHash();
-        // 30 m de hauteur : la balle passe au-dessus du feuillu (16 m) puis atterrit loin derrière.
+        // 30 m de hauteur : la balle passe au-dessus du chêne (17,5 m) puis atterrit loin derrière.
         var withTrees = Fly(terrain, stand, Season.Summer, 5, 30.0, path: true, rng: rng);
         var without = Fly(terrain, null, Season.Summer, 5, 30.0, path: true);
         Assert.Equal(before, rng.StateHash());
@@ -146,7 +146,7 @@ public class BallTreeTests
     public void BallThroughCrown_ConsumesDraws()
     {
         var terrain = Flat();
-        var stand = StandWith(TreeSpeciesId.Deciduous, 100 * 12);
+        var stand = StandWith(TreeSpeciesId.Oak, 100 * 12);
         var rng = new DeterministicRng(5);
         var before = rng.StateHash();
         Fly(terrain, stand, Season.Summer, 5, 9.5, rng: rng);
@@ -164,13 +164,13 @@ public class BallTreeTests
 
     // --- Étape directe de TreeCollision : un seul arbre, un seul pas ---
 
-    private static readonly double TrunkR = Tree.TrunkRadius(TreeSpeciesTable.Get(TreeSpeciesId.Deciduous), 100 * 12) + 0.0214;
+    private static readonly double TrunkR = Tree.TrunkRadius(TreeSpeciesTable.Get(TreeSpeciesId.Oak), 100 * 12) + 0.0214;
 
     /// <summary>Un pas de (px, py, pz) à (qx, py, qz) contre le feuillu adulte en (TreeX, TreeZ) ; rend position et vitesse après le pas.</summary>
     private static (double X, double Y, double Z, double Vx, double Vy, double Vz) TrunkStep(double px, double pz, double qx, double qz, double vx, double vz, double y = 1.5)
     {
         var terrain = Flat();
-        var stand = StandWith(TreeSpeciesId.Deciduous, 100 * 12);
+        var stand = StandWith(TreeSpeciesId.Oak, 100 * 12);
         var x = qx;
         var yy = y;
         var z = qz;
@@ -235,7 +235,7 @@ public class BallTreeTests
     public void Crown_AlreadyStopped_NoDrawNoChange()
     {
         var terrain = Flat();
-        var stand = StandWith(TreeSpeciesId.Deciduous, 100 * 12);
+        var stand = StandWith(TreeSpeciesId.Oak, 100 * 12);
         var rng = new DeterministicRng(3);
         var before = rng.StateHash();
         double x = TreeX + 0.3, y = 9.5, z = TreeZ, vx = 60.0, vy = 0.0, vz = 0.0;
@@ -273,7 +273,7 @@ public class BallTreeTests
     public void Crown_StopsOncePerFlight()
     {
         var terrain = Flat();
-        var stand = StandWith(TreeSpeciesId.Deciduous, 100 * 12);
+        var stand = StandWith(TreeSpeciesId.Oak, 100 * 12);
         // Chute de 12 m dans la couronne : une descente de 270 pas environ. Sans la règle « une couronne par vol », la balle
         // (arrêtée mais encore dans la couronne) tirerait à chacun d'eux ; avec elle, le tirage cesse au premier arrêt.
         var mean = Enumerable.Range(1, 60).Average(sd => Draws((ulong)sd, rng => Drop(terrain, stand, rng, 12.0)));
@@ -294,7 +294,7 @@ public class BallTreeTests
     public void Crown_RearmsOnGround_SoTheReboundIsStoppedAgain()
     {
         var terrain = Flat();
-        var stand = StandWith(TreeSpeciesId.Deciduous, 100 * 12);
+        var stand = StandWith(TreeSpeciesId.Oak, 100 * 12);
         Assert.InRange(ReboundApex(terrain, null, 1), 6.0, 9.0); // sans arbre : apex d'environ 7,3 m, bien au-dessus de la base de la couronne (3 m)
         var apexes = Enumerable.Range(1, 30).Select(sd => ReboundApex(terrain, stand, (ulong)sd)).OrderBy(a => a).ToList();
         Console.WriteLine($"Apex du rebond avec couronne : médiane {apexes[15]:F1}, max {apexes[^1]:F1}");
@@ -305,19 +305,19 @@ public class BallTreeTests
     // --- Index : voisines et bord de carte ---
 
     [Fact]
-    public void MaxHeightNear_SeesNeighbourCellsAndClampsAtEdges()
+    public void MaxTopNear_SeesNeighbourCellsAndClampsAtEdges()
     {
         var stand = new TreeStand(100, 100);
-        stand.Add(15.9, 50, TreeSpeciesId.Pine, 100 * 12);
-        Assert.Equal(0.0, stand.MaxHeightAt(16.5, 50));
-        Assert.Equal(20.0, stand.MaxHeightNear(16.5, 50, 1.0), 1e-9);
-        Assert.Equal(20.0, stand.MaxHeightNear(15.5, 50, 1.0), 1e-9);
-        Assert.Equal(0.0, stand.MaxHeightNear(40, 50, 1.0));
-        stand.Add(0.5, 0.5, TreeSpeciesId.Deciduous, 100 * 12);
-        stand.Add(99.9, 99.9, TreeSpeciesId.Pine, 100 * 12);
-        Assert.Equal(16.0, stand.MaxHeightNear(-3, -3, 6.0), 1e-9);
-        Assert.Equal(20.0, stand.MaxHeightNear(104, 104, 6.0), 1e-9);
-        Assert.Equal(20.0, stand.MaxHeightNear(99.9, 99.9, 6.0), 1e-9);
+        stand.Add(15.9, 50, TreeSpeciesId.Fir, 100 * 12);
+        Assert.Equal(double.NegativeInfinity, stand.MaxTopAt(16.5, 50));
+        Assert.Equal(20.0, stand.MaxTopNear(16.5, 50, 1.0), 1e-9);
+        Assert.Equal(20.0, stand.MaxTopNear(15.5, 50, 1.0), 1e-9);
+        Assert.Equal(double.NegativeInfinity, stand.MaxTopNear(40, 50, 1.0));
+        stand.Add(0.5, 0.5, TreeSpeciesId.Oak, 100 * 12);
+        stand.Add(99.9, 99.9, TreeSpeciesId.Fir, 100 * 12);
+        Assert.Equal(17.5, stand.MaxTopNear(-3, -3, 6.0), 1e-9);
+        Assert.Equal(20.0, stand.MaxTopNear(104, 104, 6.0), 1e-9);
+        Assert.Equal(20.0, stand.MaxTopNear(99.9, 99.9, 6.0), 1e-9);
     }
 
     // --- Pente : la porte de hauteur se compte en altitude ---
@@ -352,8 +352,8 @@ public class BallTreeTests
     public void Slope_BallFarAboveItsOwnGroundButInsideACrownOnTheHillIsStillTested()
     {
         var terrain = Cliff();
-        var stand = new TreeStand(200, 200);
-        stand.Add(110, TreeZ, TreeSpeciesId.Deciduous, 100 * 12); // au bord du plateau : la couronne déborde sur la falaise
+        var stand = new TreeStand(200, 200, terrain);
+        stand.Add(110, TreeZ, TreeSpeciesId.Oak, 100 * 12); // au bord du plateau : la couronne déborde sur la falaise
         // La balle tombe à x = 114 où le sol est à 15 m : à 50 m d'altitude elle est à 35 m du sol, mais dans la couronne (35 à 44 m) dès 44 m.
         Assert.InRange(terrain.Sample(114, TreeZ), 14.9, 15.1);
         var draws = 0;
@@ -385,7 +385,7 @@ public class BallTreeTests
                         var tee = Math.Sqrt(((x - terrain.Tee.X) * (x - terrain.Tee.X)) + ((z - terrain.Tee.Z) * (z - terrain.Tee.Z)));
                         if (tee > 12.0)
                         {
-                            world.Trees.Add(x, z, TreeSpeciesId.Deciduous, 100 * 12);
+                            world.Trees.Add(x, z, TreeSpeciesId.Oak, 100 * 12);
                         }
                     }
                 }
@@ -425,5 +425,144 @@ public class BallTreeTests
         }
 
         Assert.Equal(0.0, TreeCollision.StopProbability(0.0));
+    }
+
+    // --- Croissance et essences (C02 lot 3) ---
+
+    [Fact]
+    public void Birch_AtTenYears_IsTallerThanOak()
+    {
+        var birch = Tree.Height(TreeSpeciesTable.Get(TreeSpeciesId.Birch), 10 * 12);
+        var oak = Tree.Height(TreeSpeciesTable.Get(TreeSpeciesId.Oak), 10 * 12);
+        Assert.True(birch > oak, $"bouleau {birch:0.0} m, chêne {oak:0.0} m");
+    }
+
+    [Fact]
+    public void Species_AreDistinctAndHaveSaplingsBetweenOneAndThreeMeters()
+    {
+        foreach (var id in new[] { TreeSpeciesId.Oak, TreeSpeciesId.Birch, TreeSpeciesId.Fir })
+        {
+            var sp = TreeSpeciesTable.Get(id);
+            Assert.InRange(sp.SaplingHeight, 1.0, 3.0);
+            Assert.InRange(sp.AdultHeight, 15.0, 25.0);
+        }
+
+        Assert.True(TreeSpeciesTable.Get(TreeSpeciesId.Oak).AdultCrownDiameter > TreeSpeciesTable.Get(TreeSpeciesId.Birch).AdultCrownDiameter);
+        Assert.True(TreeSpeciesTable.Get(TreeSpeciesId.Birch).CrownDensity(Season.Summer) < TreeSpeciesTable.Get(TreeSpeciesId.Oak).CrownDensity(Season.Summer));
+        Assert.Equal(TreeSpeciesId.Fir, TreeSpeciesTable.FindByName("Sapin")!.Id);
+        Assert.Null(TreeSpeciesTable.FindByName("Feuillu"));
+    }
+
+    [Fact]
+    public void AdvanceYear_RaisesHeightsAndCellTops_AndBallThatClearedSaplingIsNowTested()
+    {
+        var terrain = Flat();
+        var world = new World(3, terrain);
+        world.Trees.Add(TreeX, TreeZ, TreeSpeciesId.Oak, 0);
+        var h0 = world.Trees.Trees[0].Height();
+        var top0 = world.Trees.MaxTopAt(TreeX, TreeZ);
+        var version = world.Trees.Version;
+
+        // Un plant de 2 m : la balle à 9,5 m passe sans aucun tirage.
+        var rng = new DeterministicRng(5);
+        var before = rng.StateHash();
+        Fly(terrain, world.Trees, Season.Summer, 5, 9.5, rng: rng);
+        Assert.Equal(before, rng.StateHash());
+
+        for (var y = 0; y < 50; y++)
+        {
+            world.AdvanceYear();
+        }
+
+        Assert.Equal(version + 50, world.Trees.Version);
+        Assert.True(world.Trees.Trees[0].Height() > h0);
+        Assert.Equal(12 * 50, world.Trees.Trees[0].AgeMonths);
+        Assert.True(world.Trees.MaxTopAt(TreeX, TreeZ) > top0);
+        Assert.Equal(world.Trees.Trees[0].Height(), world.Trees.MaxTopAt(TreeX, TreeZ), 1e-9);
+        rng = new DeterministicRng(5);
+        before = rng.StateHash();
+        Fly(terrain, world.Trees, Season.Summer, 5, 9.5, rng: rng);
+        Assert.NotEqual(before, rng.StateHash());
+    }
+
+    [Fact]
+    public void AdvanceTrees_BumpsVersionOncePerCall()
+    {
+        var world = new World(3, Flat());
+        for (var i = 0; i < 20; i++)
+        {
+            world.Trees.Add(10 + (i * 5), 10, TreeSpeciesId.Birch, 0);
+        }
+
+        var v = world.Trees.Version;
+        Assert.Equal(20, world.AdvanceTrees(1));
+        Assert.Equal(1.0, world.Trees.MeanAgeMonths, 1e-9);
+        Assert.Equal(v + 1, world.Trees.Version);
+        Assert.Equal(v + 1, world.Trees.Version);
+        Assert.Equal(0, world.AdvanceTrees(0));
+        Assert.Equal(v + 1, world.Trees.Version);
+    }
+
+    [Fact]
+    public void Gate_OnHillyTerrain_UsesTheCellTopNotTheMapMaximum()
+    {
+        var terrain = Cliff();
+        var stand = new TreeStand(200, 200, terrain);
+        stand.Add(60, TreeZ, TreeSpeciesId.Oak, 100 * 12); // plateau à 30 m : cime à 47,5 m
+        stand.Add(180, TreeZ, TreeSpeciesId.Oak, 0); // plant en bas, sol à 0 : cime à 2 m
+        Assert.Equal(47.5, stand.MaxTopAt(60, TreeZ), 1e-9);
+        Assert.Equal(2.0, stand.MaxTopAt(180, TreeZ), 1e-9);
+        Assert.Equal(double.NegativeInfinity, stand.MaxTopAt(150, 20));
+
+        // Au-dessus du plant, à 10 m d'altitude, la balle est sous le maximum de la carte (47,5 m) mais au-dessus de la cime locale :
+        // elle ne tire rien et le vol est celui d'un monde sans arbre.
+        var rng = new DeterministicRng(7);
+        var before = rng.StateHash();
+        var withTrees = BallSimulator.Run(terrain, new Point2(175, TreeZ), new Vec3(10, 0, 0), false, 0.0, true, startHeight: 10.0, trees: stand, season: Season.Summer, rng: rng);
+        var without = BallSimulator.Run(terrain, new Point2(175, TreeZ), new Vec3(10, 0, 0), false, 0.0, true, startHeight: 10.0);
+        Assert.Equal(before, rng.StateHash());
+        Assert.Equal(without.FirstLanding, withTrees.FirstLanding);
+    }
+
+    [Fact]
+    public void GrowthIsDeterministic_SameSeedSameAdvances_SameChecksum()
+    {
+        static ulong Run(int years)
+        {
+            var terrain = HoleLoader.Load(TerrainTests.HolePath(), 2);
+            var world = new World(11, terrain);
+            for (var y = 0; y < years; y++)
+            {
+                world.AdvanceYear();
+            }
+
+            world.AdvanceTrees(5);
+            return world.Checksum();
+        }
+
+        Assert.Equal(Run(7), Run(7));
+        Assert.NotEqual(Run(7), Run(8));
+    }
+
+    [Fact]
+    public void HoleLoader_RejectsRetiredSpeciesWithAClearMessage()
+    {
+        var json = System.IO.File.ReadAllText(TerrainTests.HolePath());
+        var withTrees = json.TrimEnd().TrimEnd('}').TrimEnd() + ", \"trees\": [{\"x\": 10, \"z\": 8, \"species\": \"Feuillu\", \"age\": 30}] }";
+        var ex = Assert.Throws<HoleDataException>(() => HoleLoader.Parse(withTrees, 2));
+        Assert.Contains("n'existe plus", ex.Message);
+        Assert.Contains("Chêne", ex.Message);
+    }
+
+    [Fact]
+    public void MaxTopAt_FollowsRaisedGround()
+    {
+        var terrain = Flat();
+        var world = new World(3, terrain);
+        world.Trees.Add(100, 100, TreeSpeciesId.Fir, 100 * 12);
+        Assert.Equal(20.0, world.Trees.MaxTopAt(100, 100), 1e-9);
+        world.RaiseTerrain(new Point2(100, 100), 12.0, 3.0);
+        world.Step(1);
+        Assert.True(world.Trees.MaxTopAt(100, 100) > 20.0);
     }
 }

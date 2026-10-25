@@ -44,7 +44,7 @@ public sealed partial class World
         Flow = terrain is null ? null : new FlowFieldCache(terrain);
         if (terrain is not null)
         {
-            Trees = new TreeStand(terrain.CellsX * terrain.CellSize, terrain.CellsZ * terrain.CellSize);
+            Trees = new TreeStand(terrain.CellsX * terrain.CellSize, terrain.CellsZ * terrain.CellSize, terrain);
             foreach (var p in terrain.IsolatedTrees)
             {
                 Trees.Add(p.X, p.Z, p.Species, p.AgeMonths);
@@ -64,6 +64,12 @@ public sealed partial class World
 
     /// <summary>Arbres du monde (nul coût de marche : seul le sous-bois, surface Trees, bloque les golfeurs).</summary>
     public TreeStand Trees { get; }
+
+    /// <summary>Fait vieillir tous les arbres de <paramref name="months"/> mois (hauteur et couronne suivent l'âge) ; rend leur nombre. C03 la branchera sur le calendrier.</summary>
+    public int AdvanceTrees(int months) => Trees.Grow(months);
+
+    /// <summary>Commande de debug « avancer d'un an » : 12 mois.</summary>
+    public int AdvanceYear() => AdvanceTrees(12);
 
     /// <summary>Saison (été par défaut) : règle la densité des couronnes que traverse la balle. C03 la pilotera.</summary>
     public Season Season

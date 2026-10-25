@@ -26,20 +26,20 @@ public class TreeTests
     public void Stand_AddRemove_TracksMaxHeightPerCellAndVersion()
     {
         var stand = new TreeStand(100, 100);
-        Assert.Equal(0.0, stand.MaxHeightAt(5, 5));
+        Assert.Equal(double.NegativeInfinity, stand.MaxTopAt(5, 5));
         var v0 = stand.Version;
 
-        var young = stand.Add(5, 5, TreeSpeciesId.Deciduous, 0);
-        var old = stand.Add(8, 9, TreeSpeciesId.Pine, 100 * 12);
+        var young = stand.Add(5, 5, TreeSpeciesId.Oak, 0);
+        var old = stand.Add(8, 9, TreeSpeciesId.Fir, 100 * 12);
         Assert.Equal(2, stand.Count);
         Assert.True(stand.Version > v0);
-        Assert.Equal(20.0, stand.MaxHeightAt(5, 5), 1e-9);
-        Assert.Equal(0.0, stand.MaxHeightAt(40, 40));
+        Assert.Equal(20.0, stand.MaxTopAt(5, 5), 1e-9);
+        Assert.Equal(double.NegativeInfinity, stand.MaxTopAt(40, 40));
 
         var v1 = stand.Version;
         Assert.True(stand.Remove(old.Id));
         Assert.True(stand.Version > v1);
-        Assert.Equal(young.Height(), stand.MaxHeightAt(5, 5), 1e-9);
+        Assert.Equal(young.Height(), stand.MaxTopAt(5, 5), 1e-9);
         Assert.False(stand.Remove(old.Id));
         Assert.False(stand.TryGet(old.Id, out _));
 
@@ -52,8 +52,8 @@ public class TreeTests
     public void Stand_Query_FindsOnlyTreesInRadius()
     {
         var stand = new TreeStand(100, 100);
-        stand.Add(10, 10, TreeSpeciesId.Pine, 0);
-        stand.Add(30, 10, TreeSpeciesId.Pine, 0);
+        stand.Add(10, 10, TreeSpeciesId.Fir, 0);
+        stand.Add(30, 10, TreeSpeciesId.Fir, 0);
         var found = new List<Tree>();
         stand.Query(12, 10, 5, found);
         Assert.Single(found);
@@ -65,7 +65,7 @@ public class TreeTests
     [Fact]
     public void Height_IsIncreasingAndBoundedByAdult()
     {
-        foreach (var id in new[] { TreeSpeciesId.Deciduous, TreeSpeciesId.Pine })
+        foreach (var id in new[] { TreeSpeciesId.Oak, TreeSpeciesId.Birch, TreeSpeciesId.Fir })
         {
             var sp = TreeSpeciesTable.Get(id);
             var last = 0.0;
@@ -125,7 +125,7 @@ public class TreeTests
         for (ulong seed = 1; seed <= 5; seed++)
         {
             var world = new World(seed, Proto());
-            Assert.InRange(world.Trees.Count, 80, 180);
+            Assert.InRange(world.Trees.Count, 80, 200);
         }
     }
 
@@ -142,7 +142,7 @@ public class TreeTests
     public void Paint_AddsAndRemovesTrees_KeepsOthersUntouched()
     {
         var world = new World(5, PathingTests.Flat(40, 40, 4.0));
-        var isolated = world.Trees.Add(150, 20, TreeSpeciesId.Deciduous, 200 * 12);
+        var isolated = world.Trees.Add(150, 20, TreeSpeciesId.Oak, 200 * 12);
         Assert.Equal(1, world.Trees.Count);
         var v0 = world.Trees.Version;
 
@@ -212,7 +212,7 @@ public class TreeTests
     {
         var world = new World(5, Woods());
         var c0 = world.Checksum();
-        var tree = world.Trees.Add(2, 2, TreeSpeciesId.Pine, 12);
+        var tree = world.Trees.Add(2, 2, TreeSpeciesId.Fir, 12);
         var c1 = world.Checksum();
         Assert.NotEqual(c0, c1);
         world.Trees.Remove(tree.Id);
@@ -224,15 +224,15 @@ public class TreeTests
     public void Stand_RemovingTallest_LowersCellMaxToNeighbor()
     {
         var stand = new TreeStand(100, 100);
-        var low = stand.Add(1, 1, TreeSpeciesId.Deciduous, 0);
-        var mid = stand.Add(2, 2, TreeSpeciesId.Deciduous, 20 * 12);
-        var tall = stand.Add(3, 3, TreeSpeciesId.Pine, 100 * 12);
-        Assert.Equal(tall.Height(), stand.MaxHeightAt(1, 1), 1e-9);
+        var low = stand.Add(1, 1, TreeSpeciesId.Oak, 0);
+        var mid = stand.Add(2, 2, TreeSpeciesId.Oak, 20 * 12);
+        var tall = stand.Add(3, 3, TreeSpeciesId.Fir, 100 * 12);
+        Assert.Equal(tall.Height(), stand.MaxTopAt(1, 1), 1e-9);
 
         stand.Remove(tall.Id);
-        Assert.Equal(mid.Height(), stand.MaxHeightAt(1, 1), 1e-9);
+        Assert.Equal(mid.Height(), stand.MaxTopAt(1, 1), 1e-9);
         stand.Remove(mid.Id);
-        Assert.Equal(low.Height(), stand.MaxHeightAt(1, 1), 1e-9);
+        Assert.Equal(low.Height(), stand.MaxTopAt(1, 1), 1e-9);
     }
 
     [Fact]
@@ -240,7 +240,7 @@ public class TreeTests
     {
         var json = File.ReadAllText(TerrainTests.HolePath());
         var close = json.TrimEnd().TrimEnd('}').TrimEnd()
-            + ", \"trees\": [{\"x\": 10, \"z\": 8, \"species\": \"pine\", \"age\": 50}, {\"x\": 10.2, \"z\": 8, \"species\": \"pine\", \"age\": 50}] }";
+            + ", \"trees\": [{\"x\": 10, \"z\": 8, \"species\": \"sapin\", \"age\": 50}, {\"x\": 10.2, \"z\": 8, \"species\": \"sapin\", \"age\": 50}] }";
         var e = Assert.Throws<HoleDataException>(() => HoleLoader.Parse(close, 2));
         Assert.Contains("trop près", e.Message);
     }
@@ -257,7 +257,7 @@ public class TreeTests
 
         for (var i = 0; i < 30; i++)
         {
-            world.Trees.Add(10 + (i * 3), 12, TreeSpeciesId.Deciduous, 100);
+            world.Trees.Add(10 + (i * 3), 12, TreeSpeciesId.Oak, 100);
         }
 
         Assert.Equal(surfaceVersion, terrain.SurfaceVersion);
@@ -283,14 +283,14 @@ public class TreeTests
     public void HoleLoader_ReadsIsolatedTrees()
     {
         var json = File.ReadAllText(TerrainTests.HolePath());
-        var withTrees = json.TrimEnd().TrimEnd('}').TrimEnd() + ", \"trees\": [{\"x\": 10, \"z\": 8, \"species\": \"pine\", \"age\": 30}] }";
+        var withTrees = json.TrimEnd().TrimEnd('}').TrimEnd() + ", \"trees\": [{\"x\": 10, \"z\": 8, \"species\": \"sapin\", \"age\": 30}] }";
         var terrain = HoleLoader.Parse(withTrees, 2);
 
         var p = Assert.Single(terrain.IsolatedTrees);
         Assert.Equal(80.0, p.X, 1e-9);
-        Assert.Equal(TreeSpeciesId.Pine, p.Species);
+        Assert.Equal(TreeSpeciesId.Fir, p.Species);
         Assert.Equal(360, p.AgeMonths);
         Assert.Contains(new World(1, terrain).Trees.Trees, t => t.X == 80.0 && t.Z == 64.0);
-        Assert.Throws<HoleDataException>(() => HoleLoader.Parse(withTrees.Replace("pine", "baobab"), 2));
+        Assert.Throws<HoleDataException>(() => HoleLoader.Parse(withTrees.Replace("sapin", "baobab"), 2));
     }
 }

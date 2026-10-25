@@ -20,6 +20,7 @@ const double holeFieldLimitMs = 5.0;
 const double bigFieldLimitMs = 20.0;
 const double retouchLimitMs = 16.0;
 const double treeFlightRatioLimit = 1.2;
+const double treeGrowLimitMs = 5.0;
 
 // Carte plate de 512 x 512 cellules, la même à tous les facteurs.
 var big = new TerrainGrid(new HeightField(512, 512, 2.0), "plat", new Point2(2, 2), new Point2(1000, 1000), new Point2(1000, 1000));
@@ -152,10 +153,15 @@ foreach (var factor in new[] { 2, 3, 4 })
 var treeFlight = MeasureTreeFlight(big);
 allPassed &= treeFlight.Ratio <= treeFlightRatioLimit;
 
+// Vieillir 20 000 arbres d'un mois (C02 lot 3) : âge, index par case et version. Médiane de 200 passes.
+var grow = MeasureTreeGrowth(big);
+allPassed &= grow.Median < treeGrowLimitMs;
+
 var report = new
 {
-    benchmark = "c02-lot2",
+    benchmark = "c02-lot3",
     passed = allPassed,
+    treeGrowth = new { trees = grow.Trees, monthMeanMs = grow.Mean, monthMedianMs = grow.Median, monthMaxMs = grow.Max, limitMs = treeGrowLimitMs, passed = grow.Median < treeGrowLimitMs },
     treeFlight = new
     {
         trees = treeFlight.Trees,
@@ -182,16 +188,31 @@ if (outPath is not null)
 
 return allPassed ? 0 : 1;
 
+static (int Trees, double Mean, double Median, double Max) MeasureTreeGrowth(TerrainGrid map)
+{
+    const int treeCount = 20_000;
+    var size = map.CellsX * map.CellSize;
+    var stand = new TreeStand(size, size, map);
+    var placer = new DeterministicRng(13);
+    for (var i = 0; i < treeCount; i++)
+    {
+        stand.Add(2 + (placer.NextDouble() * (size - 4)), 2 + (placer.NextDouble() * (size - 4)), (TreeSpeciesId)(i % TreeSpeciesTable.Count), (int)(placer.NextDouble() * 30 * 12));
+    }
+
+    var m = Measure(200, 20, () => stand.Grow(1));
+    return (treeCount, m.Mean, m.Median, m.Max);
+}
+
 static (int Trees, int Flights, double NoTreesMs, double WithTreesMs, double Ratio, double RatioPerSimulatedSecond, double NoTreesSeconds, double WithTreesSeconds) MeasureTreeFlight(TerrainGrid map)
 {
     const int treeCount = 20_000;
     const int flights = 400;
     var size = map.CellsX * map.CellSize;
-    var stand = new TreeStand(size, size);
+    var stand = new TreeStand(size, size, map);
     var placer = new DeterministicRng(11);
     for (var i = 0; i < treeCount; i++)
     {
-        var species = placer.NextDouble() < 0.6 ? TreeSpeciesId.Deciduous : TreeSpeciesId.Pine;
+        var species = (TreeSpeciesId)(i % TreeSpeciesTable.Count);
         stand.Add(2 + (placer.NextDouble() * (size - 4)), 2 + (placer.NextDouble() * (size - 4)), species, (int)((20 + (placer.NextDouble() * 40)) * 12));
     }
 
