@@ -119,10 +119,10 @@ public sealed class TreeStand
     }
 
     /// <summary>
-    /// Vieillit tous les arbres de <paramref name="months"/> mois et recalcule les altitudes de cime ; la version n'augmente
-    /// qu'une fois. Rend le nombre d'arbres vieillis.
+    /// Vieillit tous les arbres (ou seulement les jeunes, plus bas que <see cref="Tree.YoungMaxHeight"/>) de <paramref name="months"/> mois
+    /// et recalcule les altitudes de cime ; la version n'augmente qu'une fois. Rend le nombre d'arbres vieillis.
     /// </summary>
-    public int Grow(int months)
+    public int Grow(int months, bool youngOnly = false)
     {
         if (months < 0)
         {
@@ -135,18 +135,25 @@ public sealed class TreeStand
         }
 
         Array.Fill(_top, double.NegativeInfinity);
+        var grown = 0;
         for (var i = 0; i < _trees.Count; i++)
         {
-            var t = _trees[i] with { AgeMonths = _trees[i].AgeMonths + months };
-            _trees[i] = t;
-            _byId[t.Id] = t;
+            var t = _trees[i];
+            if (!youngOnly || t.Height() < Tree.YoungMaxHeight)
+            {
+                t = t with { AgeMonths = t.AgeMonths + months };
+                _trees[i] = t;
+                _byId[t.Id] = t;
+                grown++;
+            }
+
             var ci = CellIndex(t.X, t.Z);
             _top[ci] = Math.Max(_top[ci], TopOf(t));
         }
 
-        _ageSum += (long)months * _trees.Count;
+        _ageSum += (long)months * grown;
         Version++;
-        return _trees.Count;
+        return grown;
     }
 
     /// <summary>Recalcule les altitudes de cime des cases de l'index que touche le rectangle [x0, x1] x [z0, z1] (mètres) : le relief y a changé.</summary>

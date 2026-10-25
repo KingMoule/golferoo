@@ -55,6 +55,9 @@ public partial class Main : Node3D
 
     public TerrainRenderer TerrainView { get; private set; } = null!;
 
+    /// <summary>Ciel et pluie à l'écran.</summary>
+    public WeatherView WeatherView { get; private set; } = null!;
+
     public ActorLayer Actors { get; private set; } = null!;
 
     public IsoCamera Camera { get; private set; } = null!;
@@ -140,7 +143,7 @@ public partial class Main : Node3D
             FpsBench.FillTrees(World.Trees, grid);
         }
 
-        AddChild(new WorldEnvironment
+        var environment = new WorldEnvironment
         {
             Environment = new Godot.Environment
             {
@@ -150,7 +153,8 @@ public partial class Main : Node3D
                 AmbientLightColor = new Color(0.75f, 0.8f, 0.9f),
                 AmbientLightEnergy = 0.7f,
             },
-        });
+        };
+        AddChild(environment);
 
         TerrainView = new TerrainRenderer { Name = "TerrainView" };
         AddChild(TerrainView);
@@ -180,6 +184,9 @@ public partial class Main : Node3D
 
         _hud = GetNode<Label>("TickLabel");
         _sun = GetNode<DirectionalLight3D>("Sun");
+        WeatherView = new WeatherView { Name = "WeatherView" };
+        AddChild(WeatherView);
+        WeatherView.Init(environment.Environment, _sun);
         _month = World.Date.Month;
         ResetSnapshots();
         UpdateHud(0);
@@ -416,13 +423,15 @@ public partial class Main : Node3D
         }
     }
 
-    /// <summary>Vent du moment : balancement des arbres et drapeau.</summary>
+    /// <summary>Temps du moment : balancement des arbres, drapeau, ciel, pluie et sol mouillé.</summary>
     private void UpdateWind()
     {
         var w = World.Wind;
         var dir = new Vector2((float)w.X, (float)w.Z);
         TreeLayer.SetWind(dir, dir.Length());
         Actors.SetWind(dir);
+        WeatherView.Show(World.Weather.Sky, dir, Camera.Target, Camera.Size);
+        TerrainView.SetWetness((float)World.SoilWetness);
     }
 
     private void UpdateHud(double delta)

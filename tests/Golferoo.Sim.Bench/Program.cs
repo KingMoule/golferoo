@@ -4,7 +4,9 @@ using Golferoo.Sim;
 using Golferoo.Sim.Pathing;
 using Golferoo.Sim.Shots;
 using Golferoo.Sim.Terrain;
+using Golferoo.Sim.Time;
 using Golferoo.Sim.Trees;
+using Golferoo.Sim.Weather;
 
 // Banc de mesure de la simulation, à lancer en Release :
 //   dotnet run -c Release --project tests/Golferoo.Sim.Bench [-- --out bench.json]
@@ -23,6 +25,7 @@ const double treeFlightRatioLimit = 1.2;
 const double treeGrowLimitMs = 5.0;
 const double windFlightRatioLimit = 1.05;
 const double windPlanRatioLimit = 1.2;
+const double dayChangeLimitMs = 5.0;
 
 // Carte plate de 512 x 512 cellules, la même à tous les facteurs.
 var big = new TerrainGrid(new HeightField(512, 512, 2.0), "plat", new Point2(2, 2), new Point2(1000, 1000), new Point2(1000, 1000));
@@ -164,9 +167,15 @@ allPassed &= grow.Median < treeGrowLimitMs;
 var wind = MeasureWind(big, HoleLoader.Load(holePath, 2));
 allPassed &= wind.FlightRatio <= windFlightRatioLimit && wind.PlanRatio <= windPlanRatioLimit;
 
+// Changement de jour (C04 lot 3) sur une carte de 512 x 512 avec 20 000 arbres adultes, en tempête : météo, sol mouillé
+// recalculé (humidité qui change chaque jour) et chutes. Médiane de 30 changements de jour.
+var dayChange = MeasureDayChange();
+allPassed &= dayChange.Median < dayChangeLimitMs;
+
 var report = new
 {
-    benchmark = "c04-lot2",
+    benchmark = "c04-lot3",
+    dayChange = new { trees = dayChange.Trees, medianMs = dayChange.Median, maxMs = dayChange.Max, fallen = dayChange.Fallen, limitMs = dayChangeLimitMs, passed = dayChange.Median < dayChangeLimitMs },
     wind = new
     {
         speed = 14.0,
@@ -357,6 +366,50 @@ static (double FlightRatio, double PlanCalmMs, double PlanWindyMs, double PlanRa
     Array.Sort(planCalm);
     Array.Sort(planWindy);
     return (blow[7] / calm[7], planCalm[15], planWindy[15], planWindy[15] / planCalm[15]);
+}
+
+static (int Trees, double Median, double Max, int Fallen) MeasureDayChange()
+{
+    const int treeCount = 20_000;
+    var map = new TerrainGrid(new HeightField(512, 512, 2.0), "plat", new Point2(2, 2), new Point2(1000, 1000), new Point2(1000, 1000));
+    for (var z = 0; z < 512; z++)
+    {
+        for (var x = 0; x < 512; x++)
+        {
+            map.PaintCell(x, z, Surface.Rough);
+        }
+    }
+
+    var world = new World(seed: 31, map) { Climate = Climate.Calm };
+    var placer = new DeterministicRng(32);
+    for (var i = 0; i < treeCount; i++)
+    {
+        world.Trees.Add(2 + (placer.NextDouble() * 1020), 2 + (placer.NextDouble() * 1020), (TreeSpeciesId)(i % TreeSpeciesTable.Count), 40 * 12);
+    }
+
+    var samples = new double[30];
+    for (var i = -5; i < samples.Length; i++)
+    {
+        // Pluie un jour sur deux, forte : l'humidité du sol change à chaque changement de jour, et il y a des chutes.
+        while (world.Weather.Sky != (i % 2 == 0 ? Sky.HeavyRain : Sky.Sun))
+        {
+            world.CycleSky();
+        }
+
+        world.Step(Calendar.TicksPerDay - 1 - (int)(world.Tick % Calendar.TicksPerDay));
+        map.Soil.RollResistanceAt(0, 0);
+        var t0 = Stopwatch.GetTimestamp();
+        world.Step();
+        map.Soil.RollResistanceAt(0, 0); // le sol se recalcule à la première lecture : on la compte
+        if (i >= 0)
+        {
+            samples[i] = Stopwatch.GetElapsedTime(t0).TotalMilliseconds;
+        }
+    }
+
+    var fallen = world.Trees.Trees.Count(t => t.State == TreeState.Fallen);
+    Array.Sort(samples);
+    return (treeCount, samples[samples.Length / 2], samples[^1], fallen);
 }
 
 static (double Mean, double P99, double Max, double Median) Measure(int runs, int warmup, Action action)
