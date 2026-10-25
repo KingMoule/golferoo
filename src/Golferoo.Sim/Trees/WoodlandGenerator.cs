@@ -27,8 +27,8 @@ public static class WoodlandGenerator
     /// <summary>Part de feuillus dans un massif.</summary>
     private const double DeciduousShare = 0.6;
 
-    /// <summary>Plante des arbres dans les cellules de <paramref name="rect"/> dont la surface est Trees.</summary>
-    public static int Fill(TreeStand stand, TerrainGrid terrain, CellRect rect, DeterministicRng rng)
+    /// <summary>Plante des arbres dans les cellules de <paramref name="rect"/> dont la surface est Trees ; avec <paramref name="center"/>, seulement à moins de <paramref name="radius"/> mètres de ce centre (le rectangle englobe le disque peint).</summary>
+    public static int Fill(TreeStand stand, TerrainGrid terrain, CellRect rect, DeterministicRng rng, Point2? center = null, double radius = double.PositiveInfinity)
     {
         var x0 = rect.MinX * terrain.CellSize;
         var z0 = rect.MinZ * terrain.CellSize;
@@ -64,13 +64,18 @@ public static class WoodlandGenerator
                 continue;
             }
 
-            var radius = Tree.CrownDiameter(spec, age) * 0.5;
+            if (center is { } c && (((x - c.X) * (x - c.X)) + ((z - c.Z) * (z - c.Z))) > radius * radius)
+            {
+                continue;
+            }
+
+            var crown = Tree.CrownDiameter(spec, age) * 0.5;
             near.Clear();
-            stand.Query(x, z, radius + MaxCrownRadius, near);
+            stand.Query(x, z, crown + MaxCrownRadius, near);
             var free = true;
             foreach (var other in near)
             {
-                var min = SpacingFactor * (radius + other.CrownRadius());
+                var min = SpacingFactor * (crown + other.CrownRadius());
                 var dx = other.X - x;
                 var dz = other.Z - z;
                 if ((dx * dx) + (dz * dz) < min * min)

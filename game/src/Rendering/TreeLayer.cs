@@ -151,6 +151,8 @@ public partial class TreeLayer : Node3D
         _globalsDeclared = true;
     }
 
+    // Coût : un passage sur tous les arbres de la sim par appel (O(N) quel que soit le nombre de blocs reconstruits).
+    // Suffisant pour quelques milliers d'arbres ; à remplacer par une requête par bloc de l'index spatial pour F6.
     private void BuildBlocks(HashSet<(int X, int Z)> keys)
     {
         var grid = _grid!;

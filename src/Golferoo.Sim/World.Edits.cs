@@ -77,7 +77,7 @@ public sealed partial class World
                 {
                     if (e.Surface == Surface.Trees)
                     {
-                        WoodlandGenerator.Fill(Trees, terrain, painted, NextWoodlandRng());
+                        WoodlandGenerator.Fill(Trees, terrain, painted, NextWoodlandRng(), e.Center, e.Radius);
                     }
                     else if (onUnderbrush is { Count: > 0 })
                     {

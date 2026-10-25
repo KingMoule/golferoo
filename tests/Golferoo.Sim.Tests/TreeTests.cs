@@ -139,44 +139,110 @@ public class TreeTests
     }
 
     [Fact]
-    public void Paint_AddsAndRemovesTrees()
+    public void Paint_AddsAndRemovesTrees_KeepsOthersUntouched()
     {
         var world = new World(5, PathingTests.Flat(40, 40, 4.0));
-        Assert.Equal(0, world.Trees.Count);
+        var isolated = world.Trees.Add(150, 20, TreeSpeciesId.Deciduous, 200 * 12);
+        Assert.Equal(1, world.Trees.Count);
         var v0 = world.Trees.Version;
 
-        world.PaintSurface(new Point2(80, 80), 30, Surface.Trees);
+        var center = new Point2(80, 80);
+        world.PaintSurface(center, 30, Surface.Trees);
         world.Step();
-        var planted = world.Trees.Count;
-        Assert.True(planted > 5);
+        var planted = world.Trees.Trees.Where(t => t.Id != isolated.Id).ToList();
+        Assert.True(planted.Count > 5);
         Assert.True(world.Trees.Version > v0);
-        foreach (var t in world.Trees.Trees)
+        Assert.True(world.Trees.TryGet(isolated.Id, out _)); // sur du fairway, hors du pinceau
+        foreach (var t in planted)
         {
+            Assert.Equal(Surface.Trees, world.Terrain!.SurfaceAt(t.X, t.Z));
+            Assert.True(Math.Sqrt(Math.Pow(t.X - center.X, 2) + Math.Pow(t.Z - center.Z, 2)) <= 30.0, "arbre planté hors du disque peint");
+        }
+
+        // Peinture de fairway voisine, qui ne touche pas l'arbre isolé : il survit.
+        var inner = new Point2(80, 80);
+        world.PaintSurface(inner, 12, Surface.Fairway);
+        world.Step();
+        var after = world.Trees.Trees.Where(t => t.Id != isolated.Id).ToList();
+        Assert.True(after.Count < planted.Count);
+        Assert.True(after.Count > 0);
+        Assert.True(world.Trees.TryGet(isolated.Id, out _));
+        var keptIds = planted.Select(t => t.Id).ToHashSet();
+        foreach (var t in after)
+        {
+            Assert.Contains(t.Id, keptIds); // aucun arbre nouveau, mêmes Id
             Assert.Equal(Surface.Trees, world.Terrain!.SurfaceAt(t.X, t.Z));
         }
 
-        world.PaintSurface(new Point2(80, 80), 12, Surface.Fairway);
-        world.Step();
-        Assert.True(world.Trees.Count < planted);
-        Assert.True(world.Trees.Count > 0);
-        foreach (var t in world.Trees.Trees)
+        foreach (var t in planted.Where(t => Math.Sqrt(Math.Pow(t.X - inner.X, 2) + Math.Pow(t.Z - inner.Z, 2)) > 16.0))
         {
-            Assert.Equal(Surface.Trees, world.Terrain!.SurfaceAt(t.X, t.Z));
+            Assert.Contains(after, a => a.Id == t.Id); // hors du pinceau : conservé
         }
+
+        // Peinture directement sur l'arbre isolé (hors sous-bois) : il reste.
+        world.PaintSurface(new Point2(150, 20), 6, Surface.Rough);
+        world.Step();
+        Assert.True(world.Trees.TryGet(isolated.Id, out _));
     }
 
     [Fact]
-    public void Snapshot_CopiesTreesOnlyWhenVersionChanges()
+    public void Paint_Trees_DoesNotChangeTickRngSequence()
+    {
+        var a = new World(11, PathingTests.Flat(40, 40, 4.0));
+        var b = new World(11, PathingTests.Flat(40, 40, 4.0));
+        a.PaintSurface(new Point2(80, 80), 30, Surface.Trees);
+        for (var i = 0; i < 3; i++)
+        {
+            a.Step();
+            b.Step();
+        }
+
+        Assert.True(a.Trees.Count > 0);
+        Assert.Equal(RngHash(b), RngHash(a));
+    }
+
+    private static ulong RngHash(World w)
+    {
+        var field = typeof(World).GetField("_rng", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!;
+        return ((DeterministicRng)field.GetValue(w)!).StateHash();
+    }
+
+    [Fact]
+    public void Checksum_ChangesWhenTreeAddedOrRemoved()
     {
         var world = new World(5, Woods());
-        var snap = world.Snapshot();
-        Assert.Equal(world.Trees.Count, snap.Trees.Count);
-        Assert.Equal(world.Trees.Version, snap.TreesVersion);
+        var c0 = world.Checksum();
+        var tree = world.Trees.Add(2, 2, TreeSpeciesId.Pine, 12);
+        var c1 = world.Checksum();
+        Assert.NotEqual(c0, c1);
+        world.Trees.Remove(tree.Id);
+        Assert.NotEqual(c1, world.Checksum());
+        Assert.Equal(c0, world.Checksum()); // mêmes arbres qu'au départ, même somme
+    }
 
-        world.Trees.Add(1, 1, TreeSpeciesId.Pine, 0);
-        Assert.NotEqual(world.Trees.Version, snap.TreesVersion);
-        world.Snapshot(snap);
-        Assert.Equal(world.Trees.Count, snap.Trees.Count);
+    [Fact]
+    public void Stand_RemovingTallest_LowersCellMaxToNeighbor()
+    {
+        var stand = new TreeStand(100, 100);
+        var low = stand.Add(1, 1, TreeSpeciesId.Deciduous, 0);
+        var mid = stand.Add(2, 2, TreeSpeciesId.Deciduous, 20 * 12);
+        var tall = stand.Add(3, 3, TreeSpeciesId.Pine, 100 * 12);
+        Assert.Equal(tall.Height(), stand.MaxHeightAt(1, 1), 1e-9);
+
+        stand.Remove(tall.Id);
+        Assert.Equal(mid.Height(), stand.MaxHeightAt(1, 1), 1e-9);
+        stand.Remove(mid.Id);
+        Assert.Equal(low.Height(), stand.MaxHeightAt(1, 1), 1e-9);
+    }
+
+    [Fact]
+    public void HoleLoader_RejectsIsolatedTreesTooClose()
+    {
+        var json = File.ReadAllText(TerrainTests.HolePath());
+        var close = json.TrimEnd().TrimEnd('}').TrimEnd()
+            + ", \"trees\": [{\"x\": 10, \"z\": 8, \"species\": \"pine\", \"age\": 50}, {\"x\": 10.2, \"z\": 8, \"species\": \"pine\", \"age\": 50}] }";
+        var e = Assert.Throws<HoleDataException>(() => HoleLoader.Parse(close, 2));
+        Assert.Contains("trop près", e.Message);
     }
 
     [Fact]

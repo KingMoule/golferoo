@@ -151,7 +151,23 @@ public static class HoleLoader
                 throw new HoleDataException(string.Create(CultureInfo.InvariantCulture, $"{where} : âge invalide {t.Age} (années, entre 0 et 1000)."));
             }
 
-            result.Add(new TreePlacement(t.X * tileSize, t.Z * tileSize, species.Id, (int)Math.Round(t.Age * 12.0)));
+            var placement = new TreePlacement(t.X * tileSize, t.Z * tileSize, species.Id, (int)Math.Round(t.Age * 12.0));
+            var radius = Tree.CrownDiameter(species, placement.AgeMonths) * 0.5;
+            for (var j = 0; j < result.Count; j++)
+            {
+                var o = result[j];
+                var otherRadius = Tree.CrownDiameter(TreeSpeciesTable.Get(o.Species), o.AgeMonths) * 0.5;
+                var min = WoodlandGenerator.MinSpacingFactor * (radius + otherRadius);
+                var d = Math.Sqrt(Math.Pow(o.X - placement.X, 2) + Math.Pow(o.Z - placement.Z, 2));
+                if (d < min)
+                {
+                    throw new HoleDataException(string.Create(
+                        CultureInfo.InvariantCulture,
+                        $"{where} trop près de 'trees[{j}]' : {d:0.0} m, minimum {min:0.0} m (0,7 fois la somme des rayons de couronne)."));
+                }
+            }
+
+            result.Add(placement);
         }
 
         return result;
