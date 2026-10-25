@@ -6,7 +6,8 @@ namespace Golferoo.Sim.Shots;
 /// <param name="Ball">Position de la balle, en mètres.</param>
 /// <param name="Hole">Position du trou, en mètres.</param>
 /// <param name="StrokeNumber">Nombre de coups déjà joués par ce golfeur sur le trou (0 pour le drive).</param>
-public readonly record struct ShotRequest(Point2 Ball, Point2 Hole, int StrokeNumber);
+/// <param name="Skill">Niveau de jeu du golfeur (1 = référence) : règle la dispersion et la longueur à l'exécution, pas la planification.</param>
+public readonly record struct ShotRequest(Point2 Ball, Point2 Hole, int StrokeNumber, double Skill = 1.0);
 
 /// <summary>Issue d'un coup : où la balle s'est arrêtée, ou ce qui lui est arrivé.</summary>
 public enum ShotOutcome : byte

@@ -15,6 +15,7 @@ public sealed class TerrainGrid
         Tee = tee;
         Green = green;
         Hole = hole;
+        Par = DeducedPar(tee, hole);
         _surfaces = new Surface[heights.CellsX * heights.CellsZ];
         Array.Fill(_surfaces, Surface.Rough);
         Turf = new Golferoo.Sim.Turf.TurfGrid(this);
@@ -63,6 +64,16 @@ public sealed class TerrainGrid
 
     /// <summary>Centre du green, en mètres.</summary>
     public Point2 Green { get; }
+
+    /// <summary>Par du trou : celui du fichier, sinon déduit de la distance tee-trou.</summary>
+    public int Par { get; internal set; }
+
+    /// <summary>Barème de l'USGA : jusqu'à 230 m par 3, jusqu'à 430 m par 4, au-delà par 5.</summary>
+    public static int DeducedPar(Point2 tee, Point2 hole)
+    {
+        var d = Math.Sqrt(((hole.X - tee.X) * (hole.X - tee.X)) + ((hole.Z - tee.Z) * (hole.Z - tee.Z)));
+        return d <= 230.0 ? 3 : d <= 430.0 ? 4 : 5;
+    }
 
     /// <summary>Position du trou, en mètres.</summary>
     public Point2 Hole { get; private set; }
