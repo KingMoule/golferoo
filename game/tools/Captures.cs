@@ -87,6 +87,9 @@ public partial class Captures : Node
         views.Add(("aged15", 240f, center, [Yaws[0]], null));
         views.Add(("clearing", ClearingSize, center, [Yaws[0]], null));
         views.Add(("clearing20", ClearingSize, center, [Yaws[0]], null));
+        views.Add(("sun-morning", 240f, center, [Yaws[0]], null));
+        views.Add(("sun-noon", 240f, center, [Yaws[0]], null));
+        views.Add(("sun-evening", 240f, center, [Yaws[0]], null));
 
         foreach (var (zoomName, viewSize, target0, yaws0, followed0) in views)
         {
@@ -105,10 +108,10 @@ public partial class Captures : Node
 
             if (zoomName == "aged15")
             {
-                // Quinze ans de plus (commande de debug F10) : les plants ont grandi, les bouleaux sont adultes.
-                for (var year = 0; year < 15; year++)
+                // Quinze ans d'arbre de plus, soit 45 mois de jeu (commande de debug F10) : les plants ont grandi, les bouleaux sont adultes.
+                for (var month = 0; month < 15 * 3; month++)
                 {
-                    main.AdvanceTreesOneYear();
+                    main.SkipToNextMonth();
                 }
 
                 if (main.TerrainView.Trees is { } aged)
@@ -133,10 +136,10 @@ public partial class Captures : Node
 
             if (zoomName == "clearing20")
             {
-                // Vingt ans plus tard : la motte est un grand arbre isolé, qu'on fait tomber ; on attend la fin de la chute.
-                for (var year = 0; year < 20; year++)
+                // Vingt ans d'arbre plus tard (60 mois de jeu) : la motte est un grand arbre isolé, qu'on fait tomber ; on attend la fin de la chute.
+                for (var month = 0; month < 20 * 3; month++)
                 {
-                    main.AdvanceTreesOneYear();
+                    main.SkipToNextMonth();
                 }
 
                 target = clearingTarget;
@@ -153,6 +156,13 @@ public partial class Captures : Node
                 }
             }
 
+            main.SunDayFraction = zoomName switch
+            {
+                "sun-morning" => 0.1,
+                "sun-noon" => 0.5,
+                "sun-evening" => 0.9,
+                _ => 0.5, // midi : les autres vues gardent un éclairage comparable à C02
+            };
             main.TerrainView.Trees?.SetTrackedBall(followed);
             foreach (var yaw in yaws)
             {
@@ -197,7 +207,7 @@ public partial class Captures : Node
             }
         }
 
-        if (failures == 0 && index == 13)
+        if (failures == 0 && index == 16)
         {
             GD.Print($"CAPTURES OK {index} images");
             return 0;

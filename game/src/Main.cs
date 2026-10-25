@@ -4,6 +4,7 @@ using Golferoo.Game.Rendering;
 using Golferoo.Game.Tools;
 using Golferoo.Sim;
 using Golferoo.Sim.Terrain;
+using Golferoo.Sim.Time;
 
 namespace Golferoo.Game;
 
@@ -29,6 +30,14 @@ public partial class Main : Node3D
     private int _speedIndex;
     private bool _loadMode;
     private Label? _hud;
+    private DirectionalLight3D? _sun;
+    private int _month;
+
+    /// <summary>Moment de la journée imposé au soleil (captures) ; sans valeur, il suit le calendrier.</summary>
+    public double? SunDayFraction { get; set; }
+
+    private static readonly string[] MonthNames = ["janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août", "septembre", "octobre", "novembre", "décembre"];
+    private static readonly string[] SeasonNames = ["printemps", "été", "automne", "hiver"];
     private Rect2I? _dirtyCells;
     private Rect2I? _dirtyTreeCells;
 
@@ -165,6 +174,8 @@ public partial class Main : Node3D
         TreeTool.Init(this);
 
         _hud = GetNode<Label>("TickLabel");
+        _sun = GetNode<DirectionalLight3D>("Sun");
+        _month = World.Date.Month;
         ResetSnapshots();
         UpdateHud(0);
 
@@ -196,6 +207,7 @@ public partial class Main : Node3D
         }
 
         Render();
+        UpdateSun();
         UpdateHud(delta);
     }
 
@@ -296,7 +308,7 @@ public partial class Main : Node3D
                 ToggleLoadMode();
                 break;
             case Key.F10:
-                AdvanceTreesOneYear();
+                SkipToNextMonth();
                 break;
             case Key.Q:
                 Camera.RotateQuarter(-1);
@@ -309,12 +321,17 @@ public partial class Main : Node3D
         }
     }
 
-    /// <summary>Commande de debug « avancer d'un an » (F10) : les arbres vieillissent de 12 mois et la couche les redessine. C03 la branchera sur le calendrier.</summary>
-    public void AdvanceTreesOneYear()
+    /// <summary>Commande de debug (F10) : saute au 1er du mois suivant ; les arbres poussent et la couche les redessine.</summary>
+    public void SkipToNextMonth()
     {
-        World.AdvanceYear();
+        World.SkipToNextMonth();
+        OnMonthChanged();
+    }
+
+    private void OnMonthChanged()
+    {
+        _month = World.Date.Month;
         TerrainView.Trees?.Regrow();
-        GD.Print($"ARBRES +1 an : {World.Trees.Count} arbres, âge moyen {World.Trees.MeanAgeMonths / 12.0:F1} ans");
     }
 
     private void StepOnce()
@@ -322,6 +339,11 @@ public partial class Main : Node3D
         (_previous, _current) = (_current, _previous);
         var t0 = System.Diagnostics.Stopwatch.GetTimestamp();
         World.Step();
+        if (World.Date.Month != _month)
+        {
+            OnMonthChanged();
+        }
+
         TickMsTotal += System.Diagnostics.Stopwatch.GetElapsedTime(t0).TotalMilliseconds;
         TickCount++;
         World.Snapshot(_current);
@@ -372,11 +394,26 @@ public partial class Main : Node3D
         }
     }
 
+    private void UpdateSun()
+    {
+        if (_sun is not null)
+        {
+            var date = World.Date;
+            _sun.Basis = SunPath.At(SunDayFraction ?? date.DayFraction, date.Season);
+        }
+    }
+
     private void UpdateHud(double delta)
     {
         if (_hud is not null)
         {
-            _hud.Text = $"{Engine.GetFramesPerSecond()} FPS | {Actors.VisibleGolfers} golfeurs | tick {World.Tick} | x{Speed}{(Paused ? " (pause)" : string.Empty)} | arbres {World.Trees.MeanAgeMonths / 12.0:F1} ans (F10 : +1 an, T : outil arbres) | travaux arbres {World.TreeSpending}";
+            _hud.Text = $"{Engine.GetFramesPerSecond()} FPS | {Actors.VisibleGolfers} golfeurs | tick {World.Tick} | x{Speed}{(Paused ? " (pause)" : string.Empty)} | {DateText()} (F10 : mois suivant, T : outil arbres) | travaux arbres {World.TreeSpending}";
         }
+    }
+
+    private string DateText()
+    {
+        var d = World.Date;
+        return $"{d.Day} {MonthNames[d.Month - 1]}, an {d.Year}, {SeasonNames[(int)d.Season]}";
     }
 }

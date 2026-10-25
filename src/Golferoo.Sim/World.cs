@@ -2,6 +2,7 @@ using Golferoo.Sim.Golfers;
 using Golferoo.Sim.Pathing;
 using Golferoo.Sim.Shots;
 using Golferoo.Sim.Terrain;
+using Golferoo.Sim.Time;
 using Golferoo.Sim.Trees;
 
 namespace Golferoo.Sim;
@@ -54,6 +55,7 @@ public sealed partial class World
             if (_resolver is PhysicalShotResolver physical)
             {
                 physical.Trees = Trees;
+                physical.Season = Season;
             }
         }
         else
@@ -65,25 +67,29 @@ public sealed partial class World
     /// <summary>Arbres du monde (nul coût de marche : seul le sous-bois, surface Trees, bloque les golfeurs).</summary>
     public TreeStand Trees { get; }
 
-    /// <summary>Fait vieillir tous les arbres de <paramref name="months"/> mois (hauteur et couronne suivent l'âge) ; rend leur nombre. C03 la branchera sur le calendrier.</summary>
-    public int AdvanceTrees(int months) => Trees.Grow(months);
+    private int _dayOffset;
 
-    /// <summary>Commande de debug « avancer d'un an » : 12 mois.</summary>
-    public int AdvanceYear() => AdvanceTrees(12);
+    /// <summary>Date de jeu, lue depuis le tick (et le décalage de debug).</summary>
+    public Date Date => Calendar.At(Tick, _dayOffset);
 
-    /// <summary>Saison (été par défaut) : règle la densité des couronnes que traverse la balle. C03 la pilotera.</summary>
-    public Season Season
+    /// <summary>Saison de la date : règle la densité des couronnes que traverse la balle.</summary>
+    public Season Season => Date.Season;
+
+    /// <summary>Debug : saute au 1er du mois suivant et fait pousser les arbres.</summary>
+    public void SkipToNextMonth()
     {
-        get;
-        set
+        _dayOffset += Calendar.DaysPerMonth - Date.Day + 1;
+        GrowTrees();
+    }
+
+    private void GrowTrees()
+    {
+        Trees.Grow(Calendar.TreeMonthsPerMonth);
+        if (_resolver is PhysicalShotResolver physical)
         {
-            field = value;
-            if (_resolver is PhysicalShotResolver physical)
-            {
-                physical.Season = value;
-            }
+            physical.Season = Season;
         }
-    } = Season.Summer;
+    }
 
     private int _woodlandDraws;
 
@@ -199,7 +205,12 @@ public sealed partial class World
             }
         }
 
+        var month = Calendar.MonthIndex(Tick, _dayOffset);
         Tick++;
+        if (Calendar.MonthIndex(Tick, _dayOffset) != month)
+        {
+            GrowTrees();
+        }
     }
 
     public void Step(int ticks)
@@ -256,6 +267,7 @@ public sealed partial class World
         var hash = 0xCBF29CE484222325UL;
         Mix(ref hash, Seed);
         Mix(ref hash, (ulong)Tick);
+        Mix(ref hash, (ulong)_dayOffset);
         Mix(ref hash, _rng.StateHash());
         if (Terrain is not null)
         {

@@ -123,7 +123,7 @@ public class TreeCommandTests
         Assert.True(mound.Height() > sapling.Height() + 3.0);
         Assert.True(sapling.Height() < 4.0);
 
-        w.AdvanceTrees(5 * 12);
+        w.Trees.Grow(5 * 12);
         foreach (var species in new[] { TreeSpeciesId.Oak, TreeSpeciesId.Birch, TreeSpeciesId.Fir })
         {
             Assert.True(Tree.Height(TreeSpeciesTable.Get(species), 5 * 12) > 4.0, species.ToString());

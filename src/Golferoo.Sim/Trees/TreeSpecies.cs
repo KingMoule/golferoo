@@ -52,9 +52,9 @@ public static class TreeSpeciesTable
     private static readonly TreeSpecies[] Table =
     [
         // Chêne : 15 à 20 m, couronne 10 à 14 m (ovale), tronc 0,4 à 0,8 m, adulte vers 40 à 60 ans.
-        new(TreeSpeciesId.Oak, "Chêne", TreeKind.Broadleaf, AdultHeight: 17.5, AdultCrownDiameter: 12.0, TrunkDiameter: 0.6, FirstBranchHeight: 3.5, AdultAgeMonths: 50 * 12, SaplingHeight: 2.0, SaplingCrownDiameter: 1.2, SaplingTrunkDiameter: 0.05, CrownDensities: [0.4, 1.0, 0.6, 0.15]),
+        new(TreeSpeciesId.Oak, "Chêne", TreeKind.Broadleaf, AdultHeight: 17.5, AdultCrownDiameter: 12.0, TrunkDiameter: 0.6, FirstBranchHeight: 3.5, AdultAgeMonths: 50 * 12, SaplingHeight: 2.0, SaplingCrownDiameter: 1.2, SaplingTrunkDiameter: 0.05, CrownDensities: [0.4, 1.0, 0.6, 0.45]),
         // Bouleau : 15 à 18 m, couronne 6 à 8 m, pousse vite (adulte vers 20 à 25 ans), feuillage plus clairsemé que le chêne.
-        new(TreeSpeciesId.Birch, "Bouleau", TreeKind.Broadleaf, AdultHeight: 16.5, AdultCrownDiameter: 7.0, TrunkDiameter: 0.3, FirstBranchHeight: 3.0, AdultAgeMonths: 22 * 12, SaplingHeight: 2.5, SaplingCrownDiameter: 1.0, SaplingTrunkDiameter: 0.04, CrownDensities: [0.3, 0.85, 0.5, 0.1]),
+        new(TreeSpeciesId.Birch, "Bouleau", TreeKind.Broadleaf, AdultHeight: 16.5, AdultCrownDiameter: 7.0, TrunkDiameter: 0.3, FirstBranchHeight: 3.0, AdultAgeMonths: 22 * 12, SaplingHeight: 2.5, SaplingCrownDiameter: 1.0, SaplingTrunkDiameter: 0.04, CrownDensities: [0.3, 0.85, 0.5, 0.4]),
         // Sapin : 15 à 25 m, couronne 4 à 7 m à la base, tronc 0,3 à 0,6 m, adulte vers 50 ans, densité presque constante.
         new(TreeSpeciesId.Fir, "Sapin", TreeKind.Conifer, AdultHeight: 20.0, AdultCrownDiameter: 5.5, TrunkDiameter: 0.45, FirstBranchHeight: 4.0, AdultAgeMonths: 50 * 12, SaplingHeight: 2.0, SaplingCrownDiameter: 1.2, SaplingTrunkDiameter: 0.05, CrownDensities: [0.95, 1.0, 0.95, 0.9]),
     ];
