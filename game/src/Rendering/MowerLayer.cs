@@ -18,6 +18,7 @@ public partial class MowerLayer : Node3D
     private const int MinCells = 4;
     private const float StripeWidth = 6f; // stripe_width de terrain.gdshader : les bandes courent le long de z
     private const float Speed = 1.5f; // m par seconde de temps simulé
+    private const float GreenMowerScale = 2f; // le modèle de green fait 0,7 m : trop petit pour se voir de la vue de jeu
     private const float MorningEnd = 0.25f;
     private const float StopDistance = 15f;
     private const float DaySeconds = Calendar.TicksPerDay * (float)World.TickSeconds;
@@ -28,6 +29,9 @@ public partial class MowerLayer : Node3D
     private double _last;
 
     public int ActiveMowers => Visible ? _mowers.Count(m => m.Node.Visible) : 0;
+
+    /// <summary>Position de la première tondeuse visible (pour les captures), sinon null.</summary>
+    public Vector3? FirstPosition => Visible && _mowers.FirstOrDefault(m => m.Node.Visible)?.Node.Position is { } p ? p : null;
 
     public void Build(TerrainGrid grid) => _grid = grid;
 
@@ -108,6 +112,7 @@ public partial class MowerLayer : Node3D
                 continue;
             }
 
+            node.Scale = zone.Surface == Surface.Green ? Vector3.One * GreenMowerScale : Vector3.One;
             AddChild(node);
             var mower = new Mower(node, zone.Path());
             mower.S = (float)(dayFraction * DaySeconds * Speed);

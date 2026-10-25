@@ -236,6 +236,17 @@ public partial class Captures : Node
             };
             main.TerrainView.Trees?.SetTrackedBall(followed);
             main.TerrainView.RefreshTurf();
+            if (zoomName == "mower-green")
+            {
+                // La tondeuse est construite à la première image du matin : on attend, puis on la cadre.
+                for (var f = 0; f < 3; f++)
+                {
+                    await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+                }
+
+                target = main.Mowers.FirstPosition ?? target;
+            }
+
             foreach (var yaw in yaws)
             {
                 main.Camera.SetView(yaw, viewSize, target);
@@ -246,7 +257,7 @@ public partial class Captures : Node
 
                 if (zoomName == "mower-green")
                 {
-                    GD.Print($"MOWERS {main.Mowers.ActiveMowers}");
+                    GD.Print($"MOWERS {main.Mowers.ActiveMowers} premiere={main.Mowers.FirstPosition} cible={target}");
                 }
 
                 var image = GetViewport().GetTexture().GetImage();
