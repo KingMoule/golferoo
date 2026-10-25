@@ -149,7 +149,7 @@ public partial class Captures : Node
             }
         }
 
-        if (failures == 0 && index == 10)
+        if (failures == 0 && index == 11)
         {
             GD.Print($"CAPTURES OK {index} images");
             return 0;
