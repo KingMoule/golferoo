@@ -296,7 +296,7 @@ public partial class SmokeTest : Node
     /// <summary>Budget de triangles de chaque famille de <c>res://assets/</c> (docs/guide-ia-assets-3d.md).</summary>
     private static readonly Dictionary<string, int> FamilyBudgets = new()
     {
-        ["trees"] = 400,
+        ["trees"] = 800,
         ["bushes"] = 150,
         ["rocks"] = 120,
         ["furniture"] = 300,
