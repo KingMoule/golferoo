@@ -1,6 +1,7 @@
 using Golferoo.Sim.Golfers;
 using Golferoo.Sim.Pathing;
 using Golferoo.Sim.Terrain;
+using Golferoo.Sim.Trees;
 
 namespace Golferoo.Sim;
 
@@ -67,9 +68,22 @@ public sealed partial class World
             CellRect? rect;
             if (e.IsPaint)
             {
+                // Arbres posés sur du sous-bois dans la zone : ceux qui perdent leur sous-bois sont retirés.
+                var onUnderbrush = e.Surface == Surface.Trees ? null : TreesOnUnderbrush(terrain, e.Center, e.Radius);
                 rect = terrain.KeepsWalkableCell(e.Center, e.Radius, e.Surface)
                     ? terrain.PaintDisc(e.Center, e.Radius, e.Surface)
                     : null;
+                if (rect is { } painted)
+                {
+                    if (e.Surface == Surface.Trees)
+                    {
+                        WoodlandGenerator.Fill(Trees, terrain, painted, NextWoodlandRng());
+                    }
+                    else if (onUnderbrush is { Count: > 0 })
+                    {
+                        Trees.RemoveWhere(t => onUnderbrush.Contains(t.Id) && terrain.SurfaceAt(t.X, t.Z) != Surface.Trees);
+                    }
+                }
             }
             else
             {
@@ -87,6 +101,22 @@ public sealed partial class World
             }
         }
 
+    }
+
+    private HashSet<int> TreesOnUnderbrush(TerrainGrid terrain, Point2 center, double radius)
+    {
+        var near = new List<Tree>();
+        Trees.Query(center.X, center.Z, radius + terrain.CellSize, near);
+        var ids = new HashSet<int>();
+        foreach (var t in near)
+        {
+            if (terrain.SurfaceAt(t.X, t.Z) == Surface.Trees)
+            {
+                ids.Add(t.Id);
+            }
+        }
+
+        return ids;
     }
 
     /// <summary>

@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text.Json;
+using Golferoo.Sim.Trees;
 
 namespace Golferoo.Sim.Terrain;
 
@@ -121,7 +122,39 @@ public static class HoleLoader
             }
         }
 
+        terrain.IsolatedTrees = ParseTrees(file.Trees, tilesX, tilesZ, file.TileSize);
         return terrain;
+    }
+
+    /// <summary>Arbres isolés : position en coordonnées de tuile (comme tee, green, hole), âge en années.</summary>
+    private static List<TreePlacement> ParseTrees(List<TreeFile>? trees, int tilesX, int tilesZ, double tileSize)
+    {
+        var result = new List<TreePlacement>();
+        if (trees is null)
+        {
+            return result;
+        }
+
+        for (var i = 0; i < trees.Count; i++)
+        {
+            var t = trees[i];
+            var where = $"'trees[{i}]'";
+            var species = TreeSpeciesTable.FindByName(t.Species ?? string.Empty)
+                ?? throw new HoleDataException($"{where} : essence inconnue '{t.Species}'.");
+            if (!(t.X >= 0 && t.X < tilesX && t.Z >= 0 && t.Z < tilesZ))
+            {
+                throw new HoleDataException(string.Create(CultureInfo.InvariantCulture, $"{where} hors carte : ({t.X}, {t.Z}) en tuiles."));
+            }
+
+            if (!(t.Age >= 0 && t.Age <= 1000))
+            {
+                throw new HoleDataException(string.Create(CultureInfo.InvariantCulture, $"{where} : âge invalide {t.Age} (années, entre 0 et 1000)."));
+            }
+
+            result.Add(new TreePlacement(t.X * tileSize, t.Z * tileSize, species.Id, (int)Math.Round(t.Age * 12.0)));
+        }
+
+        return result;
     }
 
     private static Point2 ToWorld(Point2 tile, double tileSize) => new(tile.X * tileSize, tile.Z * tileSize);
@@ -268,5 +301,18 @@ public static class HoleLoader
         public double[]? Green { get; set; }
 
         public double[]? Hole { get; set; }
+
+        public List<TreeFile>? Trees { get; set; }
+    }
+
+    private sealed class TreeFile
+    {
+        public double X { get; set; }
+
+        public double Z { get; set; }
+
+        public string? Species { get; set; }
+
+        public double Age { get; set; }
     }
 }

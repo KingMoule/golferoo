@@ -1,11 +1,13 @@
 using Godot;
+using Golferoo.Game.Rendering;
 
 namespace Golferoo.Game.Tools;
 
 /// <summary>
-/// Produit 8 captures (4 rotations x 2 zooms : ensemble et green) du trou avec une paire de golfeurs, graine fixe.
+/// Produit 10 captures du trou avec une paire de golfeurs, graine fixe : 4 rotations x 2 zooms (ensemble et green),
+/// puis 2 vues proches d'un golfeur à côté d'un arbre mature (la balle suivie sert de point focal : couronnes tramées).
 /// Usage : godot --path game res://tools/Captures.tscn -- --out dossier [--factor n] [--prefix texte] [--thumbs] [--full]
-/// Code de sortie 0 si les 8 images existent, ont la même taille et ne sont pas uniformes ; non nul sinon.
+/// Code de sortie 0 si les 10 images existent, ont la même taille et ne sont pas uniformes ; non nul sinon.
 /// </summary>
 public partial class Captures : Node
 {
@@ -49,12 +51,27 @@ public partial class Captures : Node
         var center = new Vector3(width / 2f, 0f, depth / 2f);
         var green = new Vector3((float)grid.Green.X, 0f, (float)grid.Green.Z);
 
+        // Les points focaux viennent des captures (un golfeur), pas de la souris.
+        main.Brush.SetProcess(false);
+        main.TerrainView.Trees?.SetFocus(TreeLayer.CursorSlot, null, 0f);
+
         var failures = 0;
         Vector2I? size = null;
         var index = 0;
-        foreach (var (zoomName, viewSize, target) in new[] { ("overview", 240f, center), ("green", 30f, green) })
+        var views = new List<(string Name, float Size, Vector3 Target, float[] Yaws, Vector3? Followed)>
         {
-            foreach (var yaw in Yaws)
+            ("overview", 240f, center, Yaws, null),
+            ("green", 30f, green, Yaws, null),
+        };
+        if (CloseUpOnTree(main) is { } close)
+        {
+            views.Add(("closeup", close.Size, close.Target, [45f, 225f], close.Golfer));
+        }
+
+        foreach (var (zoomName, viewSize, target, yaws, followed) in views)
+        {
+            main.TerrainView.Trees?.SetTrackedBall(followed);
+            foreach (var yaw in yaws)
             {
                 main.Camera.SetView(yaw, viewSize, target);
                 for (var f = 0; f < SettleFrames; f++)
@@ -97,13 +114,54 @@ public partial class Captures : Node
             }
         }
 
-        if (failures == 0 && index == 8)
+        if (failures == 0 && index == 10)
         {
             GD.Print($"CAPTURES OK {index} images");
             return 0;
         }
 
         return 1;
+    }
+
+    /// <summary>
+    /// Vue proche : le golfeur le plus près d'un arbre mature (12 m ou plus) et cet arbre. La cible est entre les deux
+    /// et le golfeur sert de point focal (couronne tramée devant lui). Null s'il n'y a pas de golfeur ou d'arbre mature.
+    /// </summary>
+    private static (float Size, Vector3 Target, Vector3 Golfer)? CloseUpOnTree(Main main)
+    {
+        var grid = main.World.Terrain!;
+        var golfers = main.World.Snapshot().Golfers;
+        Golferoo.Sim.Trees.Tree? best = null;
+        var bestPos = default(Vector3);
+        var bestDistance = double.MaxValue;
+        foreach (var g in golfers)
+        {
+            foreach (var t in main.World.Trees.Trees)
+            {
+                if (t.Height() < 12.0)
+                {
+                    continue;
+                }
+
+                var d = Math.Sqrt(Math.Pow(t.X - g.Position.X, 2) + Math.Pow(t.Z - g.Position.Z, 2));
+                if (d < bestDistance)
+                {
+                    bestDistance = d;
+                    best = t;
+                    bestPos = new Vector3((float)g.Position.X, (float)grid.Sample(g.Position.X, g.Position.Z), (float)g.Position.Z);
+                }
+            }
+        }
+
+        if (best is not { } tree)
+        {
+            return null;
+        }
+
+        var treeBase = new Vector3((float)tree.X, (float)grid.Sample(tree.X, tree.Z), (float)tree.Z);
+        var target = (treeBase + bestPos) * 0.5f;
+        target.Y = Math.Max(treeBase.Y, bestPos.Y) + 5f;
+        return (Mathf.Clamp(((float)bestDistance * 1.5f) + 30f, 40f, 120f), target, bestPos);
     }
 
     private static double LuminanceStdDev(Image image)

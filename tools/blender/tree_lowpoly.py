@@ -6,7 +6,7 @@ Usage (Python 3.13) :
 
 Par défaut : graine 7, game/assets/trees/tree.glb, pas de vignette.
 Écrit un seul maillage joint (tronc + quatre masses de feuillage), facettes plates, matériaux unis,
-pied à l'origine. Le jeu le recale de toute façon (TreeLayer : pied au sol, centré, 4 m).
+pied à l'origine, environ 4,2 m de haut. Le jeu mesure sa hauteur native et le met à l'échelle de chaque arbre de la sim (TreeLayer : hauteur et couronne selon l'âge).
 Échoue si le maillage dépasse TRIANGLE_BUDGET (même budget que l'arbre procédural du jeu).
 """
 import math
