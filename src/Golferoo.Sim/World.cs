@@ -115,12 +115,23 @@ public sealed partial class World
         RefreshSoil();
     }
 
-    /// <summary>Consignes d'entretien du gazon, prises en compte au sol tout de suite et à la hauteur visée au prochain changement de jour. Sans effet sans terrain.</summary>
+    /// <summary>Consignes d'entretien du gazon, en file comme les autres commandes (appliquées au début du tick suivant, dans la somme de contrôle) : prises en compte au sol alors et à la hauteur visée au prochain changement de jour. Sans effet sans terrain.</summary>
     public void SetTurfSettings(TurfSettings settings)
     {
         if (Terrain is not null)
         {
-            Terrain.Turf.Settings = settings;
+            _turfCommands.Enqueue(settings);
+        }
+    }
+
+    private readonly Queue<TurfSettings> _turfCommands = new();
+
+    private void ApplyTurfCommands()
+    {
+        while (_turfCommands.Count > 0 && Terrain is not null)
+        {
+            Terrain.Turf.Settings = _turfCommands.Dequeue();
+            RefreshSoil();
         }
     }
 
@@ -316,6 +327,7 @@ public sealed partial class World
         _rng.NextUInt64();
         ApplyPendingEdits();
         ApplyTreeCommands();
+        ApplyTurfCommands();
         if (Terrain is not null)
         {
             if (_resolver is PhysicalShotResolver physical)
@@ -341,6 +353,11 @@ public sealed partial class World
         {
             EndOfDay(day);
             Terrain?.Turf.NextDay(Season, WeatherOn(day).Sky >= Sky.Rain, DayIndex);
+            if (Terrain is not null && PinPicker.Pick(Terrain, Seed, DayIndex) is { } pin)
+            {
+                Terrain.MovePin(pin);
+            }
+
             RefreshSoil();
         }
 
@@ -416,6 +433,11 @@ public sealed partial class World
 
         MixPendingEdits(ref hash);
         MixTreeCommands(ref hash);
+        foreach (var c in _turfCommands)
+        {
+            Mix(ref hash, (byte)c.GreenSpeed | ((ulong)(byte)c.FairwayFirmness << 8) | ((ulong)(byte)c.RoughLength << 16));
+        }
+
         Mix(ref hash, (ulong)Trees.Count);
         foreach (var t in Trees.Trees)
         {
@@ -627,8 +649,15 @@ public sealed partial class World
     {
         var field = Flow!.Get(target);
         var pos = g.Position;
+        var (cx, cz) = (terrain.CellXOf(pos.X), terrain.CellZOf(pos.Z));
         var result = FlowWalker.Advance(terrain, field, ref pos, target, TickSeconds);
         g.Position = pos;
+        var (nx, nz) = (terrain.CellXOf(pos.X), terrain.CellZOf(pos.Z));
+        if ((nx, nz) != (cx, cz))
+        {
+            terrain.Turf.AddWear(nx, nz, TurfGrid.StepWear);
+        }
+
         if (result == WalkResult.Stuck)
         {
             // Poche inatteignable : on repose le golfeur sur la cellule franchissable la plus proche de sa destination.
@@ -641,6 +670,11 @@ public sealed partial class World
 
     private void Hit(TerrainGrid terrain, Golfer g)
     {
+        if (terrain.SurfaceAt(g.Ball.X, g.Ball.Z) is Surface.Fairway or Surface.Tee)
+        {
+            terrain.Turf.AddWear(terrain.CellXOf(g.Ball.X), terrain.CellZOf(g.Ball.Z), TurfGrid.DivotWear);
+        }
+
         var request = new ShotRequest(g.Ball, terrain.Hole, g.Strokes);
         var result = _resolver.Resolve(request, terrain, _rng);
         g.Pending = result;
@@ -667,6 +701,11 @@ public sealed partial class World
         if (Terrain is { } terrain && !result.Holed && !terrain.IsWalkable(terrain.CellXOf(g.Ball.X), terrain.CellZOf(g.Ball.Z)))
         {
             g.Ball = GridQueries.NearestWalkablePoint(terrain, g.Ball);
+        }
+
+        if (Terrain is { } landed && landed.SurfaceAt(g.Ball.X, g.Ball.Z) == Surface.Green)
+        {
+            landed.Turf.AddWear(landed.CellXOf(g.Ball.X), landed.CellZOf(g.Ball.Z), TurfGrid.MarkWear);
         }
 
         g.FlightPath = null;

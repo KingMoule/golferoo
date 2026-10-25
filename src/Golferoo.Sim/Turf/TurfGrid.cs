@@ -21,13 +21,34 @@ public sealed class TurfGrid
 
     private readonly TerrainGrid _terrain;
     private readonly byte[] _height;
+    private readonly byte[] _wear;
     private TurfSettings _settings = TurfSettings.Normal;
 
     public TurfGrid(TerrainGrid terrain)
     {
         _terrain = terrain;
         _height = new byte[terrain.CellsX * terrain.CellsZ];
+        _wear = new byte[_height.Length];
         Array.Fill(_height, Reference);
+    }
+
+    /// <summary>Usure d'un pas de golfeur, d'une motte (coup depuis un fairway ou un départ) et d'une marque de balle sur un green, en crans.</summary>
+    public const int StepWear = 1, DivotWear = 16, MarkWear = 8;
+
+    /// <summary>Réparation de l'usure par nuit, doublée après la pluie : un sentier saturé (255) disparaît en un mois sans passage.</summary>
+    public const int RepairWear = 8;
+
+    /// <summary>Usure de la cellule (0 à 255). Elle ne change ni la balle ni le coût de marche : pas de <see cref="Version"/>.</summary>
+    public byte Wear(int cx, int cz) => _wear[(cz * _terrain.CellsX) + cx];
+
+    /// <summary>Ajoute de l'usure à la cellule si c'est de l'herbe (départ, green, fairway, rough) ; sature à 255.</summary>
+    internal void AddWear(int cx, int cz, int amount)
+    {
+        var i = (cz * _terrain.CellsX) + cx;
+        if (_terrain.Surfaces[i] <= Surface.Rough)
+        {
+            _wear[i] = (byte)Math.Min(_wear[i] + amount, 255);
+        }
     }
 
     /// <summary>Change à chaque modification de hauteur ou de consigne : le sol se recalcule alors.</summary>
@@ -62,7 +83,7 @@ public sealed class TurfGrid
     }
 
     /// <summary>
-    /// Changement de jour : l'herbe pousse (saison, ×1,5 s'il a plu la veille), puis la tonte la ramène à la hauteur visée :
+    /// Changement de jour : l'usure se répare de <see cref="RepairWear"/> crans (le double après la pluie) ; l'herbe pousse (saison, ×1,5 s'il a plu la veille), puis la tonte la ramène à la hauteur visée :
     /// greens chaque jour, départs et fairways un jour sur trois, rough une fois par semaine. La tonte ne fait que baisser.
     /// </summary>
     public void NextDay(Season season, bool rainedYesterday, int dayIndex)
@@ -75,6 +96,7 @@ public sealed class TurfGrid
         var cutWeek = dayIndex % 7 == 0;
         var green = Target(_settings.GreenMm, 4.0);
         var rough = Target(_settings.RoughMm, 50.0);
+        var repair = rainedYesterday ? 2 * RepairWear : RepairWear;
         var surfaces = _terrain.Surfaces;
         for (var i = 0; i < _height.Length; i++)
         {
@@ -84,6 +106,7 @@ public sealed class TurfGrid
                 continue;
             }
 
+            _wear[i] = (byte)Math.Max(_wear[i] - repair, 0);
             var h = _height[i] + (s == Surface.Rough ? roughGrowth : fineGrowth);
             var cut = s switch { Surface.Green => green, Surface.Rough => cutWeek ? rough : 255, _ => cutThird ? Reference : 255 };
             _height[i] = (byte)Math.Min(Math.Min(h, cut), 255);
@@ -117,7 +140,7 @@ public sealed class TurfGrid
         return (meters, meters / MetersPerFoot);
     }
 
-    /// <summary>Empreinte FNV-1a 64 bits (consignes et hauteurs), pour <see cref="World.Checksum"/>.</summary>
+    /// <summary>Empreinte FNV-1a 64 bits (consignes, hauteurs et usure), pour <see cref="World.Checksum"/>.</summary>
     public ulong Checksum()
     {
         var hash = 0xCBF29CE484222325UL;
@@ -125,6 +148,11 @@ public sealed class TurfGrid
         foreach (var h in _height)
         {
             hash = (hash ^ h) * 0x100000001B3UL;
+        }
+
+        foreach (var w in _wear)
+        {
+            hash = (hash ^ w) * 0x100000001B3UL;
         }
 
         return hash;
