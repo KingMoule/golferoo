@@ -20,7 +20,7 @@ C01 (prototype d'un trou) : lots 1 à 7 fusionnés (PR #6 à #12), lot 8 en PR #
 - 2026-10-24 : facteur 2 (Guillaume, sur le rapport C01).
 
 ## Prochaine étape
-C02 validé par Guillaume le 2026-10-25 (`specs/C02-arbres-echelle.md`, 4 lots). Lots 1 à 3 fusionnés (PR #20, #22, #24, #25) : arbres de la sim dans `src/Golferoo.Sim/Trees/`, balle contre tronc et couronne, chêne, bouleau et sapin, `World.AdvanceYear` (F10). Lot 4 en PR : outil arbres (touche T : raser, planter plant ou motte, faire tomber, dégager), coûts cumulés sans caisse, troncs couchés et souches. Suites : `World.Season` hors somme de contrôle (C03), chutes par la météo (C04), le planificateur ignore les arbres.
+C02 livré le 2026-10-25 (PR #19 à #26, `specs/C02-arbres-echelle.md`) : arbres objets de la sim (`src/Golferoo.Sim/Trees/`), chêne, bouleau et sapin à l'échelle réelle, balle contre tronc et couronne selon la saison, croissance (F10), outil arbres (T : raser, planter, faire tomber, dégager). Reste à mesurer : FPS avec 5 000 arbres sur la RTX 2080. Suites : `World.Season` hors somme de contrôle (C03), chutes par la météo (C04), le planificateur ignore les arbres.
 R03 tranché par Guillaume le 2026-10-24 (`docs/boucles-v1.md`, section « Décisions ») : première version avec météo et saisons, entretien du gazon, ligues, arbres vivants et un tutoriel simple ; ni scénarios, ni mode photo (caméra prête), ni nuit. Côtés positifs de la pluie M1 à M9 tous gardés. Chantiers C03 à C07 à cadrer, C02 élargi aux arbres vivants. Ordre : P1, C02, C03, C04, C05 ; en parallèle C06 et P3 puis C07.
 
 ## Environnement cloud
