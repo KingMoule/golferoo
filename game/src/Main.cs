@@ -122,6 +122,10 @@ public partial class Main : Node3D
         var grid = HoleLoader.Parse(ReadHoleJson(), Factor);
         GD.Print($"HOLE source={HoleSource}");
         World = new World(seed: 1, grid);
+        if (OS.GetCmdlineUserArgs().Contains("--fps-bench"))
+        {
+            FpsBench.FillTrees(World.Trees, grid);
+        }
 
         AddChild(new WorldEnvironment
         {

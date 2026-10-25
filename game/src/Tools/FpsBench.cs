@@ -1,4 +1,6 @@
 using Godot;
+using Golferoo.Sim.Terrain;
+using Golferoo.Sim.Trees;
 
 namespace Golferoo.Game.Tools;
 
@@ -11,6 +13,33 @@ public partial class FpsBench : Node
     private const double WarmupSeconds = 5;
     private const double MeasureSeconds = 30;
     private const double ShowSeconds = 10;
+
+    /// <summary>Nombre d'arbres visé par la mesure (critère 7 de specs/C02-arbres-echelle.md).</summary>
+    public const int BenchTrees = 5000;
+
+    /// <summary>
+    /// Complète le boisement jusqu'à <see cref="BenchTrees"/> arbres adultes, en grille sur toute la carte et sans
+    /// règle d'espacement : la mesure porte sur le coût de rendu, pas sur un boisement crédible.
+    /// </summary>
+    public static void FillTrees(TreeStand trees, TerrainGrid grid)
+    {
+        var missing = BenchTrees - trees.Count;
+        if (missing <= 0)
+        {
+            return;
+        }
+
+        var width = grid.CellsX * grid.CellSize;
+        var depth = grid.CellsZ * grid.CellSize;
+        var step = Math.Sqrt(width * depth / missing);
+        var cols = Math.Max(1, (int)(width / step));
+        for (var i = 0; i < missing; i++)
+        {
+            var x = ((i % cols) + 0.5) * width / cols;
+            var z = ((i / cols) + 0.5) * step;
+            trees.Add(x, Math.Min(z, depth - 0.5), (TreeSpeciesId)(i % 3), 40 * 12);
+        }
+    }
 
     private readonly List<double> _frames = [];
     private Main _main = null!;
@@ -102,12 +131,13 @@ public partial class FpsBench : Node
             $"1 % bas : {1.0 / p99:F1} FPS (pire image {sorted[^1] * 1000:F1} ms, p99 {p99 * 1000:F1} ms)\n" +
             $"Tick de simulation moyen : {tickMs:F3} ms\n" +
             $"Golfeurs : {_main.Actors.VisibleGolfers}\n" +
+            $"Arbres : {_main.World.Trees.Count}\n" +
             $"Resolution : {size.X:F0}x{size.Y:F0}, facteur {_main.Factor}\n" +
             $"Carte graphique : {RenderingServer.GetVideoAdapterName()}\n" +
             $"Version : {version}\n" +
             $"Images mesurees : {_frames.Count} en {total:F1} s\n";
         _label.Text = text + "\nFermeture dans 10 s.";
-        GD.Print($"FPSBENCH avg={avg:F1} low1={1.0 / p99:F1} tickMs={tickMs:F3} golfers={_main.Actors.VisibleGolfers} res={size.X:F0}x{size.Y:F0} factor={_main.Factor} gpu=\"{RenderingServer.GetVideoAdapterName()}\" version={version}");
+        GD.Print($"FPSBENCH avg={avg:F1} low1={1.0 / p99:F1} tickMs={tickMs:F3} golfers={_main.Actors.VisibleGolfers} trees={_main.World.Trees.Count} res={size.X:F0}x{size.Y:F0} factor={_main.Factor} gpu=\"{RenderingServer.GetVideoAdapterName()}\" version={version}");
 
         var dir = System.IO.Path.GetDirectoryName(OS.GetExecutablePath()) ?? ".";
         try
