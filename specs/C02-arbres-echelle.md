@@ -1,5 +1,5 @@
 # Arbres et échelle du monde
-Statut : proposé
+Statut : validé (2026-10-25)
 Créé : 2026-10-25
 
 ## But
@@ -44,16 +44,16 @@ Ce qui prouve la réussite : sur les captures de la CI, un golfeur se lit à cô
 - Chute : `Tween` de bascule d'environ 1,5 s, puis tronc couché et souche.
 
 **Lots proposés (4 PR)**
-1. **Échelle et arbres de la sim** : `TreeSpecies`, `Tree`, `TreeStand`, boisement généré, `TreeLayer` branché sur la sim à la vraie taille, captures avant et après. La balle garde provisoirement le test du sous-bois.
+1. **Échelle et arbres de la sim** : `TreeSpecies`, `Tree`, `TreeStand`, boisement généré, `TreeLayer` branché sur la sim à la vraie taille, couronnes en transparence tramée près du curseur et de la balle suivie, captures avant et après. La balle garde provisoirement le test du sous-bois.
 2. **Balle et arbres** : tronc, couronne, densité par saison, tests de déterminisme, banc.
 3. **Croissance et essences** : courbes de croissance, feuillu, pin et jeunes plants en `bpy`, commande de debug « avancer d'un an », `MultiMesh` par bloc.
 4. **Outils et chute** : sélectionner, garder, raser, planter (jeune plant ou motte), coûts affichés ; abattage par commande (`World.FellTree`), animation, souche. Le déclencheur météo viendra de C04.
 
-## Choix à trancher par Guillaume
-Voir la PR de cadrage : les questions sont posées dans le fil du projet. Recommandations :
-1. **Le temps avant C03.** (a) Croissance en fonction de l'âge et commande de debug « avancer d'un an », que C03 branchera sur le calendrier : recommandé, C02 n'attend rien. (b) Faire C03 avant la croissance (lot 3 après C03). (c) Un mini-calendrier dans C02, remplacé ensuite : du code jeté.
-2. **Arbres qui cachent les golfeurs** en vue iso, puisqu'un arbre de 18 m masque une zone de 25 m derrière lui. (a) Rien pour l'instant. (b) Couronnes rendues en transparence tramée autour du curseur et de la balle suivie : recommandé, un paramètre de shader, environ une demi-journée. (c) Reporté à F6.
-3. **Densité des massifs.** (a) Densité réelle, environ 100 arbres à l'hectare : recommandé, c'est la demande. (b) Un peu plus dense (150 à l'hectare) si les massifs paraissent clairsemés sur les captures.
+## Décisions de Guillaume (2026-10-25)
+Les trois recommandations sont retenues.
+1. **Le temps avant C03** : la hauteur dépend seulement de l'âge ; une commande de debug « avancer d'un an » fait vieillir les arbres. C03 la branchera sur le calendrier. Le lot 3 n'attend pas C03.
+2. **Arbres qui cachent les golfeurs** : les couronnes sont rendues en transparence tramée autour du curseur et de la balle suivie (paramètre du shader des arbres), au lot 1. Un arbre de 18 m masque environ 25 m derrière lui en vue iso.
+3. **Densité** : densité réelle, environ 100 arbres à l'hectare. On serrera un peu seulement si les captures montrent des massifs clairsemés.
 
 ## Critères d'acceptation
 1. `dotnet test Golferoo.sln` passe ; des tests couvrent l'index spatial (ajout, retrait, hauteur maximale), le boisement (même graine, même forêt ; espacement minimal respecté), la croissance (hauteur croissante et bornée par l'adulte) et la balle (un tronc arrête toujours ; un feuillu au printemps laisse passer plus de balles qu'en été sur 10 000 tirages ; même graine, même trajectoire).
@@ -63,7 +63,8 @@ Voir la PR de cadrage : les questions sont posées dans le fil du projet. Recomm
 5. Captures de la CI (lignes `THUMB`) : un golfeur à côté d'un arbre mature, en vue proche ; le trou entier, en vue d'ensemble. Guillaume juge l'échelle et la densité.
 6. Fumée Godot (`SMOKE OK`) ; `TreeLayer` compte les arbres de la sim et ne reconstruit que les blocs touchés par une plantation (compteur).
 7. `Mesurer FPS.bat` sur la RTX 2080 de Guillaume, avec 5 000 arbres à la vraie taille et 200 golfeurs : au moins 240 FPS en 1080p.
-8. `dotnet format Golferoo.sln --verify-no-changes` passe ; aucun `using Godot` dans `src/Golferoo.Sim/`.
+8. Une capture montre un golfeur derrière un arbre, lisible à travers la couronne tramée.
+9. `dotnet format Golferoo.sln --verify-no-changes` passe ; aucun `using Godot` dans `src/Golferoo.Sim/`.
 
 ## Niveau de contrôle
 léger (le lot 2, balle et arbres, en contrôle complet : il touche la physique du coup)
