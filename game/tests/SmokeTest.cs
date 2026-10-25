@@ -156,6 +156,16 @@ public partial class SmokeTest : Node
             }
 
             trees.SetSeason(_main.World.Date.Season);
+
+            // Pluie : des gouttes sous la forte pluie, aucune au soleil.
+            var view = _main.WeatherView;
+            view.Show(Golferoo.Sim.Weather.Sky.HeavyRain, Vector2.Right, Vector3.Zero, 100f);
+            var drops = view.DropCount;
+            view.Show(Golferoo.Sim.Weather.Sky.Sun, Vector2.Right, Vector3.Zero, 100f);
+            if (drops == 0 || view.DropCount != 0)
+            {
+                failures.Add($"WeatherView : {drops} gouttes sous la forte pluie, {view.DropCount} au soleil");
+            }
         }
 
         // Même graine, mêmes ticks : la simulation doit être déterministe aussi sous Godot.

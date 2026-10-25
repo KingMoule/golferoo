@@ -54,6 +54,7 @@ public sealed partial class World
 
             WoodlandGenerator.Fill(Trees, terrain, new CellRect(0, 0, terrain.CellsX - 1, terrain.CellsZ - 1), NextWoodlandRng());
             terrain.Soil.Season = Season;
+            RefreshSoil();
             if (_resolver is PhysicalShotResolver physical)
             {
                 physical.Trees = Trees;
@@ -78,7 +79,17 @@ public sealed partial class World
     public Season Season => Date.Season;
 
     /// <summary>Climat qui tire la météo (tempéré par défaut ; <see cref="Climate.Calm"/> rend le comportement d'avant la météo).</summary>
-    public Climate Climate { get; init; } = Climate.Temperate;
+    public Climate Climate
+    {
+        get => _climate;
+        init
+        {
+            _climate = value;
+            RefreshSoil();
+        }
+    }
+
+    private readonly Climate _climate = Climate.Temperate;
 
     private int _skyOverrideDay = -1;
     private Sky _skyOverride;
@@ -87,14 +98,7 @@ public sealed partial class World
     public int DayIndex => (int)(Tick / Calendar.TicksPerDay) + _dayOffset;
 
     /// <summary>Temps du jour, tiré de la graine et du numéro du jour (et du ciel imposé par <see cref="CycleSky"/>).</summary>
-    public WeatherDay Weather
-    {
-        get
-        {
-            var w = WeatherGenerator.For(Seed, Climate, DayIndex);
-            return _skyOverrideDay == DayIndex ? w with { Sky = _skyOverride } : w;
-        }
-    }
+    public WeatherDay Weather => WeatherOn(DayIndex);
 
     /// <summary>Vent du moment, en m/s.</summary>
     public Vec3 Wind => Weather.WindAt(Date.DayFraction);
@@ -107,18 +111,75 @@ public sealed partial class World
     {
         _skyOverride = (Sky)(((int)Weather.Sky + 1) % 4);
         _skyOverrideDay = DayIndex;
+        RefreshSoil();
+    }
+
+    /// <summary>Chance qu'un arbre adulte tombe pendant une journée de tempête (forte pluie, ou vent de base d'au moins <see cref="StormWind"/>).</summary>
+    public const double StormFallChance = 1.0 / 2000.0;
+
+    /// <summary>Vent de base d'une tempête, en m/s (50 km/h).</summary>
+    public const double StormWind = 14.0;
+
+    /// <summary>Jours de pluie qui, dans un mois de printemps, font pousser les jeunes arbres d'un mois de plus (M9).</summary>
+    public const int SpringRainDays = 3;
+
+    /// <summary>Temps du jour <paramref name="day"/>, avec le ciel imposé par <see cref="CycleSky"/>.</summary>
+    private WeatherDay WeatherOn(int day)
+    {
+        var w = WeatherGenerator.For(Seed, Climate, day);
+        return _skyOverrideDay == day ? w with { Sky = _skyOverride } : w;
+    }
+
+    /// <summary>Humidité du sol, sans état : 1 s'il pleut aujourd'hui, 0,5 s'il a fortement plu hier, 0 sinon.</summary>
+    public double SoilWetness => Weather.Sky >= Sky.Rain ? 1.0 : WeatherOn(DayIndex - 1).Sky == Sky.HeavyRain ? 0.5 : 0.0;
+
+    private void RefreshSoil()
+    {
+        if (Terrain is not null)
+        {
+            Terrain.Soil.Wetness = SoilWetness;
+        }
+    }
+
+    /// <summary>Fin de la journée <paramref name="day"/> : une tempête peut abattre quelques arbres adultes, couchés dans le sens du vent à ±30°.</summary>
+    private void EndOfDay(int day)
+    {
+        var w = WeatherOn(day);
+        _rainyDays += w.Sky >= Sky.Rain ? 1 : 0;
+        if (Terrain is null || (w.Sky != Sky.HeavyRain && w.WindBase < StormWind))
+        {
+            return;
+        }
+
+        var rng = new DeterministicRng(Seed ^ (0xA0761D6478BD642FUL * (ulong)(uint)(day + 1)));
+        var yaw = Math.Atan2(w.WindDirZ, w.WindDirX);
+        var victims = new List<(int Id, double Direction)>();
+        foreach (var t in Trees.Trees)
+        {
+            if (t.State == TreeState.Standing && t.Height() >= Tree.YoungMaxHeight && rng.NextDouble() < StormFallChance)
+            {
+                victims.Add((t.Id, yaw + ((rng.NextDouble() - 0.5) * Math.PI / 3.0)));
+            }
+        }
+
+        foreach (var (id, direction) in victims)
+        {
+            ApplyFell(Terrain, id, direction);
+        }
     }
 
     /// <summary>Debug : saute au 1er du mois suivant et fait pousser les arbres.</summary>
     public void SkipToNextMonth()
     {
         _dayOffset += Calendar.DaysPerMonth - Date.Day + 1;
+        _rainyDays = 0;
         GrowTrees();
     }
 
     private void GrowTrees()
     {
         Trees.Grow(Calendar.TreeMonthsPerMonth);
+        RefreshSoil();
         if (Terrain is not null)
         {
             Terrain.Soil.Season = Season;
@@ -128,6 +189,20 @@ public sealed partial class World
         {
             physical.Season = Season;
         }
+    }
+
+    /// <summary>Jours de pluie du mois en cours (comptés à la fin de chaque journée, ciel imposé compris).</summary>
+    private int _rainyDays;
+
+    /// <summary>M9 : un mois de printemps (qui finit le jour <paramref name="lastDay"/>) assez pluvieux fait pousser les jeunes arbres d'un mois de plus.</summary>
+    private void SpringRain(int lastDay)
+    {
+        if (_rainyDays >= SpringRainDays && Calendar.At((long)lastDay * Calendar.TicksPerDay, 0).Season == Season.Spring)
+        {
+            Trees.Grow(Calendar.TreeMonthsPerMonth, youngOnly: true);
+        }
+
+        _rainyDays = 0;
     }
 
     private int _woodlandDraws;
@@ -250,9 +325,17 @@ public sealed partial class World
         }
 
         var month = Calendar.MonthIndex(Tick, _dayOffset);
+        var day = DayIndex;
         Tick++;
+        if (DayIndex != day)
+        {
+            EndOfDay(day);
+            RefreshSoil();
+        }
+
         if (Calendar.MonthIndex(Tick, _dayOffset) != month)
         {
+            SpringRain(day);
             GrowTrees();
         }
     }
@@ -312,7 +395,7 @@ public sealed partial class World
         Mix(ref hash, Seed);
         Mix(ref hash, (ulong)Tick);
         Mix(ref hash, (ulong)_dayOffset);
-        Mix(ref hash, ((ulong)(uint)_skyOverrideDay << 8) ^ (ulong)_skyOverride);
+        Mix(ref hash, ((ulong)(uint)_skyOverrideDay << 16) ^ ((ulong)_skyOverride << 8) ^ (ulong)_rainyDays);
         Mix(ref hash, _rng.StateHash());
         if (Terrain is not null)
         {

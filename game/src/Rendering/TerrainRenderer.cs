@@ -87,6 +87,9 @@ public partial class TerrainRenderer : Node3D
         new(1.05f, 0.9f, 0.8f), // hiver : terne
     ];
 
+    /// <summary>Sol mouillé : le terrain s'assombrit (0 sec, 1 pluie du jour).</summary>
+    public void SetWetness(float wetness) => _terrainMaterial?.SetShaderParameter("wetness", wetness);
+
     /// <summary>
     /// Couleurs de la saison : teinte de l'herbe, et feuillage des arbres (<see cref="TreeLayer.SetSeason"/>).
     /// Rend le nombre de blocs d'arbres reconstruits.

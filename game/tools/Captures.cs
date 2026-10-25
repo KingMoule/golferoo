@@ -7,13 +7,13 @@ using Golferoo.Sim.Trees;
 namespace Golferoo.Game.Tools;
 
 /// <summary>
-/// Produit 20 captures du trou avec une paire de golfeurs, graine fixe : 4 rotations x 2 zooms (ensemble et green),
+/// Produit 21 captures du trou avec une paire de golfeurs, graine fixe : 4 rotations x 2 zooms (ensemble et green),
 /// puis 2 vues proches d'un golfeur à côté d'un arbre mature (la balle suivie sert de point focal : couronnes tramées),
 /// une vue d'ensemble après 15 ans, puis un défrichage replanté (6 à 10 jeunes plants et une motte au milieu du sous-bois rasé),
 /// vu de près, puis vingt ans plus tard avec la motte tombée en tronc couché, le soleil le matin, à midi et le soir,
-/// et le trou aux quatre saisons (feuillage et teinte de l'herbe).
+/// le trou aux quatre saisons (feuillage et teinte de l'herbe), puis sous une forte pluie.
 /// Usage : godot --path game res://tools/Captures.tscn -- --out dossier [--factor n] [--prefix texte] [--thumbs] [--full]
-/// Code de sortie 0 si les 20 images existent, ont la même taille et ne sont pas uniformes ; non nul sinon.
+/// Code de sortie 0 si les 21 images existent, ont la même taille et ne sont pas uniformes ; non nul sinon.
 /// </summary>
 public partial class Captures : Node
 {
@@ -100,6 +100,8 @@ public partial class Captures : Node
             views.Add((season, SeasonSize, center, [Yaws[0]], null));
         }
 
+        views.Add(("rain", SeasonSize, center, [Yaws[0]], null));
+
         foreach (var (zoomName, viewSize, target0, yaws0, followed0) in views)
         {
             var (target, yaws, followed) = (target0, yaws0, followed0);
@@ -176,6 +178,15 @@ public partial class Captures : Node
                 GD.Print($"SEASON {zoomName} {main.World.Date.Month}/{main.World.Date.Year} saison={main.World.Date.Season}");
             }
 
+            if (zoomName == "rain")
+            {
+                // Forte pluie imposée (F9) : ciel gris, gouttes, sol plus sombre.
+                while (main.World.Weather.Sky != Golferoo.Sim.Weather.Sky.HeavyRain)
+                {
+                    main.World.CycleSky();
+                }
+            }
+
             main.SunDayFraction = zoomName switch
             {
                 "sun-morning" => 0.1,
@@ -227,7 +238,7 @@ public partial class Captures : Node
             }
         }
 
-        if (failures == 0 && index == 20)
+        if (failures == 0 && index == 21)
         {
             GD.Print($"CAPTURES OK {index} images");
             return 0;

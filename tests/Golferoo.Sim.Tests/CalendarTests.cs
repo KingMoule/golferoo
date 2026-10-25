@@ -2,6 +2,7 @@ using Golferoo.Sim;
 using Golferoo.Sim.Terrain;
 using Golferoo.Sim.Time;
 using Golferoo.Sim.Trees;
+using Golferoo.Sim.Weather;
 
 namespace Golferoo.Sim.Tests;
 
@@ -50,7 +51,7 @@ public class CalendarTests
     [Fact]
     public void MonthChange_GrowsEveryTreeOnce_ByFourMonths()
     {
-        var world = new World(1);
+        var world = new World(1) { Climate = Climate.Calm }; // sans pluie de printemps (M9) : chaque arbre pousse une seule fois
         for (var i = 0; i < 5; i++)
         {
             world.Trees.Add(0.1 * i, 0.5, TreeSpeciesId.Birch, 0);
@@ -70,7 +71,7 @@ public class CalendarTests
     [Fact]
     public void SkipToNextMonth_GoesToFirstOfNextMonth_AndGrowsOnce()
     {
-        var world = new World(1);
+        var world = new World(1) { Climate = Climate.Calm };
         world.Trees.Add(0.5, 0.5, TreeSpeciesId.Oak, 0);
         world.Step((3 * Day) + 7);
         world.SkipToNextMonth();
