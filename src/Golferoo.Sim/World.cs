@@ -4,6 +4,7 @@ using Golferoo.Sim.Shots;
 using Golferoo.Sim.Terrain;
 using Golferoo.Sim.Time;
 using Golferoo.Sim.Trees;
+using Golferoo.Sim.Weather;
 
 namespace Golferoo.Sim;
 
@@ -75,6 +76,38 @@ public sealed partial class World
 
     /// <summary>Saison de la date : règle la densité des couronnes que traverse la balle.</summary>
     public Season Season => Date.Season;
+
+    /// <summary>Climat qui tire la météo (tempéré par défaut ; <see cref="Climate.Calm"/> rend le comportement d'avant la météo).</summary>
+    public Climate Climate { get; init; } = Climate.Temperate;
+
+    private int _skyOverrideDay = -1;
+    private Sky _skyOverride;
+
+    /// <summary>Jours écoulés depuis le début de la partie, décalage de debug compris.</summary>
+    public int DayIndex => (int)(Tick / Calendar.TicksPerDay) + _dayOffset;
+
+    /// <summary>Temps du jour, tiré de la graine et du numéro du jour (et du ciel imposé par <see cref="CycleSky"/>).</summary>
+    public WeatherDay Weather
+    {
+        get
+        {
+            var w = WeatherGenerator.For(Seed, Climate, DayIndex);
+            return _skyOverrideDay == DayIndex ? w with { Sky = _skyOverride } : w;
+        }
+    }
+
+    /// <summary>Vent du moment, en m/s.</summary>
+    public Vec3 Wind => Weather.WindAt(Date.DayFraction);
+
+    /// <summary>Ciel annoncé dans <paramref name="daysAhead"/> jours (parfois faux d'un cran).</summary>
+    public Sky Forecast(int daysAhead) => WeatherGenerator.Forecast(Seed, Climate, DayIndex + daysAhead);
+
+    /// <summary>Debug (F9) : impose pour la journée le ciel suivant (soleil, nuages, pluie, forte pluie, puis soleil).</summary>
+    public void CycleSky()
+    {
+        _skyOverride = (Sky)(((int)Weather.Sky + 1) % 4);
+        _skyOverrideDay = DayIndex;
+    }
 
     /// <summary>Debug : saute au 1er du mois suivant et fait pousser les arbres.</summary>
     public void SkipToNextMonth()
@@ -200,6 +233,11 @@ public sealed partial class World
         ApplyTreeCommands();
         if (Terrain is not null)
         {
+            if (_resolver is PhysicalShotResolver physical)
+            {
+                physical.Wind = Wind;
+            }
+
             for (var i = 0; i < _groups.Count; i++)
             {
                 UpdateGroup(Terrain, i);
@@ -274,6 +312,7 @@ public sealed partial class World
         Mix(ref hash, Seed);
         Mix(ref hash, (ulong)Tick);
         Mix(ref hash, (ulong)_dayOffset);
+        Mix(ref hash, ((ulong)(uint)_skyOverrideDay << 8) ^ (ulong)_skyOverride);
         Mix(ref hash, _rng.StateHash());
         if (Terrain is not null)
         {

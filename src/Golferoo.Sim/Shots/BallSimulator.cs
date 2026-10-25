@@ -20,7 +20,7 @@ public readonly record struct SimulationResult(
     Point2 ClosestApproach);
 
 /// <summary>
-/// Physique de la balle sur <see cref="HeightField.Sample"/> : vol (gravité, traînée quadratique), rebond sur la normale
+/// Physique de la balle sur <see cref="HeightField.Sample"/> : vol (gravité, traînée quadratique relative à l'air), rebond sur la normale
 /// du terrain avec la restitution et le frottement de la surface, puis roulement (pente moins résistance) jusqu'à l'arrêt.
 /// Pas fixe de 1/200 s, Euler semi-implicite ; la boucle n'emploie que + − × ÷ et √ pour rester déterministe.
 /// </summary>
@@ -34,8 +34,18 @@ public static class BallSimulator
     /// <summary>Pas d'intégration par tick de simulation (20 Hz).</summary>
     public const int StepsPerTick = 10;
 
-    /// <summary>Coefficient de traînée quadratique (1/m) : a = −k·|v|·v. Un seul coefficient, ni effet ni vent.</summary>
+    /// <summary>Coefficient de traînée quadratique (1/m) : a = −k·|v − w|·(v − w), w étant le vent. Un seul coefficient, sans effet.</summary>
     public const double DefaultDrag = 0.0009;
+
+    /// <summary>
+    /// Renfort du vent dans l'axe du coup (face, dos). Le modèle n'a ni portance ni effet, et sa traînée est réglée bas pour les
+    /// portées des clubs : sans renfort, 10 m/s de face ne raccourcissent un drive que de 4 %. À 3, on retrouve à peu près les
+    /// ordres de grandeur réels (décision de Guillaume du 2026-10-25).
+    /// </summary>
+    public const double WindGainAlong = 3.0;
+
+    /// <summary>Renfort du vent de travers, plus fort : l'effet de la balle, absent du modèle, amplifie la dérive (Guillaume, 2026-10-25).</summary>
+    public const double WindGainAcross = 6.0;
 
     /// <summary>Rayon du trou, en mètres.</summary>
     public const double HoleRadius = 0.054;
@@ -71,7 +81,8 @@ public static class BallSimulator
     /// <param name="season">Saison, qui règle la densité des couronnes.</param>
     /// <param name="rng">Source du hasard des couronnes : un tirage par pas qui traverse une couronne, aucun sinon.</param>
     /// <param name="recordPath">Vrai pour échantillonner la trajectoire au tick de simulation.</param>
-    public static SimulationResult Run(TerrainGrid terrain, Point2 start, Vec3 velocity, bool rolling, double drag, bool recordPath, double startHeight = 0.0, TreeStand? trees = null, Season season = Season.Summer, DeterministicRng? rng = null)
+    /// <param name="wind">Vent en vol, en m/s (horizontal) ; sans effet sur le roulement.</param>
+    public static SimulationResult Run(TerrainGrid terrain, Point2 start, Vec3 velocity, bool rolling, double drag, bool recordPath, double startHeight = 0.0, TreeStand? trees = null, Season season = Season.Summer, DeterministicRng? rng = null, Vec3 wind = default)
     {
         if (trees is not null && rng is null)
         {
@@ -99,17 +110,25 @@ public static class BallSimulator
         var closestD2 = Dist2(x, z, terrain.Hole);
         var end = End.Rest;
         var maxSteps = (int)(MaxSeconds / Step);
+        // Vent renforcé, décomposé une fois pour toutes selon l'axe horizontal du coup au départ (face ou dos, et travers).
+        var hv2 = (vx * vx) + (vz * vz);
+        var p = hv2 > 1e-12 ? ((wind.X * vx) + (wind.Z * vz)) * (WindGainAcross - WindGainAlong) / hv2 : 0.0;
+        var airX = (WindGainAcross * wind.X) - (p * vx);
+        var airZ = (WindGainAcross * wind.Z) - (p * vz);
         var steps = 0;
 
         for (; steps < maxSteps; steps++)
         {
             if (!rolling)
             {
-                var speed = Math.Sqrt((vx * vx) + (vy * vy) + (vz * vz));
+                // Vitesse relative à l'air. Sans vent, rx = vx au bit près.
+                var rx = vx - airX;
+                var rz = vz - airZ;
+                var speed = Math.Sqrt((rx * rx) + (vy * vy) + (rz * rz));
                 var k = drag * speed;
-                vx -= k * vx * Step;
+                vx -= k * rx * Step;
                 vy -= (Gravity + (k * vy)) * Step;
-                vz -= k * vz * Step;
+                vz -= k * rz * Step;
                 var px = x;
                 var py = y;
                 var pz = z;

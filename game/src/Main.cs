@@ -38,6 +38,10 @@ public partial class Main : Node3D
 
     private static readonly string[] MonthNames = ["janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août", "septembre", "octobre", "novembre", "décembre"];
     private static readonly string[] SeasonNames = ["printemps", "été", "automne", "hiver"];
+    private static readonly string[] SkyNames = ["soleil", "nuages", "pluie", "forte pluie"];
+
+    // D'où vient le vent, par huitième de tour depuis le nord (−Z), dans le sens horaire (vers +X, l'est).
+    private static readonly string[] CompassNames = ["N", "NE", "E", "SE", "S", "SO", "O", "NO"];
     private Rect2I? _dirtyCells;
     private Rect2I? _dirtyTreeCells;
 
@@ -152,8 +156,6 @@ public partial class Main : Node3D
         AddChild(TerrainView);
         TerrainView.Build(grid, World.Trees);
         TerrainView.SetSeason(World.Date.Season);
-        // Vent fixe en attendant la météo du jour (C04, lot 2) : 4 m/s venant de l'ouest.
-        TreeLayer.SetWind(new Vector2(1f, 0f), 4f);
 
         Actors = new ActorLayer { Name = "Actors" };
         AddChild(Actors);
@@ -211,6 +213,7 @@ public partial class Main : Node3D
 
         Render();
         UpdateSun();
+        UpdateWind();
         UpdateHud(delta);
     }
 
@@ -313,6 +316,9 @@ public partial class Main : Node3D
             case Key.F10:
                 SkipToNextMonth();
                 break;
+            case Key.F9:
+                World.CycleSky();
+                break;
             case Key.Q:
                 Camera.RotateQuarter(-1);
                 break;
@@ -410,12 +416,31 @@ public partial class Main : Node3D
         }
     }
 
+    /// <summary>Vent du moment : balancement des arbres et drapeau.</summary>
+    private void UpdateWind()
+    {
+        var w = World.Wind;
+        var dir = new Vector2((float)w.X, (float)w.Z);
+        TreeLayer.SetWind(dir, dir.Length());
+        Actors.SetWind(dir);
+    }
+
     private void UpdateHud(double delta)
     {
         if (_hud is not null)
         {
-            _hud.Text = $"{Engine.GetFramesPerSecond()} FPS | {Actors.VisibleGolfers} golfeurs | tick {World.Tick} | x{Speed}{(Paused ? " (pause)" : string.Empty)} | {DateText()} (F10 : mois suivant, T : outil arbres) | travaux arbres {World.TreeSpending}";
+            _hud.Text = $"{Engine.GetFramesPerSecond()} FPS | {Actors.VisibleGolfers} golfeurs | tick {World.Tick} | x{Speed}{(Paused ? " (pause)" : string.Empty)} | {DateText()} (F10 : mois suivant, T : outil arbres) | travaux arbres {World.TreeSpending}\n{WeatherText()} (F9 : ciel suivant)";
         }
+    }
+
+    private string WeatherText()
+    {
+        var w = World.Wind;
+        var kmh = Math.Sqrt((w.X * w.X) + (w.Z * w.Z)) * 3.6;
+        var from = Math.Atan2(-w.X, w.Z); // direction d'où il vient, comptée depuis le nord (−Z) vers l'est (+X)
+        var octant = ((int)Math.Round(from / (Math.PI / 4.0)) + 8) % 8;
+        var forecast = string.Join(", ", Enumerable.Range(1, 3).Select(d => SkyNames[(int)World.Forecast(d)]));
+        return $"{SkyNames[(int)World.Weather.Sky]}, vent {kmh:0} km/h {CompassNames[octant]} | prévision : {forecast}";
     }
 
     private string DateText()

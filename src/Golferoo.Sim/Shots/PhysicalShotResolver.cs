@@ -45,6 +45,9 @@ public sealed class PhysicalShotResolver : IShotResolver
     /// <summary>Saison des couronnes, réglée par le monde.</summary>
     public Season Season { get; set; } = Season.Summer;
 
+    /// <summary>Vent du moment, réglé par le monde. Le golfeur le connaît exactement : la planification simule avec lui.</summary>
+    public Vec3 Wind { get; set; }
+
     public ShotResult Resolve(in ShotRequest request, TerrainGrid terrain, DeterministicRng rng)
     {
         if (terrain.SurfaceAt(request.Ball.X, request.Ball.Z) == Surface.Green)
@@ -63,7 +66,7 @@ public sealed class PhysicalShotResolver : IShotResolver
         var speed = club.Speed * force * (1.0 + (club.SpeedSigma * Gauss(rng)));
         Rotate(dirX, dirZ, eps, 1.0 - (eps * eps / 2.0), out var ux, out var uz);
         var velocity = new Vec3(ux * club.LaunchCos * speed, club.LaunchSin * speed, uz * club.LaunchCos * speed);
-        return BallSimulator.Run(terrain, ball, velocity, rolling: false, _drag, recordPath: true, trees: Trees, season: Season, rng: rng).Shot;
+        return BallSimulator.Run(terrain, ball, velocity, rolling: false, _drag, recordPath: true, trees: Trees, season: Season, rng: rng, wind: Wind).Shot;
     }
 
     private static void Rotate(double ux, double uz, double sin, double cos, out double rx, out double rz)
@@ -165,7 +168,7 @@ public sealed class PhysicalShotResolver : IShotResolver
     {
         var speed = club.Speed * force;
         var velocity = new Vec3(dirX * club.LaunchCos * speed, club.LaunchSin * speed, dirZ * club.LaunchCos * speed);
-        return BallSimulator.Run(terrain, ball, velocity, rolling: false, _drag, recordPath: false).Shot;
+        return BallSimulator.Run(terrain, ball, velocity, rolling: false, _drag, recordPath: false, wind: Wind).Shot;
     }
 
     private ShotResult Putt(in ShotRequest request, TerrainGrid terrain, DeterministicRng rng)
