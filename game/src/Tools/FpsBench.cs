@@ -131,7 +131,7 @@ public partial class FpsBench : Node
             $"1 % bas : {1.0 / p99:F1} FPS (pire image {sorted[^1] * 1000:F1} ms, p99 {p99 * 1000:F1} ms)\n" +
             $"Tick de simulation moyen : {tickMs:F3} ms\n" +
             $"Golfeurs : {_main.Actors.VisibleGolfers}\n" +
-            $"Arbres : {_main.World.Trees.Count} ({Rendering.TreeLayer.ModelDir})\n" +
+            $"Arbres : {_main.World.Trees.Count}\n" +
             $"Resolution : {size.X:F0}x{size.Y:F0}, facteur {_main.Factor}\n" +
             $"Carte graphique : {RenderingServer.GetVideoAdapterName()}\n" +
             $"Version : {version}\n" +

@@ -20,7 +20,7 @@ C01 (prototype d'un trou) : lots 1 à 7 fusionnés (PR #6 à #12), lot 8 en PR #
 - 2026-10-24 : facteur 2 (Guillaume, sur le rapport C01).
 
 ## Prochaine étape
-C02 livré le 2026-10-25 (PR #19 à #26, `specs/C02-arbres-echelle.md`) : arbres objets de la sim (`src/Golferoo.Sim/Trees/`), chêne, bouleau et sapin à l'échelle réelle, balle contre tronc et couronne selon la saison, croissance (F10), outil arbres (T : raser, planter, faire tomber, dégager). Mesure FPS (Guillaume) : 453,5 FPS avec 5 000 arbres et 200 golfeurs, 1080p, RTX 2080 (`Mesurer FPS.bat` remplit la carte à 5 000 arbres). Suites : `World.Season` hors somme de contrôle (C03), chutes par la météo (C04), le planificateur ignore les arbres.
+C02 livré le 2026-10-25 (PR #19 à #26, `specs/C02-arbres-echelle.md`) : arbres objets de la sim (`src/Golferoo.Sim/Trees/`), chêne, bouleau et sapin à l'échelle réelle (pack à 800 triangles depuis la PR #29, 302 FPS avec 5 000 arbres), balle contre tronc et couronne selon la saison, croissance (F10), outil arbres (T : raser, planter, faire tomber, dégager). Mesure FPS (Guillaume) : 453,5 FPS avec 5 000 arbres et 200 golfeurs, 1080p, RTX 2080 (`Mesurer FPS.bat` remplit la carte à 5 000 arbres). Suites : `World.Season` hors somme de contrôle (C03), chutes par la météo (C04), le planificateur ignore les arbres.
 R03 tranché par Guillaume le 2026-10-24 (`docs/boucles-v1.md`, section « Décisions ») : première version avec météo et saisons, entretien du gazon, ligues, arbres vivants et un tutoriel simple ; ni scénarios, ni mode photo (caméra prête), ni nuit. Côtés positifs de la pluie M1 à M9 tous gardés. Chantiers C03 à C07 à cadrer, C02 élargi aux arbres vivants. Ordre : P1, C02, C03, C04, C05 ; en parallèle C06 et P3 puis C07.
 
 ## Environnement cloud

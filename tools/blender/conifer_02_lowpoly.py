@@ -1,4 +1,4 @@
-"""Sapin mature — Flèche élancée. Asset low-poly original de Golferoo.
+"""Épicéa mature — Colonne de lisière. Asset original, budget de 800 triangles.
 
 Usage :
     python -I tools/blender/conifer_02_lowpoly.py -- [graine] [glb] [png]
@@ -14,7 +14,7 @@ import time
 import bpy
 
 NAME = 'conifer_02'
-TRIANGLE_BUDGET = 400
+TRIANGLE_BUDGET = 800
 SEED = 1
 KIND = 'conifer'
 VARIANT = 2
@@ -147,34 +147,110 @@ def rings(label, levels, mat, sides=8, tip=None, cap_mat=None):
         part.data.polygons[-1].material_index = 1
     return part
 
-def gable(width, depth, eave, rise, mat, center=(0, 0)):
-    x, y = center
-    vertices = [(x - width / 2, y - depth / 2, eave),
-                (x + width / 2, y - depth / 2, eave),
-                (x, y - depth / 2, eave + rise),
-                (x - width / 2, y + depth / 2, eave),
-                (x + width / 2, y + depth / 2, eave),
-                (x, y + depth / 2, eave + rise)]
-    return mesh_part('PitchedRoof', vertices,
-                     [(2, 1, 0), (3, 4, 5), (0, 1, 4, 3), (1, 2, 5, 4), (2, 0, 3, 5)], mat)
+def spruce_fan(z, radius, angle, mat):
+    # Un rameau en éventail fermé : contour dentelé et dessous retombant.
+    outline=[(.02,0,.65),(.45,-.75,-.1),(.9,-.45,-.6),
+             (1.10,0,-.95),(.9,.45,-.6),(.45,.75,-.1)]
+    local=[(.25,0,1.25),(.47,0,-.48)]+outline
+    verts=[]
+    width=1.1+radius*.4
+    for x,y,dz in local:
+        x*=radius*rng.uniform(.97,1.03);y*=width
+        verts.append((x*math.cos(angle)-y*math.sin(angle),x*math.sin(angle)+y*math.cos(angle),z+dz))
+    faces=[]
+    for i in range(6):
+        a=i+2;b=(i+1)%6+2
+        faces.extend([(0,a,b),(1,b,a)])
+    return mesh_part('SpruceBoughFan',verts,faces,mat)
 
-def wheel(x, y, radius, width, dark, hub, sides=8):
-    tube((x - width / 2, y, radius), (x + width / 2, y, radius), radius, dark, sides)
-    outer = x + (width / 2 + 0.015) * (1 if x >= 0 else -1)
-    tube((outer - 0.025, y, radius), (outer + 0.025, y, radius), radius * 0.48, hub, 6)
-
-def steering(x, y, z, dark):
-    # Couronne octogonale épaisse : pas de texture ni de transparence.
+def branch(points, radii, mat, sides=4):
+    # Anneaux orientés suivant la tangente : vraie courbure de la branche.
     vertices = []
-    for radius in (0.20, 0.14):
-        for side in range(8):
-            angle = math.tau * side / 8
-            vertices.append((x + radius * math.cos(angle), y + radius * math.sin(angle), z))
-    faces = [(i, (i + 1) % 8, 8 + (i + 1) % 8, 8 + i) for i in range(8)]
-    mesh_part('SteeringWheel', vertices, faces, dark)
-    tube((x, y + 0.12, z - 0.45), (x, y, z), 0.035, dark, 4)
-    block((0.33, 0.055, 0.055), (x, y, z), dark)
+    for index, center in enumerate(points):
+        a, b = points[max(0, index-1)], points[min(len(points)-1, index+1)]
+        axis = [b[k]-a[k] for k in range(3)]
+        norm = math.sqrt(sum(v*v for v in axis))
+        axis = [v/norm for v in axis]
+        ref = (0, 0, 1) if abs(axis[2]) < .9 else (0, 1, 0)
+        u = [axis[1]*ref[2]-axis[2]*ref[1], axis[2]*ref[0]-axis[0]*ref[2], axis[0]*ref[1]-axis[1]*ref[0]]
+        norm = math.sqrt(sum(v*v for v in u))
+        u = [v/norm for v in u]
+        v = [axis[1]*u[2]-axis[2]*u[1], axis[2]*u[0]-axis[0]*u[2], axis[0]*u[1]-axis[1]*u[0]]
+        for side in range(sides):
+            angle = math.tau*side/sides
+            vertices.append(tuple(center[k]+radii[index]*(u[k]*math.cos(angle)+v[k]*math.sin(angle)) for k in range(3)))
+    faces = [tuple(reversed(range(sides)))]
+    for ring in range(len(points)-1):
+        for side in range(sides):
+            a = ring*sides+side
+            b = ring*sides+(side+1)%sides
+            faces.append((a,b,b+sides,a+sides))
+    faces.append(tuple(range(len(vertices)-sides,len(vertices))))
+    return mesh_part('CurvedBranch',vertices,faces,mat)
 
+def root_flare(count, radius, reach, mat):
+    for index in range(count):
+        angle = index*math.tau/count+rng.uniform(-.15,.15)
+        c,s = math.cos(angle),math.sin(angle)
+        branch([(0,0,radius*1.8),(reach*.5*c,reach*.5*s,radius*.6),(reach*c,reach*s,.08)],
+               [radius*.65,radius*.5,.035],mat,4)
+
+def leaf_blade(center, size, angle, mat, lobed=False):
+    # Feuille épaisse en losange ou à lobes : six à seize triangles, sans carte alpha.
+    if lobed:
+        outline=[(0,-1),(.45,-.55),(.28,-.3),(.7,-.08),(.42,.12),(.62,.4),(.25,.55),(0,1),
+                 (-.25,.55),(-.62,.4),(-.42,.12),(-.7,-.08),(-.28,-.3),(-.45,-.55)]
+    else:
+        outline=[(0,-1),(.60,-.25),(.45,.45),(0,1),(-.45,.45),(-.60,-.25)]
+    verts=[center]
+    for x,y in outline:
+        verts.append((center[0]+size*(x*math.cos(angle)-y*math.sin(angle)),
+                      center[1]+size*(x*math.sin(angle)+y*math.cos(angle)),
+                      center[2]+size*(.24*abs(x)-.24*y)))
+    faces=[(0,i+1,(i+1)%len(outline)+1) for i in range(len(outline))]
+    part=mesh_part('FoliageBlade',verts,faces,mat)
+    # Les feuilles forment un pli et sont doubles faces à l'export glTF.
+    mat.use_backface_culling=False
+    return part
+
+def bark_marks(x,y,z,radius,count,mat):
+    for index in range(count):
+        height=z+.45+index*.65
+        angle=index*2.4
+        c,s=math.cos(angle),math.sin(angle)
+        width=radius*.8
+        center=(x+c*(radius+.004),y+s*(radius+.004),height)
+        verts=[(center[0]+a*s*width,center[1]-a*c*width,center[2]+b*.065)
+               for a,b in [(-1,-1),(1,-.4),(.7,1),(-.7,.6)]]
+        mesh_part('BarkScar',verts,[(0,1,2,3)],mat)
+
+def hollow_shell(label, centers, radii, thickness, mat, inner_mat, cut_mat, sides=12, jagged=False):
+    # Coque annulaire et fond véritable : la cavité n'est pas un disque peint.
+    verts=[]
+    for inner in (False,True):
+        for ring,(x,y,z) in enumerate(centers):
+            for i in range(sides):
+                angle=math.tau*i/sides
+                r=radii[ring]*(1+.065*math.sin(i*4.1))-(thickness if inner else 0)
+                dz=(.14*math.sin(i*2.1)+(.35 if i%4==0 else 0)) if jagged and ring==len(centers)-1 else 0
+                verts.append((x+r*math.cos(angle),y+r*math.sin(angle),z+dz))
+    count=len(centers)*sides
+    faces=[]
+    ids=[]
+    for ring in range(len(centers)-1):
+        for i in range(sides):
+            a=ring*sides+i;b=ring*sides+(i+1)%sides
+            faces.extend([(a,b,b+sides,a+sides),(count+a+sides,count+b+sides,count+b,count+a)])
+            ids.extend([0,1])
+    for ring in (0,len(centers)-1):
+        for i in range(sides):
+            a=ring*sides+i;b=ring*sides+(i+1)%sides
+            faces.append((a,count+a,count+b,b) if ring==0 else (a,b,count+b,count+a))
+            ids.append(2)
+    part=mesh_part(label,verts,faces,mat)
+    part.data.materials.append(inner_mat);part.data.materials.append(cut_mat)
+    for poly,idx in zip(part.data.polygons,ids):poly.material_index=idx
+    return part
 mats = []
 for index, (label, rgb) in enumerate(PALETTE):
     mat = (wood, metal)[index] if index < 2 else material(label, rgb)
@@ -183,76 +259,65 @@ for index, (label, rgb) in enumerate(PALETTE):
     mats.append(mat)
 
 def build_conifer():
-    bark, leaf, light, _ = mats
-    height = 18.0 * rng.uniform(0.85, 1.15)
-    tier_count = rng.randint(3, 5)
-    lean_angle = math.radians(rng.uniform(0.5, 2.0))
-    direction = rng.uniform(0, math.tau)
-    lean_x = math.tan(lean_angle) * math.cos(direction)
-    lean_y = math.tan(lean_angle) * math.sin(direction)
-    rings('Trunk', [(0, 0, 0, 0.37), (lean_x * 0.55, lean_y * 0.55, 0.55, 0.29),
-                    (lean_x * height * 0.92, lean_y * height * 0.92, height * 0.92, 0.08)], bark, 8)
-    profiles = {3: ((0, 1), (0.35, 0.64), (0.73, 0.23)),
-                4: ((0, 0.94), (0.12, 1), (0.43, 0.58), (0.75, 0.21)),
-                5: ((0, 0.93), (0.10, 1), (0.29, 0.73), (0.54, 0.43), (0.78, 0.17))}
-    for index in range(tier_count):
-        fraction = index / (tier_count - 1)
-        count = 15 // tier_count + (index < 15 % tier_count)
-        base = 3.0 + (height - 3.0) * 0.70 * fraction
-        tier_height = (height - 3.0) * (0.46 - 0.16 * fraction)
-        radius = (3.0, 2.4, 3.45)[VARIANT - 1] * (1 - 0.76 * fraction)
-        phase = index * (0.31 if VARIANT != 3 else 0.55)
-        radial = [(1 if side % 2 == 0 else 0.84) * rng.uniform(0.96, 1.04) for side in range(12)]
-        offsets = [rng.uniform(0, 0.22 if VARIANT != 3 else 0.36) for _ in range(12)]
-        vertices, faces = [], [tuple(reversed(range(12)))]
-        for level, factor in profiles[count]:
-            for side in range(12):
-                angle = math.tau * side / 12 + phase + 0.045 * math.sin(math.pi * level)
-                z = base + tier_height * level + offsets[side] * (1 - level)
-                r = radius * factor * radial[side]
-                vertices.append((r * math.cos(angle) + lean_x * z, r * math.sin(angle) + lean_y * z, z))
-        tip_z = height if index == tier_count - 1 else base + tier_height
-        vertices.append((lean_x * tip_z, lean_y * tip_z, tip_z))
-        for ring_index in range(count - 1):
-            for side in range(12):
-                other = (side + 1) % 12
-                a, b = ring_index * 12 + side, ring_index * 12 + other
-                c, d = (ring_index + 1) * 12 + other, (ring_index + 1) * 12 + side
-                faces.extend(((a, b, c), (a, c, d)))
-        for side in range(12):
-            faces.append(((count - 1) * 12 + side, (count - 1) * 12 + (side + 1) % 12, count * 12))
-        part = mesh_part('FoliageTier', vertices, faces, leaf)
-        part.data.materials.append(light)
-        for polygon in part.data.polygons:
-            polygon.material_index = int(polygon.normal.z > 0 and polygon.center.x - polygon.center.y > 0)
+    global height
+    bark,leaf,light,_=mats
+    height=(18,22,18)[VARIANT-1]*rng.uniform(.85,1.15)
+    tiers=rng.randint(3,5)
+    branch([(0,0,0),(0,0,4),(.1,.05,9),(.1,.1,15),(.12,.1,19)], [.31,.24,.17,.09,.025],bark,6)
+    bough_count=(32,32,30)[VARIANT-1]
+    low=(4.2,8.0,5.8)[VARIANT-1]
+    for i in range(bough_count):
+        tier=i%tiers;within=i//tiers
+        # Branches secondaires décalées entre les verticilles principaux.
+        fraction=max(0,min(1,(i+.24*math.sin(i*tiers))/(bough_count-1)))
+        z=low+fraction*(16.8-low)+rng.uniform(-.35,.35)
+        angle=i*2.4+tier*.12
+        radius=(3.0*(1-fraction)+.65) if VARIANT!=2 else (1.9*(1-fraction)+.5)
+        if VARIANT==3:
+            # Houppier en drapeau : les branches vivantes sont orientées sous le vent.
+            angle=-1.25+(i%5)*.60+tier*.05
+            radius*=1.15
+        c,s=math.cos(angle),math.sin(angle)
+        end=(radius*c,radius*s,z-.7-radius*.12)
+        tube((.05,0,z+.45),end,.075,bark,3,.018)
+        spruce_fan(z,radius,angle,leaf if i%4 else light)
+    for j in range(2 if VARIANT!=2 else 3):
+        ico((.1,.1,17.5+j*.65),(.62-j*.11,.62-j*.11,1.15),leaf if j%2==0 else light,1,.08)
+    root_flare(2,.24,.9,bark)
+    if VARIANT==3:
+        for j in range(3):
+            branch([(0,0,7+j*2),(-1.4,.3,6.6+j*2),(-2.1,.5,7.0+j*2)], [.10,.06,.02],bark,3)
 
 build_conifer()
 
-# Variations de proportions modestes pour les objets fabriqués.
-if KIND in ('tee_marker', 'bin', 'ball_washer', 'green_mower',
-            'fairway_mower', 'rough_mower', 'maintenance_shed',
-            'golf_cart', 'clubhouse', 'snack_bar'):
-    variation = (rng.uniform(0.94, 1.06), rng.uniform(0.95, 1.05), rng.uniform(0.97, 1.03))
-    for part in parts:
-        for axis in range(3):
-            part.scale[axis] *= variation[axis]
-            part.location[axis] *= variation[axis]
-
-# Suppression explicite des UV éventuellement créés par les primitives.
-for part in parts:
-    for layer in list(part.data.uv_layers):
-        part.data.uv_layers.remove(layer)
-
-# Un seul pied à z = 0 et une emprise centrée ; aucune réduction d'échelle.
+# Pose, inclinaison légère et hauteur réelle ; aucun ajustement d'échelle côté jeu.
 bpy.context.view_layer.update()
-points = [part.matrix_world @ vertex.co for part in parts for vertex in part.data.vertices]
-shift_x = (min(p.x for p in points) + max(p.x for p in points)) / 2
-shift_y = (min(p.y for p in points) + max(p.y for p in points)) / 2
-shift_z = min(p.z for p in points)
+points = [p.matrix_world @ v.co for p in parts for v in p.data.vertices]
+bottom = min(v.z for v in points)
+top = max(v.z for v in points)
+z_scale = height / (top-bottom) if height is not None else rng.uniform(.94,1.06)
+lean_x = rng.uniform(-.024,.024) + (.075 if KIND == 'conifer' and VARIANT == 3 else 0)
+lean_y = rng.uniform(-.018,.018)
+world_points = []
 for part in parts:
-    part.location.x -= shift_x
-    part.location.y -= shift_y
-    part.location.z -= shift_z
+    for vertex in part.data.vertices:
+        co = part.matrix_world @ vertex.co
+        co.z = (co.z-bottom)*z_scale
+        co.x += lean_x*co.z
+        co.y += lean_y*co.z
+        vertex.co = co
+        world_points.append(vertex.co.copy())
+    part.location = (0,0,0)
+    part.rotation_euler = (0,0,0)
+    part.scale = (1,1,1)
+    while part.data.uv_layers:
+        part.data.uv_layers.remove(part.data.uv_layers[0])
+center_x = (min(p.x for p in world_points)+max(p.x for p in world_points))/2
+center_y = (min(p.y for p in world_points)+max(p.y for p in world_points))/2
+for part in parts:
+    for vertex in part.data.vertices:
+        vertex.co.x -= center_x
+        vertex.co.y -= center_y
 # --- Fin de la construction. ---
 
 bpy.ops.object.select_all(action="DESELECT")

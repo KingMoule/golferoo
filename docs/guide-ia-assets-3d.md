@@ -54,14 +54,14 @@ Le script compte ses triangles et **échoue** (`sys.exit` avec un message `ERREU
 
 | Famille | Budget |
 |---|---|
-| Arbre (toutes essences) | 400 |
+| Arbre (toutes essences) | 800 |
 | Buisson, touffe d'herbes hautes | 150 |
 | Rocher | 120 |
 | Petit mobilier (banc, poubelle, panneau, marqueur de départ, lave-balles) | 300 |
 | Voiturette de golf (`vehicles`), tondeuse (`maintenance`) | 800 |
 | Bâtiment (club-house, abri) | 1 500 |
 
-Visez nettement sous le budget : un arbre de 340 triangles est bien. Peu de faces, bien placées, valent mieux que beaucoup de petites.
+Visez sous le budget : les arbres adultes font 744 à 796 triangles (choisi le 2026-10-25, 302 FPS avec 5 000 arbres sur RTX 2080), un jeune plant ou du bois mort nettement moins. Peu de faces, bien placées, valent mieux que beaucoup de petites.
 
 ### Style
 - **Low-poly à facettes plates** : `poly.use_smooth = False` sur toutes les faces, pas de lissage, pas de modificateur Subdivision.
@@ -270,7 +270,7 @@ Lis le guide joint en entier : c'est le cahier des charges du projet, toutes ses
 
 Contraintes à respecter en plus du guide :
 - repars du gabarit du guide et ne réécris que la partie « Construction » et les constantes ;
-- budget : famille Arbre, 400 triangles ;
+- budget : famille Arbre, 800 triangles ;
 - la graine fait varier la hauteur de ±15 %, le nombre d'étages et une légère inclinaison ;
 - l'échelle est réelle (le jeu adaptera, ne réduis pas l'arbre).
 

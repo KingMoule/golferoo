@@ -22,9 +22,6 @@ public partial class TreeLayer : Node3D
 {
     public const string ExternalTreePath = "res://assets/trees/tree.glb";
 
-    /// <summary>Dossier des modèles d'essence : <c>trees800</c> (pack d'essai à 800 triangles) avec <c>-- --trees800</c>, sinon <c>trees</c>.</summary>
-    public static readonly string ModelDir = OS.GetCmdlineUserArgs().Contains("--trees800") ? "res://assets/trees800" : "res://assets/trees";
-
     /// <summary>Sous cette hauteur, un arbre est un jeune plant, en mètres.</summary>
     public const float SaplingMaxHeight = 4f;
 
@@ -448,7 +445,7 @@ public partial class TreeLayer : Node3D
                 {
                     var name = stage == 0 ? $"{SpeciesPrefixes[species]}_sapling_{v + 1:00}" : $"{SpeciesPrefixes[species]}_{v + 1:00}";
                     var slot = (((species * 2) + stage) * VariantsPerStage) + v;
-                    var path = $"{ModelDir}/{name}.glb";
+                    var path = $"res://assets/trees/{name}.glb";
                     if (ResourceLoader.Exists(path) && LoadExternalMesh(path) is { } mesh)
                     {
                         models.Add(Describe(mesh));
@@ -474,7 +471,7 @@ public partial class TreeLayer : Node3D
         var lookup = new int[VariantsPerStage];
         for (var v = 0; v < VariantsPerStage; v++)
         {
-            var path = $"{ModelDir}/{name}_{v + 1:00}.glb";
+            var path = $"res://assets/trees/{name}_{v + 1:00}.glb";
             if (ResourceLoader.Exists(path) && LoadExternalMesh(path) is { } mesh)
             {
                 models.Add(Describe(mesh));

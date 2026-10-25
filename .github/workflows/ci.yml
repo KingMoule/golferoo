@@ -168,19 +168,12 @@ jobs:
             grep -q '^CAPTURES OK' "captures-f$f.log" || { echo "::error::captures au facteur $f en échec"; exit 1; }
           done
 
-      - name: Captures avec le pack d'arbres à 800 triangles (essai)
-        run: |
-          timeout 300 xvfb-run -a -s "-screen 0 1280x720x24" "$GODOT" --path game --audio-driver Dummy --rendering-method forward_plus --rendering-driver vulkan \
-            res://tools/Captures.tscn -- --trees800 --out "$GITHUB_WORKSPACE/captures-t800" --prefix "t800-" --thumbs --full 2>&1 | tee captures-t800.log
-          grep -q '^CAPTURES OK' captures-t800.log || { echo "::error::captures du pack 800 en échec"; exit 1; }
-
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: captures
           path: |
             captures/*.png
-            captures-t800/*.png
             captures*.log
 
   export-windows:
@@ -254,13 +247,11 @@ jobs:
           cd build/windows
           printf '@echo off\r\ncd /d "%%~dp0"\r\nstart "" Golferoo.exe\r\n' > Lancer.bat
           printf '@echo off\r\ncd /d "%%~dp0"\r\nGolferoo.exe -- --fps-bench\r\necho.\r\ntype fps-result.txt\r\npause\r\n' > "Mesurer FPS.bat"
-          printf '@echo off\r\ncd /d "%%~dp0"\r\nGolferoo.exe -- --fps-bench --trees800\r\necho.\r\ntype fps-result.txt\r\npause\r\n' > "Mesurer FPS 800.bat"
           printf '%s\r\n' \
             "GOLFEROO - prototype d'un trou (version ${GITHUB_SHA::7})" \
             "1. Dezippez tout le dossier (ne lancez pas le jeu depuis le zip)." \
             "2. Pour jouer : double-clic sur Lancer.bat." \
             "3. Pour mesurer les FPS : double-clic sur Mesurer FPS.bat, attendez environ 55 secondes sans toucher a rien." \
-            "   Mesurer FPS 800.bat fait la meme mesure avec le pack d'arbres a 800 triangles." \
             "4. Envoyez-moi le fichier fps-result.txt (cree dans ce dossier) ou une photo de l'ecran final." > LISEZMOI.txt
           ls -la
 

@@ -2,7 +2,7 @@
 
 Mis à jour : 2026-10-25. 69 modèles générés par une autre IA à partir de `docs/guide-ia-assets-3d.md`, livrés par Guillaume en deux lots (66 objets, puis trois club-houses v2). Chaque modèle a son script `tools/blender/<nom>_lowpoly.py` ; relancé sans argument depuis la racine du dépôt (`python -I tools/blender/<nom>_lowpoly.py`), il réécrit son `.glb` à l'identique.
 
-**Placés dans le jeu : aucun pour l'instant.** Seul `trees/tree.glb` (arbre du lot 7 de C01) est affiché. Les essences et jeunes plants servent au lot 3 de C02 ; le mobilier, l'entretien, les véhicules et les bâtiments attendent les chantiers qui les placeront.
+**Placés dans le jeu : les arbres** (C02), pack à 800 triangles depuis le 2026-10-25 ; `trees/tree.glb` reste le modèle de repli. Le mobilier, l'entretien, les véhicules et les bâtiments attendent les chantiers qui les placeront.
 
 Planches de comparaison (cadrage individuel, pas d'échelle commune) : [arbres](catalogue/01_trees.jpg), [décor](catalogue/02_decor.jpg), [mobilier](catalogue/03_furniture.jpg), [entretien](catalogue/04_maintenance.jpg), [voiturette et bâtiments](catalogue/05_later.jpg), [club-houses v2](catalogue/06_clubhouses_v2.jpg).
 
@@ -10,7 +10,7 @@ Vérifié le 2026-10-25 dans le conteneur cloud (`bpy` 5.2.3) : les 69 scripts t
 
 | Famille (`game/assets/`) | Budget | Modèles (triangles ; largeur × profondeur × hauteur en m) |
 |---|---|---|
-| `trees` | 400 | chêne `oak_01` à `03` (372 ; 12 à 14 × 8 × 16 à 17) ; sapin `conifer_01` à `03` (398 ; 5 à 7 × 4 à 6 × 16) ; bouleau `birch_01` à `03` (368 à 384 ; 6,5 à 7,7 × 6 à 7 × 15) ; jeunes plants `oak_sapling`, `conifer_sapling`, `birch_sapling` `_01` à `_03` (148 à 328 ; 1,4 à 3 m de haut) ; tronc couché `fallen_log_01` à `03` (124 à 192 ; 5 à 6 m de long) ; souche `stump_01` à `03` (136 à 172 ; 0,4 à 1,2 m de haut) |
+| `trees` | 800 | chêne `oak_01` à `03` (776 à 792 ; 8,5 à 14 × 9,8 à 13 × 14 à 18) ; sapin `conifer_01` à `03` (776 à 796 ; 4,9 à 7,4 × 4,5 à 8,1 × 16 à 19,6) ; bouleau `birch_01` à `03` (744 à 780 ; 8,5 à 9,9 × 8,8 à 9,1 × 15 à 17) ; jeunes plants `oak_sapling`, `conifer_sapling`, `birch_sapling` `_01` à `_03` (218 à 756 ; 1,2 à 3,1 m de haut) ; tronc couché `fallen_log_01` à `03` (456 à 548 ; 6,3 à 7,9 m de long) ; souche `stump_01` à `03` (536 à 600 ; 0,8 à 2,2 m de haut) |
 | `bushes` | 150 | `bush_01` à `03` (120 ; 1,9 à 2,7 m de large, 1 à 1,6 m de haut) |
 | `rocks` | 120 | `rock_01` à `03` (40 à 80 ; 2,2 à 2,4 m) |
 | `furniture` | 300 | marqueur de départ `tee_marker_01` à `03` (24 à 108) ; banc `bench_01` à `03` (80 à 204 ; 1,76 m) ; poubelle `bin_01` à `03` (56 à 228) ; lave-balles `ball_washer_01` à `03` (100 à 168 ; 1,14 m) ; drapeau `flag_01` à `03` (58 ; mât 2,23 m) |
