@@ -47,7 +47,7 @@ La personne qui lance le script ne connaît pas la 3D : elle ne retouchera rien 
 | Poubelle, lave-balles, marqueur de départ | 0,3 à 1,1 m |
 | Club-house | un étage : 3,5 à 4 m par niveau |
 
-**À savoir sur les arbres** : ceux du jeu actuel sont trop petits et trop serrés. Le jeu force aujourd'hui l'arbre à 4 m de haut et en met un tous les 4 m ; ce réglage sera corrigé côté jeu (chantier « Échelle du monde »). Le script, lui, modélise toujours l'arbre à sa **taille réelle** (par exemple 14 m) : le jeu adaptera son échelle et son espacement, pas l'inverse.
+**À savoir sur les arbres** : depuis C02 (lot 1), le jeu met chaque arbre à la hauteur et à la largeur de couronne que la simulation lui donne (essence et âge), à partir de la taille native du modèle. Le script modélise donc toujours l'arbre à sa **taille réelle** (par exemple 14 m) ; un jeune plant est un modèle à part, pas un adulte réduit.
 
 ### Budget de triangles
 Le script compte ses triangles et **échoue** (`sys.exit` avec un message `ERREUR`) s'il dépasse le budget. Budgets actuels :
