@@ -7,7 +7,7 @@ Les coûts sont donnés en **lots** (un lot ≈ une PR d'agent, comme les 8 lots
 ## En bref
 - **Guillaume a tranché le 2026-10-24** (section suivante) : ses réponses aux questions des fiches sont « oui à tout », sauf ce qu'il a commenté. Pour la première version, on garde la météo et les saisons, l'entretien du gazon et les ligues. Les scénarios cèdent la place à un **tutoriel simple** de construction et d'ouverture d'un trou. Le **mode photo est reporté**, avec une caméra prête à le recevoir. Il n'y a **ni nuit ni golf de nuit**.
 - Une nouvelle boucle naît de ses réponses : les **arbres vivants**. Les arbres déjà présents sur le terrain sont gardés ou rasés, ceux qu'on plante sont jeunes et grandissent, et une tempête peut en abattre un. Le parcours évolue ainsi dans le temps. Elle rejoint C02 (échelle des arbres), qui devient « Arbres et échelle du monde ».
-- La pluie et le vent ne doivent pas être qu'une punition tirée au hasard : neuf côtés positifs sont proposés plus bas, à trier.
+- La pluie et le vent ne doivent pas être qu'une punition tirée au hasard : les neuf côtés positifs proposés plus bas (M1 à M9) sont tous gardés (2026-10-25).
 - Le total passe d'environ 27 lots à **environ 25**, dont 8 de fondations. Les scénarios et la photo sortent, les arbres vivants entrent. La sauvegarde (F4) reste nécessaire pour le jeu, mais elle n'est plus portée par une boucle de cette liste.
 - Les deux règles de performance tiennent : l'usure et la croissance ne changent jamais le coût de marche, et les propriétés du sol sont précalculées.
 - **Le shader de terrain ne peut afficher que 8 surfaces**, et elles sont toutes prises. C'est la fondation F3, nécessaire à l'entretien et au contenu coupé.
@@ -38,7 +38,9 @@ Toutes les propositions des fiches sont acceptées, sauf ce qui suit.
 
 **Mode photo (D12).** Pas pour l'instant. On le laisse prêt, sans l'activer, si ça ne coûte pas trop de code.
 
-## Côtés positifs de la pluie et du vent (propositions à trier)
+## Côtés positifs de la pluie et du vent
+
+**Décidé (2026-10-25)** : Guillaume garde les neuf.
 Le but : que le mauvais temps change la journée plutôt que de seulement la gâcher. Chaque proposition s'appuie sur un système déjà prévu, pour rester peu coûteuse.
 
 | # | Idée | Ce qui se passe | S'appuie sur | Coût |
@@ -429,13 +431,13 @@ Les fiches ci-dessous sont conçues pour que ces choix restent ouverts : l'hiver
 
 | Boucle | Lots | Dont fondations | Coût de simulation | Coût de rendu | Dépend de |
 |---|---|---|---|---|---|
-| D1 Météo et saisons, avec M1 à M9 retenus | 5 à 6 | F1, F2 | faible ; planification par vent fort à mesurer dans P1 | faible : ciel, soleil qui tourne, particules, paramètres de shader | |
+| D1 Météo et saisons, avec M1 à M9 | 6 | F1, F2 | faible ; planification par vent fort à mesurer dans P1 | faible : ciel, soleil qui tourne, particules, paramètres de shader | |
 | Arbres vivants (dans C02) | 4 | | faible : croissance mensuelle, index spatial des arbres | faible : `MultiMesh` par bloc, jeunes plants en `bpy` | C02, F1, F6 (`MultiMesh` par bloc) |
 | D2 Entretien, sans mauvaises herbes | 5 | F3 | faible si la mise à jour est étalée et l'usure n'agit pas sur la marche | faible ; réécriture moyenne du shader (F3) | F1, F2 ; D1 conseillé |
 | D5 Ligues à divisions, avec votre pro | 4 | F5 | faible ; note du parcours en arrière-plan | nul | B10 (handicap), F1, F7 |
 | Tutoriel de construction | 2 | | nul | nul | F7 (P3) |
 | Caméra à modes et LOD (A9, photo prête) | 5 | F6 | nul | **élevé** : LOD, horizon, ombres en cascades | C02, F7 |
-| **Total** | **≈ 25 à 26** | | | | |
+| **Total** | **≈ 26** | | | | |
 
 Les scénarios (D7) et le mode photo (D12) sortent de la première version ; la sauvegarde (F4, 2 lots) reste à faire pour le jeu, hors de ce total.
 
