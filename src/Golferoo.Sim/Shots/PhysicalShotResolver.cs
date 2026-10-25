@@ -1,4 +1,5 @@
 using Golferoo.Sim.Terrain;
+using Golferoo.Sim.Trees;
 
 namespace Golferoo.Sim.Shots;
 
@@ -35,6 +36,15 @@ public sealed class PhysicalShotResolver : IShotResolver
         _drag = drag;
     }
 
+    /// <summary>
+    /// Arbres que rencontre la balle d'un coup exécuté (nul : aucun). La planification les ignore : elle ne contourne pas
+    /// les arbres, elle les subit. Le monde y met ses arbres.
+    /// </summary>
+    public TreeStand? Trees { get; set; }
+
+    /// <summary>Saison des couronnes, réglée par le monde.</summary>
+    public Season Season { get; set; } = Season.Summer;
+
     public ShotResult Resolve(in ShotRequest request, TerrainGrid terrain, DeterministicRng rng)
     {
         if (terrain.SurfaceAt(request.Ball.X, request.Ball.Z) == Surface.Green)
@@ -53,7 +63,7 @@ public sealed class PhysicalShotResolver : IShotResolver
         var speed = club.Speed * force * (1.0 + (club.SpeedSigma * Gauss(rng)));
         Rotate(dirX, dirZ, eps, 1.0 - (eps * eps / 2.0), out var ux, out var uz);
         var velocity = new Vec3(ux * club.LaunchCos * speed, club.LaunchSin * speed, uz * club.LaunchCos * speed);
-        return BallSimulator.Run(terrain, ball, velocity, rolling: false, _drag, recordPath: true).Shot;
+        return BallSimulator.Run(terrain, ball, velocity, rolling: false, _drag, recordPath: true, trees: Trees, season: Season, rng: rng).Shot;
     }
 
     private static void Rotate(double ux, double uz, double sin, double cos, out double rx, out double rz)

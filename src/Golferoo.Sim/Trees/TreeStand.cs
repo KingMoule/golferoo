@@ -90,6 +90,28 @@ public sealed class TreeStand
     /// <summary>Hauteur de l'arbre le plus haut de la case de 16 m qui contient (x, z), 0 s'il n'y en a pas.</summary>
     public double MaxHeightAt(double x, double z) => _maxHeight[CellIndex(x, z)];
 
+    /// <summary>
+    /// Hauteur de l'arbre le plus haut des cases de 16 m que touche le carré de demi-côté <paramref name="margin"/> centré sur (x, z) :
+    /// une couronne déborde de sa case, la balle près d'un bord doit voir aussi les cases voisines.
+    /// </summary>
+    public double MaxHeightNear(double x, double z, double margin)
+    {
+        var x0 = Math.Clamp((int)Math.Floor((x - margin) / CellSize), 0, _cellsX - 1);
+        var x1 = Math.Clamp((int)Math.Floor((x + margin) / CellSize), 0, _cellsX - 1);
+        var z0 = Math.Clamp((int)Math.Floor((z - margin) / CellSize), 0, _cellsZ - 1);
+        var z1 = Math.Clamp((int)Math.Floor((z + margin) / CellSize), 0, _cellsZ - 1);
+        var max = 0.0;
+        for (var cz = z0; cz <= z1; cz++)
+        {
+            for (var cx = x0; cx <= x1; cx++)
+            {
+                max = Math.Max(max, _maxHeight[(cz * _cellsX) + cx]);
+            }
+        }
+
+        return max;
+    }
+
     /// <summary>Ajoute à <paramref name="result"/> les arbres dont le centre est à au plus <paramref name="radius"/> mètres de (x, z).</summary>
     public void Query(double x, double z, double radius, List<Tree> result)
     {

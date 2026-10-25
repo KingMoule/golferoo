@@ -29,6 +29,14 @@ public readonly record struct Tree(int Id, double X, double Z, TreeSpeciesId Spe
     public static double CrownDiameter(TreeSpecies species, int ageMonths) =>
         species.SaplingCrownDiameter + ((species.AdultCrownDiameter - species.SaplingCrownDiameter) * Growth(species, ageMonths));
 
+    /// <summary>Rayon du tronc en mètres, du plant à l'adulte.</summary>
+    public static double TrunkRadius(TreeSpecies species, int ageMonths) =>
+        0.5 * (species.SaplingTrunkDiameter + ((species.TrunkDiameter - species.SaplingTrunkDiameter) * Growth(species, ageMonths)));
+
+    /// <summary>Hauteur de la base de la couronne en mètres : les premières branches de l'adulte, à l'échelle de la hauteur de l'arbre.</summary>
+    public static double CrownBase(TreeSpecies species, int ageMonths) =>
+        species.FirstBranchHeight * Height(species, ageMonths) / species.AdultHeight;
+
     public double Height() => Height(TreeSpeciesTable.Get(Species), AgeMonths);
 
     public double CrownDiameter() => CrownDiameter(TreeSpeciesTable.Get(Species), AgeMonths);

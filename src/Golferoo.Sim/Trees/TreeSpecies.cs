@@ -25,6 +25,8 @@ public enum TreeKind : byte
 /// <param name="AdultAgeMonths">Âge à partir duquel l'arbre a ses dimensions adultes, en mois.</param>
 /// <param name="SaplingHeight">Hauteur à la plantation, en mètres.</param>
 /// <param name="SaplingCrownDiameter">Diamètre de couronne à la plantation, en mètres.</param>
+/// <param name="SaplingTrunkDiameter">Diamètre du tronc à la plantation, en mètres.</param>
+/// <param name="CrownDensities">Densité de la couronne par saison (indexée par <see cref="Season"/>) : 1 est une couronne pleine d'été.</param>
 public sealed record TreeSpecies(
     TreeSpeciesId Id,
     string Name,
@@ -35,7 +37,13 @@ public sealed record TreeSpecies(
     double FirstBranchHeight,
     int AdultAgeMonths,
     double SaplingHeight,
-    double SaplingCrownDiameter);
+    double SaplingCrownDiameter,
+    double SaplingTrunkDiameter,
+    double[] CrownDensities)
+{
+    /// <summary>Densité de la couronne à la saison donnée ; la balle y est arrêtée avec la probabilité 1 − exp(−k · densité · longueur).</summary>
+    public double CrownDensity(Season season) => CrownDensities[(int)season];
+}
 
 /// <summary>Table des essences du thème Parkland, comme <see cref="Terrain.SurfaceTable"/>.</summary>
 public static class TreeSpeciesTable
@@ -43,10 +51,13 @@ public static class TreeSpeciesTable
     private static readonly TreeSpecies[] Table =
     [
         // Feuillu (chêne, érable) : 12 à 20 m, couronne 8 à 14 m, tronc 0,4 à 0,8 m, adulte vers 40 ans.
-        new(TreeSpeciesId.Deciduous, "Feuillu", TreeKind.Broadleaf, AdultHeight: 16.0, AdultCrownDiameter: 11.0, TrunkDiameter: 0.6, FirstBranchHeight: 3.0, AdultAgeMonths: 40 * 12, SaplingHeight: 2.0, SaplingCrownDiameter: 1.0),
+        new(TreeSpeciesId.Deciduous, "Feuillu", TreeKind.Broadleaf, AdultHeight: 16.0, AdultCrownDiameter: 11.0, TrunkDiameter: 0.6, FirstBranchHeight: 3.0, AdultAgeMonths: 40 * 12, SaplingHeight: 2.0, SaplingCrownDiameter: 1.0, SaplingTrunkDiameter: 0.05, CrownDensities: [0.4, 1.0, 0.6, 0.15]),
         // Pin : 15 à 25 m, couronne 4 à 8 m à la base, tronc 0,3 à 0,6 m, adulte vers 50 ans.
-        new(TreeSpeciesId.Pine, "Pin", TreeKind.Conifer, AdultHeight: 20.0, AdultCrownDiameter: 6.0, TrunkDiameter: 0.45, FirstBranchHeight: 4.0, AdultAgeMonths: 50 * 12, SaplingHeight: 2.0, SaplingCrownDiameter: 1.0),
+        new(TreeSpeciesId.Pine, "Pin", TreeKind.Conifer, AdultHeight: 20.0, AdultCrownDiameter: 6.0, TrunkDiameter: 0.45, FirstBranchHeight: 4.0, AdultAgeMonths: 50 * 12, SaplingHeight: 2.0, SaplingCrownDiameter: 1.0, SaplingTrunkDiameter: 0.05, CrownDensities: [0.95, 1.0, 0.95, 0.9]),
     ];
+
+    /// <summary>Plus grand rayon de couronne d'un adulte, toutes essences, en mètres.</summary>
+    public static double MaxCrownRadius { get; } = Table.Max(t => t.AdultCrownDiameter) * 0.5;
 
     public static int Count => Table.Length;
 

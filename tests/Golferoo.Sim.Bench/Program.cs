@@ -2,7 +2,9 @@ using System.Diagnostics;
 using System.Text.Json;
 using Golferoo.Sim;
 using Golferoo.Sim.Pathing;
+using Golferoo.Sim.Shots;
 using Golferoo.Sim.Terrain;
+using Golferoo.Sim.Trees;
 
 // Banc de mesure de la simulation, à lancer en Release :
 //   dotnet run -c Release --project tests/Golferoo.Sim.Bench [-- --out bench.json]
@@ -17,6 +19,7 @@ const double tickP99LimitMs = 5.0;
 const double holeFieldLimitMs = 5.0;
 const double bigFieldLimitMs = 20.0;
 const double retouchLimitMs = 16.0;
+const double treeFlightRatioLimit = 1.2;
 
 // Carte plate de 512 x 512 cellules, la même à tous les facteurs.
 var big = new TerrainGrid(new HeightField(512, 512, 2.0), "plat", new Point2(2, 2), new Point2(1000, 1000), new Point2(1000, 1000));
@@ -142,10 +145,30 @@ foreach (var factor in new[] { 2, 3, 4 })
     });
 }
 
+// Vol d'une balle sur la carte plate de 512 x 512 avec 20 000 arbres (C02 lot 2), comparé au même vol sans arbres.
+// Les mêmes 400 coups de driver (départs et directions tirés d'un RNG fixe) sont joués des deux côtés ; avec les arbres,
+// la balle est arrêtée bien plus tôt (forêt dense partout) : le critère porte sur le coût d'un coup, et le coût par seconde
+// simulée est donné pour information (un pas dans la canopée coûte plus qu'un pas de roulement sur le sol).
+var treeFlight = MeasureTreeFlight(big);
+allPassed &= treeFlight.Ratio <= treeFlightRatioLimit;
+
 var report = new
 {
-    benchmark = "c01-lot3",
+    benchmark = "c02-lot2",
     passed = allPassed,
+    treeFlight = new
+    {
+        trees = treeFlight.Trees,
+        flights = treeFlight.Flights,
+        noTreesMsPerFlight = treeFlight.NoTreesMs,
+        withTreesMsPerFlight = treeFlight.WithTreesMs,
+        ratio = treeFlight.Ratio,
+        simulatedSecondsPerFlightNoTrees = treeFlight.NoTreesSeconds,
+        simulatedSecondsPerFlightWithTrees = treeFlight.WithTreesSeconds,
+        ratioPerSimulatedSecond = treeFlight.RatioPerSimulatedSecond,
+        limit = treeFlightRatioLimit,
+        passed = treeFlight.Ratio <= treeFlightRatioLimit,
+    },
     runtime = System.Runtime.InteropServices.RuntimeInformation.FrameworkDescription,
     factors,
 };
@@ -158,6 +181,67 @@ if (outPath is not null)
 }
 
 return allPassed ? 0 : 1;
+
+static (int Trees, int Flights, double NoTreesMs, double WithTreesMs, double Ratio, double RatioPerSimulatedSecond, double NoTreesSeconds, double WithTreesSeconds) MeasureTreeFlight(TerrainGrid map)
+{
+    const int treeCount = 20_000;
+    const int flights = 400;
+    var size = map.CellsX * map.CellSize;
+    var stand = new TreeStand(size, size);
+    var placer = new DeterministicRng(11);
+    for (var i = 0; i < treeCount; i++)
+    {
+        var species = placer.NextDouble() < 0.6 ? TreeSpeciesId.Deciduous : TreeSpeciesId.Pine;
+        stand.Add(2 + (placer.NextDouble() * (size - 4)), 2 + (placer.NextDouble() * (size - 4)), species, (int)((20 + (placer.NextDouble() * 40)) * 12));
+    }
+
+    var aim = new DeterministicRng(12);
+    var starts = new (Point2 Start, Vec3 Velocity)[flights];
+    for (var i = 0; i < flights; i++)
+    {
+        var angle = aim.NextDouble() * 2 * Math.PI;
+        var club = Clubs.Driver;
+        starts[i] = (
+            new Point2(150 + (aim.NextDouble() * (size - 300)), 150 + (aim.NextDouble() * (size - 300))),
+            new Vec3(Math.Cos(angle) * club.LaunchCos * club.Speed, club.LaunchSin * club.Speed, Math.Sin(angle) * club.LaunchCos * club.Speed));
+    }
+
+    double Round(TreeStand? trees, out double simulatedSeconds)
+    {
+        var rng = new DeterministicRng(13);
+        var seconds = 0.0;
+        var t0 = Stopwatch.GetTimestamp();
+        foreach (var (start, velocity) in starts)
+        {
+            seconds += BallSimulator.Run(map, start, velocity, rolling: false, BallSimulator.DefaultDrag, recordPath: false, trees: trees, rng: rng).Duration;
+        }
+
+        simulatedSeconds = seconds;
+        return Stopwatch.GetElapsedTime(t0).TotalMilliseconds;
+    }
+
+    for (var i = 0; i < 5; i++)
+    {
+        Round(null, out _);
+        Round(stand, out _);
+    }
+
+    // Médiane de 15 tours de chaque côté, en alternance.
+    var none = new double[15];
+    var with = new double[15];
+    double secNone = 0, secWith = 0;
+    for (var i = 0; i < 15; i++)
+    {
+        none[i] = Round(null, out secNone);
+        with[i] = Round(stand, out secWith);
+    }
+
+    Array.Sort(none);
+    Array.Sort(with);
+    var noTrees = none[7] / flights;
+    var withTrees = with[7] / flights;
+    return (treeCount, flights, noTrees, withTrees, withTrees / noTrees, (with[7] / secWith) / (none[7] / secNone), secNone / flights, secWith / flights);
+}
 
 static (double Mean, double P99, double Max, double Median) Measure(int runs, int warmup, Action action)
 {
