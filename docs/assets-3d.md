@@ -94,10 +94,11 @@ Utile pour un essai ponctuel d'une forme organique difficile (un animal, une sta
 ## Recommandation et suite
 
 1. **Lot 7 de C01** : fait par `tools/blender/tree_lowpoly.py` (PR #12), sans TRELLIS ni session sur le PC de Guillaume. Prochaines variantes possibles : plusieurs silhouettes (feuillu, conifère, palmier) par graine.
-2. **Chantier suivant (court)** : bibliothèque commune `tools/blender/` et job CI « Assets » décrits en B.
-3. **Quand viendront les golfeurs animés** : partir de Quaternius (personnages + animations CC0), normalisés par B.
-4. **Blender MCP** : à installer seulement si Guillaume veut voir et ajuster un style en direct ; le serveur officiel du Blender Lab est le choix par défaut.
-5. **IA image vers 3D** : en réserve pour une forme organique ponctuelle ; si c'est le cas, Meshy gratuit (attribution) avant toute installation locale.
+2. **Guide pour une autre IA** : `docs/guide-ia-assets-3d.md` (conventions, gabarit testé, exemple de prompt).
+3. **Chantier suivant (court)** : bibliothèque commune `tools/blender/` et job CI « Assets » décrits en B.
+4. **Quand viendront les golfeurs animés** : partir de Quaternius (personnages + animations CC0), normalisés par B.
+5. **Blender MCP** : à installer seulement si Guillaume veut voir et ajuster un style en direct ; le serveur officiel du Blender Lab est le choix par défaut.
+6. **IA image vers 3D** : en réserve pour une forme organique ponctuelle ; si c'est le cas, Meshy gratuit (attribution) avant toute installation locale.
 
 ## Sources
 
