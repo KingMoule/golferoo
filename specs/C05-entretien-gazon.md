@@ -1,5 +1,5 @@
 # Entretien du gazon
-Statut : proposé
+Statut : validé
 Créé : 2026-10-25
 
 ## But
@@ -30,7 +30,7 @@ Ce qui prouve la réussite : un même putt roule plus loin sur un green « rapid
 - Humeur (« gazon abîmé −2 », golfeur en colère qui arrache une motte), landmarks « gazon soigné », difficulté qui accélère l'usure : avec l'humeur et les landmarks.
 - Bunker à ratisser et mauvais lie : il n'y a pas encore de lie.
 - Consignes par trou (Q4) ou réglages fins par zone (question mise de côté) : le format des consignes le permettra.
-- Texture d'indices au-delà de 8 surfaces (F3, partie 1) : selon le choix 1.
+- Texture d'indices au-delà de 8 surfaces (F3, partie 1) : avec la 9e surface (décision 2).
 
 ## Conception
 **État du gazon** (`src/Golferoo.Sim/Turf/`, sans Godot)
@@ -48,7 +48,7 @@ Ce qui prouve la réussite : un même putt roule plus loin sur un green « rapid
 **Usure** (`World.cs`, `Turf/`)
 - Marche : la cellule sous chaque golfeur reçoit un cran d'usure à chaque changement de cellule (pas sur les chemins, l'eau, le sable). Un tableau d'octets incrémenté, saturé à 255 : quelques nanosecondes par pas.
 - Mottes : un coup joué depuis un fairway ou un départ ajoute de l'usure à sa cellule ; une balle qui tombe sur un green marque sa cellule d'arrivée.
-- Le drapeau change de place chaque jour (choix 2) : parmi les cellules de green à au moins 3 m du bord, une position tirée du flux de la graine et du jour. Le champ de flux du green est refait une fois par jour.
+- Le drapeau change de place chaque jour (décision 3) : parmi les cellules de green à au moins 3 m du bord, une position tirée du flux de la graine et du jour. Le champ de flux du green est refait une fois par jour.
 
 **Rendu** (`game/shaders/terrain.gdshader`, `game/src/Rendering/TerrainRenderer.cs`)
 - Une texture RG8 d'un texel par cellule (hauteur normalisée, usure), envoyée au GPU au changement de jour et au plus une fois par seconde pour l'usure. Une lecture par pixel.
@@ -62,24 +62,16 @@ Ce qui prouve la réussite : un même putt roule plus loin sur un green « rapid
 - Pendant le premier quart de la journée, une tondeuse par zone tondue ce jour-là (greens chaque jour, fairways un jour sur trois, rough une fois par semaine) parcourt la zone en allers-retours le long des bandes de tonte. Modèles déjà au catalogue (`game/assets/maintenance/`, green, fairway et rough). Trajet calculé depuis les cellules de la zone, sans champ de flux.
 - Elle s'arrête quand un golfeur est à moins de 15 m, et repart ensuite. Au plus une dizaine à l'écran.
 
-**Lots (4 PR, 5 si le choix 1 le demande)**
+**Lots (4 PR)**
 1. **Hauteur, consignes et tonte** : `Turf/`, facteur hauteur et fermeté dans `SoilGrid`, croissance, tonte, stimp ; commandes de consigne ; tests et banc. (complet)
 2. **Usure et drapeau mobile** : usure par la marche, mottes, marques, réparation, position du drapeau par jour ; tests et banc. (complet)
 3. **Le gazon à l'écran** : texture d'état, couleurs, bandes et damier, sentiers et mottes, surcouche G, HUD, panneau des consignes ; captures. (léger)
 4. **Tondeuses visibles** : `MowerLayer`, trajets en allers-retours, arrêt près des golfeurs ; captures. (léger)
 
-## Choix à trancher par Guillaume
-1. **La texture d'indices (au-delà de 8 surfaces) entre-t-elle dans C05 ?**
-   - A. **Plus tard**, dans le chantier qui ajoute la 9e surface (contenu coupé ou un thème). Gain : rien à refaire maintenant, aucun risque de retour à l'aspect « en cases ». Perte : la fondation reste à faire.
-   - B. **Maintenant**, en lot 5. Gain : fondation prête. Perte : une réécriture moyenne de `terrain.gdshader` sans rien de nouveau à l'écran, à valider sur les captures.
-   - Recommandation : **A**. Les consignes remplacent Firm Fairway et Deep Rough (Q1) : C05 n'ajoute aucune surface, les 8 actuelles suffisent.
-2. **Le drapeau change-t-il de place chaque jour ?**
-   - A. **Oui, dans C05** : l'usure du green se répartit, et le planificateur vise déjà un trou qui peut bouger (un champ de flux par jour).
-   - B. **Plus tard**, avec les départs multiples (B1).
-   - Recommandation : **A**. C'est la réponse de l'idée 6 à l'usure des greens, pour un coût d'environ une demi-journée de lot.
-
 ## Décisions de Guillaume (2026-10-25)
 1. **Du personnel visible, sans boucle de gestion** : « les tondeuses visibles, ça ajouterait de la vie au terrain. Comme dans la vraie vie, il y a toujours du personnel qui travaille. Ce que je ne veux pas, c'est qu'il y ait un gameplay loop important autour de l'entretien. » Dans l'original, il fallait multiplier le personnel pour que le terrain tienne, sans intérêt de jeu. Ici, le joueur règle trois consignes et le personnel fait le reste ; les tondeuses se voient (lot 4).
+2. **Texture d'indices plus tard** : elle viendra avec le chantier qui ajoute une 9e surface (contenu coupé ou thème). C05 n'en ajoute aucune : Firm Fairway et Deep Rough deviennent des consignes (Q1).
+3. **Le drapeau change de place chaque jour**, dans C05 (lot 2), pour répartir l'usure du green.
 
 ## Critères d'acceptation
 1. `dotnet test Golferoo.sln` passe ; des tests couvrent la tonte (même graine et mêmes commandes, mêmes hauteurs ; sans tonte l'herbe dépasse la hauteur visée en une semaine de printemps, avec tonte elle y revient ; en hiver elle ne pousse pas), la balle (un même putt roule au moins 10 % plus loin sur un green rapide que sur un green normal, au moins 10 % moins loin sur un lent ; un rough épais arrête une balle plus tôt qu'un rough court ; un fairway ferme fait rouler un drive plus loin qu'un tendre), le stimp (green normal entre 10 et 12 pieds, soit la résistance actuelle de 0,05 : 3,4 m), l'usure (2 000 passages de golfeurs sur une ligne d'herbe y laissent une usure supérieure à la moitié du maximum ; une cellule de chemin n'en prend aucune ; une semaine sans passage la répare ; la pluie répare plus vite ; le coût de marche ne change pas), le drapeau (même graine et même jour, même position ; toujours sur le green à 3 m du bord au moins) et le déterminisme (mêmes commandes, dont les consignes, même somme de contrôle).
