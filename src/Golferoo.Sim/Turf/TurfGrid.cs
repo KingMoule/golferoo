@@ -98,6 +98,12 @@ public sealed class TurfGrid
         var green = Target(_settings.GreenMm, 4.0);
         var rough = Target(_settings.RoughMm, 50.0);
         var repair = rainedYesterday ? 2 * RepairWear : RepairWear;
+        var cuts = new[] { Reference, green, Reference, rough };
+        for (var k = 0; k < cuts.Length; k++)
+        {
+            cuts[k] = IsMowedOn((Surface)k, dayIndex) ? cuts[k] : 255;
+        }
+
         var surfaces = _terrain.Surfaces;
         for (var i = 0; i < _height.Length; i++)
         {
@@ -109,8 +115,7 @@ public sealed class TurfGrid
 
             _wear[i] = (byte)Math.Max(_wear[i] - repair, 0);
             var h = _height[i] + (s == Surface.Rough ? roughGrowth : fineGrowth);
-            var cut = !IsMowedOn(s, dayIndex) ? 255 : s switch { Surface.Green => green, Surface.Rough => rough, _ => Reference };
-            _height[i] = (byte)Math.Min(Math.Min(h, cut), 255);
+            _height[i] = (byte)Math.Min(Math.Min(h, cuts[(int)s]), 255);
         }
 
         Version++;
