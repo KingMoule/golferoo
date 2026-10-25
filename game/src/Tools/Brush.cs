@@ -1,4 +1,5 @@
 using Godot;
+using Golferoo.Game.Rendering;
 using Golferoo.Sim;
 using Golferoo.Sim.Terrain;
 
@@ -199,11 +200,10 @@ public partial class Brush : Node3D
             return;
         }
 
-        _hit = null;
-        if (Active && PickUnderMouse(out var hit))
-        {
-            _hit = hit;
-        }
+        // Le curseur au sol éclaircit les couronnes même quand le pinceau est éteint.
+        var picked = PickUnderMouse(out var hit);
+        _main!.TerrainView.Trees?.SetFocus(TreeLayer.CursorSlot, picked ? hit : null, TreeLayer.CursorFocusRadius);
+        _hit = Active && picked ? hit : null;
 
         _ring.Visible = _hit is not null;
         if (_hit is { } h)

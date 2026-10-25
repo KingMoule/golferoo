@@ -21,6 +21,9 @@ public sealed class TerrainGrid
 
     public HeightField Heights { get; }
 
+    /// <summary>Arbres isolés listés par le fichier du trou, plantés à la création du monde (vide hors fichier).</summary>
+    public IReadOnlyList<Golferoo.Sim.Trees.TreePlacement> IsolatedTrees { get; internal set; } = [];
+
     /// <summary>Hauteur minimale d'un coin, en mètres (bornes des retouches de relief).</summary>
     public const double MinHeight = -5.0;
 

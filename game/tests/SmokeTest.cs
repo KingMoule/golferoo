@@ -86,15 +86,39 @@ public partial class SmokeTest : Node
         CheckBrush(failures);
         CheckAssets(failures);
 
-        // L'arbre de tools/blender/tree_lowpoly.py doit être chargé dès que le .glb est présent.
+        // L'arbre de tools/blender/tree_lowpoly.py doit être chargé dès que le .glb est présent ;
+        // la couche affiche exactement les arbres de la simulation, et une plantation ne reconstruit que des blocs.
         var trees = _main.TerrainView.GetNodeOrNull<TreeLayer>("Trees");
+        var simTrees = _main.World.Trees.Count;
         if (trees is null || trees.TreeCount == 0)
         {
             failures.Add("aucun arbre affiché");
         }
-        else if (trees.UsesExternalTree != ResourceLoader.Exists(TreeLayer.ExternalTreePath))
+        else
         {
-            failures.Add($"{TreeLayer.ExternalTreePath} présent mais non chargé");
+            if (trees.UsesExternalTree != ResourceLoader.Exists(TreeLayer.ExternalTreePath))
+            {
+                failures.Add($"{TreeLayer.ExternalTreePath} présent mais non chargé");
+            }
+
+            if (trees.TreeCount != simTrees)
+            {
+                failures.Add($"TreeLayer affiche {trees.TreeCount} arbres, la simulation en compte {simTrees}");
+            }
+
+            var grid = _main.World.Terrain!;
+            var rebuildsBefore = trees.BlockRebuilds;
+            _main.World.PaintSurface(new Point2(grid.Tee.X + 40.0, grid.Tee.Z + 30.0), 12.0, Surface.Trees);
+            _main.StepTicks(1);
+            if (trees.TreeCount != _main.World.Trees.Count)
+            {
+                failures.Add($"après plantation, TreeLayer affiche {trees.TreeCount} arbres, la simulation en compte {_main.World.Trees.Count}");
+            }
+
+            if (trees.BlockRebuilds <= rebuildsBefore || trees.BlockRebuilds - rebuildsBefore > _main.TerrainView.ChunkCount)
+            {
+                failures.Add($"plantation : {trees.BlockRebuilds - rebuildsBefore} blocs d'arbres reconstruits");
+            }
         }
 
         // Même graine, mêmes ticks : la simulation doit être déterministe aussi sous Godot.

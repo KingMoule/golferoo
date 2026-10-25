@@ -1,5 +1,6 @@
 using Golferoo.Sim.Golfers;
 using Golferoo.Sim.Terrain;
+using Golferoo.Sim.Trees;
 
 namespace Golferoo.Sim;
 
@@ -18,7 +19,17 @@ public sealed class WorldSnapshot
 {
     private readonly List<GolferView> _golfers = [];
 
+    private readonly List<Tree> _trees = [];
+
     public long Tick { get; internal set; }
+
+    /// <summary>Arbres du monde, recopiés seulement quand <see cref="TreesVersion"/> change.</summary>
+    public IReadOnlyList<Tree> Trees => _trees;
+
+    /// <summary>Version du <see cref="TreeStand"/> au moment de la copie (-1 : jamais copié).</summary>
+    public long TreesVersion { get; internal set; } = -1;
+
+    internal List<Tree> TreeItems => _trees;
 
     public IReadOnlyList<GolferView> Golfers => _golfers;
 

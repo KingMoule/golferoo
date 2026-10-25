@@ -134,7 +134,7 @@ public partial class Main : Node3D
 
         TerrainView = new TerrainRenderer { Name = "TerrainView" };
         AddChild(TerrainView);
-        TerrainView.Build(grid);
+        TerrainView.Build(grid, World.Trees);
 
         Actors = new ActorLayer { Name = "Actors" };
         AddChild(Actors);

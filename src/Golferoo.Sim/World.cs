@@ -2,6 +2,7 @@ using Golferoo.Sim.Golfers;
 using Golferoo.Sim.Pathing;
 using Golferoo.Sim.Shots;
 using Golferoo.Sim.Terrain;
+using Golferoo.Sim.Trees;
 
 namespace Golferoo.Sim;
 
@@ -41,7 +42,29 @@ public sealed partial class World
         _rng = new DeterministicRng(seed);
         _resolver = resolver ?? (terrain is null ? new StubShotResolver() : new PhysicalShotResolver());
         Flow = terrain is null ? null : new FlowFieldCache(terrain);
+        if (terrain is not null)
+        {
+            Trees = new TreeStand(terrain.CellsX * terrain.CellSize, terrain.CellsZ * terrain.CellSize);
+            foreach (var p in terrain.IsolatedTrees)
+            {
+                Trees.Add(p.X, p.Z, p.Species, p.AgeMonths);
+            }
+
+            WoodlandGenerator.Fill(Trees, terrain, new CellRect(0, 0, terrain.CellsX - 1, terrain.CellsZ - 1), NextWoodlandRng());
+        }
+        else
+        {
+            Trees = new TreeStand(1.0, 1.0);
+        }
     }
+
+    /// <summary>Arbres du monde (nul coût de marche : seul le sous-bois, surface Trees, bloque les golfeurs).</summary>
+    public TreeStand Trees { get; }
+
+    private int _woodlandDraws;
+
+    /// <summary>RNG propre au boisement, dérivé de la graine et du rang du tirage : ne touche pas au RNG du tick.</summary>
+    private DeterministicRng NextWoodlandRng() => new(Seed ^ (0x7EE5BA5E00000000UL + (ulong)_woodlandDraws++));
 
     public ulong Seed { get; }
 
@@ -167,6 +190,13 @@ public sealed partial class World
     {
         var snap = reuse ?? new WorldSnapshot();
         snap.Tick = Tick;
+        if (snap.TreesVersion != Trees.Version)
+        {
+            snap.TreeItems.Clear();
+            snap.TreeItems.AddRange(Trees.Trees);
+            snap.TreesVersion = Trees.Version;
+        }
+
         var items = snap.Items;
         items.Clear();
         foreach (var group in _groups)
@@ -208,6 +238,14 @@ public sealed partial class World
         }
 
         MixPendingEdits(ref hash);
+        Mix(ref hash, (ulong)Trees.Count);
+        foreach (var t in Trees.Trees)
+        {
+            Mix(ref hash, (ulong)t.Id);
+            Mix(ref hash, (ulong)BitConverter.DoubleToInt64Bits(t.X));
+            Mix(ref hash, (ulong)BitConverter.DoubleToInt64Bits(t.Z));
+            Mix(ref hash, ((ulong)t.Species << 32) ^ (uint)t.AgeMonths ^ ((ulong)t.State << 48));
+        }
 
         Mix(ref hash, (ulong)_groups.Count);
         foreach (var group in _groups)
