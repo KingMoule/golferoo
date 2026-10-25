@@ -18,6 +18,7 @@ public partial class ActorLayer : Node3D
     private MultiMesh? _balls;
     private TerrainGrid? _grid;
     private Node3D? _flag;
+    private Point2 _flagAt;
 
     public int VisibleGolfers { get; private set; }
 
@@ -54,10 +55,18 @@ public partial class ActorLayer : Node3D
 
     private void BuildFlag(TerrainGrid grid)
     {
-        var y = (float)grid.Sample(grid.Hole.X, grid.Hole.Z);
-        _flag = new Node3D { Name = "Flag", Position = new Vector3((float)grid.Hole.X, y, (float)grid.Hole.Z) };
+        _flag = new Node3D { Name = "Flag" };
         _flag.AddChild(new MeshInstance3D { Name = "FlagMesh", Mesh = ProceduralMeshes.Flag() });
         AddChild(_flag);
+        PlaceFlag(grid);
+    }
+
+    /// <summary>Pose le drapeau sur le trou courant (il change de place chaque jour).</summary>
+    private void PlaceFlag(TerrainGrid grid)
+    {
+        var hole = grid.Hole;
+        _flagAt = hole;
+        _flag!.Position = new Vector3((float)hole.X, (float)grid.Sample(hole.X, hole.Z), (float)hole.Z);
     }
 
     /// <summary>Oriente le fanion (pointé vers +X dans son maillage) dans le sens du vent (x, z du monde) ; sans vent, il ne bouge pas.</summary>
@@ -75,6 +84,11 @@ public partial class ActorLayer : Node3D
         if (_golfers is null || _balls is null || _grid is null)
         {
             return;
+        }
+
+        if (_grid.Hole != _flagAt)
+        {
+            PlaceFlag(_grid);
         }
 
         if (previousChanged)

@@ -1,3 +1,4 @@
+using System.Globalization;
 using Godot;
 using Golferoo.Game.CameraRig;
 using Golferoo.Game.Rendering;
@@ -32,6 +33,8 @@ public partial class Main : Node3D
     private Label? _hud;
     private DirectionalLight3D? _sun;
     private int _month;
+    private bool _turfOverlay;
+    private (long Version, string Text) _stimp = (-1, string.Empty);
 
     /// <summary>Moment de la journée imposé au soleil (captures) ; sans valeur, il suit le calendrier.</summary>
     public double? SunDayFraction { get; set; }
@@ -182,6 +185,10 @@ public partial class Main : Node3D
         AddChild(TreeTool);
         TreeTool.Init(this);
 
+        var turfPanel = new TurfPanel { Name = "TurfPanelLayer" };
+        AddChild(turfPanel);
+        turfPanel.Init(this);
+
         _hud = GetNode<Label>("TickLabel");
         _sun = GetNode<DirectionalLight3D>("Sun");
         WeatherView = new WeatherView { Name = "WeatherView" };
@@ -314,6 +321,10 @@ public partial class Main : Node3D
             case Key.Space:
                 Paused = !Paused;
                 break;
+            case Key.H:
+                _turfOverlay = !_turfOverlay;
+                TerrainView.SetTurfOverlay(_turfOverlay);
+                break;
             case Key.G:
                 SpawnGroup();
                 break;
@@ -433,14 +444,28 @@ public partial class Main : Node3D
         WeatherView.Show(World.Weather.Sky, dir, Camera.Target, Camera.Size);
         TerrainView.SetWetness((float)World.SoilWetness);
         TerrainView.RefreshPuddles();
+        TerrainView.RefreshTurf();
     }
 
     private void UpdateHud(double delta)
     {
         if (_hud is not null)
         {
-            _hud.Text = $"{Engine.GetFramesPerSecond()} FPS | {Actors.VisibleGolfers} golfeurs | tick {World.Tick} | x{Speed}{(Paused ? " (pause)" : string.Empty)} | {DateText()} (F10 : mois suivant, T : outil arbres) | travaux arbres {World.TreeSpending}\n{WeatherText()} (F9 : ciel suivant)";
+            _hud.Text = $"{Engine.GetFramesPerSecond()} FPS | {Actors.VisibleGolfers} golfeurs | tick {World.Tick} | x{Speed}{(Paused ? " (pause)" : string.Empty)} | {DateText()} (F10 : mois suivant, T : outil arbres) | travaux arbres {World.TreeSpending}\n{WeatherText()} (F9 : ciel suivant) | {StimpText()} (H : état du gazon)";
         }
+    }
+
+    /// <summary>Vitesse des greens, recalculée seulement quand la hauteur ou les consignes changent.</summary>
+    private string StimpText()
+    {
+        var turf = World.Terrain!.Turf;
+        if (_stimp.Version != turf.Version)
+        {
+            var (meters, feet) = turf.Stimp();
+            _stimp = (turf.Version, $"greens {meters.ToString("0.0", CultureInfo.InvariantCulture).Replace('.', ',')} m ({feet:0} pieds)");
+        }
+
+        return _stimp.Text;
     }
 
     private string WeatherText()

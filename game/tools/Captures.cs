@@ -2,18 +2,20 @@ using Godot;
 using Golferoo.Game.Rendering;
 using Golferoo.Sim;
 using Golferoo.Sim.Terrain;
+using Golferoo.Sim.Time;
 using Golferoo.Sim.Trees;
+using Golferoo.Sim.Turf;
 
 namespace Golferoo.Game.Tools;
 
 /// <summary>
-/// Produit 21 captures du trou avec une paire de golfeurs, graine fixe : 4 rotations x 2 zooms (ensemble et green),
+/// Produit 27 captures du trou avec une paire de golfeurs, graine fixe : 4 rotations x 2 zooms (ensemble et green),
 /// puis 2 vues proches d'un golfeur à côté d'un arbre mature (la balle suivie sert de point focal : couronnes tramées),
 /// une vue d'ensemble après 15 ans, puis un défrichage replanté (6 à 10 jeunes plants et une motte au milieu du sous-bois rasé),
 /// vu de près, puis vingt ans plus tard avec la motte tombée en tronc couché, le soleil le matin, à midi et le soir,
 /// le trou aux quatre saisons (feuillage et teinte de l'herbe), puis sous une forte pluie.
 /// Usage : godot --path game res://tools/Captures.tscn -- --out dossier [--factor n] [--prefix texte] [--thumbs] [--full]
-/// Code de sortie 0 si les 21 images existent, ont la même taille et ne sont pas uniformes ; non nul sinon.
+/// Code de sortie 0 si toutes les images existent, ont la même taille et ne sont pas uniformes ; non nul sinon.
 /// </summary>
 public partial class Captures : Node
 {
@@ -25,6 +27,7 @@ public partial class Captures : Node
     private const float ClearingSize = 40f;
     private const double ClearingRadius = 12.0;
     private const int FallWaitFrames = 300;
+    private const float TurfSize = 100f;
 
     private int? _clearingMound;
 
@@ -83,8 +86,16 @@ public partial class Captures : Node
         var clearingTarget = center;
         Vector2I? size = null;
         var index = 0;
+        var mid = new Vector3((float)(grid.Tee.X + grid.Green.X) / 2f, 0f, (float)(grid.Tee.Z + grid.Green.Z) / 2f);
         var views = new List<(string Name, float Size, Vector3 Target, float[] Yaws, Vector3? Followed)>
         {
+            // Le gazon d'abord (critère 4 de C05) : consignes normales, puis greens rapides et rough épais, une semaine de jeu, la surcouche.
+            ("turf-normal", TurfSize, mid, [Yaws[0]], null),
+            ("turf-green-normal", 30f, green, [Yaws[0]], null),
+            ("turf-fast-thick", TurfSize, mid, [Yaws[0]], null),
+            ("turf-week", TurfSize, mid, [Yaws[0]], null),
+            ("turf-week-green", 30f, green, [Yaws[0]], null),
+            ("turf-overlay", TurfSize, mid, [Yaws[0]], null),
             ("overview", 240f, center, Yaws, null),
             ("green", 30f, green, Yaws, null),
         };
@@ -102,6 +113,7 @@ public partial class Captures : Node
 
         views.Add(("rain", SeasonSize, center, [Yaws[0]], null));
 
+        var expected = views.Sum(v => v.Yaws.Length);
         foreach (var (zoomName, viewSize, target0, yaws0, followed0) in views)
         {
             var (target, yaws, followed) = (target0, yaws0, followed0);
@@ -115,6 +127,33 @@ public partial class Captures : Node
                 }
 
                 (target, yaws, followed) = (close.Target, close.Yaws, close.Golfer);
+            }
+
+            if (zoomName == "turf-fast-thick")
+            {
+                // Greens rapides, rough épais : deux semaines de croissance au printemps (la tonte ne fait que baisser).
+                main.World.SetTurfSettings(new TurfSettings(GreenSpeed.Fast, FairwayFirmness.Normal, RoughLength.Thick));
+                main.StepTicks(14 * Calendar.TicksPerDay);
+            }
+
+            if (zoomName == "turf-week")
+            {
+                // Une semaine de jeu : 200 marcheurs, et une paire de golfeurs sur le trou toutes les 2 000 ticks (mottes, marques).
+                main.ToggleLoadMode();
+                for (var i = 0; i < 7 * Calendar.TicksPerDay / 2000; i++)
+                {
+                    main.SpawnGroup();
+                    main.StepTicks(2000);
+                }
+
+                main.ToggleLoadMode();
+            }
+
+            // Surcouche G seulement sur sa vue ; les autres vues repartent en consignes normales.
+            main.TerrainView.SetTurfOverlay(zoomName == "turf-overlay");
+            if (zoomName == "overview")
+            {
+                main.World.SetTurfSettings(TurfSettings.Normal);
             }
 
             if (zoomName == "aged15")
@@ -195,6 +234,7 @@ public partial class Captures : Node
                 _ => 0.5, // midi : les autres vues gardent un éclairage comparable à C02
             };
             main.TerrainView.Trees?.SetTrackedBall(followed);
+            main.TerrainView.RefreshTurf();
             foreach (var yaw in yaws)
             {
                 main.Camera.SetView(yaw, viewSize, target);
@@ -238,7 +278,7 @@ public partial class Captures : Node
             }
         }
 
-        if (failures == 0 && index == 21)
+        if (failures == 0 && index == expected)
         {
             GD.Print($"CAPTURES OK {index} images");
             return 0;

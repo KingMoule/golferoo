@@ -68,6 +68,11 @@ public partial class SmokeTest : Node
             failures.Add($"le HUD n'affiche pas le temps et la prévision : « {hud.Text} »");
         }
 
+        else if (!hud.Text.Contains("greens ") || !hud.Text.Contains(" pieds)"))
+        {
+            failures.Add($"le HUD n'affiche pas la vitesse des greens : « {hud.Text} »");
+        }
+
         var cells = _main.World.Terrain!;
         var expectedChunks = ((cells.CellsX + TerrainRenderer.ChunkCells - 1) / TerrainRenderer.ChunkCells)
             * ((cells.CellsZ + TerrainRenderer.ChunkCells - 1) / TerrainRenderer.ChunkCells);

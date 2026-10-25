@@ -69,6 +69,9 @@ public sealed class TurfGrid
 
     internal double RollFactor(int cell) => RollByHeight[_height[cell]];
 
+    /// <summary>Hauteur brute de la cellule, en 64es de la référence de sa surface (lecture seule, pour le rendu).</summary>
+    public byte Height(int cx, int cz) => _height[(cz * _terrain.CellsX) + cx];
+
     /// <summary>Hauteur de l'herbe de la cellule, en mm (hauteur de référence de la surface × hauteur / 64).</summary>
     public double HeightMm(int cx, int cz)
     {
