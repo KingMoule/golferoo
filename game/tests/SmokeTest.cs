@@ -85,6 +85,7 @@ public partial class SmokeTest : Node
 
         CheckBrush(failures);
         CheckAssets(failures);
+        CheckAssetLibrary(failures);
 
         // L'arbre de tools/blender/tree_lowpoly.py doit être chargé dès que le .glb est présent ;
         // la couche affiche exactement les arbres de la simulation, et une plantation ne reconstruit que des blocs.
@@ -168,6 +169,73 @@ public partial class SmokeTest : Node
                 failures.Add($"asset {name} : {stat.Triangles} triangles, budget {budget}");
             }
         }
+    }
+
+    /// <summary>Budget de triangles de chaque famille de <c>res://assets/</c> (docs/guide-ia-assets-3d.md).</summary>
+    private static readonly Dictionary<string, int> FamilyBudgets = new()
+    {
+        ["trees"] = 400,
+        ["bushes"] = 150,
+        ["rocks"] = 120,
+        ["furniture"] = 300,
+        ["maintenance"] = 800,
+        ["vehicles"] = 800,
+        ["buildings"] = 1500,
+    };
+
+    /// <summary>
+    /// Chaque .glb de <c>res://assets/&lt;famille&gt;/</c> (scripts de tools/blender/) : famille connue, importé par Godot,
+    /// un seul MeshInstance3D, pied à y = 0 et dans le budget de sa famille.
+    /// </summary>
+    private static void CheckAssetLibrary(List<string> failures)
+    {
+        var count = 0;
+        foreach (var family in DirAccess.GetDirectoriesAt("res://assets"))
+        {
+            if (!FamilyBudgets.TryGetValue(family, out var budget))
+            {
+                failures.Add($"res://assets/{family} : famille sans budget");
+                continue;
+            }
+
+            foreach (var file in DirAccess.GetFilesAt($"res://assets/{family}").Where(f => f.EndsWith(".glb", StringComparison.Ordinal)))
+            {
+                var path = $"res://assets/{family}/{file}";
+                var root = GD.Load<PackedScene>(path)?.Instantiate();
+                if (root is null)
+                {
+                    failures.Add($"{path} : scène illisible");
+                    continue;
+                }
+
+                var meshes = root.FindChildren("*", nameof(MeshInstance3D), true, false).OfType<MeshInstance3D>().Where(m => m.Mesh is not null).ToList();
+                if (meshes.Count != 1)
+                {
+                    failures.Add($"{path} : {meshes.Count} MeshInstance3D au lieu d'un seul");
+                }
+                else
+                {
+                    var mesh = meshes[0].Mesh;
+                    var triangles = mesh.GetFaces().Length / 3;
+                    var aabb = mesh.GetAabb();
+                    if (triangles < 1 || triangles > budget)
+                    {
+                        failures.Add($"{path} : {triangles} triangles, budget {budget}");
+                    }
+
+                    if (Mathf.Abs(aabb.Position.Y) > 0.01f)
+                    {
+                        failures.Add($"{path} : pied à y = {aabb.Position.Y:0.###} au lieu de 0");
+                    }
+
+                    count++;
+                }
+
+                root.Free();
+            }
+        }
+
+        GD.Print($"ASSETS {count} modèles .glb vérifiés");
     }
 
     /// <summary>Retouche par code : peinture d'eau puis montée de relief, vérifiées dans la simulation et dans le rendu.</summary>
