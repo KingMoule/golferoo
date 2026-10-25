@@ -35,6 +35,9 @@ public sealed class TurfGrid
     /// <summary>Usure d'un pas de golfeur, d'une motte (coup depuis un fairway ou un départ) et d'une marque de balle sur un green, en crans.</summary>
     public const int StepWear = 1, DivotWear = 16, MarkWear = 8;
 
+    /// <summary>Réparation de l'usure par nuit, doublée après la pluie : un sentier saturé (255) disparaît en un mois sans passage.</summary>
+    public const int RepairWear = 8;
+
     /// <summary>Usure de la cellule (0 à 255). Elle ne change ni la balle ni le coût de marche : pas de <see cref="Version"/>.</summary>
     public byte Wear(int cx, int cz) => _wear[(cz * _terrain.CellsX) + cx];
 
@@ -80,7 +83,7 @@ public sealed class TurfGrid
     }
 
     /// <summary>
-    /// Changement de jour : l'usure se répare d'un cran (deux après la pluie) ; l'herbe pousse (saison, ×1,5 s'il a plu la veille), puis la tonte la ramène à la hauteur visée :
+    /// Changement de jour : l'usure se répare de <see cref="RepairWear"/> crans (le double après la pluie) ; l'herbe pousse (saison, ×1,5 s'il a plu la veille), puis la tonte la ramène à la hauteur visée :
     /// greens chaque jour, départs et fairways un jour sur trois, rough une fois par semaine. La tonte ne fait que baisser.
     /// </summary>
     public void NextDay(Season season, bool rainedYesterday, int dayIndex)
@@ -93,7 +96,7 @@ public sealed class TurfGrid
         var cutWeek = dayIndex % 7 == 0;
         var green = Target(_settings.GreenMm, 4.0);
         var rough = Target(_settings.RoughMm, 50.0);
-        var repair = rainedYesterday ? 2 : 1;
+        var repair = rainedYesterday ? 2 * RepairWear : RepairWear;
         var surfaces = _terrain.Surfaces;
         for (var i = 0; i < _height.Length; i++)
         {

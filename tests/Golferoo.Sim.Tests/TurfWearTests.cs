@@ -42,14 +42,11 @@ public class TurfWearTests
     {
         var terrain = Flat(Surface.Fairway);
         var turf = terrain.Turf;
-        for (var i = 0; i < 7; i++)
-        {
-            turf.AddWear(5, 5, TurfGrid.StepWear);
-            turf.AddWear(6, 5, TurfGrid.StepWear);
-        }
+        turf.AddWear(5, 5, 7 * TurfGrid.RepairWear);
+        turf.AddWear(6, 5, 7 * TurfGrid.RepairWear);
 
         turf.NextDay(Season.Summer, true, 1);
-        Assert.Equal(5, turf.Wear(5, 5));
+        Assert.Equal(5 * TurfGrid.RepairWear, turf.Wear(5, 5));
         for (var day = 2; day <= 7; day++)
         {
             turf.NextDay(Season.Summer, false, day);
@@ -60,8 +57,8 @@ public class TurfWearTests
 
         var wet = Flat(Surface.Fairway).Turf;
         var dry = Flat(Surface.Fairway).Turf;
-        wet.AddWear(0, 0, 10);
-        dry.AddWear(0, 0, 10);
+        wet.AddWear(0, 0, 40);
+        dry.AddWear(0, 0, 40);
         wet.NextDay(Season.Summer, true, 1);
         dry.NextDay(Season.Summer, false, 1);
         Assert.True(wet.Wear(0, 0) < dry.Wear(0, 0));
