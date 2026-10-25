@@ -52,6 +52,7 @@ public sealed partial class World
             }
 
             WoodlandGenerator.Fill(Trees, terrain, new CellRect(0, 0, terrain.CellsX - 1, terrain.CellsZ - 1), NextWoodlandRng());
+            terrain.Soil.Season = Season;
             if (_resolver is PhysicalShotResolver physical)
             {
                 physical.Trees = Trees;
@@ -85,6 +86,11 @@ public sealed partial class World
     private void GrowTrees()
     {
         Trees.Grow(Calendar.TreeMonthsPerMonth);
+        if (Terrain is not null)
+        {
+            Terrain.Soil.Season = Season;
+        }
+
         if (_resolver is PhysicalShotResolver physical)
         {
             physical.Season = Season;

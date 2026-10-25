@@ -183,9 +183,8 @@ public static class BallSimulator
                     var vn = (vx * n.X) + (vy * n.Y) + (vz * n.Z);
                     if (vn < 0)
                     {
-                        var props = SurfaceTable.Get(surface);
-                        var keep = 1.0 - props.Friction;
-                        var bounce = -vn * props.Restitution;
+                        var keep = 1.0 - terrain.Soil.FrictionAt(x, z);
+                        var bounce = -vn * terrain.Soil.RestitutionAt(x, z);
                         var tx = (vx - (vn * n.X)) * keep;
                         var ty = (vy - (vn * n.Y)) * keep;
                         var tz = (vz - (vn * n.Z)) * keep;
@@ -208,7 +207,7 @@ public static class BallSimulator
             else
             {
                 var n = terrain.SampleNormal(x, z);
-                var r = SurfaceTable.Get(terrain.SurfaceAt(x, z)).RollResistance * Gravity;
+                var r = terrain.Soil.RollResistanceAt(x, z) * Gravity;
                 var sx = Gravity * n.Y * n.X;
                 var sz = Gravity * n.Y * n.Z;
                 var speed = Math.Sqrt((vx * vx) + (vz * vz));

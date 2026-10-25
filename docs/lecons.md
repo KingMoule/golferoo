@@ -15,3 +15,4 @@ Ajouter sans relire tout le fichier : `echo "- ..." >> docs/lecons.md`. `/amelio
 - Retouche par brief d'une ligne (C01 lot 8) : l'agent a arrondi l'arbre de repli par code alors que le jeu affiche tree.glb (script Blender) ; une source d'asset doit être évidente depuis le code qui l'affiche, ou le brief la nomme.
 - 2026-10-25 · brief · le brief citait FlowField.BuildCosts, interne sans InternalsVisibleTo : le codeur a testé via le cache de champs · aucun aller-retour · C02 lot 1
 - 2026-10-25 · CI · le nombre de captures attendu vivait à deux endroits (Captures.cs et ci.yml) et a cassé la CI deux fois : ci.yml ne vérifie plus que CAPTURES OK, Captures.cs fait foi · deux allers-retours CI · C02 lots 1 et 3
+- 2026-10-25 · brief · un critère « identique au bit près » demande une référence calculée avant le changement : le brief doit dire de la figer d'abord (le codeur a dû monter un worktree) · quelques minutes · C03 lot 2

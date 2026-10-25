@@ -1,5 +1,5 @@
 # Calendrier, saisons et sol par cellule
-Statut : validé
+Statut : livré (2026-10-25)
 Créé : 2026-10-25
 
 ## But
@@ -59,5 +59,5 @@ Ce qui prouve la réussite : le HUD affiche la date et la saison ; le soleil tra
 complet (le lot 2 touche la physique de la balle)
 
 ## Clôture
-- [ ] Critères vérifiés
-- [ ] Statut passé à « livré », ligne mise à jour dans docs/chantiers.md
+- [x] Critères vérifiés (PR #31 et #33, audits complets conformes ; critère 4 : vol avec sol ≈ 0,97 fois le vol d'avant, mesuré par l'audit en passes alternées ; critère 5 à juger par Guillaume dans le jeu)
+- [x] Statut passé à « livré », ligne mise à jour dans docs/chantiers.md

@@ -199,7 +199,15 @@ static (int Trees, double Mean, double Median, double Max) MeasureTreeGrowth(Ter
         stand.Add(2 + (placer.NextDouble() * (size - 4)), 2 + (placer.NextDouble() * (size - 4)), (TreeSpeciesId)(i % TreeSpeciesTable.Count), (int)(placer.NextDouble() * 30 * 12));
     }
 
-    var m = Measure(200, 20, () => stand.Grow(Golferoo.Sim.Time.Calendar.TreeMonthsPerMonth));
+    // Un mois de jeu : les arbres vieillissent et le sol est recalculé (saison changée à chaque passe, lecture qui force le recalcul).
+    var summer = true;
+    var m = Measure(200, 20, () =>
+    {
+        stand.Grow(Golferoo.Sim.Time.Calendar.TreeMonthsPerMonth);
+        summer = !summer;
+        map.Soil.Season = summer ? Season.Summer : Season.Autumn;
+        map.Soil.RollResistanceAt(0, 0);
+    });
     return (treeCount, m.Mean, m.Median, m.Max);
 }
 
