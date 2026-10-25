@@ -26,6 +26,7 @@ public sealed class SoilGrid
     }
 
     /// <summary>Saison du sol ; la changer fait recalculer le tableau à la prochaine lecture.</summary>
+    /// <remarks>Réglée par le <c>World</c> : un seul monde par terrain.</remarks>
     public Season Season { get; set; } = Season.Summer;
 
     public double RollResistanceAt(double x, double z)

@@ -21,8 +21,6 @@ const double bigFieldLimitMs = 20.0;
 const double retouchLimitMs = 16.0;
 const double treeFlightRatioLimit = 1.2;
 const double treeGrowLimitMs = 5.0;
-const double soilFlightRatioLimit = 1.05;
-const double flightBeforeSoilMs = 0.225; // vol sans arbres avant F2 (C03 lot 2), mesuré sur la machine de développement : indicatif, dépend du processeur
 
 // Carte plate de 512 x 512 cellules, la même à tous les facteurs.
 var big = new TerrainGrid(new HeightField(512, 512, 2.0), "plat", new Point2(2, 2), new Point2(1000, 1000), new Point2(1000, 1000));
@@ -158,9 +156,6 @@ allPassed &= treeFlight.Ratio <= treeFlightRatioLimit;
 // Vieillir 20 000 arbres d'un mois (C02 lot 3) : âge, index par case et version. Médiane de 200 passes.
 var grow = MeasureTreeGrowth(big);
 allPassed &= grow.Median < treeGrowLimitMs;
-
-var soilFlightRatio = treeFlight.NoTreesMs / flightBeforeSoilMs;
-Console.Error.WriteLine($"vol avec sol / vol d'avant F2 : {soilFlightRatio:F3} (limite {soilFlightRatioLimit}, indicatif)");
 
 var report = new
 {
