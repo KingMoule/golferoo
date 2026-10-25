@@ -161,7 +161,7 @@ public partial class Captures : Node
                 "sun-morning" => 0.1,
                 "sun-noon" => 0.5,
                 "sun-evening" => 0.9,
-                _ => null,
+                _ => 0.5, // midi : les autres vues gardent un éclairage comparable à C02
             };
             main.TerrainView.Trees?.SetTrackedBall(followed);
             foreach (var yaw in yaws)

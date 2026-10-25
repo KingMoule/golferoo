@@ -43,7 +43,8 @@ public class CalendarTests
         Assert.Equal((1, 1, 2, Season.Winter), At(90));
         Assert.Equal((1, 3, 2, Season.Spring), At(110));
         Assert.Equal((1, 4, 2, Season.Spring), At(120));
-        Assert.Equal((3, 5, 1, Season.Spring), (Calendar.At(2 * Day, 10).Day, Calendar.At(2 * Day, 10).Month, 1, Calendar.At(2 * Day, 10).Season));
+        var shifted = Calendar.At(2 * Day, 10);
+        Assert.Equal((3, 5, 1, Season.Spring), (shifted.Day, shifted.Month, shifted.Year, shifted.Season));
     }
 
     [Fact]
