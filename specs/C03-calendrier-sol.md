@@ -17,7 +17,7 @@ Ce qui prouve la réussite : le HUD affiche la date et la saison ; le soleil tra
 - Debug : F10 saute au mois suivant (au lieu de « +1 an »), de façon déterministe.
 - `SoilGrid` (F2) et l'effet de la saison sur le sol.
 
-**Hors périmètre** : météo, vent, pluie et sol mouillé (C04) ; couleurs de saison des arbres et du gazon, fleurs (C04) ; état du gazon (C05) ; arrivées et départs des golfeurs selon l'heure (il n'y a pas encore d'arrivées automatiques) ; système général d'événements datés (les ligues de C06 liront le calendrier directement) ; sauvegarde (F4).
+**Hors périmètre** : météo, vent, pluie et sol mouillé (C04) ; couleurs de saison des arbres et du gazon, fleurs (C04 ; la PR #30 fournit des feuillus d'hiver allégés `oak_winter_light_NN` et `birch_winter_light_NN`, superposables aux modèles actuels) ; état du gazon (C05) ; arrivées et départs des golfeurs selon l'heure (il n'y a pas encore d'arrivées automatiques) ; système général d'événements datés (les ligues de C06 liront le calendrier directement) ; sauvegarde (F4).
 
 ## Conception
 **Calendrier** (`src/Golferoo.Sim/Time/Calendar.cs`, sans Godot)
