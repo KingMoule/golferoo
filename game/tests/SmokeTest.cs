@@ -124,15 +124,15 @@ public partial class SmokeTest : Node
 
             // Vieillissement : la couche affiche toujours autant d'arbres que la sim, avec les modèles des essences quand ils existent.
             var ageBefore = _main.World.Trees.MeanAgeMonths;
-            _main.AdvanceTreesOneYear();
-            if (_main.World.Trees.MeanAgeMonths < ageBefore + 11.9)
+            _main.SkipToNextMonth();
+            if (_main.World.Trees.MeanAgeMonths < ageBefore + 3.9)
             {
-                failures.Add($"AdvanceYear : âge moyen {ageBefore:F1} → {_main.World.Trees.MeanAgeMonths:F1} mois");
+                failures.Add($"SkipToNextMonth : âge moyen {ageBefore:F1} → {_main.World.Trees.MeanAgeMonths:F1} mois");
             }
 
             if (trees.TotalCount != _main.World.Trees.Count)
             {
-                failures.Add($"après AdvanceYear, TreeLayer affiche {trees.TreeCount} arbres, la simulation en compte {_main.World.Trees.Count}");
+                failures.Add($"après SkipToNextMonth, TreeLayer affiche {trees.TreeCount} arbres, la simulation en compte {_main.World.Trees.Count}");
             }
 
             CheckTreeTools(trees, failures);

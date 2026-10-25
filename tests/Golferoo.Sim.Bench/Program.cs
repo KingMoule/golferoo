@@ -199,7 +199,7 @@ static (int Trees, double Mean, double Median, double Max) MeasureTreeGrowth(Ter
         stand.Add(2 + (placer.NextDouble() * (size - 4)), 2 + (placer.NextDouble() * (size - 4)), (TreeSpeciesId)(i % TreeSpeciesTable.Count), (int)(placer.NextDouble() * 30 * 12));
     }
 
-    var m = Measure(200, 20, () => stand.Grow(1));
+    var m = Measure(200, 20, () => stand.Grow(Golferoo.Sim.Time.Calendar.TreeMonthsPerMonth));
     return (treeCount, m.Mean, m.Median, m.Max);
 }
 

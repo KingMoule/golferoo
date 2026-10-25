@@ -87,7 +87,21 @@ public class BallTreeTests
         var winter = PassRate(terrain, TreeSpeciesId.Oak, 100 * 12, Season.Winter, 10_000);
         Console.WriteLine($"Chêne, 10 000 tirages : passent été {summer:P1}, printemps {spring:P1}, hiver {winter:P1}");
         Assert.True(spring > summer + 0.15, $"été {summer:P1}, printemps {spring:P1}");
-        Assert.True(winter > spring);
+        Assert.True(winter > summer + 0.15, $"été {summer:P1}, hiver {winter:P1}");
+    }
+
+    [Fact]
+    public void Crown_BroadleafLetsMoreBallsThroughInAprilThanInJuly_SeasonComingFromTheCalendar()
+    {
+        var terrain = Flat();
+        var world = new World(1);
+        var april = PassRate(terrain, TreeSpeciesId.Oak, 100 * 12, world.Season, 10_000);
+        world.SkipToNextMonth();
+        world.SkipToNextMonth();
+        world.SkipToNextMonth();
+        Assert.Equal(7, world.Date.Month);
+        var july = PassRate(terrain, TreeSpeciesId.Oak, 100 * 12, world.Season, 10_000);
+        Assert.True(april > july + 0.15, $"avril {april:P1}, juillet {july:P1}");
     }
 
     [Fact]
@@ -151,15 +165,6 @@ public class BallTreeTests
         var before = rng.StateHash();
         Fly(terrain, stand, Season.Summer, 5, 9.5, rng: rng);
         Assert.NotEqual(before, rng.StateHash());
-    }
-
-    [Fact]
-    public void World_SeasonDefaultsToSummerAndIsSettable()
-    {
-        var w = new World(1, Flat());
-        Assert.Equal(Season.Summer, w.Season);
-        w.Season = Season.Winter;
-        Assert.Equal(Season.Winter, w.Season);
     }
 
     // --- Étape directe de TreeCollision : un seul arbre, un seul pas ---
@@ -370,11 +375,15 @@ public class BallTreeTests
     [Fact]
     public void World_TreesAndSeasonChangeTheGame()
     {
-        static List<GolferView> Play(bool lattice, Season season)
+        static List<GolferView> Play(bool lattice, int skips)
         {
             var terrain = HoleLoader.Load(TerrainTests.HolePath(), 2);
             var world = new World(seed: 9, terrain);
-            world.Season = season;
+            for (var i = 0; i < skips; i++)
+            {
+                world.SkipToNextMonth();
+            }
+
             world.Trees.RemoveWhere(_ => true);
             if (lattice)
             {
@@ -396,12 +405,14 @@ public class BallTreeTests
             return [.. world.Snapshot().Golfers];
         }
 
-        var bare = Play(false, Season.Summer);
-        var summer = Play(true, Season.Summer);
-        var winter = Play(true, Season.Winter);
+        const int ToJune = 2;
+        const int ToDecember = 8;
+        var bare = Play(false, ToJune);
+        var summer = Play(true, ToJune);
+        var winter = Play(true, ToDecember);
         Assert.NotEqual(bare, summer);
         Assert.NotEqual(summer, winter);
-        Assert.Equal(summer, Play(true, Season.Summer));
+        Assert.Equal(summer, Play(true, ToJune));
     }
 
     [Fact]
@@ -410,7 +421,13 @@ public class BallTreeTests
         var resolver = new PhysicalShotResolver();
         var world = new World(1, Flat(), resolver);
         Assert.Same(world.Trees, resolver.Trees);
-        world.Season = Season.Autumn;
+        Assert.Equal(Season.Spring, resolver.Season);
+        for (var i = 0; i < 5; i++)
+        {
+            world.SkipToNextMonth(); // septembre
+        }
+
+        Assert.Equal(Season.Autumn, world.Season);
         Assert.Equal(Season.Autumn, resolver.Season);
     }
 
@@ -454,7 +471,7 @@ public class BallTreeTests
     }
 
     [Fact]
-    public void AdvanceYear_RaisesHeightsAndCellTops_AndBallThatClearedSaplingIsNowTested()
+    public void Growth_RaisesHeightsAndCellTops_AndBallThatClearedSaplingIsNowTested()
     {
         var terrain = Flat();
         var world = new World(3, terrain);
@@ -469,12 +486,12 @@ public class BallTreeTests
         Fly(terrain, world.Trees, Season.Summer, 5, 9.5, rng: rng);
         Assert.Equal(before, rng.StateHash());
 
-        for (var y = 0; y < 50; y++)
+        for (var m = 0; m < 150; m++)
         {
-            world.AdvanceYear();
+            world.SkipToNextMonth();
         }
 
-        Assert.Equal(version + 50, world.Trees.Version);
+        Assert.Equal(version + 150, world.Trees.Version);
         Assert.True(world.Trees.Trees[0].Height() > h0);
         Assert.Equal(12 * 50, world.Trees.Trees[0].AgeMonths);
         Assert.True(world.Trees.MaxTopAt(TreeX, TreeZ) > top0);
@@ -486,7 +503,7 @@ public class BallTreeTests
     }
 
     [Fact]
-    public void AdvanceTrees_BumpsVersionOncePerCall()
+    public void SkipToNextMonth_GrowsEachTreeOnceByFourMonths()
     {
         var world = new World(3, Flat());
         for (var i = 0; i < 20; i++)
@@ -495,11 +512,8 @@ public class BallTreeTests
         }
 
         var v = world.Trees.Version;
-        Assert.Equal(20, world.AdvanceTrees(1));
-        Assert.Equal(1.0, world.Trees.MeanAgeMonths, 1e-9);
-        Assert.Equal(v + 1, world.Trees.Version);
-        Assert.Equal(v + 1, world.Trees.Version);
-        Assert.Equal(0, world.AdvanceTrees(0));
+        world.SkipToNextMonth();
+        Assert.Equal(4.0, world.Trees.MeanAgeMonths, 1e-9);
         Assert.Equal(v + 1, world.Trees.Version);
     }
 
@@ -531,12 +545,12 @@ public class BallTreeTests
         {
             var terrain = HoleLoader.Load(TerrainTests.HolePath(), 2);
             var world = new World(11, terrain);
-            for (var y = 0; y < years; y++)
+            for (var m = 0; m < years * 12; m++)
             {
-                world.AdvanceYear();
+                world.SkipToNextMonth();
             }
 
-            world.AdvanceTrees(5);
+            world.Step(30_000);
             return world.Checksum();
         }
 
