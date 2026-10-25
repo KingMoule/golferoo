@@ -54,7 +54,7 @@ Ce qui prouve la réussite : un même putt roule plus loin sur un green « rapid
 - Une texture RG8 d'un texel par cellule (hauteur normalisée, usure), envoyée au GPU au changement de jour et au plus une fois par seconde pour l'usure. Une lecture par pixel.
 - Herbe plus claire si elle est rase, plus sombre si elle est haute ; brun vers la terre selon l'usure ; mottes et marques dessinées par un bruit piloté par l'usure (pas de décalques).
 - Bandes de tonte : celles du fairway existent (`stripe_width`), leur contraste suit la fraîcheur de la tonte ; damier sur les greens.
-- Surcouche H : rouge (usé) à vert (sain), bleu pour l'herbe haute.
+- Surcouche H : rouge (usé) à vert (sain), jaune pour l'herbe qui dépasse nettement sa hauteur de référence (le bleu faisait penser à de l'eau, Guillaume). Usure dessinée en petites mottes éparses dont le nombre suit l'usure, jamais en tache pleine (Guillaume : trop intense).
 - HUD : « greens 3,4 m (11 pieds) » à côté de la météo. Panneau des consignes : trois listes déroulantes, chacune émet une commande.
 
 **Tondeuses visibles** (`game/src/Rendering/MowerLayer.cs`, rendu seul)
