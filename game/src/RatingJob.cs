@@ -57,7 +57,7 @@ public sealed class RatingJob
             if (done.IsFaulted)
             {
                 GD.PrintErr($"Note du parcours : {done.Exception?.GetBaseException().Message}");
-                _dirty = false;
+                _dirty = _taskGeneration != _generation;
             }
             else if (_taskGeneration == _generation)
             {
