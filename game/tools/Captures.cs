@@ -37,6 +37,9 @@ public partial class Captures : Node
     private static readonly string[] SeasonViews = ["season-spring", "season-summer", "season-autumn", "season-winter"];
     private const float SeasonSize = 90f;
 
+    /// <summary>Mois montré par chaque vue de saison : avril, juillet, novembre (feuilles qui tombent), janvier.</summary>
+    private static readonly int[] SeasonMonths = [4, 7, 11, 1];
+
     public override async void _Ready()
     {
         var code = 1;
@@ -209,8 +212,8 @@ public partial class Captures : Node
 
             if (Array.IndexOf(SeasonViews, zoomName) is var s and >= 0)
             {
-                // Mois suivants (F10) jusqu'à la saison voulue : feuillage et teinte de l'herbe changent.
-                for (var month = 0; month < 12 && (int)main.World.Date.Season != s; month++)
+                // Mois suivants (F10) jusqu'au mois de la saison voulue : feuillage et teinte de l'herbe changent.
+                for (var month = 0; month < 12 && main.World.Date.Month != SeasonMonths[s]; month++)
                 {
                     main.SkipToNextMonth();
                 }
