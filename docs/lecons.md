@@ -16,3 +16,4 @@ Ajouter sans relire tout le fichier : `echo "- ..." >> docs/lecons.md`. `/amelio
 - 2026-10-25 · brief · le brief citait FlowField.BuildCosts, interne sans InternalsVisibleTo : le codeur a testé via le cache de champs · aucun aller-retour · C02 lot 1
 - 2026-10-25 · CI · le nombre de captures attendu vivait à deux endroits (Captures.cs et ci.yml) et a cassé la CI deux fois : ci.yml ne vérifie plus que CAPTURES OK, Captures.cs fait foi · deux allers-retours CI · C02 lots 1 et 3
 - 2026-10-25 · brief · un critère « identique au bit près » demande une référence calculée avant le changement : le brief doit dire de la figer d'abord (le codeur a dû monter un worktree) · quelques minutes · C03 lot 2
+- C04 : le critère FPS citait 453,5 (C02, anciens arbres) alors que le pack à 800 triangles était à 302 ; une spec cite la dernière mesure FPS, pas celle du chantier précédent.
