@@ -1,5 +1,6 @@
 using Golferoo.Sim.Pathing;
 using Golferoo.Sim.Terrain;
+using Golferoo.Sim.Trees;
 
 namespace Golferoo.Sim.Shots;
 
@@ -66,9 +67,17 @@ public static class BallSimulator
     /// </summary>
     /// <param name="rolling">Vrai pour un putt : la balle roule dès le départ (la composante verticale est ignorée).</param>
     /// <param name="startHeight">Hauteur de départ au-dessus du sol, en mètres (0 : la balle est posée).</param>
+    /// <param name="trees">Arbres que la balle en vol rencontre (nul : aucun, la planification les ignore). Exige <paramref name="rng"/>.</param>
+    /// <param name="season">Saison, qui règle la densité des couronnes.</param>
+    /// <param name="rng">Source du hasard des couronnes : un tirage par pas qui traverse une couronne, aucun sinon.</param>
     /// <param name="recordPath">Vrai pour échantillonner la trajectoire au tick de simulation.</param>
-    public static SimulationResult Run(TerrainGrid terrain, Point2 start, Vec3 velocity, bool rolling, double drag, bool recordPath, double startHeight = 0.0)
+    public static SimulationResult Run(TerrainGrid terrain, Point2 start, Vec3 velocity, bool rolling, double drag, bool recordPath, double startHeight = 0.0, TreeStand? trees = null, Season season = Season.Summer, DeterministicRng? rng = null)
     {
+        if (trees is not null && rng is null)
+        {
+            throw new ArgumentNullException(nameof(rng), "Des arbres exigent le RNG du coup.");
+        }
+
         var width = terrain.CellsX * terrain.CellSize;
         var depth = terrain.CellsZ * terrain.CellSize;
         var holeR2 = HoleRadius * HoleRadius;
@@ -84,6 +93,8 @@ public static class BallSimulator
         var landed = false;
         var firstLanding = start;
         var treeHit = false;
+        var crownDone = false;
+        var probe = trees is null ? null : new TreeCollision.Probe();
         var closest = start;
         var closestD2 = Dist2(x, z, terrain.Hole);
         var end = End.Rest;
@@ -118,6 +129,12 @@ public static class BallSimulator
                 }
 
                 var h = terrain.Sample(x, z);
+                if (trees is not null && y - h < trees.MaxHeightNear(x, z, TreeCollision.Margin))
+                {
+                    TreeCollision.Step(terrain, trees, season, rng!, probe!, px, py, pz, ref x, ref y, ref z, ref vx, ref vy, ref vz, ref crownDone);
+                    h = terrain.Sample(x, z);
+                }
+
                 if (!treeHit && y - h < TreeHeight && terrain.SurfaceAt(x, z) == Surface.Trees)
                 {
                     treeHit = true;
@@ -139,6 +156,7 @@ public static class BallSimulator
                     z = pz + ((z - pz) * f);
                     h = terrain.Sample(x, z);
                     y = h;
+                    crownDone = false;
                     if (!landed)
                     {
                         landed = true;

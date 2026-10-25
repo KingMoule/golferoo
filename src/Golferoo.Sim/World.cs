@@ -51,6 +51,10 @@ public sealed partial class World
             }
 
             WoodlandGenerator.Fill(Trees, terrain, new CellRect(0, 0, terrain.CellsX - 1, terrain.CellsZ - 1), NextWoodlandRng());
+            if (_resolver is PhysicalShotResolver physical)
+            {
+                physical.Trees = Trees;
+            }
         }
         else
         {
@@ -60,6 +64,20 @@ public sealed partial class World
 
     /// <summary>Arbres du monde (nul coût de marche : seul le sous-bois, surface Trees, bloque les golfeurs).</summary>
     public TreeStand Trees { get; }
+
+    /// <summary>Saison (été par défaut) : règle la densité des couronnes que traverse la balle. C03 la pilotera.</summary>
+    public Season Season
+    {
+        get;
+        set
+        {
+            field = value;
+            if (_resolver is PhysicalShotResolver physical)
+            {
+                physical.Season = value;
+            }
+        }
+    } = Season.Summer;
 
     private int _woodlandDraws;
 
