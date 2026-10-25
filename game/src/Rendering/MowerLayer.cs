@@ -56,6 +56,7 @@ public partial class MowerLayer : Node3D
         {
             _day = dayIndex;
             BuildMowers(dayIndex, dayFraction);
+            d = 0.0;
         }
 
         Visible = true;
@@ -69,6 +70,8 @@ public partial class MowerLayer : Node3D
             }
 
             var (p, dir) = m.At();
+            // Le trajet suit l'enveloppe de la bande : cachée là où il sort de la zone (eau, sable, coude).
+            m.Node.Visible = _grid.SurfaceAt(p.X, p.Y) == m.Surface;
             m.Node.Position = new Vector3(p.X, (float)_grid.Sample(p.X, p.Y), p.Y);
             m.Node.Rotation = new Vector3(0f, Mathf.Atan2(dir.X, dir.Y), 0f);
             if (!GolferNear(current, p))
@@ -114,7 +117,7 @@ public partial class MowerLayer : Node3D
 
             node.Scale = zone.Surface == Surface.Green ? Vector3.One * GreenMowerScale : Vector3.One;
             AddChild(node);
-            var mower = new Mower(node, zone.Path());
+            var mower = new Mower(node, zone.Path()) { Surface = zone.Surface };
             mower.S = (float)(dayFraction * DaySeconds * Speed);
             _mowers.Add(mower);
         }
@@ -239,6 +242,8 @@ public partial class MowerLayer : Node3D
         }
 
         public Node3D Node { get; }
+
+        public Surface Surface { get; init; }
 
         public float Length { get; }
 
