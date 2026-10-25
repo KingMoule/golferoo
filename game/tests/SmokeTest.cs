@@ -137,10 +137,21 @@ public partial class SmokeTest : Node
 
             CheckTreeTools(trees, failures);
 
-            if (trees.SpeciesModelCount != 18)
+            // Trois essences x (plant, adulte) x trois variantes, plus l'automne des feuillus, plus leur hiver terne s'il est livré.
+            var expectedModels = 24 + (ResourceLoader.Exists("res://assets/trees/oak_winter_01.glb") ? 6 : 0);
+            if (trees.SpeciesModelCount != expectedModels)
             {
-                failures.Add($"{trees.SpeciesModelCount} modèles d'essences chargés sur 18 (trois essences, plant et adulte, trois variantes)");
+                failures.Add($"{trees.SpeciesModelCount} modèles d'essences chargés sur {expectedModels}");
             }
+
+            // Saisons : l'automne change le modèle des feuillus adultes (tous les blocs refaits), le printemps après l'été non.
+            trees.SetSeason(Season.Summer);
+            if (trees.SetSeason(Season.Spring) != 0 || trees.SetSeason(Season.Autumn) == 0 || trees.TotalCount != _main.World.Trees.Count)
+            {
+                failures.Add($"SetSeason : blocs refaits à tort ou arbres perdus ({trees.TotalCount} sur {_main.World.Trees.Count})");
+            }
+
+            trees.SetSeason(_main.World.Date.Season);
         }
 
         // Même graine, mêmes ticks : la simulation doit être déterministe aussi sous Godot.
