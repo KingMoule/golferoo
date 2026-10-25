@@ -95,8 +95,6 @@ public sealed class TurfGrid
         var (rate, fineRate) = season switch { Season.Spring => (8.0, 4.0), Season.Summer => (6.0, 3.0), Season.Autumn => (4.0, 2.0), _ => (0.0, 0.0) };
         var roughGrowth = (int)Math.Round(rate * rain, MidpointRounding.AwayFromZero);
         var fineGrowth = (int)Math.Round(fineRate * rain, MidpointRounding.AwayFromZero);
-        var cutThird = dayIndex % 3 == 0;
-        var cutWeek = dayIndex % 7 == 0;
         var green = Target(_settings.GreenMm, 4.0);
         var rough = Target(_settings.RoughMm, 50.0);
         var repair = rainedYesterday ? 2 * RepairWear : RepairWear;
@@ -111,12 +109,21 @@ public sealed class TurfGrid
 
             _wear[i] = (byte)Math.Max(_wear[i] - repair, 0);
             var h = _height[i] + (s == Surface.Rough ? roughGrowth : fineGrowth);
-            var cut = s switch { Surface.Green => green, Surface.Rough => cutWeek ? rough : 255, _ => cutThird ? Reference : 255 };
+            var cut = !IsMowedOn(s, dayIndex) ? 255 : s switch { Surface.Green => green, Surface.Rough => rough, _ => Reference };
             _height[i] = (byte)Math.Min(Math.Min(h, cut), 255);
         }
 
         Version++;
     }
+
+    /// <summary>La surface est tondue au changement vers ce jour : greens chaque jour, départs et fairways un jour sur trois, rough une fois par semaine (lu aussi par les tondeuses du rendu).</summary>
+    public static bool IsMowedOn(Surface surface, int dayIndex) => surface switch
+    {
+        Surface.Green => true,
+        Surface.Tee or Surface.Fairway => dayIndex % 3 == 0,
+        Surface.Rough => dayIndex % 7 == 0,
+        _ => false,
+    };
 
     private static int Target(double mm, double referenceMm) => (int)Math.Round(Reference * mm / referenceMm, MidpointRounding.AwayFromZero);
 
