@@ -1,4 +1,4 @@
-"""Bouleau mature, hiver léger — environ 20 % des bouquets retirés, bois conservé.
+"""Bouleau mature — hiver léger V2 : environ moitié moins de bouquets, couleurs automnales, budget 800.
 
 Usage :
     python -I tools/blender/birch_winter_light_02_lowpoly.py -- [graine] [glb] [png]
@@ -17,8 +17,8 @@ NAME = 'birch_winter_light_02'
 TRIANGLE_BUDGET = 800
 SEED = 1
 FAMILY = "trees"
-WINTER_MODE = 'light'
-WINTER_DROP_RATIO = 0.20
+LEAF_DROP_RANGE = (0.46, 0.56)
+AUTUMN_COLORS = ((0.63, 0.37, 0.06), (0.82, 0.63, 0.16))
 SOURCE_NAME = 'birch_800_02'
 KIND = 'birch'
 VARIANT = 2
@@ -402,95 +402,62 @@ def winter_shoot(points,radii,mat,pointed=False):
     return part
 
 
-if WINTER_MODE=='light':
-    # Environ un bouquet sur cinq tombe ; les volumes extrêmes sont conservés.
-    protected=set()
-    for axis in range(3):
-        for choose in (min,max):
-            protected.add(choose(range(len(crown_parts)),key=lambda i:choose(v.co[axis] for v in crown_parts[i].data.vertices)))
-    removable=[i for i in range(len(crown_parts)) if i not in protected]
-    rng.shuffle(removable)
-    removed=set(removable[:int(len(crown_parts)*WINTER_DROP_RATIO)])
-    for i,part in enumerate(crown_parts):
-        if i in removed:
-            parts.remove(part)
-            bpy.data.objects.remove(part,do_unlink=True)
-    for mat in bpy.data.materials:
-        if mat.name.startswith('Foliage'):
-            color=(.14,.24,.13) if 'Dark' in mat.name else (.24,.33,.17)
-            mat.node_tree.nodes['Principled BSDF'].inputs['Base Color'].default_value=(*color,1)
-    winter_crowns_removed=len(removed)
-    winter_crowns_original=len(crown_parts)
-else:
-    for part in crown_parts:
-        parts.remove(part)
-        bpy.data.objects.remove(part,do_unlink=True)
-    bark=mats[3] if KIND=='birch' else mats[0]
-    base_triangles=winter_triangle_count()
-    crown_count=len(crown_samples)
-    shoots_per_crown=3 if crown_count<=3 else 1
-    planned_shoots=crown_count*shoots_per_crown
-    # Trente triangles sont réservés aux cinq rameaux qui conservent les dimensions.
-    reserved=30+planned_shoots*(12+6)
-    curve_allowance=max(0,(TRIANGLE_BUDGET-base_triangles-reserved)//8)
-    secondary=[]
-    for index,(center,extent) in enumerate(crown_samples):
-        parent=min(wood_paths,key=lambda p:distance_squared(p,center))
-        for shoot in range(shoots_per_crown):
-            angle=index*2.4+shoot*math.tau/shoots_per_crown+rng.uniform(-.18,.18)
-            if KIND=='oak':
-                end=(center[0]+extent[0]*.70*math.cos(angle),
-                     center[1]+extent[1]*.70*math.sin(angle),
-                     center[2]+extent[2]*(.30+.22*shoot))
-            else:
-                # Les rameaux du bouleau remontent en arche, puis retombent.
-                end=(center[0]+extent[0]*.65*math.cos(angle),
-                     center[1]+extent[1]*.65*math.sin(angle),center[2]-extent[2]*.40)
-            start=parent
-            if distance_squared(start,end)<.10:
-                start=(center[0],center[1],center[2]-.6)
-            curved=curve_allowance>0
-            if curved:
-                midpoint=tuple((start[k]+end[k])/2 for k in range(3))
-                midpoint=(midpoint[0]-.12*math.sin(angle),midpoint[1]+.12*math.cos(angle),
-                          midpoint[2]+(.6 if KIND=='birch' else .3))
-                winter_shoot([start,midpoint,end],([.060,.035,.015] if KIND=='birch' else [.11,.065,.025]),bark)
-                curve_allowance-=1
-            else:winter_shoot([start,end],([.055,.015] if KIND=='birch' else [.10,.025]),bark)
-            secondary.append((start,end,extent,angle))
-    # Points extrêmes du feuillu : même emprise et même sommet, sans déplacer le tronc.
-    anchors=list(wood_paths)+[end for start,end,extent,angle in secondary]
-    for axis,choose in ((0,min),(0,max),(1,min),(1,max),(2,max)):
-        target=tuple(choose(reference_points,key=lambda v:v[axis]))
-        start=min(anchors,key=lambda p:distance_squared(p,target))
-        if distance_squared(start,target)<.005:
-            start=min(wood_paths,key=lambda p:distance_squared(p,target))
-        winter_shoot([start,target],[.045 if KIND=='birch' else .075,0],bark,True)
-    # Troisième ordre : fourches terminales réparties dans l'ancienne couronne.
-    for pass_index in range(4):
-        for index,(start,end,extent,angle) in enumerate(secondary):
-            if winter_triangle_count()+6>TRIANGLE_BUDGET:break
-            factor=.50+pass_index*.11
-            fork=tuple(start[k]+(end[k]-start[k])*factor for k in range(3))
-            turn=angle+(.8 if (index+pass_index)%2 else -.8)+pass_index*.65
-            length=min(1.7,max(.5,sum(extent)/3*.65))
-            target=(end[0]+length*.7*math.cos(turn),end[1]+length*.7*math.sin(turn),
-                    end[2]+length*(.65 if KIND=='oak' else -.65))
-            winter_shoot([fork,target],[.030 if KIND=='birch' else .05,0],bark,True)
-    for mat in list(bpy.data.materials):
-        if mat.name.startswith(('Foliage','ReferenceCrown')):
-            bpy.data.materials.remove(mat,do_unlink=True)
 
-# Vérifications de raccord, avant la jonction et l'export du gabarit.
+# Feuillage clairsemé : la chute touche aussi les bouquets visibles du pourtour.
+drop_ratio=rng.uniform(*LEAF_DROP_RANGE)
+keep_count=round(len(crown_parts)*(1-drop_ratio))
+indices=list(range(len(crown_parts)))
+rng.shuffle(indices)
+kept=set(indices[:keep_count])
+removed=[i for i in range(len(crown_parts)) if i not in kept]
+for index in removed:
+    part=crown_parts[index]
+    parts.remove(part)
+    bpy.data.objects.remove(part,do_unlink=True)
+
+# Les triangles libérés rendent visibles les rameaux sous les bouquets tombés.
+# Cinq rameaux finissent en pointe, réservant 30 triangles au raccord de l'emprise.
+twig_material=mats[3] if KIND=='birch' else mats[0]
+for order,index in enumerate(removed):
+    center,extent=crown_samples[index]
+    start=min(wood_paths,key=lambda point:distance_squared(point,center))
+    angle=index*2.4+rng.uniform(-.20,.20)
+    end=(center[0]+extent[0]*.35*math.cos(angle),center[1]+extent[1]*.35*math.sin(angle),
+         center[2]+extent[2]*(.32 if KIND=='oak' else -.32))
+    if distance_squared(start,end)<.04:
+        end=(end[0]+.3*math.cos(angle),end[1]+.3*math.sin(angle),end[2]+.25)
+    middle=tuple((start[k]+end[k])/2 for k in range(3))
+    middle=(middle[0]-.08*math.sin(angle),middle[1]+.08*math.cos(angle),middle[2]+(.40 if KIND=='birch' else .20))
+    radii=[.06,.035,.014] if KIND=='birch' else [.095,.055,.020]
+    winter_shoot([start,middle,end],radii,twig_material,pointed=order<5)
+
+# De fins rameaux conservent le sommet et l'emprise, même si des bouquets extrêmes tombent.
+for axis,choose in ((0,min),(0,max),(1,min),(1,max),(2,max)):
+    target=tuple(choose(reference_points,key=lambda v:v[axis]))
+    start=min(wood_paths,key=lambda point:distance_squared(point,target))
+    winter_shoot([start,target],[.035 if KIND=='birch' else .055,0],twig_material,pointed=True)
+
+# Seules les deux couleurs du feuillage changent ; l'écorce reste identique à l'été.
+for mat in bpy.data.materials:
+    if mat.name.startswith('Foliage'):
+        color=AUTUMN_COLORS[0 if 'Dark' in mat.name else 1]
+        mat.node_tree.nodes['Principled BSDF'].inputs['Base Color'].default_value=(*color,1)
+winter_crowns_original=len(crown_parts)
+winter_crowns_removed=len(removed)
+winter_crowns_retained=len(kept)
+winter_added_twigs=len(removed)+5
+
+# Raccord contrôlé avant l'export : pas de déplacement du tronc ou des branches d'été.
 bpy.context.view_layer.update()
-winter_points=[p.matrix_world @ v.co for p in parts for v in p.data.vertices]
+winter_points=[part.matrix_world @ v.co for part in parts for v in part.data.vertices]
 winter_dimensions=[max(v[k] for v in winter_points)-min(v[k] for v in winter_points) for k in range(3)]
 dimension_errors=[abs(winter_dimensions[k]/reference_dimensions[k]-1) for k in range(3)]
 if any(error>.10 for error in dimension_errors):
-    sys.exit('ERREUR : hauteur ou largeur de la version hivernale à plus de 10 % du feuillu de même graine')
-current_wood_points=[tuple(v.co) for part in wood_parts for v in part.data.vertices]
-if current_wood_points!=source_wood_points:
-    sys.exit('ERREUR : le tronc ou les branches d’origine ont été modifiés')
+    sys.exit('ERREUR : dimensions saisonnières à plus de 10 % de celles du feuillu de même graine')
+if [tuple(v.co) for part in wood_parts for v in part.data.vertices]!=source_wood_points:
+    sys.exit('ERREUR : le bois d’origine a été modifié')
+if not .40<=winter_crowns_removed/winter_crowns_original<=.60:
+    sys.exit('ERREUR : la réduction du feuillage doit rester proche de la moitié')
 for part in parts:
     for layer in list(part.data.uv_layers):part.data.uv_layers.remove(layer)
 # --- Fin de la construction. ---
