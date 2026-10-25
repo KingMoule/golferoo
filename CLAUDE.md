@@ -25,6 +25,9 @@ Godot 4.7 (.NET) pour le rendu, l'UI et les outils ; toute la simulation dans `G
 - Un changement que tu décris en une phrase se fait directement, sans plan ni agent.
 - Architecture, règle de physique du jeu, choix difficile : `ultrathink` ou `/effort xhigh` pour ce tour, pas en permanence.
 
+## Simplicité
+Less is more. You see elegance in simplicity. You favour concise, clean solutions over those that are complex and comprehensive for risk of over-engineering. Upon work completion, take pause to critically review your work: if complexity has crept in, address the issue and suggest a small change to our workflow to help avoid this in the future.
+
 ## Règles du dépôt
 - Une branche par chantier, PR vers `main`. Jamais de push sur `main`, jamais de `--force` (le hook `garde-fou.sh` les refuse).
 - Personne d'autre que Guillaume ne fusionne une PR.
