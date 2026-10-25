@@ -63,7 +63,7 @@ Ce qui prouve la réussite : un même putt roule plus loin sur un green « rapid
 ## Choix à trancher par Guillaume
 1. **Qui entretient le parcours ?**
    - A. **Un personnel invisible qui travaille la nuit** : la tonte et la réparation se font au changement de jour, selon les consignes. Gain : 3 lots, aucun nouvel acteur à faire marcher. Perte : on ne voit pas de tondeuse.
-   - B. **Des jardiniers visibles** : quelques tondeuses (modèles `bpy`) qui suivent une file de tâches par zone. Gain : le parcours vit. Perte : 2 lots de plus (acteurs, tâches, modèles), et il faudra les payer et les embaucher quand l'économie arrivera, ce qui les rouvrira.
+   - B. **Des jardiniers visibles** : quelques tondeuses (déjà au catalogue : `game/assets/maintenance/`, 9 modèles de green, fairway et rough) qui suivent une file de tâches par zone. Gain : le parcours vit. Perte : 2 lots de plus (acteurs et tâches), et il faudra les payer et les embaucher quand l'économie arrivera, ce qui les rouvrira.
    - Recommandation : **A**, et des jardiniers visibles avec l'économie (embauche, salaires, hangar). Les consignes resteront les mêmes, seul l'exécutant changera.
 2. **La texture d'indices (au-delà de 8 surfaces) entre-t-elle dans C05 ?**
    - A. **Plus tard**, dans le chantier qui ajoute la 9e surface (contenu coupé ou un thème). Gain : rien à refaire maintenant, aucun risque de retour à l'aspect « en cases ». Perte : la fondation reste à faire.
