@@ -184,7 +184,7 @@ public partial class Main : Node3D
         Camera.SetView(45f, 150f, new Vector3(width / 2f, 0f, depth / 2f));
 
         World.TerrainEdited += OnTerrainEdited;
-        _ratingJob = new RatingJob(grid, World.Seed, World.Season, World.SetCourseRating);
+        _ratingJob = new RatingJob(grid, World.Trees, World.Seed, World.Season, World.SetCourseRating);
         Brush = new Brush { Name = "Brush" };
         AddChild(Brush);
         Brush.Init(this);
@@ -416,6 +416,7 @@ public partial class Main : Node3D
 
     private void OnTreesEdited(CellRect rect)
     {
+        _ratingJob?.Touch();
         var r = new Rect2I(rect.MinX, rect.MinZ, rect.MaxX - rect.MinX + 1, rect.MaxZ - rect.MinZ + 1);
         _dirtyTreeCells = _dirtyTreeCells is { } d ? d.Merge(r) : r;
     }

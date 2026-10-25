@@ -12,20 +12,30 @@ public static class CourseRater
 
     /// <summary>
     /// Fonction pure : même terrain, même graine, même saison, même note. Sans vent, sol sec et gazon de référence, avec les
-    /// arbres isolés du terrain. Le terrain passé n'est jamais modifié : le calcul joue sur une copie (hauteurs, surfaces, repères),
+    /// arbres <paramref name="worldTrees"/> (copie des arbres du monde, debout seulement ; par défaut les arbres isolés du terrain). Le terrain passé n'est jamais modifié : le calcul joue sur une copie (hauteurs, surfaces, repères),
     /// car le sol (<see cref="SoilGrid"/>) se recalcule à la lecture. Peut donc tourner sur un autre fil que le monde ; si le terrain
     /// est retouché pendant le calcul, la note peut être incohérente et le jeu doit la refaire.
     /// </summary>
-    public static CourseRating Rate(TerrainGrid terrain, ulong seed, int games = DefaultGames, Season season = Season.Summer)
+    public static CourseRating Rate(TerrainGrid terrain, ulong seed, int games = DefaultGames, Season season = Season.Summer, IReadOnlyList<Tree>? worldTrees = null)
     {
         ArgumentNullException.ThrowIfNull(terrain);
         ArgumentOutOfRangeException.ThrowIfLessThan(games, 1);
         var copy = Copy(terrain);
         copy.Soil.Season = season;
         var trees = new TreeStand(copy.CellsX * copy.CellSize, copy.CellsZ * copy.CellSize, copy);
-        foreach (var p in terrain.IsolatedTrees)
+        if (worldTrees is null)
         {
-            trees.Add(p.X, p.Z, p.Species, p.AgeMonths);
+            foreach (var p in terrain.IsolatedTrees)
+            {
+                trees.Add(p.X, p.Z, p.Species, p.AgeMonths);
+            }
+        }
+        else
+        {
+            foreach (var t in worldTrees.Where(t => t.State == TreeState.Standing))
+            {
+                trees.Add(t.X, t.Z, t.Species, t.AgeMonths);
+            }
         }
 
         var resolver = new PhysicalShotResolver { Trees = trees, Season = season };

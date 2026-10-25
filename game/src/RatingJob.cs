@@ -6,7 +6,7 @@ using Golferoo.Sim.Trees;
 namespace Golferoo.Game;
 
 /// <summary>
-/// Calcule la note du parcours hors du fil du jeu : au démarrage, 10 s après la dernière retouche du terrain et à chaque changement
+/// Calcule la note du parcours hors du fil du jeu : au démarrage, 10 s après la dernière retouche du terrain ou des arbres et à chaque changement
 /// de saison. Un seul calcul à la fois ; si le terrain est retouché pendant le calcul, son résultat est jeté et un nouveau
 /// part après 10 s de calme. Le résultat est remis à <paramref name="apply"/> depuis <see cref="Process"/> (fil principal).
 /// </summary>
@@ -15,6 +15,7 @@ public sealed class RatingJob
     public const double QuietSeconds = 10.0;
 
     private readonly TerrainGrid _terrain;
+    private readonly TreeStand _stand;
     private readonly ulong _seed;
     private readonly Action<CourseRating> _apply;
     private int _generation;
@@ -24,9 +25,10 @@ public sealed class RatingJob
     private Season _season;
     private Task<CourseRating>? _task;
 
-    public RatingJob(TerrainGrid terrain, ulong seed, Season season, Action<CourseRating> apply)
+    public RatingJob(TerrainGrid terrain, TreeStand stand, ulong seed, Season season, Action<CourseRating> apply)
     {
         _terrain = terrain;
+        _stand = stand;
         _seed = seed;
         _season = season;
         _apply = apply;
@@ -71,7 +73,8 @@ public sealed class RatingJob
             {
                 _taskGeneration = _generation;
                 var s = _season;
-                _task = Task.Run(() => CourseRater.Rate(_terrain, _seed, season: s));
+                var trees = _stand.Trees.ToArray();   // copie sur le fil principal : les arbres bougent pendant le calcul
+                _task = Task.Run(() => CourseRater.Rate(_terrain, _seed, season: s, worldTrees: trees));
             }
         }
     }

@@ -7,9 +7,9 @@ public class HandicapTests
     [Fact]
     public void Index_IsNullBeforeThreeGames()
     {
-        Assert.Null(Handicap.Index([]));
-        Assert.Null(Handicap.Index([10.0, 12.0]));
-        Assert.NotNull(Handicap.Index([10.0, 12.0, 14.0]));
+        Assert.Null(Handicap.Index([], 18));
+        Assert.Null(Handicap.Index([10.0, 12.0], 1));
+        Assert.NotNull(Handicap.Index([10.0, 12.0, 14.0], 1));
     }
 
     [Theory]
@@ -30,15 +30,24 @@ public class HandicapTests
         // Écarts 10, 12, ... rangés du plus ancien (le plus haut) au plus récent (10) ; seuls les 20 derniers comptent.
         var diffs = Enumerable.Range(0, games).Select(i => 10.0 + (2.0 * i)).Reverse().ToArray();
 
-        Assert.Equal(expected, Handicap.Index(diffs));
+        Assert.Equal(expected, Handicap.Index(diffs, 18));
     }
 
     [Fact]
     public void Index_IsClampedAndRoundedToTenth()
     {
-        Assert.Equal(0.0, Handicap.Index([-10.0, -9.0, -8.0]));
-        Assert.Equal(54.0, Handicap.Index([90.0, 91.0, 92.0, 93.0, 94.0]));
-        Assert.Equal(10.3, Handicap.Index([10.34, 20.0, 30.0, 40.0, 50.0]));
+        Assert.Equal(0.0, Handicap.Index([-10.0, -9.0, -8.0], 18));
+        Assert.Equal(54.0, Handicap.Index([90.0, 91.0, 92.0, 93.0, 94.0], 18));
+        Assert.Equal(10.3, Handicap.Index([10.34, 20.0, 30.0, 40.0, 50.0], 18));
+    }
+
+    [Fact]
+    public void Index_OnShortCourse_IsTheMeanOfTheLast20()
+    {
+        Assert.Equal(12.0, Handicap.Index([10.0, 12.0, 14.0], 1));
+        var diffs = Enumerable.Repeat(100.0, 5).Concat(Enumerable.Repeat(10.0, 20)).ToArray();
+        Assert.Equal(10.0, Handicap.Index(diffs, 1));
+        Assert.Equal(0.0, Handicap.Index([-5.0, -6.0, -7.0], 1));
     }
 
     [Fact]

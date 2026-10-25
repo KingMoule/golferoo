@@ -15,14 +15,26 @@ public static class Handicap
         return (gross - (rating.ScratchPerHole * holesPlayed)) * CourseRating.Reference / rating.Slope * 18.0 / holesPlayed;
     }
 
-    /// <summary>Index d'après les écarts, du plus ancien au plus récent (les 20 derniers comptent) ; nul avant 3 parties.</summary>
-    public static double? Index(IReadOnlyList<double> differentials)
+    /// <summary>Sous ce nombre de trous, les écarts sont trop bruités pour le barème WHS : l'index est la moyenne de tous.</summary>
+    public const int WhsMinHoles = 9;
+
+    /// <summary>
+    /// Index d'après les écarts, du plus ancien au plus récent (les 20 derniers comptent) ; nul avant 3 parties.
+    /// <paramref name="courseHoles"/> : trous du parcours. À moins de 9 trous, moyenne de tous les écarts ; sinon barème WHS.
+    /// </summary>
+    public static double? Index(IReadOnlyList<double> differentials, int courseHoles)
     {
         ArgumentNullException.ThrowIfNull(differentials);
         var n = Math.Min(differentials.Count, RecentGames);
         if (n < MinGames)
         {
             return null;
+        }
+
+        if (courseHoles < WhsMinHoles)
+        {
+            var mean = differentials.Skip(differentials.Count - n).Average();
+            return Math.Clamp(Math.Round(mean, 1, MidpointRounding.AwayFromZero), 0.0, MaxIndex);
         }
 
         var sorted = differentials.Skip(differentials.Count - n).Order().ToArray();
