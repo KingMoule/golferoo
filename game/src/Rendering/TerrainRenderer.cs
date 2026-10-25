@@ -20,6 +20,9 @@ public partial class TerrainRenderer : Node3D
     private Image? _imageB;
     private ImageTexture? _textureA;
     private ImageTexture? _textureB;
+    private ImageTexture? _turfTexture;
+    private long _turfVersion = -1;
+    private ulong _turfUploadMs;
     private ShaderMaterial? _terrainMaterial;
     private ShaderMaterial? _waterMaterial;
     private TreeLayer? _trees;
@@ -63,10 +66,14 @@ public partial class TerrainRenderer : Node3D
         UpdateWeights(0, 0, grid.CellsX, grid.CellsZ);
         _textureA = ImageTexture.CreateFromImage(_imageA);
         _textureB = ImageTexture.CreateFromImage(_imageB);
+        _turfTexture = ImageTexture.CreateFromImage(TurfImage());
+        _turfVersion = grid.Turf.Version;
+        _turfUploadMs = Time.GetTicksMsec();
 
         _terrainMaterial = new ShaderMaterial { Shader = GD.Load<Shader>("res://shaders/terrain.gdshader") };
         _terrainMaterial.SetShaderParameter("weights_a", _textureA);
         _terrainMaterial.SetShaderParameter("weights_b", _textureB);
+        _terrainMaterial.SetShaderParameter("turf_state", _turfTexture);
         _terrainMaterial.SetShaderParameter("grid_size", new Vector2((float)(grid.CellsX * grid.CellSize), (float)(grid.CellsZ * grid.CellSize)));
         _waterMaterial = new ShaderMaterial { Shader = GD.Load<Shader>("res://shaders/water.gdshader") };
 
@@ -145,6 +152,49 @@ public partial class TerrainRenderer : Node3D
         }
 
         return true;
+    }
+
+    /// <summary>Surcouche d'état du gazon (touche H) : rouge usé, vert sain, bleu herbe haute.</summary>
+    public void SetTurfOverlay(bool on) => _terrainMaterial?.SetShaderParameter("overlay", on ? 1f : 0f);
+
+    /// <summary>
+    /// Envoie l'état du gazon au GPU : tout de suite si la hauteur ou les consignes ont changé (jour, consigne),
+    /// sinon au plus une fois par seconde (l'usure change à chaque pas de golfeur).
+    /// </summary>
+    public void RefreshTurf()
+    {
+        if (_grid is null || _turfTexture is null)
+        {
+            return;
+        }
+
+        var now = Time.GetTicksMsec();
+        if (_grid.Turf.Version == _turfVersion && now - _turfUploadMs < 1000)
+        {
+            return;
+        }
+
+        _turfVersion = _grid.Turf.Version;
+        _turfUploadMs = now;
+        _turfTexture.Update(TurfImage());
+    }
+
+    /// <summary>RG8, un texel par cellule : R hauteur brute (64 = référence, soit 0,25), G usure.</summary>
+    private Image TurfImage()
+    {
+        var turf = _grid!.Turf;
+        var data = new byte[_grid.CellsX * _grid.CellsZ * 2];
+        var i = 0;
+        for (var cz = 0; cz < _grid.CellsZ; cz++)
+        {
+            for (var cx = 0; cx < _grid.CellsX; cx++)
+            {
+                data[i++] = turf.Height(cx, cz);
+                data[i++] = turf.Wear(cx, cz);
+            }
+        }
+
+        return Image.CreateFromData(_grid.CellsX, _grid.CellsZ, false, Image.Format.Rg8, data);
     }
 
     /// <summary>Sol mouillé : le terrain s'assombrit (0 sec, 1 pluie du jour).</summary>

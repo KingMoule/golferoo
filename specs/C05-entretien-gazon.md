@@ -19,7 +19,7 @@ Ce qui prouve la réussite : un même putt roule plus loin sur un green « rapid
 - Hauteur et fermeté dans `SoilGrid` (un facteur de plus, comme la saison et l'humidité en C03 et C04).
 - Usure : un appel dans la marche (`World.Walk`) et un au départ ou à l'arrivée d'un coup.
 - Tondeuses visibles, au rendu seulement : elles montrent la tonte que la sim fait déjà.
-- Rendu : texture d'état du gazon (la partie « état » de F3), bandes de tonte, damier, sentiers, mottes, surcouche (touche G), HUD (vitesse des greens), panneau des consignes.
+- Rendu : texture d'état du gazon (la partie « état » de F3), bandes de tonte, damier, sentiers, mottes, surcouche (touche H), HUD (vitesse des greens), panneau des consignes.
 - Les commandes de consigne sont des commandes de la sim (rejouables, dans la somme de contrôle).
 
 **Hors périmètre, et où ça ira**
@@ -36,7 +36,7 @@ Ce qui prouve la réussite : un même putt roule plus loin sur un green « rapid
 **État du gazon** (`src/Golferoo.Sim/Turf/`, sans Godot)
 - `TurfGrid` : deux tableaux d'octets par cellule, hauteur (en 64es de la hauteur de référence de la surface : 64 = référence, 255 = ×4 ; lot 1) et usure (0 à 255). Pas de champ humidité : elle reste globale (`SoilGrid.Wetness`), l'arrosage automatique la rend inutile par cellule. Environ 0,2 Mo pour 100 000 cellules.
 - `TurfSettings` : trois consignes (`GreenSpeed`, `FairwayFirmness`, `RoughLength`) à trois crans. Le cran « normal » donne les hauteurs de référence : 4 mm (green), 10 mm (départ), 15 mm (fairway), 50 mm (rough). Rapides et lents : 3 et 5 mm ; rough court et épais : 30 et 80 mm.
-- Changement de jour (déjà le point d'entrée de la météo et des flaques) : pousse selon la saison (forte au printemps, nulle en hiver), ×1,5 s'il a plu la veille (M1, M9) ; tonte vers la hauteur visée (greens chaque jour, départs et fairways un jour sur trois, rough une fois par semaine) ; réparation de l'usure de 8 crans, 16 après la pluie (un sentier saturé disparaît en un mois sans passage ; lot 2 : pas +1, motte +16, marque +8, à juger sur les captures du lot 3). Tout se fait d'un coup au changement de jour : pas de mise à jour par tranches, puisque rien d'autre ne change la hauteur.
+- Changement de jour (déjà le point d'entrée de la météo et des flaques) : pousse selon la saison (forte au printemps, nulle en hiver), ×1,5 s'il a plu la veille (M1, M9) ; tonte vers la hauteur visée (greens chaque jour, départs et fairways un jour sur trois, rough une fois par semaine) ; réparation de l'usure de 8 crans, 16 après la pluie (un sentier saturé disparaît en un mois sans passage ; lot 3 : pas +3, motte +40, marque +24, renforcés après les captures). Tout se fait d'un coup au changement de jour : pas de mise à jour par tranches, puisque rien d'autre ne change la hauteur.
 - Au jour 0, tout est à la hauteur de référence et sans usure.
 
 **Le gazon et la balle** (`Terrain/SoilGrid.cs`)
@@ -54,7 +54,7 @@ Ce qui prouve la réussite : un même putt roule plus loin sur un green « rapid
 - Une texture RG8 d'un texel par cellule (hauteur normalisée, usure), envoyée au GPU au changement de jour et au plus une fois par seconde pour l'usure. Une lecture par pixel.
 - Herbe plus claire si elle est rase, plus sombre si elle est haute ; brun vers la terre selon l'usure ; mottes et marques dessinées par un bruit piloté par l'usure (pas de décalques).
 - Bandes de tonte : celles du fairway existent (`stripe_width`), leur contraste suit la fraîcheur de la tonte ; damier sur les greens.
-- Surcouche G : rouge (usé) à vert (sain), bleu pour l'herbe haute.
+- Surcouche H : rouge (usé) à vert (sain), bleu pour l'herbe haute.
 - HUD : « greens 3,4 m (11 pieds) » à côté de la météo. Panneau des consignes : trois listes déroulantes, chacune émet une commande.
 
 **Tondeuses visibles** (`game/src/Rendering/MowerLayer.cs`, rendu seul)
@@ -65,7 +65,7 @@ Ce qui prouve la réussite : un même putt roule plus loin sur un green « rapid
 **Lots (4 PR)**
 1. **Hauteur, consignes et tonte** : `Turf/`, facteur hauteur et fermeté dans `SoilGrid`, croissance, tonte, stimp ; commandes de consigne ; tests et banc. (complet)
 2. **Usure et drapeau mobile** : usure par la marche, mottes, marques, réparation, position du drapeau par jour ; tests et banc. (complet)
-3. **Le gazon à l'écran** : texture d'état, couleurs, bandes et damier, sentiers et mottes, surcouche G, HUD, panneau des consignes ; captures. (léger)
+3. **Le gazon à l'écran** : texture d'état, couleurs, bandes et damier, sentiers et mottes, surcouche H, HUD, panneau des consignes ; captures. (léger)
 4. **Tondeuses visibles** : `MowerLayer`, trajets en allers-retours, arrêt près des golfeurs ; captures. (léger)
 
 ## Décisions de Guillaume (2026-10-25)
@@ -77,7 +77,7 @@ Ce qui prouve la réussite : un même putt roule plus loin sur un green « rapid
 1. `dotnet test Golferoo.sln` passe ; des tests couvrent la tonte (même graine et mêmes commandes, mêmes hauteurs ; sans tonte l'herbe dépasse la hauteur visée en une semaine de printemps, avec tonte elle y revient ; en hiver elle ne pousse pas), la balle (un même putt roule au moins 10 % plus loin sur un green rapide que sur un green normal, au moins 10 % moins loin sur un lent ; un rough épais arrête une balle plus tôt qu'un rough court ; un fairway ferme fait rouler un drive plus loin qu'un tendre), le stimp (green normal entre 10 et 12 pieds, soit la résistance actuelle de 0,05 : 3,4 m), l'usure (2 000 passages de golfeurs sur une ligne d'herbe y laissent une usure supérieure à la moitié du maximum ; une cellule de chemin n'en prend aucune ; une semaine sans passage la répare ; la pluie répare plus vite ; le coût de marche ne change pas), le drapeau (même graine et même jour, même position ; toujours sur le green à 3 m du bord au moins) et le déterminisme (mêmes commandes, dont les consignes, même somme de contrôle).
 2. À la hauteur de référence et en consignes normales (jour 0), les trajectoires et sommes de contrôle des tests existants de C01 à C04 sont inchangées.
 3. Banc : le tick à 200 golfeurs reste sous 2 ms avec l'usure ; un changement de jour (météo, sol, flaques, chutes et gazon) coûte moins de 5 ms ; le vol et le roulement d'une balle coûtent au plus 1,05 fois ceux de C04.
-4. Captures de la CI (lignes `THUMB`) : le trou en consignes normales, puis greens rapides et rough épais, puis après une semaine de jeu (sentier, mottes, marques), puis la surcouche G, puis une tondeuse sur un green le matin. Guillaume juge.
+4. Captures de la CI (lignes `THUMB`) : le trou en consignes normales, puis greens rapides et rough épais, puis après une semaine de jeu (sentier, mottes, marques), puis la surcouche H, puis une tondeuse sur un green le matin. Guillaume juge.
 5. Mesure FPS sur la RTX 2080 (`Mesurer FPS.bat`, 5 000 arbres, 200 golfeurs) : au moins 90 % de la référence de C04 (320,9 FPS sous forte pluie), tondeuses comprises.
 6. Fumée Godot (`SMOKE OK`) ; le HUD affiche la vitesse des greens ; changer une consigne dans le panneau change le stimp affiché le lendemain.
 7. `dotnet format Golferoo.sln --verify-no-changes` passe ; aucun `using Godot` dans `src/Golferoo.Sim/`.
