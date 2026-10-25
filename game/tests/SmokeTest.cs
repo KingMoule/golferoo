@@ -365,7 +365,7 @@ public partial class SmokeTest : Node
         ["furniture"] = 300,
         ["maintenance"] = 800,
         ["vehicles"] = 800,
-        ["buildings"] = 1500,
+        ["buildings"] = 3000,
         ["structures"] = 600,
     };
 
