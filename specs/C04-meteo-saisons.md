@@ -95,5 +95,5 @@ Ce qui prouve la réussite : les captures montrent le même trou aux quatre sais
 complet (le lot 2 touche la physique de la balle et le planificateur ; le lot 1 peut être léger)
 
 ## Clôture
-- [x] Critères vérifiés (PR #36, #37, #39, #40 et lot 5 ; 172 tests, banc : vol avec vent ≈ 1,0 fois, plan 1,07 fois, changement de jour 0,95 ms, cuvettes 16,3 ms pour 102 400 cellules ; critère 5 à juger par Guillaume sur les captures, critère 6 à mesurer par Guillaume avec `Mesurer FPS.bat` sous la pluie)
+- [x] Critères vérifiés (PR #36, #37, #39, #40 et lot 5 ; 172 tests, banc : vol avec vent ≈ 1,0 fois, plan 1,07 fois, changement de jour 0,95 ms, cuvettes 16,3 ms pour 102 400 cellules ; critère 5 jugé bon par Guillaume dans le jeu le 2026-10-25, critère 6 mesuré par Guillaume le 2026-10-25 : 320,9 FPS de moyenne, 270 au 1 % bas, sous forte pluie (jour 0 de la graine 1), 5 000 arbres et 200 golfeurs en 1080p sur RTX 2080, version 68f573b ; la référence juste est le pack à 800 triangles de la PR #29, 302 FPS, pas les 453,5 FPS de C02 mesurés avec les anciens arbres)
 - [x] Statut passé à « livré », ligne mise à jour dans docs/chantiers.md
