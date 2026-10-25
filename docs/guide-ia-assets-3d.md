@@ -58,7 +58,7 @@ Le script compte ses triangles et **échoue** (`sys.exit` avec un message `ERREU
 | Buisson, touffe d'herbes hautes | 150 |
 | Rocher | 120 |
 | Petit mobilier (banc, poubelle, panneau, marqueur de départ, lave-balles) | 300 |
-| Voiturette de golf | 800 |
+| Voiturette de golf (`vehicles`), tondeuse (`maintenance`) | 800 |
 | Bâtiment (club-house, abri) | 1 500 |
 
 Visez nettement sous le budget : un arbre de 340 triangles est bien. Peu de faces, bien placées, valent mieux que beaucoup de petites.
@@ -94,7 +94,7 @@ Une variante (automne, conifère bleuté) peut ajouter des teintes proches, de m
 ### Structure du script
 Suivez le gabarit ci-dessous, en ne changeant que la partie « construction » et les constantes du début. En particulier :
 - Docstring en tête : ce que fait l'objet, la commande d'usage.
-- Constantes `NAME`, `TRIANGLE_BUDGET`, `SEED`.
+- Constantes `NAME`, `FAMILY` (dossier de `game/assets/`), `TRIANGLE_BUDGET`, `SEED`.
 - Arguments lus **seulement après `--`**, pour que le script marche aussi dans Blender ouvert.
 - Nettoyage de la scène en supprimant les objets, **sans** `bpy.ops.wm.read_factory_settings` (qui fait planter Blender ouvert).
 - Vérifications avant l'export : budget de triangles, pied à z = 0.
@@ -129,12 +129,13 @@ import time
 import bpy
 
 NAME = "bench"
+FAMILY = "furniture"  # dossier de game/assets/ : trees, bushes, rocks, furniture, maintenance, vehicles, buildings
 TRIANGLE_BUDGET = 300
 SEED = 1
 
 args = sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else []
 seed = int(args[0]) if len(args) > 0 else SEED
-default_dir = f"game/assets/{NAME}s" if bpy.app.background else os.path.expanduser("~/golferoo-assets")
+default_dir = f"game/assets/{FAMILY}" if bpy.app.background else os.path.expanduser("~/golferoo-assets")
 glb_path = args[1] if len(args) > 1 else os.path.join(default_dir, f"{NAME}.glb")
 png_path = args[2] if len(args) > 2 else (None if bpy.app.background else os.path.join(default_dir, f"{NAME}.png"))
 os.makedirs(os.path.dirname(os.path.abspath(glb_path)), exist_ok=True)
@@ -253,6 +254,8 @@ Les fichiers vont dans le dépôt ainsi :
 - le script dans `tools/blender/<nom>_lowpoly.py` ;
 - le `.glb` dans `game/assets/<famille>/<nom>.glb` (par exemple `game/assets/trees/conifer.glb`) ;
 - la vignette dans la PR, pour la relecture.
+
+Le test de fumée Godot de la CI ouvre chaque `.glb` de `game/assets/` et échoue si sa famille est inconnue, s'il contient plus d'un maillage, dépasse le budget de sa famille ou ne pose pas au sol. Le catalogue des modèles déjà livrés est `docs/assets-3d/catalogue.md`.
 
 Seul l'arbre (`game/assets/trees/tree.glb`) est déjà lu par le jeu ; un nouvel objet demande un peu de code côté Godot pour être placé sur le parcours, que Claude ajoute au moment de l'intégration.
 
