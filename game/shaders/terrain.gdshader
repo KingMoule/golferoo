@@ -119,6 +119,8 @@ void fragment() {
 			// Surcouche : vert sain, rouge usé ; jaune pour l'herbe qui a nettement dépassé sa hauteur de référence.
 			col = mix(vec3(0.85, 0.12, 0.10), vec3(0.20, 0.70, 0.25), 1.0 - clamp(wear * 2.0, 0.0, 1.0));
 			col = mix(col, vec3(0.90, 0.80, 0.20), 0.7 * smoothstep(1.5, 2.5, k));
+			// Garder la forme du trou : rough plus sombre, bandes du fairway, damier du green.
+			col *= best == 3 ? 0.7 : (best == 2 ? 1.0 + 0.12 * stripe : (best == 1 ? 1.0 + 0.08 * checker : 1.0));
 		}
 	}
 	ALBEDO = srgb(col) * (1.0 - 0.3 * wetness);
