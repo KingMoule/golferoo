@@ -4,6 +4,7 @@ using Golferoo.Game.CameraRig;
 using Golferoo.Game.Rendering;
 using Golferoo.Game.Tools;
 using Golferoo.Sim;
+using Golferoo.Sim.Rating;
 using Golferoo.Sim.Terrain;
 using Golferoo.Sim.Time;
 
@@ -34,6 +35,7 @@ public partial class Main : Node3D
     private DirectionalLight3D? _sun;
     private int _month;
     private bool _turfOverlay;
+    private RatingJob? _ratingJob;
     private (long Version, string Text) _stimp = (-1, string.Empty);
 
     /// <summary>Moment de la journée imposé au soleil (captures) ; sans valeur, il suit le calendrier.</summary>
@@ -182,6 +184,7 @@ public partial class Main : Node3D
         Camera.SetView(45f, 150f, new Vector3(width / 2f, 0f, depth / 2f));
 
         World.TerrainEdited += OnTerrainEdited;
+        _ratingJob = new RatingJob(grid, World.Seed, World.Season, World.SetCourseRating);
         Brush = new Brush { Name = "Brush" };
         AddChild(Brush);
         Brush.Init(this);
@@ -231,6 +234,7 @@ public partial class Main : Node3D
             _accumulator = 0;
         }
 
+        _ratingJob?.Process(delta, World.Season);
         Render();
         UpdateSun();
         UpdateWind();
@@ -405,6 +409,7 @@ public partial class Main : Node3D
 
     private void OnTerrainEdited(CellRect rect)
     {
+        _ratingJob?.Touch();
         var r = new Rect2I(rect.MinX, rect.MinZ, rect.MaxX - rect.MinX + 1, rect.MaxZ - rect.MinZ + 1);
         _dirtyCells = _dirtyCells is { } d ? d.Merge(r) : r;
     }
@@ -458,7 +463,7 @@ public partial class Main : Node3D
     {
         if (_hud is not null)
         {
-            _hud.Text = $"{Engine.GetFramesPerSecond()} FPS | {Actors.VisibleGolfers} golfeurs | tick {World.Tick} | x{Speed}{(Paused ? " (pause)" : string.Empty)} | {DateText()} (F10 : mois suivant, T : outil arbres) | travaux arbres {World.TreeSpending}\n{WeatherText()} (F9 : ciel suivant) | {StimpText()} (H : état du gazon)";
+            _hud.Text = $"{Engine.GetFramesPerSecond()} FPS | {Actors.VisibleGolfers} golfeurs | tick {World.Tick} | x{Speed}{(Paused ? " (pause)" : string.Empty)} | {DateText()} (F10 : mois suivant, T : outil arbres) | travaux arbres {World.TreeSpending}\n{WeatherText()} (F9 : ciel suivant) | {StimpText()} (H : état du gazon) | {RatingText()}";
         }
     }
 
@@ -474,6 +479,11 @@ public partial class Main : Node3D
 
         return _stimp.Text;
     }
+
+    private string RatingText() =>
+        World.CourseRating is { } r
+            ? $"Note {r.Scratch18.ToString("0.0", CultureInfo.InvariantCulture).Replace('.', ',')} / slope {r.Slope}"
+            : "Note : calcul en cours";
 
     private string WeatherText()
     {

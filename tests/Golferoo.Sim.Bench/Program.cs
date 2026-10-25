@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Text.Json;
 using Golferoo.Sim;
 using Golferoo.Sim.Pathing;
+using Golferoo.Sim.Rating;
 using Golferoo.Sim.Shots;
 using Golferoo.Sim.Terrain;
 using Golferoo.Sim.Time;
@@ -180,8 +181,22 @@ var flood = MeasurePuddleFlood(noise: false);
 var floodNoise = MeasurePuddleFlood(noise: true);
 allPassed &= flood.Median < puddleFloodLimitMs;
 
+// Note du parcours (C06 lot 2) : CourseRater.Rate, 50 parties par niveau, médiane de 5 appels. Pour information : le jeu le lance
+// sur un fil à part, jamais sur celui de la sim.
+var rateMs = new double[5];
+var rateTerrain = HoleLoader.Load(holePath, 2);
+for (var i = 0; i < rateMs.Length; i++)
+{
+    var start = Stopwatch.GetTimestamp();
+    CourseRater.Rate(rateTerrain, 1);
+    rateMs[i] = Stopwatch.GetElapsedTime(start).TotalMilliseconds;
+}
+
+Array.Sort(rateMs);
+
 var report = new
 {
+    courseRating = new { games = CourseRater.DefaultGames, medianMs = rateMs[rateMs.Length / 2], maxMs = rateMs[^1] },
     benchmark = "c04-lot4",
     puddleFlood = new { cells = 320 * 320, medianMs = flood.Median, maxMs = flood.Max, noiseMedianMs = floodNoise.Median, limitMs = puddleFloodLimitMs, passed = flood.Median < puddleFloodLimitMs },
     dayChange = new { trees = dayChange.Trees, medianMs = dayChange.Median, maxMs = dayChange.Max, fallen = dayChange.Fallen, limitMs = dayChangeLimitMs, passed = dayChange.Median < dayChangeLimitMs },
