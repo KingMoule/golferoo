@@ -159,7 +159,7 @@ jobs:
             if grep -E '^(ERROR:|SCRIPT ERROR)' captures.log; then echo "::error::erreurs Godot dans les captures"; exit 1; fi
             echo "Rendu : Compatibility via llvmpipe" | tee -a "$GITHUB_STEP_SUMMARY"
           fi
-          test "$(ls captures/*.png | wc -l)" -eq 10
+          test "$(ls captures/*.png | wc -l)" -eq 11
 
       - name: Captures aux facteurs 3 et 4 (comparaison pour le rapport C01, le jeu est au facteur 2)
         run: |

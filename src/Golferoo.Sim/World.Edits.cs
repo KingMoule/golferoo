@@ -88,6 +88,11 @@ public sealed partial class World
             else
             {
                 rect = terrain.RaiseDisc(e.Center, e.Radius, e.Delta);
+                if (rect is { } raised)
+                {
+                    // Le sol sous les troncs a bougé : les cimes avec lui.
+                    Trees.RefreshTops((raised.MinX - 1) * terrain.CellSize, (raised.MinZ - 1) * terrain.CellSize, (raised.MaxX + 2) * terrain.CellSize, (raised.MaxZ + 2) * terrain.CellSize);
+                }
             }
 
             if (rect is { } r)

@@ -15,6 +15,8 @@ Ce qui prouve la réussite : sur les captures de la CI, un golfeur se lit à cô
 | Conifère (pin) | 15 à 25 m | 4 à 8 m à la base | 0,3 à 0,6 m | 50 ans | forte toute l'année |
 | Jeune plant | 1,5 à 3 m | 0,5 à 1,5 m | 0,05 m | | gêne peu la balle |
 
+**Lot 3 (2026-10-25)** : les essences deviennent chêne, bouleau et sapin, avec les modèles de la PR #23 (`game/assets/trees/`). Les noms Feuillu et Pin sont rejetés dans le fichier du trou.
+
 **Espacement** : dans un massif, deux arbres adultes sont espacés d'à peu près le diamètre de leur couronne, soit 7 à 12 m (environ 100 arbres à l'hectare). En bordure de fairway, ils sont isolés ou en rangée lâche. Le trou du prototype passe ainsi de 720 arbres à environ 120. Ces chiffres sont des hypothèses, validées sur les captures.
 
 ## Périmètre et hors périmètre

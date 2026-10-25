@@ -129,8 +129,8 @@ public static class BallSimulator
                 }
 
                 var h = terrain.Sample(x, z);
-                // Altitude absolue : les hauteurs de l'index se comptent depuis le pied de chaque arbre, le relief peut les relever.
-                if (trees is not null && y < terrain.Heights.MaxCornerHeight + trees.MaxHeightNear(x, z, TreeCollision.Margin))
+                // L'index donne l'altitude absolue de la cime la plus haute autour de la balle (sol au pied + hauteur).
+                if (trees is not null && y < trees.MaxTopNear(x, z, TreeCollision.Margin))
                 {
                     TreeCollision.Step(terrain, trees, season, rng!, probe!, px, py, pz, ref x, ref y, ref z, ref vx, ref vy, ref vz, ref crownDone);
                     h = terrain.Sample(x, z);

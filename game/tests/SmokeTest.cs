@@ -120,6 +120,24 @@ public partial class SmokeTest : Node
             {
                 failures.Add($"plantation : {trees.BlockRebuilds - rebuildsBefore} blocs d'arbres reconstruits");
             }
+
+            // Vieillissement : la couche affiche toujours autant d'arbres que la sim, avec les modèles des essences quand ils existent.
+            var ageBefore = _main.World.Trees.MeanAgeMonths;
+            _main.AdvanceTreesOneYear();
+            if (_main.World.Trees.MeanAgeMonths < ageBefore + 11.9)
+            {
+                failures.Add($"AdvanceYear : âge moyen {ageBefore:F1} → {_main.World.Trees.MeanAgeMonths:F1} mois");
+            }
+
+            if (trees.TreeCount != _main.World.Trees.Count)
+            {
+                failures.Add($"après AdvanceYear, TreeLayer affiche {trees.TreeCount} arbres, la simulation en compte {_main.World.Trees.Count}");
+            }
+
+            if (trees.SpeciesModelCount != 18)
+            {
+                failures.Add($"{trees.SpeciesModelCount} modèles d'essences chargés sur 18 (trois essences, plant et adulte, trois variantes)");
+            }
         }
 
         // Même graine, mêmes ticks : la simulation doit être déterministe aussi sous Godot.
