@@ -14,6 +14,14 @@ uniform vec4 albedo : source_color = vec4(0.3, 0.5, 0.3, 1.0);
 uniform bool use_vertex_color = false;
 uniform float roughness_value = 1.0;
 
+// Feuillage des feuillus adultes : couleur de l'instance (INSTANCE_CUSTOM.r, un tiers par étape, TreeLayer.LeafColour)
+// entre le vert, le roux et le brun de la surface, puis de nouveau le vert.
+uniform bool seasonal = false;
+uniform vec4 leaf_green : source_color = vec4(0.3, 0.5, 0.3, 1.0);
+uniform vec4 leaf_autumn : source_color = vec4(0.6, 0.3, 0.1, 1.0);
+uniform vec4 leaf_dull : source_color = vec4(0.2, 0.14, 0.07, 1.0);
+varying float leaf_colour;
+
 // Un fragment à moins de cette distance (mètres) de la profondeur du point focal reste opaque.
 const float FRONT_MARGIN = 0.5;
 
@@ -51,6 +59,7 @@ float focus_fade(vec4 focus, vec3 frag_view, vec2 uv, mat4 view, mat4 proj, vec2
 // Balancement : nul jusqu'au tronc, croissant avec le carré de la hauteur ; 10 m/s penchent la cime d'un arbre de 17 m d'environ 0,4 m.
 // La phase dépend de la position du pied, pour que les arbres ne bougent pas ensemble. Troncs couchés et souches restent immobiles.
 void vertex() {
+	leaf_colour = INSTANCE_CUSTOM.r * 3.0;
 	float h = max(VERTEX.y - MODEL_MATRIX[3].y - TRUNK_HEIGHT, 0.0) / 14.0;
 	vec3 foot = MODEL_MATRIX[3].xyz;
 	float sway = 0.6 + 0.4 * sin(TIME * 1.3 + foot.x * 0.21 + foot.z * 0.17);
@@ -70,6 +79,11 @@ void fragment() {
 		}
 	}
 	vec3 base = albedo.rgb;
+	if (seasonal) {
+		base = leaf_colour < 1.0 ? mix(leaf_green.rgb, leaf_autumn.rgb, leaf_colour)
+			: leaf_colour < 2.0 ? mix(leaf_autumn.rgb, leaf_dull.rgb, leaf_colour - 1.0)
+			: mix(leaf_dull.rgb, leaf_green.rgb, leaf_colour - 2.0);
+	}
 	if (use_vertex_color) {
 		base *= COLOR.rgb;
 	}
