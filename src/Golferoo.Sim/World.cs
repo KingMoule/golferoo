@@ -4,6 +4,7 @@ using Golferoo.Sim.Shots;
 using Golferoo.Sim.Terrain;
 using Golferoo.Sim.Time;
 using Golferoo.Sim.Trees;
+using Golferoo.Sim.Turf;
 using Golferoo.Sim.Weather;
 
 namespace Golferoo.Sim;
@@ -112,6 +113,15 @@ public sealed partial class World
         _skyOverride = (Sky)(((int)Weather.Sky + 1) % 4);
         _skyOverrideDay = DayIndex;
         RefreshSoil();
+    }
+
+    /// <summary>Consignes d'entretien du gazon, prises en compte au sol tout de suite et à la hauteur visée au prochain changement de jour. Sans effet sans terrain.</summary>
+    public void SetTurfSettings(TurfSettings settings)
+    {
+        if (Terrain is not null)
+        {
+            Terrain.Turf.Settings = settings;
+        }
     }
 
     /// <summary>Chance qu'un arbre adulte tombe pendant une journée de tempête (forte pluie, ou vent de base d'au moins <see cref="StormWind"/>).</summary>
@@ -330,6 +340,7 @@ public sealed partial class World
         if (DayIndex != day)
         {
             EndOfDay(day);
+            Terrain?.Turf.NextDay(Season, WeatherOn(day).Sky >= Sky.Rain, DayIndex);
             RefreshSoil();
         }
 
@@ -400,6 +411,7 @@ public sealed partial class World
         if (Terrain is not null)
         {
             Mix(ref hash, Terrain.Checksum());
+            Mix(ref hash, Terrain.Turf.Checksum());
         }
 
         MixPendingEdits(ref hash);

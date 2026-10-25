@@ -4,7 +4,7 @@ namespace Golferoo.Sim.Terrain;
 
 /// <summary>
 /// Sol par cellule : résistance au roulement, restitution et frottement, précalculés depuis <see cref="SurfaceTable"/>
-/// la saison et l'humidité. La balle les lit ici. L'été est la référence (facteurs à 1 : valeurs identiques à la table, au bit près ;
+/// la saison, l'humidité et la hauteur de l'herbe (<see cref="Turf.TurfGrid"/>). La balle les lit ici. L'été est la référence (facteurs à 1 : valeurs identiques à la table, au bit près ;
 /// d'où des <see cref="double"/> et non des <see cref="float"/>). Recalcul complet à un changement de saison, d'humidité ou de surface.
 /// </summary>
 public sealed class SoilGrid
@@ -16,6 +16,7 @@ public sealed class SoilGrid
     private long _version = -1;
     private Season _computedFor;
     private double _wetFor;
+    private long _turfVersion = -1;
 
     public SoilGrid(TerrainGrid terrain)
     {
@@ -73,7 +74,7 @@ public sealed class SoilGrid
 
     private void Refresh()
     {
-        if (_version == _terrain.SurfaceVersion && _computedFor == Season && _wetFor == Wetness)
+        if (_version == _terrain.SurfaceVersion && _computedFor == Season && _wetFor == Wetness && _turfVersion == _terrain.Turf.Version)
         {
             return;
         }
@@ -81,16 +82,25 @@ public sealed class SoilGrid
         var roll = RollFactor(Season) * (1.0 + (WetRoll * Wetness));
         var rest = RestitutionFactor(Season) * (1.0 - (WetRestitution * Wetness));
         var surfaces = _terrain.Surfaces;
+        var turf = _terrain.Turf;
+        var firm = turf.Settings.FairwayRoll;
         for (var i = 0; i < surfaces.Length; i++)
         {
             var p = SurfaceTable.Get(surfaces[i]);
-            _rollResistance[i] = p.RollResistance * roll;
+            var grass = surfaces[i] <= Surface.Rough;
+            _rollResistance[i] = grass ? p.RollResistance * roll * turf.RollFactor(i) : p.RollResistance * roll;
             _restitution[i] = p.Restitution * rest;
+            if (surfaces[i] == Surface.Fairway && firm != 1.0)
+            {
+                _rollResistance[i] *= firm; // la restitution ne bouge pas : plus de rebond use la vitesse horizontale (frottement), le drive roulerait moins
+            }
+
             _friction[i] = p.Friction;
         }
 
         _version = _terrain.SurfaceVersion;
         _computedFor = Season;
         _wetFor = Wetness;
+        _turfVersion = turf.Version;
     }
 }

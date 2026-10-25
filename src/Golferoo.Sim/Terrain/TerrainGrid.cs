@@ -17,9 +17,13 @@ public sealed class TerrainGrid
         Hole = hole;
         _surfaces = new Surface[heights.CellsX * heights.CellsZ];
         Array.Fill(_surfaces, Surface.Rough);
+        Turf = new Golferoo.Sim.Turf.TurfGrid(this);
         Soil = new SoilGrid(this);
         Puddles = new Puddles(this);
     }
+
+    /// <summary>Hauteur de l'herbe et consignes d'entretien ; le sol les lit.</summary>
+    public Golferoo.Sim.Turf.TurfGrid Turf { get; }
 
     /// <summary>Sol par cellule (roulement, rebond, frottement) que lit la balle ; la saison s'y règle.</summary>
     public SoilGrid Soil { get; }
