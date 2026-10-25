@@ -56,6 +56,9 @@ public sealed class Golfer
     /// <summary>Position de la balle de ce golfeur.</summary>
     public Point2 Ball { get; internal set; }
 
+    /// <summary>Niveau de jeu : multiplie la dispersion (1 = golfeur de référence, plus grand = plus brouillon). Voir <see cref="SkillLevels"/>.</summary>
+    public double Skill { get; internal set; } = 1.0;
+
     public bool Holed { get; internal set; }
 
     /// <summary>Balle ramassée après le nombre maximal de coups, sans être entrée dans le trou.</summary>

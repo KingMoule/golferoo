@@ -122,6 +122,11 @@ public static class HoleLoader
             }
         }
 
+        if (file.Par is { } par)
+        {
+            terrain.Par = par is >= 3 and <= 5 ? par : throw new HoleDataException($"par invalide : {par} (3, 4 ou 5 attendu).");
+        }
+
         terrain.IsolatedTrees = ParseTrees(file.Trees, tilesX, tilesZ, file.TileSize);
         return terrain;
     }
@@ -322,6 +327,8 @@ public static class HoleLoader
         public double[]? Green { get; set; }
 
         public double[]? Hole { get; set; }
+
+        public int? Par { get; set; }
 
         public List<TreeFile>? Trees { get; set; }
     }

@@ -675,7 +675,7 @@ public sealed partial class World
             terrain.Turf.AddWear(terrain.CellXOf(g.Ball.X), terrain.CellZOf(g.Ball.Z), TurfGrid.DivotWear);
         }
 
-        var request = new ShotRequest(g.Ball, terrain.Hole, g.Strokes);
+        var request = new ShotRequest(g.Ball, terrain.Hole, g.Strokes, g.Skill);
         var result = _resolver.Resolve(request, terrain, _rng);
         g.Pending = result;
         g.FlightPath = result.Trajectory;

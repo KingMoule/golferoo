@@ -16,6 +16,9 @@ public sealed class PhysicalShotResolver : IShotResolver
     /// <summary>Écart type supplémentaire de la direction d'un putt par mètre de distance, en radians (0,06 degré).</summary>
     private const double PuttSigmaPerMeter = 0.06 * Math.PI / 180.0;
 
+    /// <summary>Vitesse de balle perdue par point de niveau au-dessus de 1.</summary>
+    private const double PowerLossPerSkill = 0.03;
+
     private const double MaxPuttSpeed = 10.0;
     private const int PuttIterations = 8;
     private const int Finalists = 4;
@@ -56,14 +59,18 @@ public sealed class PhysicalShotResolver : IShotResolver
         }
 
         var plan = Plan(request, terrain);
-        return Execute(request.Ball, plan.Club, plan.DirX, plan.DirZ, plan.Force, terrain, rng);
+        return Execute(request.Ball, plan.Club, plan.DirX, plan.DirZ, plan.Force, terrain, rng, request.Skill);
     }
 
-    /// <summary>Exécute un coup avec la dispersion du club (direction et vitesse tirées du RNG).</summary>
-    public ShotResult Execute(Point2 ball, Club club, double dirX, double dirZ, double force, TerrainGrid terrain, DeterministicRng rng)
+    /// <summary>
+    /// Exécute un coup avec la dispersion du club (direction et vitesse tirées du RNG), élargie par le niveau de jeu
+    /// et avec une balle un peu moins rapide au-delà du niveau 1. Au niveau 1, chaque facteur vaut exactement 1.
+    /// </summary>
+    public ShotResult Execute(Point2 ball, Club club, double dirX, double dirZ, double force, TerrainGrid terrain, DeterministicRng rng, double skill = 1.0)
     {
-        var eps = club.DirectionSigma * Gauss(rng);
-        var speed = club.Speed * force * (1.0 + (club.SpeedSigma * Gauss(rng)));
+        var eps = club.DirectionSigma * skill * Gauss(rng);
+        var power = 1.0 - (PowerLossPerSkill * Math.Max(0.0, skill - 1.0));
+        var speed = club.Speed * force * (1.0 + (club.SpeedSigma * skill * Gauss(rng))) * power;
         Rotate(dirX, dirZ, eps, 1.0 - (eps * eps / 2.0), out var ux, out var uz);
         var velocity = new Vec3(ux * club.LaunchCos * speed, club.LaunchSin * speed, uz * club.LaunchCos * speed);
         return BallSimulator.Run(terrain, ball, velocity, rolling: false, _drag, recordPath: true, trees: Trees, season: Season, rng: rng, wind: Wind).Shot;
@@ -231,8 +238,8 @@ public sealed class PhysicalShotResolver : IShotResolver
         }
 
         var club = Clubs.Putter;
-        var eps = (club.DirectionSigma + (PuttSigmaPerMeter * dist)) * Gauss(rng);
-        var noisy = bestSpeed * (1.0 + (club.SpeedSigma * Gauss(rng)));
+        var eps = (club.DirectionSigma + (PuttSigmaPerMeter * dist)) * request.Skill * Gauss(rng);
+        var noisy = bestSpeed * (1.0 + (club.SpeedSigma * request.Skill * Gauss(rng)));
         Rotate(bestX, bestZ, eps, 1.0 - (eps * eps / 2.0), out var dx, out var dz);
         return BallSimulator.Run(terrain, ball, new Vec3(dx * noisy, 0, dz * noisy), rolling: true, _drag, recordPath: true).Shot;
     }
