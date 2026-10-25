@@ -8,6 +8,8 @@ namespace Golferoo.Sim.Terrain;
 public sealed class HeightField
 {
     private readonly double[] _corners;
+    private double _maxCorner;
+    private bool _maxDirty;
 
     public HeightField(int cellsX, int cellsZ, double cellSize)
     {
@@ -42,6 +44,21 @@ public sealed class HeightField
 
     internal double[] Corners => _corners;
 
+    /// <summary>Plus grande hauteur des coins, donc du relief (surface bilinéaire), en mètres. Entretenue à chaque écriture.</summary>
+    public double MaxCornerHeight
+    {
+        get
+        {
+            if (_maxDirty)
+            {
+                _maxCorner = _corners.Max();
+                _maxDirty = false;
+            }
+
+            return _maxCorner;
+        }
+    }
+
     /// <summary>Hauteur du coin (i, j), de 0 à CellsX et de 0 à CellsZ inclus.</summary>
     public double GetCornerHeight(int i, int j) => _corners[CornerIndex(i, j)];
 
@@ -52,7 +69,17 @@ public sealed class HeightField
             throw new ArgumentOutOfRangeException(nameof(height), height, "La hauteur doit être finie.");
         }
 
-        _corners[CornerIndex(i, j)] = height;
+        var index = CornerIndex(i, j);
+        if (_corners[index] >= _maxCorner && height < _corners[index])
+        {
+            _maxDirty = true;
+        }
+
+        _corners[index] = height;
+        if (height > _maxCorner)
+        {
+            _maxCorner = height;
+        }
     }
 
     /// <summary>Hauteur en mètres au point (x, z).</summary>
