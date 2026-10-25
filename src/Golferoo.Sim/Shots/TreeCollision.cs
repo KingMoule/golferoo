@@ -143,11 +143,21 @@ public static class TreeCollision
         }
     }
 
-    /// <summary>1 − exp(−a), avec exp(a) en développement limité à l'ordre 4 (a reste petit : une corde par pas).</summary>
+    /// <summary>
+    /// 1 − exp(−a), sans Math.Exp : exp(a) = exp(a/16)^16, avec exp(a/16) en développement limité à l'ordre 8 (a/16 ≤ 0,5 pour
+    /// a ≤ 8, erreur relative sous 1e-7). Au-delà de 8, la probabilité est celle de 8 (0,99966) : la balle est arrêtée à coup sûr
+    /// pour tout usage.
+    /// </summary>
     public static double StopProbability(double a)
     {
-        a = Math.Min(a, 8.0);
-        var e = 1.0 + a + (a * a / 2.0) + (a * a * a / 6.0) + (a * a * a * a / 24.0);
+        a = Math.Clamp(a, 0.0, 8.0);
+        var b = a / 16.0;
+        var e = 1.0 + (b * (1.0 + (b / 2.0 * (1.0 + (b / 3.0 * (1.0 + (b / 4.0 * (1.0 + (b / 5.0 * (1.0 + (b / 6.0 * (1.0 + (b / 7.0 * (1.0 + (b / 8.0)))))))))))))));
+        for (var i = 0; i < 4; i++)
+        {
+            e *= e;
+        }
+
         return 1.0 - (1.0 / e);
     }
 
@@ -215,6 +225,7 @@ public static class TreeCollision
             return false;
         }
 
+        // Pas de frottement tangentiel sur l'écorce (choix du lot 2) : seule la composante normale est modifiée.
         // Réflexion sur la normale horizontale ; la composante normale revient à 30 %, le reste du vecteur est inchangé.
         vx -= (1.0 + BarkRestitution) * vn * nx;
         vz -= (1.0 + BarkRestitution) * vn * nz;
