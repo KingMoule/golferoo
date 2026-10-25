@@ -297,6 +297,7 @@ public partial class SmokeTest : Node
     private static readonly Dictionary<string, int> FamilyBudgets = new()
     {
         ["trees"] = 400,
+        ["trees800"] = 800, // pack d'essai, affiché avec -- --trees800
         ["bushes"] = 150,
         ["rocks"] = 120,
         ["furniture"] = 300,
