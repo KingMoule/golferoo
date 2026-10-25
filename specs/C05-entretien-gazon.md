@@ -1,5 +1,5 @@
 # Entretien du gazon
-Statut : validé
+Statut : livré (2026-10-25)
 Créé : 2026-10-25
 
 ## But
@@ -86,5 +86,5 @@ Ce qui prouve la réussite : un même putt roule plus loin sur un green « rapid
 complet (lots 1 et 2 : physique de la balle et état de partie) ; léger pour les lots 3 et 4 (rendu)
 
 ## Clôture
-- [ ] Critères vérifiés
-- [ ] Statut passé à « livré », ligne mise à jour dans docs/chantiers.md
+- [x] Critères vérifiés (PR #46 à #50 ; 188 tests ; banc : tick à 200 golfeurs 0,014 ms, changement de jour 1,8 à 2,1 ms en local, vol 1,02 fois la base ; putt rapide +15,5 %, lent −10,6 %, stimp normal 11,2 pieds ; critère 4 : captures jugées par Guillaume, qui a fait adoucir l'usure, retirer le bleu de la surcouche et y garder la forme du trou (PR #49, #50) ; critère 5 mesuré par Guillaume le 2026-10-25 : 308,6 FPS de moyenne, 270 au 1 % bas, 5 000 arbres et 200 golfeurs en 1080p sur RTX 2080, version dd470aa (build de PR, tondeuses comprises), soit 96 % des 320,9 FPS de C04)
+- [x] Statut passé à « livré », ligne mise à jour dans docs/chantiers.md
