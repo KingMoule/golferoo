@@ -1,5 +1,5 @@
 # Handicap, moteur de score et ligues
-Statut : proposé
+Statut : validé
 Créé : 2026-10-25
 
 ## But
@@ -21,7 +21,7 @@ Ce qui prouve la réussite : sur une saison simulée, les meilleurs joueurs fini
 - Rendu : classement, carte de score du dernier tour, handicap du pro au HUD, annonce de la finale et de l'ajustement, avec des `Control` simples comme le panneau des consignes de C05.
 
 **Hors périmètre, et où ça ira**
-- **Progression de votre pro** (décision 3) : elle se fera par l'expérience, coup par coup (faire des draws en match pour mieux réussir les draws), et le joueur la contrôle. Elle demande des effets de balle (draw, fade), que la physique n'a pas encore. Chantier à part, à cadrer : en C06, le pro garde un niveau fixe et faible.
+- **Progression de votre pro** (décision 3) : elle se fera par l'expérience, coup par coup (faire des draws en match pour mieux réussir les draws), et le joueur la contrôle. Elle demande des effets de balle (draw, fade), que la physique n'a pas encore. Chantier C08, à cadrer : en C06, le pro garde un niveau fixe et faible.
 - Ce qui fait bouger l'opinion du club (humeur, prix, état du parcours) : avec l'humeur et l'adhésion. En C06, l'opinion de chaque membre est tirée de la graine et ne bouge pas.
 - Membres qui jouent les autres jours, adhésion, cotisations, fidélité (idée 7) : avec l'adhésion.
 - Formats par équipes (scramble, greensome, foursome, quatre balles) : ils changent la façon de jouer de la paire (choisir la meilleure balle, jouer en alterné), donc la machine à états des golfeurs. Avec B20.
@@ -76,12 +76,7 @@ Ce qui prouve la réussite : sur une saison simulée, les meilleurs joueurs fini
 2. **Les membres s'inscrivent à la ligue parce qu'ils ont une opinion positive du club.**
 3. **La progression du pro est contrôlée par le joueur, quelle que soit la situation**, par l'expérience de chaque compétence : pour mieux réussir un draw, il faut en faire en match, plutôt que des points à répartir comme dans SimGolf. À voir plus tard, dans un chantier à part.
 4. **Une finale en septembre, puis l'ajustement des divisions.** S'il n'y a pas assez de membres pour plusieurs divisions, on n'en garde qu'une.
-
-## Choix à trancher par Guillaume
-1. **Qui joue les coups de votre pro ?** « Contrôlée par le joueur » peut vouloir dire que le joueur choisit lui-même chaque coup du pro (club, visée, effet), ou seulement que sa progression vient de ce qu'il fait en match.
-   - A : en C06, le pro joue seul, comme les membres ; jouer ses coups soi-même et sa progression par l'expérience forment un chantier à part, qui ajoutera les effets de balle. Gain : C06 reste une affaire de score et de ligue.
-   - B : C06 ajoute déjà un mode où le joueur choisit le club et la visée de chaque coup du pro. Perte : une interface de visée et un lot de plus, sans les effets de balle qui donnent son sens à la progression.
-   - **Recommandé : A**, parce que les effets de balle et l'expérience vont ensemble et méritent leur propre cadrage.
+5. **Le pro joue seul en C06** (carte de décision) : jouer ses coups à la main, les effets de balle et l'expérience par compétence forment le chantier C08.
 
 ## Critères d'acceptation
 1. `dotnet test Golferoo.sln` passe ; des tests couvrent le score (brut, stableford, match play, contre le par ; ex aequo au même rang ; balle ramassée comptée 12), le niveau (sur 200 parties, un golfeur bogey finit en moyenne entre 0,7 et 1,3 coup au-dessus du scratch ; le scratch entre 0 et 0,4 au-dessus du par), la note (même terrain et même graine, même note ; un bunker devant le green augmente la note ; slope entre 55 et 155), le handicap (aucun index avant 3 parties ; 20 parties d'un niveau donné retrouvent son handicap à 3 points près), la ligue (seuls les membres d'opinion au moins 60 s'inscrivent ; 15 inscrits donnent une division, 16 en donnent deux ; une saison a 10 journées dont les formats suivent le cycle ; un orage reporte la journée ; la finale réunit les quatre premiers de chaque division ; l'ajustement fait monter deux joueurs et en descendre deux par frontière de division) et le déterminisme (mêmes commandes, dont `SetCourseRating`, même somme de contrôle).
