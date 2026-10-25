@@ -1,5 +1,6 @@
 using Godot;
 using Golferoo.Sim.Terrain;
+using Golferoo.Sim.Time;
 using Golferoo.Sim.Trees;
 
 namespace Golferoo.Game.Rendering;
@@ -201,14 +202,20 @@ public partial class TerrainRenderer : Node3D
     public void SetWetness(float wetness) => _terrainMaterial?.SetShaderParameter("wetness", wetness);
 
     /// <summary>
-    /// Couleurs de la saison : teinte de l'herbe, et feuillage des arbres (<see cref="TreeLayer.SetSeason"/>).
+    /// Couleurs du jour : teinte de l'herbe et fleurs selon la saison, feuillage des arbres selon la date (<see cref="TreeLayer.SetFoliage"/>).
     /// Rend le nombre de blocs d'arbres reconstruits.
     /// </summary>
-    public int SetSeason(Season season)
+    public int SetDate(Date date)
+    {
+        SetSeason(date.Season);
+        return _trees?.SetFoliage(Foliage.Position(date)) ?? 0;
+    }
+
+    /// <summary>Teinte de l'herbe et fleurs de la saison.</summary>
+    public void SetSeason(Season season)
     {
         _terrainMaterial?.SetShaderParameter("season_tint", SeasonTints[(int)season]);
         Flowers?.SetSpring(season == Season.Spring);
-        return _trees?.SetSeason(season) ?? 0;
     }
 
     /// <summary>

@@ -8,8 +8,10 @@ namespace Golferoo.Game.Rendering;
 /// Arbres de la simulation (<see cref="TreeStand"/>), à leur taille réelle, un MultiMesh par bloc de terrain et par modèle.
 /// Modèle : selon l'essence et le stade, <c>oak</c>, <c>birch</c> ou <c>conifer</c> de <c>res://assets/trees/</c> (adulte
 /// <c>_01</c> à <c>_03</c>, jeune plant <c>_sapling_01</c> à <c>_03</c> sous <see cref="SaplingMaxHeight"/> m, variante par hachage de l'Id) ;
-/// un adulte prend en automne <c>_winter_light_NN</c> (moitié des feuilles, roux ou doré) et en hiver <c>_winter_NN</c> (brun terne),
-/// avec repli sur le modèle de la saison précédente s'il manque (<see cref="SetSeason"/>) ;
+/// un feuillu adulte perd ses feuilles par étapes (<see cref="Foliage"/>, <see cref="SetFoliage"/>) : <c>_autumn_early_NN</c> (75 %),
+/// <c>_winter_light_NN</c> (50 %), <c>_autumn_late_NN</c> (25 %), avec repli sur l'étape précédente si le fichier manque ; sa couleur glisse
+/// chaque jour du vert de l'été au roux de <c>_winter_light_NN</c> puis au brun de <c>_winter_NN</c>, par instance, et chaque arbre a
+/// quelques jours d'avance ou de retard (<see cref="FoliageSpread"/>) ;
 /// un modèle manquant retombe sur <c>tree.glb</c> (produit par <c>tools/blender/tree_lowpoly.py</c>, un seul MeshInstance3D),
 /// ou à défaut sur quatre variantes procédurales (<see cref="ProceduralMeshes.Tree"/>). Le modèle garde sa taille native
 /// (mesurée sur son AABB) ; chaque arbre est mis à l'échelle de sa hauteur (verticale) et de son diamètre de couronne
@@ -36,8 +38,14 @@ public partial class TreeLayer : Node3D
     /// <summary>Préfixe des fichiers de modèles, indexé par <see cref="TreeSpeciesId"/>.</summary>
     private static readonly string[] SpeciesPrefixes = ["oak", "birch", "conifer"];
 
-    /// <summary>Infixe des fichiers par stade : jeune plant, puis adulte d'été, d'automne et d'hiver.</summary>
-    private static readonly string[] StageInfixes = ["_sapling", "", "_winter_light", "_winter"];
+    /// <summary>Infixe des fichiers par stade : jeune plant, puis adulte à 100, 75, 50 et 25 % des feuilles.</summary>
+    private static readonly string[] StageInfixes = ["_sapling", "", "_autumn_early", "_winter_light", "_autumn_late"];
+
+    /// <summary>Modèles qui donnent les couleurs du feuillage, dans l'ordre de <see cref="Foliage.Colour"/> : vert, roux, brun.</summary>
+    private static readonly string[] PaletteInfixes = ["", "_winter_light", "_winter"];
+
+    /// <summary>Avance ou retard au plus d'un arbre sur le feuillage de la date, en mois (4 jours).</summary>
+    public const double FoliageSpread = 0.4;
 
     /// <summary>Emplacement du point focal du curseur.</summary>
     public const int CursorSlot = 0;
@@ -74,7 +82,7 @@ public partial class TreeLayer : Node3D
     private int[] _logLookup = [-1, -1, -1];
     private int[] _stumpLookup = [-1, -1, -1];
     private float _blockMeters;
-    private Season _season = Season.Summer;
+    private double _foliage = 6.5;
 
     /// <summary>Arbres affichés (debout) dans tous les blocs.</summary>
     public int TreeCount { get; private set; }
@@ -108,7 +116,10 @@ public partial class TreeLayer : Node3D
     /// <summary>Vrai si l'arbre externe <c>tree.glb</c> a été chargé.</summary>
     public bool UsesExternalTree { get; private set; }
 
-    /// <summary>Nombre de modèles par essence et stade effectivement chargés (sur 3 essences x 4 stades x 3 variantes).</summary>
+    /// <summary>Surfaces de feuillage dont la couleur suit la date (feuillus adultes).</summary>
+    public int SeasonalSurfaceCount { get; private set; }
+
+    /// <summary>Nombre de modèles par essence et stade effectivement chargés (sur 3 essences x 5 stades x 3 variantes).</summary>
     public int SpeciesModelCount { get; private set; }
 
     /// <summary>Hauteur native du modèle, en mètres (avant mise à l'échelle).</summary>
@@ -192,22 +203,19 @@ public partial class TreeLayer : Node3D
     }
 
     /// <summary>
-    /// Feuillage de la saison : les adultes prennent le modèle d'automne ou d'hiver. Reconstruit tous les blocs si le modèle change,
-    /// soit au plus quatre fois par an de jeu. Rend le nombre de blocs reconstruits.
+    /// Feuillage à la position <paramref name="position"/> dans l'année (<see cref="Foliage.Position"/>), à appeler chaque jour :
+    /// reconstruit tous les blocs, sauf en plein été ou en plein hiver où rien ne change. Rend le nombre de blocs reconstruits.
     /// </summary>
-    public int SetSeason(Season season)
+    public int SetFoliage(double position)
     {
-        var changed = StageOf(season) != StageOf(_season);
-        _season = season;
-        return changed ? Regrow() : 0;
+        var same = Foliage.Steady(_foliage, FoliageSpread) && Foliage.Steady(position, FoliageSpread)
+            && Foliage.Colour(position) == Foliage.Colour(_foliage) && Foliage.Stage(position) == Foliage.Stage(_foliage);
+        _foliage = position;
+        return same ? 0 : Regrow();
     }
 
-    private static int StageOf(Season season) => season switch
-    {
-        Season.Autumn => 2,
-        Season.Winter => 3,
-        _ => 1,
-    };
+    /// <summary>Position de l'arbre dans l'année : celle de la date, avancée ou retardée selon son hachage.</summary>
+    private double FoliageOf(uint hash) => _foliage + (((((hash >> 16) & 0xFF) / 255.0) - 0.5) * 2 * FoliageSpread);
 
     /// <summary>Point focal à éclaircir (monde, au sol) ou null pour l'éteindre.</summary>
     public void SetFocus(int slot, Vector3? groundPoint, float radius)
@@ -250,7 +258,7 @@ public partial class TreeLayer : Node3D
     private void BuildBlocks(HashSet<(int X, int Z)> keys)
     {
         var grid = _grid!;
-        var lists = new Dictionary<(int X, int Z), List<Transform3D>[]>();
+        var lists = new Dictionary<(int X, int Z), List<(Transform3D, float)>[]>();
         foreach (var key in keys)
         {
             if (_blocks.Remove(key, out var old))
@@ -262,7 +270,7 @@ public partial class TreeLayer : Node3D
             _blockCounts[key] = 0;
             _blockSums[key] = (0, 0);
             _blockOthers[key] = (0, 0);
-            lists[key] = new List<Transform3D>[_models.Length];
+            lists[key] = new List<(Transform3D, float)>[_models.Length];
         }
 
         foreach (var t in _stand!.Trees)
@@ -288,7 +296,7 @@ public partial class TreeLayer : Node3D
             var basis = Basis.FromEuler(new Vector3(0, yaw, 0)) * Basis.FromScale(new Vector3(sxz, sy, sxz));
             var y = (float)grid.Sample(t.X, t.Z);
             var place = new Transform3D(basis, new Vector3((float)t.X, y, (float)t.Z));
-            (perVariant[variant] ??= []).Add(place * new Transform3D(Basis.Identity, model.Offset));
+            (perVariant[variant] ??= []).Add((place * new Transform3D(Basis.Identity, model.Offset), LeafColour(h)));
             _blockCounts[key]++;
             var sums = _blockSums[key];
             _blockSums[key] = (sums.Height + (basis.Y.Length() * model.Height), sums.Crown + (basis.X.Length() * model.Width));
@@ -318,7 +326,7 @@ public partial class TreeLayer : Node3D
     /// Tronc couché (<c>fallen_log</c>, long axe aligné sur la direction de chute, longueur = hauteur de l'arbre, épaisseur du tronc)
     /// ou souche (<c>stump</c>, à l'épaisseur du tronc) ; compte l'arbre même si son modèle manque ou si sa chute se joue encore.
     /// </summary>
-    private void AddDebris(Golferoo.Sim.Trees.Tree t, uint hash, (int X, int Z) key, List<Transform3D>[] perVariant)
+    private void AddDebris(Golferoo.Sim.Trees.Tree t, uint hash, (int X, int Z) key, List<(Transform3D, float)>[] perVariant)
     {
         var others = _blockOthers[key];
         var fallen = t.State == TreeState.Fallen;
@@ -354,7 +362,7 @@ public partial class TreeLayer : Node3D
             place = new Transform3D(Basis.FromEuler(new Vector3(0, yaw, 0)) * Basis.FromScale(new Vector3(s, s, s)), new Vector3((float)t.X, ground, (float)t.Z));
         }
 
-        (perVariant[index] ??= []).Add(place * new Transform3D(Basis.Identity, model.Offset));
+        (perVariant[index] ??= []).Add((place * new Transform3D(Basis.Identity, model.Offset), 0f));
     }
 
     /// <summary>
@@ -379,7 +387,7 @@ public partial class TreeLayer : Node3D
         var yaw = (((h >> 8) & 0xFF) / 255f) * Mathf.Tau;
         var basis = Basis.FromEuler(new Vector3(0, yaw, 0)) * Basis.FromScale(new Vector3((float)tree.CrownDiameter() / model.Width, (float)tree.Height() / model.Height, (float)tree.CrownDiameter() / model.Width));
         var pivot = new Node3D { Name = $"Falling{tree.Id}", Position = new Vector3((float)tree.X, (float)_grid.Sample(tree.X, tree.Z), (float)tree.Z) };
-        pivot.AddChild(new MeshInstance3D { Mesh = model.Mesh, Transform = new Transform3D(basis, Vector3.Zero) * new Transform3D(Basis.Identity, model.Offset) });
+        pivot.AddChild(MakeInstance("Tree", model.Mesh, [(new Transform3D(basis, Vector3.Zero) * new Transform3D(Basis.Identity, model.Offset), LeafColour(h))]));
         AddChild(pivot);
         _falling[tree.Id] = pivot;
 
@@ -425,24 +433,29 @@ public partial class TreeLayer : Node3D
         var variant = (int)(hash % VariantsPerStage);
         if (species < SpeciesPrefixes.Length)
         {
-            var stage = t.Height() < SaplingMaxHeight ? 0 : StageOf(_season);
+            var stage = t.Height() < SaplingMaxHeight ? 0 : 1 + Foliage.Stage(FoliageOf(hash));
             return _lookup[(((species * StageInfixes.Length) + stage) * VariantsPerStage) + variant];
         }
 
         return (int)(hash % (uint)_fallbackCount);
     }
 
-    private static MultiMeshInstance3D MakeInstance(string name, Mesh mesh, List<Transform3D> transforms)
+    /// <summary>Couleur du feuillage de l'arbre, ramenée à [0, 1) pour <c>INSTANCE_CUSTOM.r</c> de <c>tree.gdshader</c>.</summary>
+    private float LeafColour(uint hash) => (float)(Foliage.Colour(FoliageOf(hash)) / Foliage.ColourCycle);
+
+    private static MultiMeshInstance3D MakeInstance(string name, Mesh mesh, List<(Transform3D Place, float Leaf)> instances)
     {
         var multi = new MultiMesh
         {
             TransformFormat = MultiMesh.TransformFormatEnum.Transform3D,
+            UseCustomData = true,
             Mesh = mesh,
-            InstanceCount = transforms.Count,
+            InstanceCount = instances.Count,
         };
-        for (var i = 0; i < transforms.Count; i++)
+        for (var i = 0; i < instances.Count; i++)
         {
-            multi.SetInstanceTransform(i, transforms[i]);
+            multi.SetInstanceTransform(i, instances[i].Place);
+            multi.SetInstanceCustomData(i, new Color(instances[i].Leaf, 0f, 0f, 0f));
         }
 
         return new MultiMeshInstance3D { Name = name, Multimesh = multi };
@@ -495,9 +508,69 @@ public partial class TreeLayer : Node3D
             }
         }
 
+        SeasonalSurfaceCount = 0;
+        for (var species = 0; species < SpeciesPrefixes.Length; species++)
+        {
+            for (var v = 0; v < VariantsPerStage; v++)
+            {
+                ApplyPalettes(models, species, v);
+            }
+        }
+
         _logLookup = LoadDebris(models, "fallen_log");
         _stumpLookup = LoadDebris(models, "stump");
         _models = [.. models];
+    }
+
+    /// <summary>
+    /// Donne aux surfaces de feuillage des adultes de (essence, variante) leurs couleurs verte, rousse et brune, prises par nom de matériau
+    /// dans les modèles <see cref="PaletteInfixes"/> de même numéro ; rien si l'un d'eux manque (sapin).
+    /// </summary>
+    private void ApplyPalettes(List<Model> models, int species, int variant)
+    {
+        var palettes = new List<Dictionary<string, Color>>();
+        foreach (var infix in PaletteInfixes)
+        {
+            if (LoadExternalMesh($"res://assets/trees/{SpeciesPrefixes[species]}{infix}_{variant + 1:00}.glb") is not { } mesh)
+            {
+                return;
+            }
+
+            var palette = new Dictionary<string, Color>();
+            for (var s = 0; s < mesh.GetSurfaceCount(); s++)
+            {
+                var m = mesh.SurfaceGetMaterial(s);
+                var colour = m is ShaderMaterial shader ? (Color)shader.GetShaderParameter("albedo") : (m as BaseMaterial3D)?.AlbedoColor;
+                if (m is not null && colour is { } c)
+                {
+                    palette[m.ResourceName] = c;
+                }
+            }
+
+            palettes.Add(palette);
+        }
+
+        var meshes = new HashSet<Mesh>();
+        for (var stage = 1; stage < StageInfixes.Length; stage++)
+        {
+            meshes.Add(models[_lookup[(((species * StageInfixes.Length) + stage) * VariantsPerStage) + variant]].Mesh);
+        }
+
+        foreach (var mesh in meshes)
+        {
+            for (var s = 0; s < mesh.GetSurfaceCount(); s++)
+            {
+                if (mesh.SurfaceGetMaterial(s) is ShaderMaterial m && palettes.All(p => p.ContainsKey(m.ResourceName))
+                    && palettes[0][m.ResourceName] != palettes[1][m.ResourceName])
+                {
+                    m.SetShaderParameter("seasonal", true);
+                    m.SetShaderParameter("leaf_green", palettes[0][m.ResourceName]);
+                    m.SetShaderParameter("leaf_autumn", palettes[1][m.ResourceName]);
+                    m.SetShaderParameter("leaf_dull", palettes[2][m.ResourceName]);
+                    SeasonalSurfaceCount++;
+                }
+            }
+        }
     }
 
     /// <summary>Charge les trois variantes <c>nom_01</c> à <c>03</c> ; indice dans <paramref name="models"/>, ou -1 si le fichier manque.</summary>
@@ -533,7 +606,7 @@ public partial class TreeLayer : Node3D
             }
 
             var std = mesh.SurfaceGetMaterial(s) as BaseMaterial3D;
-            var material = new ShaderMaterial { Shader = _shader };
+            var material = new ShaderMaterial { Shader = _shader, ResourceName = std?.ResourceName ?? "" };
             material.SetShaderParameter("albedo", std?.AlbedoColor ?? new Color(0.25f, 0.5f, 0.25f));
             material.SetShaderParameter("use_vertex_color", std?.VertexColorUseAsAlbedo ?? false);
             material.SetShaderParameter("roughness_value", std?.Roughness ?? 1f);

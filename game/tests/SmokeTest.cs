@@ -147,20 +147,26 @@ public partial class SmokeTest : Node
             CheckTreeTools(trees, failures);
 
             // Trois essences x (plant, adulte) x trois variantes, plus l'automne des feuillus, plus leur hiver terne s'il est livré.
-            var expectedModels = 24 + (ResourceLoader.Exists("res://assets/trees/oak_winter_01.glb") ? 6 : 0);
+            var expectedModels = 24 + (ResourceLoader.Exists("res://assets/trees/oak_autumn_early_01.glb") ? 12 : 0);
             if (trees.SpeciesModelCount != expectedModels)
             {
                 failures.Add($"{trees.SpeciesModelCount} modèles d'essences chargés sur {expectedModels}");
             }
 
-            // Saisons : l'automne change le modèle des feuillus adultes (tous les blocs refaits), le printemps après l'été non.
-            trees.SetSeason(Season.Summer);
-            if (trees.SetSeason(Season.Spring) != 0 || trees.SetSeason(Season.Autumn) == 0 || trees.TotalCount != _main.World.Trees.Count)
+            // Feuillage : les couleurs du chêne et du bouleau suivent la date ; en plein été rien ne change d'un jour à l'autre, en automne tout.
+            GD.Print($"SMOKE surfaces de feuillage saisonnières : {trees.SeasonalSurfaceCount}");
+            if (trees.SeasonalSurfaceCount == 0)
             {
-                failures.Add($"SetSeason : blocs refaits à tort ou arbres perdus ({trees.TotalCount} sur {_main.World.Trees.Count})");
+                failures.Add("feuillage : aucune surface ne prend les couleurs des saisons (noms de matériaux ?)");
             }
 
-            trees.SetSeason(_main.World.Date.Season);
+            trees.SetFoliage(6.5);
+            if (trees.SetFoliage(6.6) != 0 || trees.SetFoliage(8.5) == 0 || trees.TotalCount != _main.World.Trees.Count)
+            {
+                failures.Add($"SetFoliage : blocs refaits à tort ou arbres perdus ({trees.TotalCount} sur {_main.World.Trees.Count})");
+            }
+
+            trees.SetFoliage(Foliage.Position(_main.World.Date));
 
             // Fleurs : au printemps, des touffes visibles dans le rough ; cachées l'été.
             var view0 = _main.TerrainView;

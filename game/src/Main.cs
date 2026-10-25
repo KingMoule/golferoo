@@ -33,6 +33,7 @@ public partial class Main : Node3D
     private Label? _hud;
     private DirectionalLight3D? _sun;
     private int _month;
+    private int _day;
     private bool _turfOverlay;
     private (long Version, string Text) _stimp = (-1, string.Empty);
 
@@ -164,7 +165,7 @@ public partial class Main : Node3D
         TerrainView = new TerrainRenderer { Name = "TerrainView" };
         AddChild(TerrainView);
         TerrainView.Build(grid, World.Trees);
-        TerrainView.SetSeason(World.Date.Season);
+        TerrainView.SetDate(World.Date);
 
         Actors = new ActorLayer { Name = "Actors" };
         AddChild(Actors);
@@ -201,6 +202,7 @@ public partial class Main : Node3D
         AddChild(WeatherView);
         WeatherView.Init(environment.Environment, _sun);
         _month = World.Date.Month;
+        _day = World.DayIndex;
         ResetSnapshots();
         UpdateHud(0);
 
@@ -358,14 +360,17 @@ public partial class Main : Node3D
     public void SkipToNextMonth()
     {
         World.SkipToNextMonth();
-        OnMonthChanged();
+        OnDayChanged();
     }
 
-    private void OnMonthChanged()
+    /// <summary>Nouveau jour : le feuillage avance ; un nouveau mois fait aussi pousser les arbres.</summary>
+    private void OnDayChanged()
     {
+        _day = World.DayIndex;
+        var newMonth = World.Date.Month != _month;
         _month = World.Date.Month;
         // Un changement de feuillage refait déjà tous les blocs, croissance comprise.
-        if (TerrainView.SetSeason(World.Date.Season) == 0)
+        if (TerrainView.SetDate(World.Date) == 0 && newMonth)
         {
             TerrainView.Trees?.Regrow();
         }
@@ -376,9 +381,9 @@ public partial class Main : Node3D
         (_previous, _current) = (_current, _previous);
         var t0 = System.Diagnostics.Stopwatch.GetTimestamp();
         World.Step();
-        if (World.Date.Month != _month)
+        if (World.DayIndex != _day)
         {
-            OnMonthChanged();
+            OnDayChanged();
         }
 
         TickMsTotal += System.Diagnostics.Stopwatch.GetElapsedTime(t0).TotalMilliseconds;
