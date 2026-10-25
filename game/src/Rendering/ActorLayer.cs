@@ -17,6 +17,7 @@ public partial class ActorLayer : Node3D
     private MultiMesh? _golfers;
     private MultiMesh? _balls;
     private TerrainGrid? _grid;
+    private Node3D? _flag;
 
     public int VisibleGolfers { get; private set; }
 
@@ -54,9 +55,18 @@ public partial class ActorLayer : Node3D
     private void BuildFlag(TerrainGrid grid)
     {
         var y = (float)grid.Sample(grid.Hole.X, grid.Hole.Z);
-        var root = new Node3D { Name = "Flag", Position = new Vector3((float)grid.Hole.X, y, (float)grid.Hole.Z) };
-        root.AddChild(new MeshInstance3D { Name = "FlagMesh", Mesh = ProceduralMeshes.Flag() });
-        AddChild(root);
+        _flag = new Node3D { Name = "Flag", Position = new Vector3((float)grid.Hole.X, y, (float)grid.Hole.Z) };
+        _flag.AddChild(new MeshInstance3D { Name = "FlagMesh", Mesh = ProceduralMeshes.Flag() });
+        AddChild(_flag);
+    }
+
+    /// <summary>Oriente le fanion (pointé vers +X dans son maillage) dans le sens du vent (x, z du monde) ; sans vent, il ne bouge pas.</summary>
+    public void SetWind(Vector2 direction)
+    {
+        if (_flag is not null && direction.LengthSquared() > 1e-4f)
+        {
+            _flag.Rotation = new Vector3(0f, -Mathf.Atan2(direction.Y, direction.X), 0f);
+        }
     }
 
     /// <summary>Met à jour les instances. <paramref name="alpha"/> vaut 0 à l'instantané précédent, 1 au courant.</summary>

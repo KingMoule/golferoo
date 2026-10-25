@@ -59,9 +59,13 @@ public partial class SmokeTest : Node
             return failures;
         }
 
-        if (_main.GetNodeOrNull<Label>("TickLabel") is null)
+        if (_main.GetNodeOrNull<Label>("TickLabel") is not { } hud)
         {
             failures.Add("TickLabel absent de Main.tscn");
+        }
+        else if (!hud.Text.Contains("km/h") || !hud.Text.Contains("prévision :"))
+        {
+            failures.Add($"le HUD n'affiche pas le temps et la prévision : « {hud.Text} »");
         }
 
         var cells = _main.World.Terrain!;

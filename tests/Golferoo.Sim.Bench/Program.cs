@@ -21,6 +21,8 @@ const double bigFieldLimitMs = 20.0;
 const double retouchLimitMs = 16.0;
 const double treeFlightRatioLimit = 1.2;
 const double treeGrowLimitMs = 5.0;
+const double windFlightRatioLimit = 1.05;
+const double windPlanRatioLimit = 1.2;
 
 // Carte plate de 512 x 512 cellules, la même à tous les facteurs.
 var big = new TerrainGrid(new HeightField(512, 512, 2.0), "plat", new Point2(2, 2), new Point2(1000, 1000), new Point2(1000, 1000));
@@ -157,9 +159,25 @@ allPassed &= treeFlight.Ratio <= treeFlightRatioLimit;
 var grow = MeasureTreeGrowth(big);
 allPassed &= grow.Median < treeGrowLimitMs;
 
+// Vent (C04 lot 2) : les mêmes 400 drives sur la carte plate avec et sans vent de 14 m/s, coût par seconde simulée
+// (le vent change la durée du vol) ; et planifier un drive sur le trou avec et sans ce vent.
+var wind = MeasureWind(big, HoleLoader.Load(holePath, 2));
+allPassed &= wind.FlightRatio <= windFlightRatioLimit && wind.PlanRatio <= windPlanRatioLimit;
+
 var report = new
 {
-    benchmark = "c02-lot3",
+    benchmark = "c04-lot2",
+    wind = new
+    {
+        speed = 14.0,
+        flightRatioPerSimulatedSecond = wind.FlightRatio,
+        flightLimit = windFlightRatioLimit,
+        planCalmMs = wind.PlanCalmMs,
+        planWindyMs = wind.PlanWindyMs,
+        planRatio = wind.PlanRatio,
+        planLimit = windPlanRatioLimit,
+        passed = wind.FlightRatio <= windFlightRatioLimit && wind.PlanRatio <= windPlanRatioLimit,
+    },
     passed = allPassed,
     treeGrowth = new { trees = grow.Trees, monthMeanMs = grow.Mean, monthMedianMs = grow.Median, monthMaxMs = grow.Max, limitMs = treeGrowLimitMs, passed = grow.Median < treeGrowLimitMs },
     treeFlight = new
@@ -270,6 +288,75 @@ static (int Trees, int Flights, double NoTreesMs, double WithTreesMs, double Rat
     var noTrees = none[7] / flights;
     var withTrees = with[7] / flights;
     return (treeCount, flights, noTrees, withTrees, withTrees / noTrees, (with[7] / secWith) / (none[7] / secNone), secNone / flights, secWith / flights);
+}
+
+static (double FlightRatio, double PlanCalmMs, double PlanWindyMs, double PlanRatio) MeasureWind(TerrainGrid map, TerrainGrid hole)
+{
+    const int flights = 400;
+    var windy = new Vec3(14.0 * 0.6, 0, 14.0 * 0.8);
+    var aim = new DeterministicRng(21);
+    var size = map.CellsX * map.CellSize;
+    var starts = new (Point2 Start, Vec3 Velocity)[flights];
+    for (var i = 0; i < flights; i++)
+    {
+        var angle = aim.NextDouble() * 2 * Math.PI;
+        var club = Clubs.Driver;
+        starts[i] = (
+            new Point2(300 + (aim.NextDouble() * (size - 600)), 300 + (aim.NextDouble() * (size - 600))),
+            new Vec3(Math.Cos(angle) * club.LaunchCos * club.Speed, club.LaunchSin * club.Speed, Math.Sin(angle) * club.LaunchCos * club.Speed));
+    }
+
+    double Round(Vec3 w)
+    {
+        var seconds = 0.0;
+        var t0 = Stopwatch.GetTimestamp();
+        foreach (var (start, velocity) in starts)
+        {
+            seconds += BallSimulator.Run(map, start, velocity, rolling: false, BallSimulator.DefaultDrag, recordPath: false, wind: w).Duration;
+        }
+
+        return Stopwatch.GetElapsedTime(t0).TotalMilliseconds / seconds;
+    }
+
+    var request = new ShotRequest(hole.Tee, hole.Hole, 0);
+    double Plan(Vec3 w)
+    {
+        var resolver = new PhysicalShotResolver { Wind = w };
+        var t0 = Stopwatch.GetTimestamp();
+        resolver.Resolve(request, hole, new DeterministicRng(3));
+        return Stopwatch.GetElapsedTime(t0).TotalMilliseconds;
+    }
+
+    for (var i = 0; i < 5; i++)
+    {
+        Round(default);
+        Round(windy);
+        Plan(default);
+        Plan(windy);
+    }
+
+    // Médianes de passes alternées.
+    var calm = new double[15];
+    var blow = new double[15];
+    var planCalm = new double[31];
+    var planWindy = new double[31];
+    for (var i = 0; i < 15; i++)
+    {
+        calm[i] = Round(default);
+        blow[i] = Round(windy);
+    }
+
+    for (var i = 0; i < 31; i++)
+    {
+        planCalm[i] = Plan(default);
+        planWindy[i] = Plan(windy);
+    }
+
+    Array.Sort(calm);
+    Array.Sort(blow);
+    Array.Sort(planCalm);
+    Array.Sort(planWindy);
+    return (blow[7] / calm[7], planCalm[15], planWindy[15], planWindy[15] / planCalm[15]);
 }
 
 static (double Mean, double P99, double Max, double Median) Measure(int runs, int warmup, Action action)
