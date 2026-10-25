@@ -166,6 +166,29 @@ public partial class SmokeTest : Node
             {
                 failures.Add($"WeatherView : {drops} gouttes sous la forte pluie, {view.DropCount} au soleil");
             }
+
+            // Flaques : sous la pluie, la couche dessine autant de cellules que la sim en compte dans des flaques.
+            var wet = _main.World.Terrain!;
+            var wetness = wet.Soil.Wetness;
+            wet.Soil.Wetness = 1.0;
+            _main.TerrainView.RefreshPuddles();
+            var expected = 0;
+            for (var cz = 0; cz < wet.CellsZ; cz++)
+            {
+                for (var cx = 0; cx < wet.CellsX; cx++)
+                {
+                    expected += wet.Puddles.IsPuddle(cx, cz) ? 1 : 0;
+                }
+            }
+
+            GD.Print($"SMOKE flaques sous la pluie : {expected} cellules");
+            if (_main.TerrainView.PuddleCells != expected)
+            {
+                failures.Add($"flaques : {_main.TerrainView.PuddleCells} cellules dessinées, {expected} dans la sim");
+            }
+
+            wet.Soil.Wetness = wetness;
+            _main.TerrainView.RefreshPuddles();
         }
 
         // Même graine, mêmes ticks : la simulation doit être déterministe aussi sous Godot.

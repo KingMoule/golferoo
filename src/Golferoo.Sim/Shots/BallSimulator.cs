@@ -353,8 +353,9 @@ public static class BallSimulator
                 }
                 else
                 {
-                    ball = new Point2(x, z);
-                    outcome = OutcomeOf(surface);
+                    // Flaque (« casual water ») : dégagement sans pénalité au sec, pas plus près du trou.
+                    ball = terrain.Puddles.Relief(new Point2(x, z), terrain.Hole);
+                    outcome = OutcomeOf(terrain.SurfaceAt(ball.X, ball.Z));
                 }
 
                 break;
