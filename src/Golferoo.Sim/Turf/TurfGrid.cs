@@ -33,7 +33,7 @@ public sealed class TurfGrid
     }
 
     /// <summary>Usure d'un pas de golfeur, d'une motte (coup depuis un fairway ou un départ) et d'une marque de balle sur un green, en crans.</summary>
-    public const int StepWear = 1, DivotWear = 16, MarkWear = 8;
+    public const int StepWear = 3, DivotWear = 40, MarkWear = 24;
 
     /// <summary>Réparation de l'usure par nuit, doublée après la pluie : un sentier saturé (255) disparaît en un mois sans passage.</summary>
     public const int RepairWear = 8;

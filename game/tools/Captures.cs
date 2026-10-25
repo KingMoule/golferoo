@@ -149,7 +149,7 @@ public partial class Captures : Node
                 main.ToggleLoadMode();
             }
 
-            // Surcouche G seulement sur sa vue ; les autres vues repartent en consignes normales.
+            // Surcouche H seulement sur sa vue ; les autres vues repartent en consignes normales.
             main.TerrainView.SetTurfOverlay(zoomName == "turf-overlay");
             if (zoomName == "overview")
             {
