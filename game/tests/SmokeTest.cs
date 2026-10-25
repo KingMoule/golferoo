@@ -303,6 +303,7 @@ public partial class SmokeTest : Node
         ["maintenance"] = 800,
         ["vehicles"] = 800,
         ["buildings"] = 1500,
+        ["structures"] = 600,
     };
 
     /// <summary>

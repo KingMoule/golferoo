@@ -60,6 +60,7 @@ Le script compte ses triangles et **échoue** (`sys.exit` avec un message `ERREU
 | Petit mobilier (banc, poubelle, panneau, marqueur de départ, lave-balles) | 300 |
 | Voiturette de golf (`vehicles`), tondeuse (`maintenance`) | 800 |
 | Bâtiment (club-house, abri) | 1 500 |
+| Ouvrage en modules (`structures` : travée et culée de pont) | 600 |
 
 Visez nettement sous le budget : un arbre de 340 triangles est bien. Peu de faces, bien placées, valent mieux que beaucoup de petites.
 
@@ -129,7 +130,7 @@ import time
 import bpy
 
 NAME = "bench"
-FAMILY = "furniture"  # dossier de game/assets/ : trees, bushes, rocks, furniture, maintenance, vehicles, buildings
+FAMILY = "furniture"  # dossier de game/assets/ : trees, bushes, rocks, furniture, maintenance, vehicles, buildings, structures
 TRIANGLE_BUDGET = 300
 SEED = 1
 
