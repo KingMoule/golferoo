@@ -182,7 +182,7 @@ public sealed partial class World
             return false;
         }
 
-        if (terrain.SurfaceAt(c.X, c.Z) is Surface.Water or Surface.Green or Surface.Tee or Surface.Bunker or Surface.Trees)
+        if (terrain.SurfaceAt(c.X, c.Z) is Surface.Water or Surface.Green or Surface.Tee or Surface.Bunker or Surface.Trees or Surface.Path)
         {
             return false;
         }

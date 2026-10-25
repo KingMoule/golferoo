@@ -22,6 +22,7 @@ public class TreeCommandTests
         t.PaintCell(34, 35, Surface.Green);
         t.PaintCell(33, 35, Surface.Bunker);
         t.PaintCell(32, 35, Surface.Tee);
+        t.PaintCell(31, 35, Surface.Path);
         return t;
     }
 
@@ -82,7 +83,7 @@ public class TreeCommandTests
     }
 
     [Fact]
-    public void PlantTree_IsRefusedOnWaterGreenTeeBunkerUnderbrushAndTooCloseToATree()
+    public void PlantTree_IsRefusedOnWaterGreenTeeBunkerPathUnderbrushAndTooCloseToATree()
     {
         var w = new World(5, Woods());
         w.Trees.RemoveWhere(_ => true);
@@ -90,11 +91,12 @@ public class TreeCommandTests
         w.PlantTree((34 * 4) + 2, (35 * 4) + 2, TreeSpeciesId.Oak, TreePlantStage.Sapling);
         w.PlantTree((33 * 4) + 2, (35 * 4) + 2, TreeSpeciesId.Oak, TreePlantStage.Sapling);
         w.PlantTree((32 * 4) + 2, (35 * 4) + 2, TreeSpeciesId.Oak, TreePlantStage.Sapling);
+        w.PlantTree((31 * 4) + 2, (35 * 4) + 2, TreeSpeciesId.Oak, TreePlantStage.Sapling);
         w.PlantTree(40, 40, TreeSpeciesId.Oak, TreePlantStage.Sapling); // sous-bois
         w.PlantTree(-5, 10, TreeSpeciesId.Oak, TreePlantStage.Sapling); // hors carte
         w.Step();
         Assert.Equal(0, w.Trees.Count);
-        Assert.Equal(6, w.TreeCommandsRefused);
+        Assert.Equal(7, w.TreeCommandsRefused);
         Assert.Equal(0, w.TreeSpending);
 
         w.PlantTree(120, 120, TreeSpeciesId.Oak, TreePlantStage.Sapling);
@@ -102,7 +104,7 @@ public class TreeCommandTests
         w.PlantTree(125, 120, TreeSpeciesId.Oak, TreePlantStage.Sapling);
         w.Step();
         Assert.Equal(2, w.Trees.Count);
-        Assert.Equal(7, w.TreeCommandsRefused);
+        Assert.Equal(8, w.TreeCommandsRefused);
     }
 
     [Fact]
