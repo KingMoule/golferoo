@@ -39,6 +39,9 @@ public partial class TerrainRenderer : Node3D
     /// <summary>Couche d'arbres (lit les arbres de la simulation).</summary>
     public TreeLayer? Trees => _trees;
 
+    /// <summary>Fleurs de printemps dans le rough.</summary>
+    public FlowerLayer? Flowers { get; private set; }
+
     /// <summary>Construit tout le terrain depuis la grille, et les arbres depuis le <paramref name="stand"/> de la simulation.</summary>
     public void Build(TerrainGrid grid, TreeStand stand)
     {
@@ -74,6 +77,10 @@ public partial class TerrainRenderer : Node3D
                 BuildChunk(i, j);
             }
         }
+
+        Flowers = new FlowerLayer { Name = "Flowers" };
+        AddChild(Flowers);
+        Flowers.Init(grid);
 
         _trees = new TreeLayer { Name = "Trees" };
         AddChild(_trees);
@@ -150,6 +157,7 @@ public partial class TerrainRenderer : Node3D
     public int SetSeason(Season season)
     {
         _terrainMaterial?.SetShaderParameter("season_tint", SeasonTints[(int)season]);
+        Flowers?.SetSpring(season == Season.Spring);
         return _trees?.SetSeason(season) ?? 0;
     }
 
@@ -190,6 +198,7 @@ public partial class TerrainRenderer : Node3D
 
         RebuiltChunks += rebuilt;
         _trees?.RebuildCells(x0, z0, x1, z1);
+        Flowers?.Invalidate();
 
         return rebuilt;
     }

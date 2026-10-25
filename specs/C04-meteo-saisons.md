@@ -63,7 +63,7 @@ Ce qui prouve la réussite : les captures montrent le même trou aux quatre sais
 - Rendu : un maillage plat sur les cellules en flaque, avec le shader d'eau existant, refait au changement de jour.
 
 **Fleurs de printemps** (`game/src/Rendering/`, rendu seul)
-- Un MultiMesh de touffes (`flowers_spring_NN.glb`, demandé au fil des assets ; repli procédural sinon) sur une partie des cellules de rough, choisies par un hachage de la cellule (stable d'une partie à l'autre), visible au printemps seulement. Rien dans la sim.
+- Un MultiMesh de touffes (`game/assets/bushes/flowers_spring_NN.glb`, PR #38 ; sans les modèles, pas de fleurs) sur une cellule de rough sur trois, choisies par un hachage de la cellule (stable d'une partie à l'autre), pétales teintés par instance (jaune, blanc, rose, violet), visible au printemps seulement. Rien dans la sim.
 
 **Rendu de la météo** (`game/src/Main.cs`, `Main.tscn`)
 - Ciel (`ProceduralSkyMaterial`) et énergie du soleil selon `Sky` ; pluie : `GPUParticles3D` attachées à la caméra ; sol mouillé : `uniform float wetness` qui assombrit le terrain.
