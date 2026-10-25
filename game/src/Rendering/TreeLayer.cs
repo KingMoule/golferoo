@@ -40,6 +40,7 @@ public partial class TreeLayer : Node3D
 
     private readonly Dictionary<(int X, int Z), Node3D> _blocks = [];
     private readonly Dictionary<(int X, int Z), int> _blockCounts = [];
+    private readonly Dictionary<(int X, int Z), (double Height, double Crown)> _blockSums = [];
     private TerrainGrid? _grid;
     private TreeStand? _stand;
     private Model[] _models = [];
@@ -47,6 +48,14 @@ public partial class TreeLayer : Node3D
 
     /// <summary>Arbres affichés (debout) dans tous les blocs.</summary>
     public int TreeCount { get; private set; }
+
+    /// <summary>Nombre, hauteur moyenne et largeur de couronne moyenne des instances rendues, mesurées sur leurs transformations.</summary>
+    public (int Count, double MeanHeight, double MeanCrown) RenderedStats()
+    {
+        var h = _blockSums.Values.Sum(v => v.Height);
+        var c = _blockSums.Values.Sum(v => v.Crown);
+        return (TreeCount, TreeCount == 0 ? 0 : h / TreeCount, TreeCount == 0 ? 0 : c / TreeCount);
+    }
 
     /// <summary>Blocs de terrain reconstruits depuis la construction, hors construction initiale (cumul, pour les vérifications).</summary>
     public int BlockRebuilds { get; private set; }
@@ -71,6 +80,7 @@ public partial class TreeLayer : Node3D
         _blockMeters = (float)(blockCells * grid.CellSize);
         _blocks.Clear();
         _blockCounts.Clear();
+        _blockSums.Clear();
         _models = LoadModels(out var external);
         UsesExternalTree = external;
 
@@ -154,6 +164,7 @@ public partial class TreeLayer : Node3D
             }
 
             _blockCounts[key] = 0;
+            _blockSums[key] = (0, 0);
             lists[key] = new List<Transform3D>[_models.Length];
         }
 
@@ -181,6 +192,8 @@ public partial class TreeLayer : Node3D
             var place = new Transform3D(basis, new Vector3((float)t.X, y, (float)t.Z));
             (perVariant[variant] ??= []).Add(place * new Transform3D(Basis.Identity, model.Offset));
             _blockCounts[key]++;
+            var sums = _blockSums[key];
+            _blockSums[key] = (sums.Height + (basis.Y.Length() * model.Height), sums.Crown + (basis.X.Length() * model.Width));
         }
 
         foreach (var (key, perVariant) in lists)

@@ -13,6 +13,9 @@ public partial class Captures : Node
 {
     private const int WarmupTicks = 400;
     private const int SettleFrames = 6;
+    private const float CloseUpSize = 36f;
+    private const float CloseUpDistance = 20f;
+    private const int CloseUpMaxSteps = 300;
 
     private static readonly float[] Yaws = [45f, 135f, 225f, 315f];
 
@@ -55,6 +58,12 @@ public partial class Captures : Node
         main.Brush.SetProcess(false);
         main.TerrainView.Trees?.SetFocus(TreeLayer.CursorSlot, null, 0f);
 
+        if (main.TerrainView.Trees is { } layer)
+        {
+            var (n, h, c) = layer.RenderedStats();
+            GD.Print($"TREES n={n} h_moy={h:F1} couronne_moy={c:F1}");
+        }
+
         var failures = 0;
         Vector2I? size = null;
         var index = 0;
@@ -63,13 +72,23 @@ public partial class Captures : Node
             ("overview", 240f, center, Yaws, null),
             ("green", 30f, green, Yaws, null),
         };
-        if (CloseUpOnTree(main) is { } close)
-        {
-            views.Add(("closeup", close.Size, close.Target, [45f, 225f], close.Golfer));
-        }
+        views.Add(("closeup", CloseUpSize, center, [45f, 225f], null));
 
-        foreach (var (zoomName, viewSize, target, yaws, followed) in views)
+        foreach (var (zoomName, viewSize, target0, yaws0, followed0) in views)
         {
+            var (target, yaws, followed) = (target0, yaws0, followed0);
+            if (zoomName == "closeup")
+            {
+                if (await FindCloseUp(main) is not { } close)
+                {
+                    GD.PrintErr("CAPTURES FAIL aucune vue proche (pas de golfeur ou d'arbre mature)");
+                    failures++;
+                    continue;
+                }
+
+                (target, yaws, followed) = (close.Target, close.Yaws, close.Golfer);
+            }
+
             main.TerrainView.Trees?.SetTrackedBall(followed);
             foreach (var yaw in yaws)
             {
@@ -124,33 +143,45 @@ public partial class Captures : Node
     }
 
     /// <summary>
-    /// Vue proche : le golfeur le plus près d'un arbre mature (12 m ou plus) et cet arbre. La cible est entre les deux
-    /// et le golfeur sert de point focal (couronne tramée devant lui). Null s'il n'y a pas de golfeur ou d'arbre mature.
+    /// Vue proche : fait avancer la simulation (au plus <see cref="CloseUpMaxSteps"/> pas de 20 ticks) jusqu'à ce qu'un golfeur
+    /// soit à <see cref="CloseUpDistance"/> mètres au plus d'un arbre mature (12 m ou plus), sinon prend le couple le plus proche.
+    /// La cible est entre eux, le golfeur est le point focal ; deux angles : l'arbre entre la caméra et le golfeur (couronne
+    /// tramée), puis l'opposé. Null s'il n'y a pas de golfeur ou d'arbre mature.
     /// </summary>
-    private static (float Size, Vector3 Target, Vector3 Golfer)? CloseUpOnTree(Main main)
+    private async Task<(Vector3 Target, float[] Yaws, Vector3 Golfer)?> FindCloseUp(Main main)
     {
         var grid = main.World.Terrain!;
-        var golfers = main.World.Snapshot().Golfers;
         Golferoo.Sim.Trees.Tree? best = null;
         var bestPos = default(Vector3);
         var bestDistance = double.MaxValue;
-        foreach (var g in golfers)
+        for (var step = 0; step <= CloseUpMaxSteps; step++)
         {
-            foreach (var t in main.World.Trees.Trees)
+            bestDistance = double.MaxValue;
+            foreach (var g in main.World.Snapshot().Golfers)
             {
-                if (t.Height() < 12.0)
+                foreach (var t in main.World.Trees.Trees)
                 {
-                    continue;
-                }
+                    if (t.Height() < 12.0)
+                    {
+                        continue;
+                    }
 
-                var d = Math.Sqrt(Math.Pow(t.X - g.Position.X, 2) + Math.Pow(t.Z - g.Position.Z, 2));
-                if (d < bestDistance)
-                {
-                    bestDistance = d;
-                    best = t;
-                    bestPos = new Vector3((float)g.Position.X, (float)grid.Sample(g.Position.X, g.Position.Z), (float)g.Position.Z);
+                    var d = Math.Sqrt(Math.Pow(t.X - g.Position.X, 2) + Math.Pow(t.Z - g.Position.Z, 2));
+                    if (d < bestDistance)
+                    {
+                        bestDistance = d;
+                        best = t;
+                        bestPos = new Vector3((float)g.Position.X, (float)grid.Sample(g.Position.X, g.Position.Z), (float)g.Position.Z);
+                    }
                 }
             }
+
+            if (bestDistance <= CloseUpDistance || step == CloseUpMaxSteps)
+            {
+                break;
+            }
+
+            main.StepTicks(20);
         }
 
         if (best is not { } tree)
@@ -158,10 +189,30 @@ public partial class Captures : Node
             return null;
         }
 
+        GD.Print($"CLOSEUP tick={main.World.Tick} distance golfeur-arbre={bestDistance:F1} m, arbre {tree.Height():F1} m");
         var treeBase = new Vector3((float)tree.X, (float)grid.Sample(tree.X, tree.Z), (float)tree.Z);
         var target = (treeBase + bestPos) * 0.5f;
-        target.Y = Math.Max(treeBase.Y, bestPos.Y) + 5f;
-        return (Mathf.Clamp(((float)bestDistance * 1.5f) + 30f, 40f, 120f), target, bestPos);
+        target.Y = Math.Max(treeBase.Y, bestPos.Y) + 3f;
+        var toTree = new Vector2(treeBase.X - bestPos.X, treeBase.Z - bestPos.Z).Normalized();
+        float bestDot = float.MinValue, worstDot = float.MaxValue, bestYaw = 45f, worstYaw = 225f;
+        for (var yaw = 0f; yaw < 360f; yaw += 45f)
+        {
+            main.Camera.SetView(yaw, CloseUpSize, target);
+            var cam = main.Camera.View!.GlobalPosition;
+            var dot = new Vector2(cam.X - target.X, cam.Z - target.Z).Normalized().Dot(toTree);
+            if (dot > bestDot)
+            {
+                (bestDot, bestYaw) = (dot, yaw);
+            }
+
+            if (dot < worstDot)
+            {
+                (worstDot, worstYaw) = (dot, yaw);
+            }
+        }
+
+        await Task.CompletedTask;
+        return (target, [bestYaw, worstYaw], bestPos);
     }
 
     private static double LuminanceStdDev(Image image)
