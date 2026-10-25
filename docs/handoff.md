@@ -1,4 +1,4 @@
-Mis à jour : 2026-10-24
+Mis à jour : 2026-10-25
 
 ## État
 C01 (prototype d'un trou) : lots 1 à 7 fusionnés (PR #6 à #12), lot 8 en PR #14. Bilan dans `docs/prototype-c01-rapport.md` : simulation C# pure, déterministe, très sous ses budgets ; rendu Godot 4.7 .NET à 632 FPS (RTX 2080, 1080p, 200 golfeurs) ; **facteur 2 retenu** (cellules de 4 m, `Main.DefaultFactor`).
@@ -20,6 +20,7 @@ C01 (prototype d'un trou) : lots 1 à 7 fusionnés (PR #6 à #12), lot 8 en PR #
 - 2026-10-24 : facteur 2 (Guillaume, sur le rapport C01).
 
 ## Prochaine étape
+C02 validé par Guillaume le 2026-10-25 (`specs/C02-arbres-echelle.md`, 4 lots, ses trois choix y sont notés) : lot 1 en cours.
 R03 tranché par Guillaume le 2026-10-24 (`docs/boucles-v1.md`, section « Décisions ») : première version avec météo et saisons, entretien du gazon, ligues, arbres vivants et un tutoriel simple ; ni scénarios, ni mode photo (caméra prête), ni nuit. Côtés positifs de la pluie M1 à M9 tous gardés. Chantiers C03 à C07 à cadrer, C02 élargi aux arbres vivants. Ordre : P1, C02, C03, C04, C05 ; en parallèle C06 et P3 puis C07.
 
 ## Environnement cloud
