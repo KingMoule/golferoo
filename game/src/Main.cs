@@ -63,6 +63,8 @@ public partial class Main : Node3D
 
     public ActorLayer Actors { get; private set; } = null!;
 
+    public MowerLayer Mowers { get; private set; } = null!;
+
     public IsoCamera Camera { get; private set; } = null!;
 
     public Brush Brush { get; private set; } = null!;
@@ -167,6 +169,10 @@ public partial class Main : Node3D
         Actors = new ActorLayer { Name = "Actors" };
         AddChild(Actors);
         Actors.Build(grid);
+
+        Mowers = new MowerLayer { Name = "Mowers" };
+        AddChild(Mowers);
+        Mowers.Build(grid);
 
         var width = (float)(grid.CellsX * grid.CellSize);
         var depth = (float)(grid.CellsZ * grid.CellSize);
@@ -393,6 +399,7 @@ public partial class Main : Node3D
         var alpha = (float)Math.Clamp(_accumulator / World.TickSeconds, 0.0, 1.0);
         FlushTerrainEdits();
         Actors.Update(_current, _previous, alpha, _previousChanged);
+        Mowers.Update(World.DayIndex, SunDayFraction ?? World.Date.DayFraction, _current);
         _previousChanged = false;
     }
 

@@ -96,6 +96,7 @@ public partial class Captures : Node
             ("turf-week", TurfSize, mid, [Yaws[0]], null),
             ("turf-week-green", 30f, green, [Yaws[0]], null),
             ("turf-overlay", TurfSize, mid, [Yaws[0]], null),
+            ("mower-green", 30f, green, [Yaws[0]], null),
             ("overview", 240f, center, Yaws, null),
             ("green", 30f, green, Yaws, null),
         };
@@ -228,19 +229,35 @@ public partial class Captures : Node
 
             main.SunDayFraction = zoomName switch
             {
-                "sun-morning" => 0.1,
+                "sun-morning" or "mower-green" => 0.1, // le matin : les tondeuses sont dehors (premier quart de la journée)
                 "sun-noon" => 0.5,
                 "sun-evening" => 0.9,
                 _ => 0.5, // midi : les autres vues gardent un éclairage comparable à C02
             };
             main.TerrainView.Trees?.SetTrackedBall(followed);
             main.TerrainView.RefreshTurf();
+            if (zoomName == "mower-green")
+            {
+                // La tondeuse est construite à la première image du matin : on attend, puis on la cadre.
+                for (var f = 0; f < 3; f++)
+                {
+                    await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+                }
+
+                target = main.Mowers.FirstPosition ?? target;
+            }
+
             foreach (var yaw in yaws)
             {
                 main.Camera.SetView(yaw, viewSize, target);
                 for (var f = 0; f < SettleFrames; f++)
                 {
                     await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+                }
+
+                if (zoomName == "mower-green")
+                {
+                    GD.Print($"MOWERS {main.Mowers.ActiveMowers} premiere={main.Mowers.FirstPosition} cible={target}");
                 }
 
                 var image = GetViewport().GetTexture().GetImage();

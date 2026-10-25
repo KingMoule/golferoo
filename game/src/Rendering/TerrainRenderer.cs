@@ -154,7 +154,7 @@ public partial class TerrainRenderer : Node3D
         return true;
     }
 
-    /// <summary>Surcouche d'état du gazon (touche H) : rouge usé, vert sain, bleu herbe haute.</summary>
+    /// <summary>Surcouche d'état du gazon (touche H) : rouge usé, vert sain, jaune pour l'herbe trop haute.</summary>
     public void SetTurfOverlay(bool on) => _terrainMaterial?.SetShaderParameter("overlay", on ? 1f : 0f);
 
     /// <summary>

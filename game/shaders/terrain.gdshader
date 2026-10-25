@@ -110,13 +110,15 @@ void fragment() {
 		} else if (best == 1) {
 			col *= 1.0 + 0.10 * checker;
 		}
-		// Terre : mottes et marques par un bruit piloté par l'usure.
-		float n = 0.6 * vnoise(wpos.xz * 1.7) + 0.4 * vnoise(wpos.xz * 5.3);
-		float dirt = smoothstep(0.04, 0.2, wear * (0.5 + n));
-		col = mix(col, vec3(0.45, 0.33, 0.20), 0.85 * dirt);
+		// Terre : petites mottes et marques éparses ; leur nombre suit l'usure (60 % du sol au plus), jamais une tache pleine.
+		float n = 0.7 * vnoise(wpos.xz * 4.0) + 0.3 * vnoise(wpos.xz * 11.0);
+		float cover = 0.6 * clamp(wear * 1.5, 0.0, 1.0);
+		float dirt = smoothstep(1.0 - cover, 1.05 - cover, n);
+		col = mix(col, vec3(0.45, 0.33, 0.20), (best == 1 ? 0.45 : 0.7) * dirt);
 		if (overlay > 0.5) {
+			// Surcouche : vert sain, rouge usé ; jaune pour l'herbe qui a nettement dépassé sa hauteur de référence.
 			col = mix(vec3(0.85, 0.12, 0.10), vec3(0.20, 0.70, 0.25), 1.0 - clamp(wear * 2.0, 0.0, 1.0));
-			col = mix(col, vec3(0.20, 0.35, 0.90), smoothstep(1.2, 2.0, k));
+			col = mix(col, vec3(0.90, 0.80, 0.20), 0.7 * smoothstep(1.5, 2.5, k));
 		}
 	}
 	ALBEDO = srgb(col) * (1.0 - 0.3 * wetness);
