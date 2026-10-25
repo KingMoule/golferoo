@@ -78,6 +78,25 @@ public partial class TerrainRenderer : Node3D
         _trees.Build(grid, stand, ChunkCells);
     }
 
+    /// <summary>Teinte de l'herbe par saison (multipliée aux couleurs du shader de terrain), indexée par <see cref="Season"/> : l'été est la référence.</summary>
+    private static readonly Vector3[] SeasonTints =
+    [
+        new(0.95f, 1.08f, 0.85f), // printemps : vert vif
+        new(1f, 1f, 1f),
+        new(1.12f, 1.02f, 0.75f), // automne : un peu jaune
+        new(1.05f, 0.9f, 0.8f), // hiver : terne
+    ];
+
+    /// <summary>
+    /// Couleurs de la saison : teinte de l'herbe, et feuillage des arbres (<see cref="TreeLayer.SetSeason"/>).
+    /// Rend le nombre de blocs d'arbres reconstruits.
+    /// </summary>
+    public int SetSeason(Season season)
+    {
+        _terrainMaterial?.SetShaderParameter("season_tint", SeasonTints[(int)season]);
+        return _trees?.SetSeason(season) ?? 0;
+    }
+
     /// <summary>
     /// Reconstruit les blocs touchés par le rectangle de cellules modifiées. La Catmull-Rom d'une cellule lit les coins
     /// c-1 à c+2 : modifier les coins d'une cellule change la hauteur jusqu'à 2 cellules autour, d'où la marge de 2,

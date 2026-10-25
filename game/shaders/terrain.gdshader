@@ -12,6 +12,8 @@ uniform float stripe_width = 6.0;
 // Rayon du flou des poids, en mètres. Le trou est dessiné par tuiles de 8 m : sans flou plus large
 // qu'une cellule, les bords gardent l'escalier des tuiles.
 uniform float blur_meters = 5.0;
+// Teinte de saison de l'herbe (l'été vaut 1) ; ni le sable, ni l'eau, ni le chemin.
+uniform vec3 season_tint = vec3(1.0);
 
 varying vec3 wpos;
 
@@ -84,6 +86,9 @@ void fragment() {
 		col = vec3(0.17, 0.33, 0.15); // sol sous arbres
 	} else {
 		col = vec3(0.72, 0.64, 0.50); // chemin
+	}
+	if (best <= 3 || best == 6) {
+		col = clamp(col * season_tint, 0.0, 1.0);
 	}
 	ALBEDO = srgb(col);
 	ROUGHNESS = 1.0;

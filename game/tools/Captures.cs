@@ -7,12 +7,13 @@ using Golferoo.Sim.Trees;
 namespace Golferoo.Game.Tools;
 
 /// <summary>
-/// Produit 13 captures du trou avec une paire de golfeurs, graine fixe : 4 rotations x 2 zooms (ensemble et green),
+/// Produit 20 captures du trou avec une paire de golfeurs, graine fixe : 4 rotations x 2 zooms (ensemble et green),
 /// puis 2 vues proches d'un golfeur à côté d'un arbre mature (la balle suivie sert de point focal : couronnes tramées),
 /// une vue d'ensemble après 15 ans, puis un défrichage replanté (6 à 10 jeunes plants et une motte au milieu du sous-bois rasé),
-/// vu de près, puis vingt ans plus tard avec la motte tombée en tronc couché.
+/// vu de près, puis vingt ans plus tard avec la motte tombée en tronc couché, le soleil le matin, à midi et le soir,
+/// et le trou aux quatre saisons (feuillage et teinte de l'herbe).
 /// Usage : godot --path game res://tools/Captures.tscn -- --out dossier [--factor n] [--prefix texte] [--thumbs] [--full]
-/// Code de sortie 0 si les 13 images existent, ont la même taille et ne sont pas uniformes ; non nul sinon.
+/// Code de sortie 0 si les 20 images existent, ont la même taille et ne sont pas uniformes ; non nul sinon.
 /// </summary>
 public partial class Captures : Node
 {
@@ -28,6 +29,10 @@ public partial class Captures : Node
     private int? _clearingMound;
 
     private static readonly float[] Yaws = [45f, 135f, 225f, 315f];
+
+    /// <summary>Vues des saisons, dans l'ordre de <c>Season</c>.</summary>
+    private static readonly string[] SeasonViews = ["season-spring", "season-summer", "season-autumn", "season-winter"];
+    private const float SeasonSize = 90f;
 
     public override async void _Ready()
     {
@@ -90,6 +95,10 @@ public partial class Captures : Node
         views.Add(("sun-morning", 240f, center, [Yaws[0]], null));
         views.Add(("sun-noon", 240f, center, [Yaws[0]], null));
         views.Add(("sun-evening", 240f, center, [Yaws[0]], null));
+        foreach (var season in SeasonViews)
+        {
+            views.Add((season, SeasonSize, center, [Yaws[0]], null));
+        }
 
         foreach (var (zoomName, viewSize, target0, yaws0, followed0) in views)
         {
@@ -156,6 +165,17 @@ public partial class Captures : Node
                 }
             }
 
+            if (Array.IndexOf(SeasonViews, zoomName) is var s and >= 0)
+            {
+                // Mois suivants (F10) jusqu'à la saison voulue : feuillage et teinte de l'herbe changent.
+                for (var month = 0; month < 12 && (int)main.World.Date.Season != s; month++)
+                {
+                    main.SkipToNextMonth();
+                }
+
+                GD.Print($"SEASON {zoomName} {main.World.Date.Month}/{main.World.Date.Year} saison={main.World.Date.Season}");
+            }
+
             main.SunDayFraction = zoomName switch
             {
                 "sun-morning" => 0.1,
@@ -207,7 +227,7 @@ public partial class Captures : Node
             }
         }
 
-        if (failures == 0 && index == 16)
+        if (failures == 0 && index == 20)
         {
             GD.Print($"CAPTURES OK {index} images");
             return 0;

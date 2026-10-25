@@ -8,6 +8,8 @@ namespace Golferoo.Game.Rendering;
 /// Arbres de la simulation (<see cref="TreeStand"/>), à leur taille réelle, un MultiMesh par bloc de terrain et par modèle.
 /// Modèle : selon l'essence et le stade, <c>oak</c>, <c>birch</c> ou <c>conifer</c> de <c>res://assets/trees/</c> (adulte
 /// <c>_01</c> à <c>_03</c>, jeune plant <c>_sapling_01</c> à <c>_03</c> sous <see cref="SaplingMaxHeight"/> m, variante par hachage de l'Id) ;
+/// un adulte prend en automne <c>_winter_light_NN</c> (moitié des feuilles, roux ou doré) et en hiver <c>_winter_NN</c> (brun terne),
+/// avec repli sur le modèle de la saison précédente s'il manque (<see cref="SetSeason"/>) ;
 /// un modèle manquant retombe sur <c>tree.glb</c> (produit par <c>tools/blender/tree_lowpoly.py</c>, un seul MeshInstance3D),
 /// ou à défaut sur quatre variantes procédurales (<see cref="ProceduralMeshes.Tree"/>). Le modèle garde sa taille native
 /// (mesurée sur son AABB) ; chaque arbre est mis à l'échelle de sa hauteur (verticale) et de son diamètre de couronne
@@ -34,6 +36,9 @@ public partial class TreeLayer : Node3D
     /// <summary>Préfixe des fichiers de modèles, indexé par <see cref="TreeSpeciesId"/>.</summary>
     private static readonly string[] SpeciesPrefixes = ["oak", "birch", "conifer"];
 
+    /// <summary>Infixe des fichiers par stade : jeune plant, puis adulte d'été, d'automne et d'hiver.</summary>
+    private static readonly string[] StageInfixes = ["_sapling", "", "_winter_light", "_winter"];
+
     /// <summary>Emplacement du point focal du curseur.</summary>
     public const int CursorSlot = 0;
 
@@ -50,6 +55,7 @@ public partial class TreeLayer : Node3D
     private const float FocusLift = 1f;
 
     private static readonly string[] FocusParameters = ["tree_focus_a", "tree_focus_b"];
+    private const string WindParameter = "tree_wind";
     private static bool _globalsDeclared;
     private static Shader? _shader;
 
@@ -68,6 +74,7 @@ public partial class TreeLayer : Node3D
     private int[] _logLookup = [-1, -1, -1];
     private int[] _stumpLookup = [-1, -1, -1];
     private float _blockMeters;
+    private Season _season = Season.Summer;
 
     /// <summary>Arbres affichés (debout) dans tous les blocs.</summary>
     public int TreeCount { get; private set; }
@@ -101,7 +108,7 @@ public partial class TreeLayer : Node3D
     /// <summary>Vrai si l'arbre externe <c>tree.glb</c> a été chargé.</summary>
     public bool UsesExternalTree { get; private set; }
 
-    /// <summary>Nombre de modèles par essence et stade effectivement chargés (sur 3 essences x 2 stades x 3 variantes).</summary>
+    /// <summary>Nombre de modèles par essence et stade effectivement chargés (sur 3 essences x 4 stades x 3 variantes).</summary>
     public int SpeciesModelCount { get; private set; }
 
     /// <summary>Hauteur native du modèle, en mètres (avant mise à l'échelle).</summary>
@@ -184,12 +191,38 @@ public partial class TreeLayer : Node3D
         return keys.Count;
     }
 
+    /// <summary>
+    /// Feuillage de la saison : les adultes prennent le modèle d'automne ou d'hiver. Reconstruit tous les blocs si le modèle change,
+    /// soit au plus quatre fois par an de jeu. Rend le nombre de blocs reconstruits.
+    /// </summary>
+    public int SetSeason(Season season)
+    {
+        var changed = StageOf(season) != StageOf(_season);
+        _season = season;
+        return changed ? Regrow() : 0;
+    }
+
+    private static int StageOf(Season season) => season switch
+    {
+        Season.Autumn => 2,
+        Season.Winter => 3,
+        _ => 1,
+    };
+
     /// <summary>Point focal à éclaircir (monde, au sol) ou null pour l'éteindre.</summary>
     public void SetFocus(int slot, Vector3? groundPoint, float radius)
     {
         EnsureGlobals();
         var v = groundPoint is { } p ? new Vector4(p.X, p.Y + FocusLift, p.Z, radius) : Vector4.Zero;
         RenderingServer.GlobalShaderParameterSet(FocusParameters[slot], v);
+    }
+
+    /// <summary>Vent qui balance les couronnes : direction horizontale vers laquelle il souffle (x, z du monde) et force en m/s.</summary>
+    public static void SetWind(Vector2 direction, float speed)
+    {
+        EnsureGlobals();
+        var d = direction.Normalized() * speed;
+        RenderingServer.GlobalShaderParameterSet(WindParameter, new Vector4(d.X, 0f, d.Y, 0f));
     }
 
     /// <summary>Entrée pour la balle suivie par la caméra (quand elle existera) : sa position 3D, ou null.</summary>
@@ -206,6 +239,8 @@ public partial class TreeLayer : Node3D
         {
             RenderingServer.GlobalShaderParameterAdd(name, RenderingServer.GlobalShaderParameterType.Vec4, Vector4.Zero);
         }
+
+        RenderingServer.GlobalShaderParameterAdd(WindParameter, RenderingServer.GlobalShaderParameterType.Vec4, Vector4.Zero);
 
         _globalsDeclared = true;
     }
@@ -390,8 +425,8 @@ public partial class TreeLayer : Node3D
         var variant = (int)(hash % VariantsPerStage);
         if (species < SpeciesPrefixes.Length)
         {
-            var stage = t.Height() < SaplingMaxHeight ? 0 : 1;
-            return _lookup[(((species * 2) + stage) * VariantsPerStage) + variant];
+            var stage = t.Height() < SaplingMaxHeight ? 0 : StageOf(_season);
+            return _lookup[(((species * StageInfixes.Length) + stage) * VariantsPerStage) + variant];
         }
 
         return (int)(hash % (uint)_fallbackCount);
@@ -435,17 +470,16 @@ public partial class TreeLayer : Node3D
         }
 
         _fallbackCount = models.Count;
-        _lookup = new int[SpeciesPrefixes.Length * 2 * VariantsPerStage];
+        _lookup = new int[SpeciesPrefixes.Length * StageInfixes.Length * VariantsPerStage];
         SpeciesModelCount = 0;
         for (var species = 0; species < SpeciesPrefixes.Length; species++)
         {
-            for (var stage = 0; stage < 2; stage++)
+            for (var stage = 0; stage < StageInfixes.Length; stage++)
             {
                 for (var v = 0; v < VariantsPerStage; v++)
                 {
-                    var name = stage == 0 ? $"{SpeciesPrefixes[species]}_sapling_{v + 1:00}" : $"{SpeciesPrefixes[species]}_{v + 1:00}";
-                    var slot = (((species * 2) + stage) * VariantsPerStage) + v;
-                    var path = $"res://assets/trees/{name}.glb";
+                    var slot = (((species * StageInfixes.Length) + stage) * VariantsPerStage) + v;
+                    var path = $"res://assets/trees/{SpeciesPrefixes[species]}{StageInfixes[stage]}_{v + 1:00}.glb";
                     if (ResourceLoader.Exists(path) && LoadExternalMesh(path) is { } mesh)
                     {
                         models.Add(Describe(mesh));
@@ -454,7 +488,8 @@ public partial class TreeLayer : Node3D
                     }
                     else
                     {
-                        _lookup[slot] = v % _fallbackCount;
+                        // Feuillage de saison manquant (sapin, ou hiver pas encore livré) : celui de la saison précédente.
+                        _lookup[slot] = stage >= 2 ? _lookup[slot - VariantsPerStage] : v % _fallbackCount;
                     }
                 }
             }

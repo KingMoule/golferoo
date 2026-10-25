@@ -1,4 +1,5 @@
 shader_type spatial;
+render_mode world_vertex_coords;
 
 // Arbres : couleur unie (ou couleur de sommet) et couronnes tramées autour des points focaux.
 // Chaque point focal est (x, y, z, rayon en mètres), en coordonnées monde ; un rayon nul le désactive.
@@ -6,6 +7,8 @@ shader_type spatial;
 // à l'écran : le golfeur ou la balle se lit à travers la couronne qui le cache.
 global uniform vec4 tree_focus_a;
 global uniform vec4 tree_focus_b;
+// Vent : (x, z) = vers où il souffle, en m/s.
+global uniform vec4 tree_wind;
 
 uniform vec4 albedo : source_color = vec4(0.3, 0.5, 0.3, 1.0);
 uniform bool use_vertex_color = false;
@@ -43,6 +46,15 @@ float focus_fade(vec4 focus, vec3 frag_view, vec2 uv, mat4 view, mat4 proj, vec2
 	float r = max(length((ruv - fuv) * aspect), 0.0001);
 	float d = length((uv - fuv) * aspect);
 	return 1.0 - smoothstep(r * 0.6, r, d);
+}
+
+// Balancement : nul jusqu'au tronc, croissant avec le carré de la hauteur ; 10 m/s penchent la cime d'un arbre de 17 m d'environ 0,4 m.
+// La phase dépend de la position du pied, pour que les arbres ne bougent pas ensemble. Troncs couchés et souches restent immobiles.
+void vertex() {
+	float h = max(VERTEX.y - MODEL_MATRIX[3].y - TRUNK_HEIGHT, 0.0) / 14.0;
+	vec3 foot = MODEL_MATRIX[3].xyz;
+	float sway = 0.6 + 0.4 * sin(TIME * 1.3 + foot.x * 0.21 + foot.z * 0.17);
+	VERTEX.xz += tree_wind.xz * 0.04 * h * h * sway;
 }
 
 void fragment() {

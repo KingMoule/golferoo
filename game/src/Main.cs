@@ -151,6 +151,9 @@ public partial class Main : Node3D
         TerrainView = new TerrainRenderer { Name = "TerrainView" };
         AddChild(TerrainView);
         TerrainView.Build(grid, World.Trees);
+        TerrainView.SetSeason(World.Date.Season);
+        // Vent fixe en attendant la météo du jour (C04, lot 2) : 4 m/s venant de l'ouest.
+        TreeLayer.SetWind(new Vector2(1f, 0f), 4f);
 
         Actors = new ActorLayer { Name = "Actors" };
         AddChild(Actors);
@@ -331,7 +334,11 @@ public partial class Main : Node3D
     private void OnMonthChanged()
     {
         _month = World.Date.Month;
-        TerrainView.Trees?.Regrow();
+        // Un changement de feuillage refait déjà tous les blocs, croissance comprise.
+        if (TerrainView.SetSeason(World.Date.Season) == 0)
+        {
+            TerrainView.Trees?.Regrow();
+        }
     }
 
     private void StepOnce()
