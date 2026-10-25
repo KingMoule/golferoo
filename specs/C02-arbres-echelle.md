@@ -72,5 +72,5 @@ Les trois recommandations sont retenues.
 léger (le lot 2, balle et arbres, en contrôle complet : il touche la physique du coup)
 
 ## Clôture
-- [x] Critères vérifiés (PR #20, #22, #24, #25, #26 ; le critère 7, 240 FPS sur la RTX 2080, reste à mesurer par Guillaume)
+- [x] Critères vérifiés (PR #20, #22, #24, #25, #26 ; critère 7 mesuré par Guillaume le 2026-10-25 : 453,5 FPS de moyenne, 420 au 1 % bas, 5 000 arbres et 200 golfeurs en 1080p sur RTX 2080, version dfc90ac)
 - [x] Statut passé à « livré », ligne mise à jour dans docs/chantiers.md
