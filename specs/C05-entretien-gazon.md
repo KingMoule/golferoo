@@ -34,16 +34,16 @@ Ce qui prouve la réussite : un même putt roule plus loin sur un green « rapid
 
 ## Conception
 **État du gazon** (`src/Golferoo.Sim/Turf/`, sans Godot)
-- `TurfGrid` : deux tableaux d'octets par cellule, hauteur (en dixièmes de mm pour les greens et départs, en mm au-delà ; un pas par surface) et usure (0 à 255). Pas de champ humidité : elle reste globale (`SoilGrid.Wetness`), l'arrosage automatique la rend inutile par cellule. Environ 0,2 Mo pour 100 000 cellules.
+- `TurfGrid` : deux tableaux d'octets par cellule, hauteur (en 64es de la hauteur de référence de la surface : 64 = référence, 255 = ×4 ; lot 1) et usure (0 à 255). Pas de champ humidité : elle reste globale (`SoilGrid.Wetness`), l'arrosage automatique la rend inutile par cellule. Environ 0,2 Mo pour 100 000 cellules.
 - `TurfSettings` : trois consignes (`GreenSpeed`, `FairwayFirmness`, `RoughLength`) à trois crans. Le cran « normal » donne les hauteurs de référence : 4 mm (green), 10 mm (départ), 15 mm (fairway), 50 mm (rough). Rapides et lents : 3 et 5 mm ; rough court et épais : 30 et 80 mm.
 - Changement de jour (déjà le point d'entrée de la météo et des flaques) : pousse selon la saison (forte au printemps, nulle en hiver), ×1,5 s'il a plu la veille (M1, M9) ; tonte vers la hauteur visée (greens chaque jour, départs et fairways un jour sur trois, rough une fois par semaine) ; réparation de l'usure d'un cran fixe, doublé après la pluie. Tout se fait d'un coup au changement de jour : pas de mise à jour par tranches, puisque rien d'autre ne change la hauteur.
 - Au jour 0, tout est à la hauteur de référence et sans usure.
 
 **Le gazon et la balle** (`Terrain/SoilGrid.cs`)
-- Facteur hauteur sur la résistance au roulement : `(h / h_ref)` à la puissance 0,5 (un green à 3 mm roule environ 15 % plus loin qu'à 4 mm, un green à 5 mm environ 10 % moins loin), à calibrer au lot 1. Fermeté des fairways : fermes = restitution ×1,15 et roulement ×0,85, tendres l'inverse.
+- Facteur hauteur sur la résistance au roulement : `(h / h_ref)` à la puissance 0,5 (un green à 3 mm roule environ 15 % plus loin qu'à 4 mm, un green à 5 mm environ 10 % moins loin), à calibrer au lot 1. Fermeté des fairways : fermes = roulement ×0,85, tendres ×1,15, restitution inchangée (lot 1 : une restitution plus haute faisait rouler le drive moins loin, chaque rebond retirant de la vitesse par frottement).
 - À la hauteur de référence et en consigne normale, le facteur vaut 1 : les tableaux restent identiques au bit près à ceux de C04.
 - Recalcul au changement de jour et au changement de consigne seulement. L'usure ne touche ni la balle ni le coût de marche (règle de performance de D2 : les champs de flux en cache restent valides).
-- Vitesse des greens : `Turf.Stimp()` calcule la distance d'une balle lâchée à 1,83 m/s (la vitesse du stimpmètre) sur la résistance moyenne des greens, en mètres et en pieds.
+- Vitesse des greens : `Turf.Stimp()` calcule la distance d'une balle lâchée à 1,83 m/s (la vitesse du stimpmètre) sur la résistance moyenne des greens, en mètres et en pieds. Il ne dépend que de la hauteur (donc des consignes), pas de la saison ni de l'humidité : un chiffre stable à l'écran (lot 1).
 
 **Usure** (`World.cs`, `Turf/`)
 - Marche : la cellule sous chaque golfeur reçoit un cran d'usure à chaque changement de cellule (pas sur les chemins, l'eau, le sable). Un tableau d'octets incrémenté, saturé à 255 : quelques nanosecondes par pas.
