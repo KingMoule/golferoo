@@ -157,6 +157,21 @@ public partial class SmokeTest : Node
 
             trees.SetSeason(_main.World.Date.Season);
 
+            // Fleurs : au printemps, des touffes visibles dans le rough ; cachées l'été.
+            var view0 = _main.TerrainView;
+            view0.SetSeason(Season.Spring);
+            var flowers = view0.Flowers!;
+            var springCount = flowers.Count;
+            var springVisible = flowers.Visible;
+            view0.SetSeason(Season.Summer);
+            GD.Print($"SMOKE fleurs au printemps : {springCount}");
+            if (springCount == 0 || !springVisible || flowers.Visible)
+            {
+                failures.Add($"fleurs : {springCount} touffes au printemps (visibles {springVisible}), visibles l'été {flowers.Visible}");
+            }
+
+            view0.SetSeason(_main.World.Date.Season);
+
             // Pluie : des gouttes sous la forte pluie, aucune au soleil.
             var view = _main.WeatherView;
             view.Show(Golferoo.Sim.Weather.Sky.HeavyRain, Vector2.Right, Vector3.Zero, 100f);
