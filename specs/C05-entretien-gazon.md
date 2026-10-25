@@ -48,7 +48,7 @@ Ce qui prouve la réussite : un même putt roule plus loin sur un green « rapid
 **Usure** (`World.cs`, `Turf/`)
 - Marche : la cellule sous chaque golfeur reçoit un cran d'usure à chaque changement de cellule (pas sur les chemins, l'eau, le sable). Un tableau d'octets incrémenté, saturé à 255 : quelques nanosecondes par pas.
 - Mottes : un coup joué depuis un fairway ou un départ ajoute de l'usure à sa cellule ; une balle qui tombe sur un green marque sa cellule d'arrivée.
-- Le drapeau change de place chaque jour (décision 3) : parmi les cellules de green à au moins 3 m du bord, une position tirée du flux de la graine et du jour. Le champ de flux du green est refait une fois par jour.
+- Le drapeau change de place chaque jour (décision 3) : parmi les cellules de green à au moins 3 m du bord, une position tirée du flux de la graine et du jour. Le jour 0 garde la position du fichier de trou (critère 2). Le champ de flux du green est refait une fois par jour.
 
 **Rendu** (`game/shaders/terrain.gdshader`, `game/src/Rendering/TerrainRenderer.cs`)
 - Une texture RG8 d'un texel par cellule (hauteur normalisée, usure), envoyée au GPU au changement de jour et au plus une fois par seconde pour l'usure. Une lecture par pixel.
