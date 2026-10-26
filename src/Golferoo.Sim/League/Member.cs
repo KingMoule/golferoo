@@ -29,7 +29,7 @@ public sealed class Member
     /// <summary>Niveau de jeu du membre (<see cref="Golfer.Skill"/>).</summary>
     public double Skill => SkillLevels.FromHandicap(StartHandicap);
 
-    public int Opinion { get; }
+    public int Opinion { get; internal set; }
 
     public bool IsPro { get; }
 

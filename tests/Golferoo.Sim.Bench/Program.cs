@@ -432,7 +432,7 @@ static (int Groups, double Median, double Max) MeasureLeagueDay(string holePath)
 {
     var world = new World(seed: 5, HoleLoader.Load(holePath, 2), league: true) { Climate = Climate.Calm };
     var samples = new List<double>();
-    foreach (var round in world.League!.Rounds)
+    foreach (var round in world.League!.Rounds.Append(world.League.Final))
     {
         world.Step((round.NominalDay * Calendar.TicksPerDay) - 1 - (int)world.Tick);
         var t0 = Stopwatch.GetTimestamp();
