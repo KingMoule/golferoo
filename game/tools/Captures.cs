@@ -32,6 +32,7 @@ public partial class Captures : Node
     private const float TurfSize = 100f;
 
     private const int LeagueViewCount = 4;
+    private const int TutorialViewCount = 3;
 
     private int? _clearingMound;
     private string _outDir = string.Empty;
@@ -68,6 +69,7 @@ public partial class Captures : Node
 
     private async Task<int> Run()
     {
+        Main.OfferTutorial = false;
         _outDir = Main.CommandLineOption("--out") ?? "captures";
         _thumbs = OS.GetCmdlineUserArgs().Contains("--thumbs");
         _full = OS.GetCmdlineUserArgs().Contains("--full");
@@ -277,8 +279,8 @@ public partial class Captures : Node
             }
         }
 
-        await AimView(await LeagueViews(main));
-        if (_failures == 0 && _index == expected + LeagueViewCount)
+        await TutorialViews(await AimView(await LeagueViews(main)));
+        if (_failures == 0 && _index == expected + LeagueViewCount + TutorialViewCount)
         {
             GD.Print($"CAPTURES OK {_index} images");
             return 0;
@@ -360,7 +362,7 @@ public partial class Captures : Node
     }
 
     /// <summary>C08 : le mode visée au départ d'une partie d'entraînement, un draw au driver vers l'angle du dogleg.</summary>
-    private async Task AimView(Main previous)
+    private async Task<Main> AimView(Main previous)
     {
         previous.QueueFree();
         await Frames(2);
@@ -394,10 +396,58 @@ public partial class Captures : Node
             main.StepTicks(1);
         }
 
-        main.ProPanel.Toggle();
+        main.ProPanel!.Toggle();
         await Frames(SettleFrames);
         GD.Print($"PRO long-jeu={world.Pro!.Experience(Golferoo.Sim.Pro.ProSkill.LongGame)} draw={world.Pro.Experience(Golferoo.Sim.Pro.ProSkill.Draw)}");
         Save("pro-sheet");
+        return main;
+    }
+
+    /// <summary>C07 : la terre vierge et ses arbres cerclés, l'étape du green avec son contour, le trou valide.</summary>
+    private async Task TutorialViews(Main previous)
+    {
+        previous.QueueFree();
+        await Frames(2);
+        Main.TutorialMode = true;
+        var main = GD.Load<PackedScene>("res://Main.tscn").Instantiate<Main>();
+        AddChild(main);
+        Main.TutorialMode = false;
+        var world = main.World;
+        var grid = world.Terrain!;
+        main.Paused = true;
+        main.SunDayFraction = 0.5;
+        var center = new Vector3((float)(grid.CellsX * grid.CellSize) / 2f, 0f, (float)(grid.CellsZ * grid.CellSize) / 2f);
+        main.Camera.SetView(45f, 220f, center);
+        main.Tutorial!.Start();
+        await Frames(SettleFrames);
+        Save("tutorial-blank");
+
+        foreach (var p in grid.IsolatedTrees)
+        {
+            world.RazeTree(world.Trees.Trees.First(t => t.X == p.X && t.Z == p.Z).Id);
+        }
+
+        world.PlantTree(64, 208, TreeSpeciesId.Oak, TreePlantStage.Sapling);
+        world.PaintSurface(new Point2(28, 244), 6, Surface.Tee);
+        foreach (var x in new[] { 100.0, 160.0, 220.0 })
+        {
+            world.PaintSurface(new Point2(x, 236), 10, Surface.Fairway);
+        }
+
+        main.StepTicks(2);
+        main.Camera.SetView(45f, 140f, new Vector3(268f, 0f, 56f));
+        await Frames(SettleFrames);
+        Save("tutorial-green");
+
+        world.PaintSurface(new Point2(268, 56), 11, Surface.Green);
+        main.StepTicks(1);
+        world.PlaceTee(new Point2(28, 244));
+        world.PlaceHole(new Point2(268, 56));
+        main.StepTicks(2);
+        GD.Print($"TUTORIAL ouvert={world.HoleOpen} etape={Golferoo.Sim.Tutorial.TutorialSteps.Current(world)}");
+        main.Camera.SetView(45f, 220f, center);
+        await Frames(SettleFrames);
+        Save("tutorial-done");
     }
 
     private async Task Frames(int count)

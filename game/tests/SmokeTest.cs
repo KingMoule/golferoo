@@ -15,12 +15,16 @@ namespace Golferoo.Game.Tests;
 public partial class SmokeTest : Node
 {
     private const int FramesToRun = 30;
+    private const int TutorialFrames = 10;
 
     private Main? _main;
+    private Main? _tutorial;
     private int _frames;
 
     public override void _Ready()
     {
+        // La proposition du tutoriel n'a rien à faire dans la fumée.
+        Main.OfferTutorial = false;
         var scene = GD.Load<PackedScene>("res://Main.tscn");
         _main = scene.Instantiate<Main>();
         AddChild(_main);
@@ -28,12 +32,33 @@ public partial class SmokeTest : Node
 
     public override void _Process(double delta)
     {
-        if (++_frames < FramesToRun)
+        _frames++;
+        if (_frames < FramesToRun)
         {
             return;
         }
 
-        var failures = Check();
+        if (_frames == FramesToRun)
+        {
+            var failures = Check();
+            if (failures.Count == 0)
+            {
+                StartTutorial();
+                return;
+            }
+
+            Finish(failures);
+            return;
+        }
+
+        if (_frames >= FramesToRun + TutorialFrames)
+        {
+            Finish(CheckTutorial());
+        }
+    }
+
+    private void Finish(List<string> failures)
+    {
         if (failures.Count == 0)
         {
             GD.Print($"SMOKE OK frames={_frames} tick={_main!.World.Tick} checksum={_main.World.Checksum():x16}");
@@ -48,6 +73,59 @@ public partial class SmokeTest : Node
 
             GetTree().Quit(1);
         }
+    }
+
+    /// <summary>C07 : un second monde, la terre vierge du tutoriel, que <see cref="CheckTutorial"/> construit par commandes.</summary>
+    private void StartTutorial()
+    {
+        Main.TutorialMode = true;
+        _tutorial = GD.Load<PackedScene>("res://Main.tscn").Instantiate<Main>();
+        AddChild(_tutorial);
+        Main.TutorialMode = false;
+    }
+
+    private List<string> CheckTutorial()
+    {
+        var failures = new List<string>();
+        var main = _tutorial!;
+        var world = main.World;
+        var tee = new Point2(28, 244);
+        var green = new Point2(268, 56);
+        if (world.HoleOpen || main.Tutorial is null || main.Tutorial.Phase != Golferoo.Game.Tutorial.TutorialPanel.Mode.Welcome)
+        {
+            failures.Add("tutoriel : terre vierge ouverte ou bulle absente");
+            return failures;
+        }
+
+        foreach (var p in world.Terrain!.IsolatedTrees)
+        {
+            world.RazeTree(world.Trees.Trees.First(t => t.X == p.X && t.Z == p.Z).Id);
+        }
+
+        world.PlantTree(64, 208, TreeSpeciesId.Oak, TreePlantStage.Sapling);
+        world.PaintSurface(tee, 6, Surface.Tee);
+        foreach (var x in new[] { 100.0, 160.0, 220.0 })
+        {
+            world.PaintSurface(new Point2(x, 236), 10, Surface.Fairway);
+        }
+
+        world.PaintSurface(green, 11, Surface.Green);
+        main.StepTicks(1);
+        if (!world.PlaceTee(tee) || !world.PlaceHole(green))
+        {
+            failures.Add("tutoriel : pose du départ ou du trou refusée");
+        }
+
+        main.StepTicks(2);
+        if (!world.HoleOpen)
+        {
+            failures.Add("tutoriel : le trou n'est pas valide après la construction");
+        }
+
+        main.SpawnGroup();
+        main.StepTicks(20);
+        GD.Print($"SMOKE tutoriel : trou valide, étape {Golferoo.Sim.Tutorial.TutorialSteps.Current(world)}");
+        return failures;
     }
 
     private List<string> Check()

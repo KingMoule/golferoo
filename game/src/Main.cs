@@ -3,6 +3,7 @@ using Godot;
 using Golferoo.Game.CameraRig;
 using Golferoo.Game.Rendering;
 using Golferoo.Game.Tools;
+using Golferoo.Game.Tutorial;
 using Golferoo.Sim;
 using Golferoo.Sim.Rating;
 using Golferoo.Sim.Terrain;
@@ -17,7 +18,19 @@ namespace Golferoo.Game;
 public partial class Main : Node3D
 {
     /// <summary>Trou joué : le dogleg de C08 ; la mesure FPS garde le trou du prototype pour rester comparable.</summary>
-    public static string HoleFile => OS.GetCmdlineUserArgs().Contains("--fps-bench") ? "data/holes/proto-par4.json" : "data/holes/dogleg-par4.json";
+    public static string HoleFile => TutorialMode ? "data/holes/blank-coude.json" : OS.GetCmdlineUserArgs().Contains("--fps-bench") ? "data/holes/proto-par4.json" : "data/holes/dogleg-par4.json";
+
+    private static bool? _tutorialOverride;
+
+    /// <summary>Tutoriel de C07 : le monde est la terre vierge, sans ligue. Option de lancement `-- --tutorial`, ou fixé par le code (« Oui » de la proposition, fumée).</summary>
+    public static bool TutorialMode
+    {
+        get => _tutorialOverride ?? OS.GetCmdlineUserArgs().Contains("--tutorial");
+        set => _tutorialOverride = value;
+    }
+
+    /// <summary>Le pro propose le tutoriel au démarrage ; la fumée et les captures l'éteignent pour garder l'écran net.</summary>
+    public static bool OfferTutorial { get; set; } = true;
     public const int DefaultFactor = 2;
     public const int LoadModeGolfers = 200;
     public const int MaxTicksPerFrame = 16;
@@ -85,7 +98,11 @@ public partial class Main : Node3D
 
     public ProAim ProAim { get; private set; } = null!;
 
-    public ProPanel ProPanel { get; private set; } = null!;
+    public ProPanel? ProPanel { get; private set; }
+
+    public PlaceTool PlaceTool { get; private set; } = null!;
+
+    public TutorialPanel? Tutorial { get; private set; }
 
     public int Speed => Speeds[_speedIndex];
 
@@ -105,12 +122,13 @@ public partial class Main : Node3D
     }
 
     /// <summary>Cherche data/holes/... en remontant depuis le projet Godot (le dépôt contient game/ et data/).</summary>
-    public static string FindHolePath()
+    public static string FindHolePath(string? file = null)
     {
+        file ??= HoleFile;
         var dir = ProjectSettings.GlobalizePath("res://");
         for (var i = 0; i < 6 && !string.IsNullOrEmpty(dir); i++)
         {
-            var candidate = System.IO.Path.Combine(dir, HoleFile);
+            var candidate = System.IO.Path.Combine(dir, file);
             if (System.IO.File.Exists(candidate))
             {
                 return candidate;
@@ -119,16 +137,17 @@ public partial class Main : Node3D
             dir = System.IO.Path.GetDirectoryName(dir.TrimEnd('/', '\\')) ?? string.Empty;
         }
 
-        throw new System.IO.FileNotFoundException($"{HoleFile} introuvable au-dessus de res://");
+        throw new System.IO.FileNotFoundException($"{file} introuvable au-dessus de res://");
     }
 
     /// <summary>Chemin réellement utilisé pour lire le JSON du trou (res:// à l'export, dépôt en éditeur).</summary>
     public static string HoleSource { get; private set; } = string.Empty;
 
     /// <summary>Lit le JSON du trou : res://data/holes/... (copié par le csproj, embarqué à l'export), sinon le dépôt.</summary>
-    public static string ReadHoleJson()
+    public static string ReadHoleJson(string? holeFile = null)
     {
-        var resPath = "res://" + HoleFile;
+        var name = holeFile ?? HoleFile;
+        var resPath = "res://" + name;
         if (Godot.FileAccess.FileExists(resPath))
         {
             using var file = Godot.FileAccess.Open(resPath, Godot.FileAccess.ModeFlags.Read);
@@ -136,7 +155,7 @@ public partial class Main : Node3D
             return file.GetAsText();
         }
 
-        HoleSource = FindHolePath();
+        HoleSource = FindHolePath(name);
         return System.IO.File.ReadAllText(HoleSource);
     }
 
@@ -154,7 +173,7 @@ public partial class Main : Node3D
 
         var grid = HoleLoader.Parse(ReadHoleJson(), Factor);
         GD.Print($"HOLE source={HoleSource}");
-        World = new World(seed: 1, grid, league: true);
+        World = new World(seed: 1, grid, league: !grid.Blank);
         if (OS.GetCmdlineUserArgs().Contains("--fps-bench"))
         {
             FpsBench.FillTrees(World.Trees, grid);
@@ -194,7 +213,7 @@ public partial class Main : Node3D
         Camera.SetView(45f, 150f, new Vector3(width / 2f, 0f, depth / 2f));
 
         World.TerrainEdited += OnTerrainEdited;
-        if (!OS.GetCmdlineUserArgs().Contains("--fps-bench"))
+        if (!OS.GetCmdlineUserArgs().Contains("--fps-bench") && !grid.Blank)
         {
             // Pas en mesure FPS : avec 5 000 arbres la note prend ~30 s de cœur et fausse la mesure du rendu.
             _ratingJob = new RatingJob(grid, World.Trees, World.Seed, World.Season, World.SetCourseRating);
@@ -213,12 +232,19 @@ public partial class Main : Node3D
         AddChild(turfPanel);
         turfPanel.Init(this);
 
-        _league = new LeaguePanel { Name = "LeaguePanelLayer" };
-        AddChild(_league);
-        _league.Init(this);
-        ProPanel = new ProPanel { Name = "ProPanelLayer" };
-        AddChild(ProPanel);
-        ProPanel.Init(this);
+        if (World.League is not null)
+        {
+            _league = new LeaguePanel { Name = "LeaguePanelLayer" };
+            AddChild(_league);
+            _league.Init(this);
+            ProPanel = new ProPanel { Name = "ProPanelLayer" };
+            AddChild(ProPanel);
+            ProPanel.Init(this);
+        }
+
+        PlaceTool = new PlaceTool { Name = "PlaceTool" };
+        AddChild(PlaceTool);
+        PlaceTool.Init(this);
 
         _hud = GetNode<Label>("TickLabel");
         _sun = GetNode<DirectionalLight3D>("Sun");
@@ -244,7 +270,14 @@ public partial class Main : Node3D
             World.ManualPro = true;
         }
 
-        if (OS.GetCmdlineUserArgs().Contains("--pro"))
+        if (!OS.GetCmdlineUserArgs().Contains("--fps-bench"))
+        {
+            Tutorial = new TutorialPanel { Name = "TutorialPanelLayer" };
+            AddChild(Tutorial);
+            Tutorial.Init(this, TutorialMode ? TutorialPanel.Mode.Welcome : OfferTutorial && OS.GetCmdlineUserArgs().Length == 0 ? TutorialPanel.Mode.Offer : TutorialPanel.Mode.Off);
+        }
+
+        if (OS.GetCmdlineUserArgs().Contains("--pro") && World.League is not null)
         {
             // Test du pro : une partie d'entraînement part tout de suite.
             World.StartProRound();
@@ -288,6 +321,8 @@ public partial class Main : Node3D
                 break;
             case InputEventMouseButton { Pressed: true, ButtonIndex: MouseButton.Left } click when ProAim.HandleClick(click.Position):
                 break;
+            case InputEventMouseButton { Pressed: true, ButtonIndex: MouseButton.Left } when PlaceTool.HandleClick():
+                break;
             case InputEventMouseButton when Brush.Active || TreeTool.Active:
                 // Le pinceau garde les clics : la caméra ne reçoit plus que la molette et le clic du milieu.
                 if (@event is InputEventMouseButton { Pressed: true, ButtonIndex: MouseButton.WheelUp })
@@ -322,6 +357,12 @@ public partial class Main : Node3D
     /// <summary>Lance une paire de golfeurs sur le trou (touche G).</summary>
     public void SpawnGroup()
     {
+        if (!World.HoleOpen)
+        {
+            // Terre vierge : le trou n'est pas encore valide, la bulle du pro dit ce qui manque.
+            return;
+        }
+
         World.SpawnGroup();
         ResetSnapshots();
     }
@@ -348,7 +389,7 @@ public partial class Main : Node3D
 
     private void HandleKey(Key key)
     {
-        if (ProAim.HandleKey(key) || TreeTool.HandleKey(key))
+        if (ProAim.HandleKey(key) || PlaceTool.HandleKey(key) || TreeTool.HandleKey(key))
         {
             return;
         }
@@ -385,7 +426,7 @@ public partial class Main : Node3D
                 _league?.Toggle();
                 break;
             case Key.O:
-                ProPanel.Toggle();
+                ProPanel?.Toggle();
                 break;
             case Key.F10:
                 SkipToNextMonth();

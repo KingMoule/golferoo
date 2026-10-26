@@ -44,13 +44,13 @@ Ce qui prouve la réussite : un joueur qui n'a jamais vu le jeu dégage la place
 4. Peindre le départ : touche B, F1 (Tee), contour fantôme du départ.
 5. Peindre le fairway : F3, contour du fairway.
 6. Peindre le green : F2, contour du green.
-7. Poser le départ puis le trou : nouvel outil de pose (touche libre fixée au lot 2, P étant prise par l'outil arbres), clic sur le départ puis sur le green.
+7. Poser le départ puis le trou : nouvel outil de pose (touche V), clic sur le départ puis sur le green.
 8. Trou valide : le pro félicite et donne le par ; le tutoriel est terminé, le joueur garde la main. Tant qu'il manque quelque chose, le pro dit quoi (liste de `HoleCheck`).
 
 **Rendu** (`game/src/Tutorial/`)
-- `TutorialPanel` : la bulle du pro en haut à gauche, l'étape (« 3 sur 8 »), « Passer le tutoriel ».
+- `TutorialPanel` : la bulle du pro en haut à gauche, l'étape (« Étape 3 sur 6 »), « Passer le tutoriel ».
 - `GhostOutline` : le contour de la surface attendue, au sol, en pointillé ; un anneau autour des arbres à enlever.
-- Mise en évidence : un cadre clignotant autour d'un nœud nommé (`TutorialAnchor`), ou la touche à presser écrite en gras dans la bulle quand l'action est au clavier.
+- Mise en évidence : les actions du tutoriel sont au clavier ou à la souris dans le monde, pas dans des panneaux : la touche à presser est écrite en gras dans la bulle, les arbres à raser sont cerclés de rouge, et les boutons de la bulle (`TutorialYes`, `TutorialLater`, `TutorialStart`, `TutorialSkip`, `TutorialClose`) ont des noms de nœud stables pour P3. Le cadre clignotant autour d'un panneau viendra avec P3.
 - Lancement : au démarrage du jeu (sur le coude), la bulle du pro propose « Construire ton premier trou ? Oui / Plus tard » ; « Plus tard » la ferme et le joueur explore seul. L'option `-- --tutorial` et un `Tutoriel.bat` dans l'export ouvrent directement la terre vierge.
 
 **Lots (2 PR)**
