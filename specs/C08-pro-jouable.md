@@ -75,7 +75,7 @@ Ce qui prouve la réussite : sur le vrai trou, un draw contourne l'angle du dogl
 4. **Deux paliers de compétences** : chaque coup fait progresser la ou les compétences générales ; un coup réussi (assez long, dans le lie voulu, près de la cible) fait aussi progresser la ou les spécialisées.
 
 ## Retours de Guillaume après avoir joué (2026-10-26)
-- Le pro marchait trop lentement vers sa balle : joué à la main, il marche trois fois plus vite (`World.ProWalkFactor`).
+- Le pro marchait trop lentement vers sa balle : tous les golfeurs marchent trois fois plus vite (`FlowWalker.BaseSpeed` de 1,3 à 3,9 m/s), « ça reste un jeu de simulation ».
 - Bogue : après « Jouer », la visée se rouvrait avant le tick du coup, remettait la cible par défaut et la pause ; il fallait trois essais. Corrigé (`World.ProShotPending`), vérifié par la fumée.
 - Gimme : sur le green à moins de 2 m du trou, le putt est donné (un coup, balle au trou, sans expérience).
 - L'interface sera retravaillée plus tard.

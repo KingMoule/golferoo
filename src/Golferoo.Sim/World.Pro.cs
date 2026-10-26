@@ -81,9 +81,6 @@ public sealed partial class World
     /// <summary>Distance au trou sous laquelle le putt du pro est donné (« gimme ») : un coup, balle au trou.</summary>
     public const double GimmeDistance = 2.0;
 
-    /// <summary>Le pro joué à la main marche trois fois plus vite que les autres golfeurs, pour ne pas faire attendre le joueur.</summary>
-    public const double ProWalkFactor = 3.0;
-
     private bool IsManualPro(Golfer g) => _manualPro && g.MemberId == _proMemberId;
 
     /// <summary>Putt donné : sur le green à moins de <see cref="GimmeDistance"/> du trou, le coup compte et la balle est au trou, sans expérience.</summary>

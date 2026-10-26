@@ -97,26 +97,6 @@ public class ProTests(ITestOutputHelper output)
     }
 
     [Fact]
-    public void ManualPro_WalksToTheTeeFasterThanTheProPlayedByTheAi()
-    {
-        static long TicksToTee(World w)
-        {
-            var golfer = Assert.Single(w.StartProRound().Golfers);
-            var start = w.Tick;
-            while (golfer.State == GolferState.Arriving)
-            {
-                w.Step();
-            }
-
-            return w.Tick - start;
-        }
-
-        var manual = TicksToTee(ManualWorld(8));
-        var ai = TicksToTee(new World(8, Dogleg(), league: true));
-        Assert.True(manual * 2 < ai, $"{manual} ticks contre {ai}");
-    }
-
-    [Fact]
     public void PlayProShot_IsPendingUntilTheNextTick()
     {
         var w = ManualWorld(9);
