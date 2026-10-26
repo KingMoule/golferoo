@@ -31,7 +31,7 @@ public partial class Captures : Node
     private const int FallWaitFrames = 300;
     private const float TurfSize = 100f;
 
-    private const int LeagueViewCount = 3;
+    private const int LeagueViewCount = 4;
 
     private int? _clearingMound;
     private string _outDir = string.Empty;
@@ -385,6 +385,18 @@ public partial class Captures : Node
         await Frames(SettleFrames);
         GD.Print($"AIM actif={main.ProAim.Active} prevue={main.ProAim.Preview.Ball} issue={main.ProAim.Preview.Outcome}");
         Save("pro-aim");
+
+        // Le coup joué, la fiche du pro avec sa première expérience.
+        main.ProAim.Play();
+        for (var i = 0; i < 2_000 && world.AwaitingPro is null; i++)
+        {
+            main.StepTicks(1);
+        }
+
+        main.ProPanel.Toggle();
+        await Frames(SettleFrames);
+        GD.Print($"PRO long-jeu={world.Pro!.Experience(Golferoo.Sim.Pro.ProSkill.LongGame)} draw={world.Pro.Experience(Golferoo.Sim.Pro.ProSkill.Draw)}");
+        Save("pro-sheet");
     }
 
     private async Task Frames(int count)
