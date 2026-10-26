@@ -763,7 +763,7 @@ public sealed partial class World
             group.Started = true;
             shooter.State = terrain.SurfaceAt(shooter.Ball.X, shooter.Ball.Z) == Surface.Green ? GolferState.Putting : GolferState.Swinging;
             shooter.SwingTicks = SwingTicksCount;
-            if (IsManualPro(shooter))
+            if (IsManualPro(shooter) && !Gimme(terrain, shooter))
             {
                 shooter.State = GolferState.AwaitingShot;
             }
@@ -775,7 +775,7 @@ public sealed partial class World
         var field = Flow!.Get(target);
         var pos = g.Position;
         var (cx, cz) = (terrain.CellXOf(pos.X), terrain.CellZOf(pos.Z));
-        var result = FlowWalker.Advance(terrain, field, ref pos, target, TickSeconds);
+        var result = FlowWalker.Advance(terrain, field, ref pos, target, IsManualPro(g) ? TickSeconds * ProWalkFactor : TickSeconds);
         g.Position = pos;
         var (nx, nz) = (terrain.CellXOf(pos.X), terrain.CellZOf(pos.Z));
         if ((nx, nz) != (cx, cz))

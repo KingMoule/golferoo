@@ -264,6 +264,13 @@ public partial class SmokeTest : Node
         }
 
         _main.ProAim.Play();
+        _main.ProAim.Sync();
+        if (_main.ProAim.Active || _main.Paused)
+        {
+            // Bogue vu par Guillaume : la visée se rouvrait avant le tick du coup et remettait la cible par défaut.
+            failures.Add("après « Jouer », la visée se rouvre avant que le coup parte");
+        }
+
         _main.StepTicks(200);
         if (pro.Strokes != 1)
         {
