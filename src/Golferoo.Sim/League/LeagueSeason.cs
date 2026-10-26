@@ -10,7 +10,14 @@ namespace Golferoo.Sim.League;
 /// </summary>
 public sealed class LeagueSeason
 {
-    public const int RoundCount = 10;
+    /// <summary>Une journée par mois, d'avril à août.</summary>
+    public const int RoundCount = 5;
+
+    /// <summary>Jour du mois (à partir de 1) où tombe la journée de ligue.</summary>
+    public const int RoundDayOfMonth = 5;
+
+    /// <summary>Les formats tournent en cycle de quatre.</summary>
+    public const int FormatCycle = 4;
     public const int MinOpinion = 60;
     public const int DivisionSize = 8;
     public const int ClubMembers = 40;
@@ -50,8 +57,8 @@ public sealed class LeagueSeason
 
     public bool Finished => _next >= RoundCount && Rounds.All(r => r.Closed);
 
-    /// <summary>Jour prévu de la journée <paramref name="round"/> : le 5 et le 10 de chaque mois, à partir d'avril.</summary>
-    public static int NominalDay(int round) => ((round / 2) * Calendar.DaysPerMonth) + (round % 2 == 0 ? 4 : 9);
+    /// <summary>Jour prévu de la journée <paramref name="round"/> : le 5 de chaque mois, à partir d'avril.</summary>
+    public static int NominalDay(int round) => (round * Calendar.DaysPerMonth) + RoundDayOfMonth - 1;
 
     /// <summary>40 membres tirés de la graine (handicaps de 2 à 36), puis votre pro (handicap 36, opinion 100).</summary>
     public static List<Member> GenerateMembers(ulong seed)

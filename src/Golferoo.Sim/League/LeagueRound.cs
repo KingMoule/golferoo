@@ -18,7 +18,7 @@ public sealed class LeagueRound
     {
         Number = number;
         NominalDay = nominalDay;
-        Format = (LeagueFormat)(number % 4);
+        Format = (LeagueFormat)(number % LeagueSeason.FormatCycle);
     }
 
     /// <summary>Rang de la journée dans la saison, à partir de 0.</summary>

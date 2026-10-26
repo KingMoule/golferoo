@@ -71,20 +71,20 @@ public class LeagueTests(ITestOutputHelper output)
     }
 
     [Fact]
-    public void Calendar_TenRoundsOnThe5thAnd10th_FormatsFollowTheCycle()
+    public void Calendar_FiveRoundsOnThe5thOfEachMonth_FormatsFollowTheCycle()
     {
         var season = new LeagueSeason(1, Members(20));
 
-        Assert.Equal(10, season.Rounds.Count);
-        Assert.Equal([4, 9, 14, 19, 24, 29, 34, 39, 44, 49], season.Rounds.Select(r => r.NominalDay));
+        Assert.Equal(5, season.Rounds.Count);
+        Assert.Equal([4, 14, 24, 34, 44], season.Rounds.Select(r => r.NominalDay));
         var cycle = new[] { LeagueFormat.StrokePlay, LeagueFormat.Stableford, LeagueFormat.MatchPlay, LeagueFormat.VersusPar };
-        for (var i = 0; i < 10; i++)
+        for (var i = 0; i < 5; i++)
         {
             Assert.Equal(cycle[i % 4], season.Rounds[i].Format);
         }
 
-        var last = Calendar.At((long)season.Rounds[9].NominalDay * Calendar.TicksPerDay, 0);
-        Assert.Equal((10, 8), (last.Day, last.Month));
+        var last = Calendar.At((long)season.Rounds[4].NominalDay * Calendar.TicksPerDay, 0);
+        Assert.Equal((5, 8), (last.Day, last.Month));
         var first = Calendar.At((long)season.Rounds[0].NominalDay * Calendar.TicksPerDay, 0);
         Assert.Equal((5, 4), (first.Day, first.Month));
     }
@@ -102,9 +102,9 @@ public class LeagueTests(ITestOutputHelper output)
         Assert.NotNull(round);
         Assert.Equal(6, round.StartDay);
         Assert.Equal(0, round.Number);
-        // Le report ne décale pas le calendrier prévu : la suivante reste au 10.
-        Assert.Null(season.OnNewDay(8, false, 0));
-        Assert.Equal(1, season.OnNewDay(9, false, 0)?.Number);
+        // Le report ne décale pas le calendrier prévu : la suivante reste au 5 du mois suivant.
+        Assert.Null(season.OnNewDay(13, false, 0));
+        Assert.Equal(1, season.OnNewDay(14, false, 0)?.Number);
     }
 
     [Fact]
@@ -148,10 +148,10 @@ public class LeagueTests(ITestOutputHelper output)
         var season = new LeagueSeason(1, Members(8));
         for (var i = 0; i < 2; i++)
         {
-            season.OnNewDay(4 + (5 * i), false, 0);
+            season.OnNewDay(4 + (10 * i), false, 0);
         }
 
-        var round = season.OnNewDay(14, false, 0)!;
+        var round = season.OnNewDay(24, false, 0)!;
         Assert.Equal(LeagueFormat.MatchPlay, round.Format);
         Assert.Single(round.Pairs, p => p.Length == 1);
         var rng = new Random(3);
@@ -186,7 +186,7 @@ public class LeagueTests(ITestOutputHelper output)
     }
 
     [Fact]
-    public async Task SimulatedSeason_EveryEnrolledMemberHasTenCards_PointsFollowTheRule_AndItIsDeterministic()
+    public async Task SimulatedSeason_EveryEnrolledMemberHasFiveCards_PointsFollowTheRule_AndItIsDeterministic()
     {
         var results = await Task.WhenAll(Enumerable.Range(0, 2).Select(_ => Task.Run(Season)));
         var (world, checksum) = results[0];
@@ -199,7 +199,7 @@ public class LeagueTests(ITestOutputHelper output)
         var enrolled = league.Divisions.SelectMany(d => d).ToHashSet();
         foreach (var m in league.Members)
         {
-            Assert.Equal(enrolled.Contains(m) ? 10 : 0, m.Cards.Count);
+            Assert.Equal(enrolled.Contains(m) ? LeagueSeason.RoundCount : 0, m.Cards.Count);
         }
 
         Assert.All(enrolled, m => Assert.NotNull(m.Index(1)));
