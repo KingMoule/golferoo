@@ -236,7 +236,39 @@ public partial class SmokeTest : Node
             failures.Add("somme de contrôle différente à graine égale");
         }
 
+        CheckProAim(failures);
         return failures;
+    }
+
+    /// <summary>C08 : le pro attend son coup, le mode visée s'ouvre en pause avec une trajectoire prévue, et « Jouer » envoie le coup.</summary>
+    private void CheckProAim(List<string> failures)
+    {
+        var world = _main!.World;
+        world.StartProRound();
+        for (var i = 0; i < 20_000 && world.AwaitingPro is null; i++)
+        {
+            _main.StepTicks(1);
+        }
+
+        if (world.AwaitingPro is not { } pro)
+        {
+            failures.Add("le pro n'attend jamais son coup");
+            return;
+        }
+
+        _main.ProAim.Sync();
+        if (!_main.ProAim.Active || !_main.Paused || _main.ProAim.Preview.Trajectory is not { Count: > 1 })
+        {
+            failures.Add($"mode visée : actif={_main.ProAim.Active}, pause={_main.Paused}, trajectoire prévue absente");
+            return;
+        }
+
+        _main.ProAim.Play();
+        _main.StepTicks(200);
+        if (pro.Strokes != 1)
+        {
+            failures.Add($"après « Jouer », le pro compte {pro.Strokes} coups au lieu de 1");
+        }
     }
 
     /// <summary>Outil arbres : plante, rase, fait tomber et dégage un arbre ; la couche compte toujours les arbres de la sim (debout, tombés, souches).</summary>

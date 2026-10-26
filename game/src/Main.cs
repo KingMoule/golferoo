@@ -83,6 +83,8 @@ public partial class Main : Node3D
 
     public bool Paused { get; set; }
 
+    public ProAim ProAim { get; private set; } = null!;
+
     public int Speed => Speeds[_speedIndex];
 
     /// <summary>Valeur d'une option de ligne de commande après `--` (par exemple `--factor 2`), ou null.</summary>
@@ -228,6 +230,15 @@ public partial class Main : Node3D
             AddChild(new FpsBench { Name = "FpsBench" });
         }
 
+        ProAim = new ProAim { Name = "ProAim" };
+        AddChild(ProAim);
+        ProAim.Init(this);
+        if (!OS.GetCmdlineUserArgs().Contains("--fps-bench"))
+        {
+            // Dans le jeu, le pro ne joue jamais seul : à son tour, le mode visée met le jeu en pause.
+            World.ManualPro = true;
+        }
+
         if (OS.GetCmdlineUserArgs().Contains("--pro"))
         {
             // Test du pro : une partie d'entraînement part tout de suite.
@@ -269,6 +280,8 @@ public partial class Main : Node3D
         {
             case InputEventKey { Pressed: true, Echo: false } key:
                 HandleKey(key.Keycode);
+                break;
+            case InputEventMouseButton { Pressed: true, ButtonIndex: MouseButton.Left } click when ProAim.HandleClick(click.Position):
                 break;
             case InputEventMouseButton when Brush.Active || TreeTool.Active:
                 // Le pinceau garde les clics : la caméra ne reçoit plus que la molette et le clic du milieu.
@@ -330,7 +343,7 @@ public partial class Main : Node3D
 
     private void HandleKey(Key key)
     {
-        if (TreeTool.HandleKey(key))
+        if (ProAim.HandleKey(key) || TreeTool.HandleKey(key))
         {
             return;
         }
