@@ -32,6 +32,9 @@ public enum GolferState : byte
 
     /// <summary>La balle est en l'air ou roule ; le coup est compté quand elle s'arrête.</summary>
     BallInFlight = 8,
+
+    /// <summary>Votre pro, à son tour : attend le coup du joueur (<see cref="World.PlayProShot"/>).</summary>
+    AwaitingShot = 9,
 }
 
 public sealed class Golfer
@@ -78,6 +81,12 @@ public sealed class Golfer
 
     /// <summary>Ticks restants du geste en cours.</summary>
     internal int SwingTicks { get; set; }
+
+    /// <summary>Coup choisi par le joueur (votre pro), joué au prochain geste.</summary>
+    internal Pro.ProShot? PlannedShot { get; set; }
+
+    /// <summary>Le golfeur joue une journée de ligue.</summary>
+    internal bool InLeague { get; set; }
 
     /// <summary>Mode charge : indice du point de passage visé.</summary>
     internal int WaypointIndex { get; set; }

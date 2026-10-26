@@ -79,15 +79,44 @@ public sealed class PhysicalShotResolver : IShotResolver
     /// <summary>
     /// Coup choisi (votre pro) : club, direction, force et trajectoire, avec le spin du club. <paramref name="dispersion"/> multiplie
     /// les écarts types du club ; sans <paramref name="rng"/>, le coup est exécuté sans hasard ni arbres (trajectoire prévue).
-    /// <paramref name="amount"/> multiplie l'effet voulu (1 : exécuté comme voulu).
+    /// <paramref name="amount"/> multiplie l'effet voulu (1 : exécuté comme voulu), à un écart type <paramref name="amountSigma"/> près.
     /// </summary>
-    public ShotResult ExecuteShaped(Point2 ball, Club club, double dirX, double dirZ, double force, ShotShape shape, TerrainGrid terrain, DeterministicRng? rng, double dispersion = 1.0, double amount = 1.0)
+    public ShotResult ExecuteShaped(Point2 ball, Club club, double dirX, double dirZ, double force, ShotShape shape, TerrainGrid terrain, DeterministicRng? rng, double dispersion = 1.0, double amount = 1.0, double amountSigma = 0.0)
     {
         var eps = rng is null ? 0.0 : club.DirectionSigma * dispersion * Gauss(rng);
         var speed = club.Speed * force * (rng is null ? 1.0 : 1.0 + (club.SpeedSigma * dispersion * Gauss(rng)));
+        if (rng is not null && amountSigma > 0.0)
+        {
+            amount = Math.Clamp(amount + (amountSigma * Gauss(rng)), 0.0, 2.0);
+        }
+
         Rotate(dirX, dirZ, eps, 1.0 - (eps * eps / 2.0), out var ux, out var uz);
         var (velocity, curve, backspin) = ShotShapes.Launch(club, ux, uz, speed, shape, amount);
         return BallSimulator.Run(terrain, ball, velocity, rolling: false, _drag, recordPath: true, trees: rng is null ? null : Trees, season: Season, rng: rng, wind: Wind, curve: curve, backspin: backspin).Shot;
+    }
+
+    /// <summary>
+    /// Putt choisi (votre pro) : vers <paramref name="target"/>, à la vitesse qui l'y amènerait sur un green plat ; la pente est au
+    /// joueur de la lire. Sans <paramref name="rng"/>, sans hasard (trajectoire prévue).
+    /// </summary>
+    public ShotResult PuttTo(Point2 ball, Point2 target, TerrainGrid terrain, DeterministicRng? rng, double dispersion = 1.0)
+    {
+        var ex = target.X - ball.X;
+        var ez = target.Z - ball.Z;
+        var dist = Math.Sqrt((ex * ex) + (ez * ez));
+        if (dist < 1e-9)
+        {
+            ex = 1.0;
+            dist = 1.0;
+        }
+
+        var club = Clubs.Putter;
+        var resistance = terrain.Soil.RollResistanceAt(ball.X, ball.Z) * BallSimulator.Gravity;
+        var speed = Math.Min(Math.Sqrt(2.0 * resistance * dist), MaxPuttSpeed);
+        var eps = rng is null ? 0.0 : (club.DirectionSigma + (PuttSigmaPerMeter * dist)) * dispersion * Gauss(rng);
+        speed *= rng is null ? 1.0 : 1.0 + (club.SpeedSigma * dispersion * Gauss(rng));
+        Rotate(ex / dist, ez / dist, eps, 1.0 - (eps * eps / 2.0), out var dx, out var dz);
+        return BallSimulator.Run(terrain, ball, new Vec3(dx * speed, 0, dz * speed), rolling: true, _drag, recordPath: true).Shot;
     }
 
     private static void Rotate(double ux, double uz, double sin, double cos, out double rx, out double rz)
