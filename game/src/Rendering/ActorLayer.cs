@@ -118,7 +118,7 @@ public partial class ActorLayer : Node3D
             _golfers.SetInstanceTransform(i, new Transform3D(Basis.Identity, new Vector3((float)pos.X, y, (float)pos.Z)));
             _golfers.SetInstanceColor(i, StateColor(cur.State, cur.Id));
 
-            if (cur.State != GolferState.Roaming && cur.State != GolferState.Done && !cur.Holed)
+            if (cur.State != GolferState.Roaming && cur.State != GolferState.Done && !cur.Holed && !cur.PickedUp)
             {
                 _balls.SetInstanceTransform(nb, new Transform3D(Basis.Identity, new Vector3((float)ball.X, (float)ball.Y + ProceduralMeshes.BallRadius, (float)ball.Z)));
                 _balls.SetInstanceColor(nb, Colors.White);

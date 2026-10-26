@@ -490,13 +490,13 @@ public sealed partial class World
         {
             foreach (var g in group.Golfers)
             {
-                items.Add(new GolferView(g.Id, group.Id, g.Position, g.Ball, g.State, g.Strokes, g.Holed, BallPosition(g)));
+                items.Add(new GolferView(g.Id, group.Id, g.Position, g.Ball, g.State, g.Strokes, g.Holed, BallPosition(g), g.PickedUp));
             }
         }
 
         foreach (var g in _roamers)
         {
-            items.Add(new GolferView(g.Id, -1, g.Position, g.Ball, g.State, g.Strokes, g.Holed, BallPosition(g)));
+            items.Add(new GolferView(g.Id, -1, g.Position, g.Ball, g.State, g.Strokes, g.Holed, BallPosition(g), g.PickedUp));
         }
 
         return snap;
