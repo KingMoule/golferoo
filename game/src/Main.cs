@@ -264,7 +264,7 @@ public partial class Main : Node3D
         ProAim = new ProAim { Name = "ProAim" };
         AddChild(ProAim);
         ProAim.Init(this);
-        if (!OS.GetCmdlineUserArgs().Contains("--fps-bench"))
+        if (!OS.GetCmdlineUserArgs().Contains("--fps-bench") && World.League is not null)
         {
             // Dans le jeu, le pro ne joue jamais seul : à son tour, le mode visée met le jeu en pause.
             World.ManualPro = true;
