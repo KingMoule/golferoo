@@ -16,7 +16,8 @@ namespace Golferoo.Game;
 /// </summary>
 public partial class Main : Node3D
 {
-    public const string HoleFile = "data/holes/proto-par4.json";
+    /// <summary>Trou joué : le dogleg de C08 ; la mesure FPS garde le trou du prototype pour rester comparable.</summary>
+    public static string HoleFile => OS.GetCmdlineUserArgs().Contains("--fps-bench") ? "data/holes/proto-par4.json" : "data/holes/dogleg-par4.json";
     public const int DefaultFactor = 2;
     public const int LoadModeGolfers = 200;
     public const int MaxTicksPerFrame = 16;
@@ -225,6 +226,12 @@ public partial class Main : Node3D
         if (OS.GetCmdlineUserArgs().Contains("--fps-bench"))
         {
             AddChild(new FpsBench { Name = "FpsBench" });
+        }
+
+        if (OS.GetCmdlineUserArgs().Contains("--pro"))
+        {
+            // Test du pro : une partie d'entraînement part tout de suite.
+            World.StartProRound();
         }
     }
 
