@@ -91,6 +91,11 @@ public static class HoleCheck
     {
         var start = (terrain.CellZOf(from.Z) * terrain.CellsX) + terrain.CellXOf(from.X);
         var goal = (terrain.CellZOf(to.Z) * terrain.CellsX) + terrain.CellXOf(to.X);
+        if (!terrain.IsWalkable(terrain.CellXOf(from.X), terrain.CellZOf(from.Z)) || !terrain.IsWalkable(terrain.CellXOf(to.X), terrain.CellZOf(to.Z)))
+        {
+            return false;
+        }
+
         var seen = new bool[terrain.CellsX * terrain.CellsZ];
         var queue = new Queue<int>();
         queue.Enqueue(start);

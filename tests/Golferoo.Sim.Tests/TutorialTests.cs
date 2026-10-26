@@ -107,6 +107,50 @@ public class TutorialTests
             issues);
     }
 
+    [Fact]
+    public void HoleCheck_FlagsAHoleTooCloseToItsTee()
+    {
+        var world = BlankWorld();
+        world.PaintSurface(TeeSpot, 6, Surface.Tee);
+        world.PaintSurface(new Point2(60, 244), 11, Surface.Green);
+        world.Step();
+        world.PlaceTee(TeeSpot);
+        world.PlaceHole(new Point2(60, 244));
+        world.Step();
+
+        Assert.Contains(HoleIssue.TooClose, HoleCheck.Check(world.Terrain!));
+    }
+
+    [Fact]
+    public void HoleCheck_FlagsAGreenCutOffByWater()
+    {
+        var world = BlankWorld();
+        world.PaintSurface(TeeSpot, 6, Surface.Tee);
+        world.PaintSurface(GreenSpot, 20, Surface.Water);
+        world.Step();
+        world.PaintSurface(GreenSpot, 11, Surface.Green);
+        world.Step();
+        world.PlaceTee(TeeSpot);
+        world.PlaceHole(GreenSpot);
+        world.Step();
+
+        Assert.Contains(HoleIssue.NoPath, HoleCheck.Check(world.Terrain!));
+        Assert.DoesNotContain(HoleIssue.TooClose, HoleCheck.Check(world.Terrain!));
+    }
+
+    [Fact]
+    public void PlantTree_RefusedOnTheTeeDoesNotCountForTheSaplingStep()
+    {
+        var world = BlankWorld();
+        world.PaintSurface(TeeSpot, 6, Surface.Tee);
+        world.Step();
+        world.PlantTree(TeeSpot.X, TeeSpot.Z, TreeSpeciesId.Oak, TreePlantStage.Sapling);
+        world.Step();
+
+        Assert.Equal(0, world.TreesPlanted);
+        Assert.Equal(1, world.TreeCommandsRefused);
+    }
+
     [Theory]
     [InlineData("dogleg-par4.json")]
     [InlineData("proto-par4.json")]
