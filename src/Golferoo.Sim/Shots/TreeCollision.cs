@@ -38,14 +38,25 @@ public static class TreeCollision
     /// </summary>
     public sealed class Probe
     {
-        internal List<Tree> Candidates { get; } = [];
+        internal List<Tree> Found { get; } = [];
+
+        internal List<Candidate> Candidates { get; } = [];
 
         internal double CenterX { get; set; }
 
         internal double CenterZ { get; set; }
 
         internal bool Valid { get; set; }
+
+        /// <summary>Altitude absolue de la plus haute cime des candidats : au-dessus, le pas n'a rien à tester.</summary>
+        internal double Top { get; set; }
     }
+
+    /// <summary>
+    /// Arbre debout candidat, avec ses dimensions calculées une fois par recherche : à chaque pas,
+    /// elles coûtaient une courbe de croissance et un échantillonnage du terrain par arbre proche.
+    /// </summary>
+    internal readonly record struct Candidate(Tree Tree, double CrownRadius, double Ground, double Height, double CrownBase, double TrunkRadius, double TrunkTop, double Density);
 
     /// <summary>Marge horizontale de la recherche : plus grand rayon de couronne, plus un pas de vol.</summary>
     public static readonly double Margin = TreeSpeciesTable.MaxCrownRadius + Reach;
@@ -77,51 +88,60 @@ public static class TreeCollision
         var sz = mz - probe.CenterZ;
         if (!probe.Valid || (sx * sx) + (sz * sz) > ProbeRadius * ProbeRadius)
         {
+            probe.Found.Clear();
             probe.Candidates.Clear();
-            trees.Query(mx, mz, Margin + ProbeRadius, probe.Candidates);
+            trees.Query(mx, mz, Margin + ProbeRadius, probe.Found);
+            var top = double.NegativeInfinity;
+            foreach (var t in probe.Found)
+            {
+                // Un tronc tombé ou une souche n'arrête pas la balle (lot 4 de C02) : seuls les arbres debout comptent.
+                if (t.State != TreeState.Standing)
+                {
+                    continue;
+                }
+
+                var species = TreeSpeciesTable.Get(t.Species);
+                var g = Tree.Growth(species, t.AgeMonths);
+                var a = 0.5 * (species.SaplingCrownDiameter + ((species.AdultCrownDiameter - species.SaplingCrownDiameter) * g));
+                // Seuls les arbres que peut toucher un pas pris à moins de ProbeRadius du centre.
+                var far = a + StepReach + ProbeRadius;
+                if (((t.X - mx) * (t.X - mx)) + ((t.Z - mz) * (t.Z - mz)) > far * far)
+                {
+                    continue;
+                }
+
+                var ground = terrain.Sample(t.X, t.Z);
+                var height = species.SaplingHeight + ((species.AdultHeight - species.SaplingHeight) * g);
+                var crownBase = species.FirstBranchHeight * height / species.AdultHeight;
+                var trunkRadius = 0.5 * (species.SaplingTrunkDiameter + ((species.TrunkDiameter - species.SaplingTrunkDiameter) * g));
+                // Tronc : du sol à un peu au-dessus de la base de la couronne.
+                var trunkTop = ground + crownBase + (TrunkTopShare * (height - crownBase));
+                probe.Candidates.Add(new Candidate(t, a, ground, height, crownBase, trunkRadius, trunkTop, species.CrownDensity(season)));
+                top = Math.Max(top, ground + height);
+            }
+
+            probe.Top = top;
             probe.CenterX = mx;
             probe.CenterZ = mz;
             probe.Valid = true;
         }
 
-        var near = Margin * Margin;
-        foreach (var tree in probe.Candidates)
+        if (Math.Min(py, y) > probe.Top)
         {
-            // Un tronc tombé ou une souche n'arrête pas la balle (lot 4 de C02) : seuls les arbres debout comptent.
-            if (tree.State != TreeState.Standing)
+            return;
+        }
+
+        foreach (var c in probe.Candidates)
+        {
+            var tx = c.Tree.X - mx;
+            var tz = c.Tree.Z - mz;
+            var reach = c.CrownRadius + StepReach;
+            if ((tx * tx) + (tz * tz) > reach * reach || Math.Min(py, y) > c.Ground + c.Height)
             {
                 continue;
             }
 
-            var tx = tree.X - mx;
-            var tz = tree.Z - mz;
-            if ((tx * tx) + (tz * tz) > near)
-            {
-                continue;
-            }
-
-            var species = TreeSpeciesTable.Get(tree.Species);
-            var g = Tree.Growth(species, tree.AgeMonths);
-            var a = 0.5 * (species.SaplingCrownDiameter + ((species.AdultCrownDiameter - species.SaplingCrownDiameter) * g));
-            var reach = a + StepReach;
-            if ((tx * tx) + (tz * tz) > reach * reach)
-            {
-                continue;
-            }
-
-            var ground = terrain.Sample(tree.X, tree.Z);
-            var height = species.SaplingHeight + ((species.AdultHeight - species.SaplingHeight) * g);
-            if (Math.Min(py, y) > ground + height)
-            {
-                continue;
-            }
-
-            var crownBase = species.FirstBranchHeight * height / species.AdultHeight;
-            var trunkRadius = 0.5 * (species.SaplingTrunkDiameter + ((species.TrunkDiameter - species.SaplingTrunkDiameter) * g));
-
-            // Tronc : du sol à un peu au-dessus de la base de la couronne.
-            var trunkTop = ground + crownBase + (TrunkTopShare * (height - crownBase));
-            if (HitTrunk(tree, trunkRadius + BallRadius, ground, trunkTop, px, py, pz, ref x, ref y, ref z, ref vx, ref vz))
+            if (HitTrunk(c.Tree, c.TrunkRadius + BallRadius, c.Ground, c.TrunkTop, px, py, pz, ref x, ref y, ref z, ref vx, ref vz))
             {
                 continue;
             }
@@ -131,14 +151,14 @@ public static class TreeCollision
                 continue;
             }
 
-            var b = (height - crownBase) * 0.5;
-            var length = ChordLength(tree.X, ground + crownBase + b, tree.Z, a, b, px, py, pz, x, y, z);
+            var b = (c.Height - c.CrownBase) * 0.5;
+            var length = ChordLength(c.Tree.X, c.Ground + c.CrownBase + b, c.Tree.Z, c.CrownRadius, b, px, py, pz, x, y, z);
             if (length <= 0)
             {
                 continue;
             }
 
-            var p = StopProbability(CrownK * species.CrownDensity(season) * length);
+            var p = StopProbability(CrownK * c.Density * length);
             if (rng.NextDouble() < p)
             {
                 crownDone = true;
