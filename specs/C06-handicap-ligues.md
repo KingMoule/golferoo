@@ -1,5 +1,5 @@
 # Handicap, moteur de score et ligues
-Statut : validé
+Statut : livré
 Créé : 2026-10-25
 
 ## But
@@ -92,5 +92,5 @@ Ce qui prouve la réussite : sur une saison simulée, les meilleurs joueurs fini
 complet (lots 1 à 4 : physique du coup, état de partie, calculs de score) ; léger pour le lot 5 (rendu)
 
 ## Clôture
-- [ ] Critères vérifiés
-- [ ] Statut passé à « livré », ligne mise à jour dans docs/chantiers.md
+- [x] Critères vérifiés (1 à 3, 5 et 6 par les tests et la CI, 4 : captures `league-panel` et `league-card` à juger par Guillaume)
+- [x] Statut passé à « livré », ligne mise à jour dans docs/chantiers.md
