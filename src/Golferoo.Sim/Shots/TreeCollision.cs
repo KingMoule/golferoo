@@ -44,6 +44,36 @@ public static class TreeCollision
         internal bool Valid { get; set; }
     }
 
+    /// <summary>
+    /// Mode espérance de la planification : une couronne n'arrête pas la balle, elle retire de <see cref="Pass"/> la probabilité d'arrêt
+    /// du pas et verse cette probabilité (au point du pas) dans la position moyenne d'arrêt. Aucun tirage.
+    /// </summary>
+    public sealed class Expectation
+    {
+        /// <summary>En dessous de cette probabilité de passer, la branche « passée » est arrêtée net (poids négligeable).</summary>
+        internal const double NegligiblePass = 0.01;
+
+        /// <summary>Probabilité que la balle ait franchi toutes les couronnes rencontrées jusqu'ici.</summary>
+        public double Pass { get; private set; } = 1.0;
+
+        /// <summary>Probabilité cumulée d'être arrêtée par une couronne.</summary>
+        public double Stopped => 1.0 - Pass;
+
+        /// <summary>Position moyenne d'arrêt, pondérée par la probabilité (point de départ si jamais arrêtée).</summary>
+        public Point2 StopPoint => Stopped > 1e-12 ? new Point2(_sumX / Stopped, _sumZ / Stopped) : default;
+
+        private double _sumX;
+        private double _sumZ;
+
+        internal void Add(double p, double x, double z)
+        {
+            var w = Pass * p;
+            _sumX += w * x;
+            _sumZ += w * z;
+            Pass -= w;
+        }
+    }
+
     /// <summary>Marge horizontale de la recherche : plus grand rayon de couronne, plus un pas de vol.</summary>
     public static readonly double Margin = TreeSpeciesTable.MaxCrownRadius + Reach;
 
@@ -55,7 +85,7 @@ public static class TreeCollision
         TerrainGrid terrain,
         TreeStand trees,
         Season season,
-        DeterministicRng rng,
+        DeterministicRng? rng,
         Probe probe,
         double px,
         double py,
@@ -66,7 +96,8 @@ public static class TreeCollision
         ref double vx,
         ref double vy,
         ref double vz,
-        ref bool crownDone)
+        ref bool crownDone,
+        Expectation? expectation = null)
     {
         var mx = (x + px) * 0.5;
         var mz = (z + pz) * 0.5;
@@ -136,7 +167,13 @@ public static class TreeCollision
             }
 
             var p = StopProbability(CrownK * species.CrownDensity(season) * length);
-            if (rng.NextDouble() < p)
+            if (expectation is not null)
+            {
+                expectation.Add(p, x, z);
+            }
+
+            // Mode espérance : une fois la balle presque sûrement arrêtée, la branche « passée » n'a plus de poids ; on l'arrête aussi.
+            if (expectation is null ? rng!.NextDouble() < p : expectation.Pass < Expectation.NegligiblePass)
             {
                 crownDone = true;
                 vx *= CrownDamping;

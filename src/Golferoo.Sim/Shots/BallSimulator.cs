@@ -84,9 +84,10 @@ public static class BallSimulator
     /// <param name="wind">Vent en vol, en m/s (horizontal) ; sans effet sur le roulement.</param>
     /// <param name="curve">Effet latéral : vitesse de rotation de la vitesse horizontale en vol, en rad/s (positif : draw, vers la gauche d'un droitier ; 0 : aucun).</param>
     /// <param name="backspin">Part de la vitesse horizontale perdue au premier rebond (0 : aucune).</param>
-    public static SimulationResult Run(TerrainGrid terrain, Point2 start, Vec3 velocity, bool rolling, double drag, bool recordPath, double startHeight = 0.0, TreeStand? trees = null, Season season = Season.Summer, DeterministicRng? rng = null, Vec3 wind = default, double curve = 0.0, double backspin = 0.0)
+    /// <param name="expectation">Mode espérance (planification) : les couronnes ne tirent pas au hasard, elles cumulent leur probabilité d'arrêt ici ; les troncs agissent comme à l'exécution. Sans <paramref name="rng"/>.</param>
+    public static SimulationResult Run(TerrainGrid terrain, Point2 start, Vec3 velocity, bool rolling, double drag, bool recordPath, double startHeight = 0.0, TreeStand? trees = null, Season season = Season.Summer, DeterministicRng? rng = null, Vec3 wind = default, double curve = 0.0, double backspin = 0.0, TreeCollision.Expectation? expectation = null)
     {
-        if (trees is not null && rng is null)
+        if (trees is not null && rng is null && expectation is null)
         {
             throw new ArgumentNullException(nameof(rng), "Des arbres exigent le RNG du coup.");
         }
@@ -161,7 +162,7 @@ public static class BallSimulator
                 // L'index donne l'altitude absolue de la cime la plus haute autour de la balle (sol au pied + hauteur).
                 if (trees is not null && y < trees.MaxTopNear(x, z, TreeCollision.Margin))
                 {
-                    TreeCollision.Step(terrain, trees, season, rng!, probe!, px, py, pz, ref x, ref y, ref z, ref vx, ref vy, ref vz, ref crownDone);
+                    TreeCollision.Step(terrain, trees, season, rng, probe!, px, py, pz, ref x, ref y, ref z, ref vx, ref vy, ref vz, ref crownDone, expectation);
                     h = terrain.Sample(x, z);
                 }
 

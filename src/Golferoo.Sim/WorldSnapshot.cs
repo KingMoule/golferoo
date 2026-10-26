@@ -9,7 +9,7 @@ namespace Golferoo.Sim;
 /// <paramref name="Ball3D"/> est la position 3D de la balle (hauteur comprise) : en vol, l'échantillon courant de sa trajectoire ;
 /// sinon la balle posée sur le terrain.
 /// </summary>
-public readonly record struct GolferView(int Id, int GroupId, Point2 Position, Point2 Ball, GolferState State, int Strokes, bool Holed, Vec3 Ball3D = default);
+public readonly record struct GolferView(int Id, int GroupId, Point2 Position, Point2 Ball, GolferState State, int Strokes, bool Holed, Vec3 Ball3D = default, bool PickedUp = false);
 
 /// <summary>
 /// Instantané en lecture seule du monde. Passe-le à <see cref="World.Snapshot(WorldSnapshot?)"/> à chaque image

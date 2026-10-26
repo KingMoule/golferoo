@@ -27,9 +27,19 @@ public sealed class PhysicalShotResolver : IShotResolver
     /// <summary>Coût d'un coup de pénalité, en mètres équivalents.</summary>
     private const double PenaltyCost = 100.0;
 
+    /// <summary>Coût d'une balle arrêtée par une couronne : celui d'une balle sous les arbres (voir <c>Cost</c>).</summary>
+    private const double TreesLieCost = 25.0;
+
+    /// <summary>Probabilité d'arrêt du meilleur candidat au-delà de laquelle la ligne du trou est jugée bouchée.</summary>
+    private const double BlockedStop = 0.25;
+
+    /// <summary>Portée minimale d'un candidat quand la ligne du trou est bouchée (on peut ressortir de côté d'un coup court), en mètres.</summary>
+    private const double WideMinRange = 15.0;
+
     private static readonly double[] OffsetDegrees = [-20, -10, -4, 0, 4, 10, 20];
-    private static readonly double[] OffsetCos = OffsetDegrees.Select(d => Math.Cos(d * Math.PI / 180.0)).ToArray();
-    private static readonly double[] OffsetSin = OffsetDegrees.Select(d => Math.Sin(d * Math.PI / 180.0)).ToArray();
+    private static readonly double[] WideDegrees = [-90, -60, -35, 35, 60, 90];
+    private static readonly double[] LowDegrees = [-10, 0, 10];
+    private static readonly double[] WideForces = [1.0, 0.65, 0.35];
     private static readonly double[] Forces = [1.0, 0.9, 0.8, 0.65, 0.5, 0.35];
 
     private readonly double _drag;
@@ -40,8 +50,8 @@ public sealed class PhysicalShotResolver : IShotResolver
     }
 
     /// <summary>
-    /// Arbres que rencontre la balle d'un coup exécuté (nul : aucun). La planification les ignore : elle ne contourne pas
-    /// les arbres, elle les subit. Le monde y met ses arbres.
+    /// Arbres que rencontre la balle (nul : aucun). L'exécution tire leurs couronnes au hasard ; la planification les voit en
+    /// espérance (probabilité d'arrêt cumulée, sans tirage). Le monde y met ses arbres.
     /// </summary>
     public TreeStand? Trees { get; set; }
 
@@ -59,21 +69,28 @@ public sealed class PhysicalShotResolver : IShotResolver
         }
 
         var plan = Plan(request, terrain);
-        return Execute(request.Ball, plan.Club, plan.DirX, plan.DirZ, plan.Force, terrain, rng, request.Skill);
+        return Execute(request.Ball, plan.Club, plan.DirX, plan.DirZ, plan.Force, terrain, rng, request.Skill, plan.Low);
     }
 
     /// <summary>
     /// Exécute un coup avec la dispersion du club (direction et vitesse tirées du RNG), élargie par le niveau de jeu
     /// et avec une balle un peu moins rapide au-delà du niveau 1. Au niveau 1, chaque facteur vaut exactement 1.
+    /// <paramref name="low"/> : sortie basse, lancement à la moitié de l'angle du club comme le chip de <see cref="ShotShape.Chip"/>.
     /// </summary>
-    public ShotResult Execute(Point2 ball, Club club, double dirX, double dirZ, double force, TerrainGrid terrain, DeterministicRng rng, double skill = 1.0)
+    public ShotResult Execute(Point2 ball, Club club, double dirX, double dirZ, double force, TerrainGrid terrain, DeterministicRng rng, double skill = 1.0, bool low = false)
     {
         var eps = club.DirectionSigma * skill * Gauss(rng);
         var power = 1.0 - (PowerLossPerSkill * Math.Max(0.0, skill - 1.0));
         var speed = club.Speed * force * (1.0 + (club.SpeedSigma * skill * Gauss(rng))) * power;
         Rotate(dirX, dirZ, eps, 1.0 - (eps * eps / 2.0), out var ux, out var uz);
         var velocity = new Vec3(ux * club.LaunchCos * speed, club.LaunchSin * speed, uz * club.LaunchCos * speed);
-        return BallSimulator.Run(terrain, ball, velocity, rolling: false, _drag, recordPath: true, trees: Trees, season: Season, rng: rng, wind: Wind).Shot;
+        var backspin = 0.0;
+        if (low)
+        {
+            (velocity, _, backspin) = ShotShapes.Launch(club, ux, uz, speed, ShotShape.Chip);
+        }
+
+        return BallSimulator.Run(terrain, ball, velocity, rolling: false, _drag, recordPath: true, trees: Trees, season: Season, rng: rng, wind: Wind, backspin: backspin).Shot;
     }
 
     /// <summary>
@@ -146,48 +163,65 @@ public sealed class PhysicalShotResolver : IShotResolver
             ShotOutcome.Fairway or ShotOutcome.Tee or ShotOutcome.Path => -2.0,
             ShotOutcome.Rough => 6.0,
             ShotOutcome.Bunker => 18.0,
-            ShotOutcome.Trees => 25.0,
+            ShotOutcome.Trees => TreesLieCost,
             ShotOutcome.Water or ShotOutcome.OutOfBounds => 60.0,
             _ => 0.0,
         };
         return cost;
     }
 
-    private (Club Club, double DirX, double DirZ, double Force) Plan(in ShotRequest request, TerrainGrid terrain)
+    private (Club Club, double DirX, double DirZ, double Force, bool Low) Plan(in ShotRequest request, TerrainGrid terrain)
     {
         var ex = request.Hole.X - request.Ball.X;
         var ez = request.Hole.Z - request.Ball.Z;
         var dist = Math.Sqrt((ex * ex) + (ez * ez));
         if (dist < 1e-9)
         {
-            return (Clubs.Wedge, 1.0, 0.0, Forces[^1]);
+            return (Clubs.Wedge, 1.0, 0.0, Forces[^1], false);
         }
 
         var ux = ex / dist;
         var uz = ez / dist;
-        var candidates = new List<(double Cost, Club Club, double DirX, double DirZ, double Force)>();
-        foreach (var club in Clubs.Full)
-        {
-            foreach (var force in Forces)
-            {
-                var range = club.TargetRange * force * force;
-                if (range > (1.3 * dist) + 15.0 || range < 0.3 * dist)
-                {
-                    continue;
-                }
+        var ball = request.Ball;
+        var hole = request.Hole;
+        var candidates = new List<(double Cost, double Stop, Club Club, double DirX, double DirZ, double Force, bool Low)>();
 
-                for (var i = 0; i < OffsetDegrees.Length; i++)
+        void Add(IReadOnlyList<double> degrees, IReadOnlyList<double> forces, bool low, bool relaxed)
+        {
+            foreach (var club in Clubs.Full)
+            {
+                foreach (var force in forces)
                 {
-                    Rotate(ux, uz, OffsetSin[i], OffsetCos[i], out var dx, out var dz);
-                    var result = Simulate(request.Ball, club, dx, dz, force, terrain);
-                    candidates.Add((Cost(result, request.Hole), club, dx, dz, force));
+                    var range = club.TargetRange * force * force;
+                    if (range > (1.3 * dist) + 15.0 || range < (relaxed ? WideMinRange : 0.3 * dist))
+                    {
+                        continue;
+                    }
+
+                    foreach (var degree in degrees)
+                    {
+                        var radians = degree * Math.PI / 180.0;
+                        Rotate(ux, uz, Math.Sin(radians), Math.Cos(radians), out var dx, out var dz);
+                        var cost = Evaluate(ball, hole, club, dx, dz, force, low, terrain, out var stop);
+                        candidates.Add((cost, stop, club, dx, dz, force, low));
+                    }
                 }
             }
         }
 
+        Add(OffsetDegrees, Forces, low: false, relaxed: false);
+
+        // Ligne du trou bouchée par les arbres : on essaie aussi les coups bas (sous les branches) et les directions jusqu'à ±90°
+        // pour ressortir de côté, avec moins de forces et de directions pour tenir le temps de planification.
+        if (candidates.Count > 0 && Best(candidates).Stop > BlockedStop)
+        {
+            Add(LowDegrees, WideForces, low: true, relaxed: false);
+            Add(WideDegrees, WideForces, low: false, relaxed: true);
+        }
+
         if (candidates.Count == 0)
         {
-            return (Clubs.Wedge, ux, uz, Forces[^1]);
+            return (Clubs.Wedge, ux, uz, Forces[^1], false);
         }
 
         // Les meilleurs candidats sont re-testés avec la direction décalée de chaque côté, pour préférer un coup sûr.
@@ -201,8 +235,8 @@ public sealed class PhysicalShotResolver : IShotResolver
             var cos = 1.0 - (eps * eps / 2.0);
             Rotate(c.DirX, c.DirZ, eps, cos, out var ax, out var az);
             Rotate(c.DirX, c.DirZ, -eps, cos, out var bx, out var bz);
-            var left = Cost(Simulate(request.Ball, c.Club, ax, az, c.Force, terrain), request.Hole);
-            var right = Cost(Simulate(request.Ball, c.Club, bx, bz, c.Force, terrain), request.Hole);
+            var left = Evaluate(ball, hole, c.Club, ax, az, c.Force, c.Low, terrain, out _);
+            var right = Evaluate(ball, hole, c.Club, bx, bz, c.Force, c.Low, terrain, out _);
             var score = ((2.0 * c.Cost) + left + right) / 4.0;
             if (score < bestScore)
             {
@@ -211,14 +245,57 @@ public sealed class PhysicalShotResolver : IShotResolver
             }
         }
 
-        return (best.Club, best.DirX, best.DirZ, best.Force);
+        return (best.Club, best.DirX, best.DirZ, best.Force, best.Low);
     }
 
-    private ShotResult Simulate(Point2 ball, Club club, double dirX, double dirZ, double force, TerrainGrid terrain)
+    private static (double Cost, double Stop, Club Club, double DirX, double DirZ, double Force, bool Low) Best(List<(double Cost, double Stop, Club Club, double DirX, double DirZ, double Force, bool Low)> candidates)
+    {
+        var best = candidates[0];
+        foreach (var c in candidates)
+        {
+            if (c.Cost < best.Cost)
+            {
+                best = c;
+            }
+        }
+
+        return best;
+    }
+
+    /// <summary>
+    /// Coût espéré d'un candidat, sans hasard : p × coût(arrêté au pied des arbres) + (1 − p) × coût(passé), p étant la probabilité
+    /// cumulée d'être arrêté par une couronne. Les troncs agissent comme à l'exécution. <paramref name="stop"/> : part des balles
+    /// qui finissent sous les arbres, pour juger la ligne du trou bouchée.
+    /// </summary>
+    private double Evaluate(Point2 ball, Point2 hole, Club club, double dirX, double dirZ, double force, bool low, TerrainGrid terrain, out double stop)
     {
         var speed = club.Speed * force;
-        var velocity = new Vec3(dirX * club.LaunchCos * speed, club.LaunchSin * speed, dirZ * club.LaunchCos * speed);
-        return BallSimulator.Run(terrain, ball, velocity, rolling: false, _drag, recordPath: false, wind: Wind).Shot;
+        Vec3 velocity;
+        var backspin = 0.0;
+        if (low)
+        {
+            (velocity, _, backspin) = ShotShapes.Launch(club, dirX, dirZ, speed, ShotShape.Chip);
+        }
+        else
+        {
+            velocity = new Vec3(dirX * club.LaunchCos * speed, club.LaunchSin * speed, dirZ * club.LaunchCos * speed);
+        }
+
+        var expectation = Trees is null ? null : new TreeCollision.Expectation();
+        var shot = BallSimulator.Run(terrain, ball, velocity, rolling: false, _drag, recordPath: false, trees: Trees, season: Season, wind: Wind, backspin: backspin, expectation: expectation).Shot;
+        var cost = Cost(shot, hole);
+        var crown = expectation?.Stopped ?? 0.0;
+
+        // Part des balles qui finissent sous les arbres : arrêtées par une couronne, ou passées mais retombées dans le bois.
+        stop = crown + ((1.0 - crown) * (shot.Outcome == ShotOutcome.Trees ? 1.0 : 0.0));
+        if (crown <= 0.0)
+        {
+            return cost;
+        }
+
+        var at = expectation!.StopPoint;
+        var stopped = Math.Sqrt(((at.X - hole.X) * (at.X - hole.X)) + ((at.Z - hole.Z) * (at.Z - hole.Z))) + TreesLieCost;
+        return (crown * stopped) + ((1.0 - crown) * cost);
     }
 
     private ShotResult Putt(in ShotRequest request, TerrainGrid terrain, DeterministicRng rng)
