@@ -1,5 +1,5 @@
 # Tutoriel : construire son premier trou
-Statut : validé
+Statut : livré
 Créé : 2026-10-26
 
 ## But
@@ -74,5 +74,5 @@ Ce qui prouve la réussite : un joueur qui n'a jamais vu le jeu dégage la place
 complet pour le lot 1 (nouvel état de partie et commandes) ; léger pour le lot 2 (rendu et textes)
 
 ## Clôture
-- [ ] Critères vérifiés
-- [ ] Statut passé à « livré », ligne mise à jour dans docs/chantiers.md
+- [x] Critères vérifiés (1, 2, 3 et 5 par les tests, le banc et la CI ; audit indépendant du lot 1 conforme, trois réserves corrigées ; 4 : la fumée rejoue le tutoriel, captures `tutorial-blank`, `tutorial-green` et `tutorial-done` à juger par Guillaume, qui fait le tutoriel avec `Tutoriel.bat`)
+- [x] Statut passé à « livré », ligne mise à jour dans docs/chantiers.md
