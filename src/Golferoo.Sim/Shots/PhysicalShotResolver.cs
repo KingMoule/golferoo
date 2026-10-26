@@ -76,6 +76,20 @@ public sealed class PhysicalShotResolver : IShotResolver
         return BallSimulator.Run(terrain, ball, velocity, rolling: false, _drag, recordPath: true, trees: Trees, season: Season, rng: rng, wind: Wind).Shot;
     }
 
+    /// <summary>
+    /// Coup choisi (votre pro) : club, direction, force et trajectoire, avec le spin du club. <paramref name="dispersion"/> multiplie
+    /// les écarts types du club ; sans <paramref name="rng"/>, le coup est exécuté sans hasard ni arbres (trajectoire prévue).
+    /// <paramref name="amount"/> multiplie l'effet voulu (1 : exécuté comme voulu).
+    /// </summary>
+    public ShotResult ExecuteShaped(Point2 ball, Club club, double dirX, double dirZ, double force, ShotShape shape, TerrainGrid terrain, DeterministicRng? rng, double dispersion = 1.0, double amount = 1.0)
+    {
+        var eps = rng is null ? 0.0 : club.DirectionSigma * dispersion * Gauss(rng);
+        var speed = club.Speed * force * (rng is null ? 1.0 : 1.0 + (club.SpeedSigma * dispersion * Gauss(rng)));
+        Rotate(dirX, dirZ, eps, 1.0 - (eps * eps / 2.0), out var ux, out var uz);
+        var (velocity, curve, backspin) = ShotShapes.Launch(club, ux, uz, speed, shape, amount);
+        return BallSimulator.Run(terrain, ball, velocity, rolling: false, _drag, recordPath: true, trees: rng is null ? null : Trees, season: Season, rng: rng, wind: Wind, curve: curve, backspin: backspin).Shot;
+    }
+
     private static void Rotate(double ux, double uz, double sin, double cos, out double rx, out double rz)
     {
         var x = (ux * cos) - (uz * sin);

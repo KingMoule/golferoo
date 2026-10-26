@@ -29,6 +29,7 @@ const double windPlanRatioLimit = 1.2;
 const double dayChangeLimitMs = 5.0;
 const double leagueDayLimitMs = 5.0;
 const double puddleFloodLimitMs = 20.0;
+const double shotPreviewLimitMs = 2.0;
 
 // Carte plate de 512 x 512 cellules, la même à tous les facteurs.
 var big = new TerrainGrid(new HeightField(512, 512, 2.0), "plat", new Point2(2, 2), new Point2(1000, 1000), new Point2(1000, 1000));
@@ -199,8 +200,13 @@ for (var i = 0; i < rateMs.Length; i++)
 
 Array.Sort(rateMs);
 
+// Trajectoire prévue d'un coup du pro (C08 lot 2) : un drive en draw sans hasard sur le trou du prototype, médiane de 200 appels.
+var preview = Measure(200, 20, () => new PhysicalShotResolver().ExecuteShaped(rateTerrain.Tee, Clubs.Driver, 1, 0, 1.0, ShotShape.Draw, rateTerrain, null));
+allPassed &= preview.Median < shotPreviewLimitMs;
+
 var report = new
 {
+    shotPreview = new { medianMs = preview.Median, maxMs = preview.Max, limitMs = shotPreviewLimitMs, passed = preview.Median < shotPreviewLimitMs },
     courseRating = new { games = CourseRater.DefaultGames, medianMs = rateMs[rateMs.Length / 2], maxMs = rateMs[^1] },
     benchmark = "c04-lot4",
     puddleFlood = new { cells = 320 * 320, medianMs = flood.Median, maxMs = flood.Max, noiseMedianMs = floodNoise.Median, limitMs = puddleFloodLimitMs, passed = flood.Median < puddleFloodLimitMs },
