@@ -165,7 +165,7 @@ public partial class TutorialPanel : CanvasLayer
         return head + step switch
         {
             TutorialStep.ClearTrees => $"des arbres encombrent le passage ({TutorialSteps.CorridorTreesLeft(world, terrain)} encerclés de rouge). Appuyez sur [b]T[/b], cliquez sur un arbre puis sur [b]R[/b] pour le raser ([b]X[/b] rase toute une zone).",
-            TutorialStep.PlantSapling => "plantez une pousse. Avec l'outil arbres ([b]T[/b]), placez le curseur sur le rough et appuyez sur [b]P[/b] ([b]Y[/b] change d'essence).",
+            TutorialStep.PlantSapling => "plantez une pousse. Avec l'outil arbres ([b]T[/b]), appuyez sur [b]P[/b] puis cliquez sur le rough ; vous pouvez en planter plusieurs ([b]Y[/b] change d'essence).",
             TutorialStep.PaintTee => "peignez le départ. Appuyez sur [b]B[/b], choisissez Tee avec [b]F1[/b], puis maintenez le clic gauche sur le contour blanc (il n'est qu'indicatif).",
             TutorialStep.PaintFairway => "peignez le fairway. Choisissez Fairway avec [b]F3[/b] et suivez le contour vert ; [b]\\[[/b] et [b]\\][/b] changent le rayon du pinceau.",
             TutorialStep.PaintGreen => "peignez le green. Choisissez Green avec [b]F2[/b] et couvrez le contour turquoise.",
