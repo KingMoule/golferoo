@@ -1,5 +1,5 @@
 # Votre pro : jouer ses coups et progresser par l'expérience
-Statut : proposé
+Statut : validé
 Créé : 2026-10-26
 
 ## But
