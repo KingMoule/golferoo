@@ -208,6 +208,7 @@ public class LeagueTests(ITestOutputHelper output)
         {
             output.WriteLine($"Journée {round.Number + 1} {round.Format}: jour {round.StartDay} (prévu {round.NominalDay}), durée {(round.EndTick - round.StartTick) / (double)Calendar.TicksPerDay:F2} jour(s) de jeu");
             Assert.True(round.Closed);
+            Assert.True(round.EndTick - round.StartTick < 3L * Calendar.TicksPerDay);
             for (var d = round.NominalDay; d < round.StartDay; d++)
             {
                 Assert.Equal(Sky.HeavyRain, WeatherGenerator.For(world.Seed, world.Climate, d).Sky);
@@ -248,6 +249,22 @@ public class LeagueTests(ITestOutputHelper output)
         }
 
         return (world, world.Checksum());
+    }
+
+    [Fact]
+    public void FirstRound_With12Groups_FinishesInUnderThreeDays()
+    {
+        var seed = Enumerable.Range(1, 500).First(x => new LeagueSeason((ulong)x, LeagueSeason.GenerateMembers((ulong)x)).Divisions.Sum(d => d.Count) >= 23);
+        var world = new World((ulong)seed, HoleLoader.Load(TerrainTests.HolePath(), 2), league: true) { Climate = Climate.Calm };
+        while (!world.League!.Rounds[0].Closed && world.DayIndex < 20)
+        {
+            world.Step(Calendar.TicksPerDay / 4);
+        }
+
+        var round = world.League.Rounds[0];
+        output.WriteLine($"{round.Pairs.Count} groupes : {(round.EndTick - round.StartTick) / (double)Calendar.TicksPerDay:F2} jour(s) de jeu");
+        Assert.True(round.Pairs.Count >= 11);
+        Assert.True(round.EndTick - round.StartTick < 3L * Calendar.TicksPerDay);
     }
 
     [Fact]

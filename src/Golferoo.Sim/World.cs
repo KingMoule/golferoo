@@ -30,6 +30,9 @@ public sealed partial class World
     /// <summary>Ramassage de la balle après ce nombre de coups : garde-fou contre une partie sans fin.</summary>
     public const int MaxStrokes = 12;
 
+    /// <summary>Feuille de départs de la ligue : le groupe n d'une journée peut jouer n × cet intervalle après la création des groupes (environ 0,08 jour de jeu).</summary>
+    public const int LeagueTeeInterval = 600;
+
     private const int WaypointPoolSize = 16;
 
     private readonly DeterministicRng _rng;
@@ -427,9 +430,10 @@ public sealed partial class World
             RefreshSoil();
             if (League?.OnNewDay(DayIndex, WeatherOn(DayIndex).Sky == Sky.HeavyRain, Tick) is { } round)
             {
-                foreach (var pair in round.Pairs)
+                for (var n = 0; n < round.Pairs.Count; n++)
                 {
-                    AddGroup(pair.Length, [.. pair.Select(id => League.Members[id])], round.Number);
+                    var pair = round.Pairs[n];
+                    AddGroup(pair.Length, [.. pair.Select(id => League.Members[id])], round.Number).ReleaseTick = Tick + ((long)n * LeagueTeeInterval);
                 }
             }
         }
@@ -703,9 +707,12 @@ public sealed partial class World
         }
 
         // Un coup à la fois dans le groupe ; le plus loin du trou joue.
-        if (!group.Started && index > 0 && !_groups[index - 1].Finished)
+        if (!group.Started)
         {
-            return;
+            if (group.LeagueRound >= 0 ? Tick < group.ReleaseTick : index > 0 && !_groups[index - 1].Finished)
+            {
+                return;
+            }
         }
 
         Golfer? shooter = null;
