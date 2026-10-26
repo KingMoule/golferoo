@@ -19,4 +19,6 @@ Ajouter sans relire tout le fichier : `echo "- ..." >> docs/lecons.md`. `/amelio
 - C04 : le critère FPS citait 453,5 (C02, anciens arbres) alors que le pack à 800 triangles était à 302 ; une spec cite la dernière mesure FPS, pas celle du chantier précédent.
 - 2026-10-25 C05 : les agents du dépôt (codeur, auditeur, relecteur) ne sont pas chargés dans une session de projet cloud ; relais par general-purpose (Sonnet) qui lit .claude/agents/<rôle>.md. Et la CI s'est arrêtée net faute de minutes Actions (dépôt privé), dépôt rendu public.
 - 2026-10-25 C05 lot 1 : une spec de physique doit marquer « signe à vérifier au lot » quand elle prescrit un facteur non testé contre le modèle (restitution ×1,15 faisait rouler le drive moins loin).
+- 2026-10-25 : les agents du dépôt (codeur, auditeur) n'étaient pas chargés dans une session de thread ; délégués en general-purpose avec le fichier de rôle à lire (C06).
+- 2026-10-25 : panne du téléchargement .NET de Microsoft (HTTP 409) ; repli apt ajouté à ci.yml (PR #51).
 - Reprendre une branche déjà fusionnée depuis main demande un push --force-with-lease (consigne de la session cloud), contraire à la règle « jamais de --force » : nommer une nouvelle branche pour la suite.

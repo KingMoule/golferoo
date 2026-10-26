@@ -1,5 +1,6 @@
 using Golferoo.Sim.Golfers;
 using Golferoo.Sim.Pathing;
+using Golferoo.Sim.Rating;
 using Golferoo.Sim.Shots;
 using Golferoo.Sim.Terrain;
 using Golferoo.Sim.Time;
@@ -125,6 +126,25 @@ public sealed partial class World
     }
 
     private readonly Queue<TurfSettings> _turfCommands = new();
+
+    /// <summary>Note du parcours reçue par <see cref="SetCourseRating"/>, nulle tant qu'aucune n'est arrivée.</summary>
+    public CourseRating? CourseRating { get; private set; }
+
+    /// <summary>Note du parcours calculée hors du monde (<see cref="CourseRater"/>), en file comme les autres commandes : appliquée au début du tick suivant, dans la somme de contrôle.</summary>
+    public void SetCourseRating(CourseRating rating)
+    {
+        ArgumentNullException.ThrowIfNull(rating);
+        _ratingCommands.Enqueue(rating);
+    }
+
+    private readonly Queue<CourseRating> _ratingCommands = new();
+
+    private static void MixRating(ref ulong hash, CourseRating r)
+    {
+        Mix(ref hash, ((ulong)(uint)r.Holes << 32) | (uint)r.Par);
+        Mix(ref hash, (ulong)BitConverter.DoubleToInt64Bits(r.ScratchStrokes));
+        Mix(ref hash, (ulong)BitConverter.DoubleToInt64Bits(r.BogeyStrokes));
+    }
 
     private void ApplyTurfCommands()
     {
@@ -328,6 +348,11 @@ public sealed partial class World
         ApplyPendingEdits();
         ApplyTreeCommands();
         ApplyTurfCommands();
+        while (_ratingCommands.Count > 0)
+        {
+            CourseRating = _ratingCommands.Dequeue();
+        }
+
         if (Terrain is not null)
         {
             if (_resolver is PhysicalShotResolver physical)
@@ -436,6 +461,17 @@ public sealed partial class World
         foreach (var c in _turfCommands)
         {
             Mix(ref hash, (byte)c.GreenSpeed | ((ulong)(byte)c.FairwayFirmness << 8) | ((ulong)(byte)c.RoughLength << 16));
+        }
+
+        if (CourseRating is { } rating)
+        {
+            MixRating(ref hash, rating);
+        }
+
+        foreach (var c in _ratingCommands)
+        {
+            Mix(ref hash, 1UL);
+            MixRating(ref hash, c);
         }
 
         Mix(ref hash, (ulong)Trees.Count);
