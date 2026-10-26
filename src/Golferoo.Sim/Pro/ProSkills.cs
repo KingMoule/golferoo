@@ -100,7 +100,7 @@ public sealed class ProSkills
     };
 
     /// <summary>
-    /// Réussite d'un coup hors green : la balle s'arrête sans pénalité sur la surface du point visé, à moins de 8 % de la distance
+    /// Réussite d'un coup hors green : la balle s'arrête sans pénalité sur la surface du point visé, fairway ou green, à moins de 8 % de la distance
     /// visée de ce point.
     /// </summary>
     public static bool Succeeded(TerrainGrid terrain, Point2 start, in ProShot shot, in ShotResult result)
@@ -116,7 +116,9 @@ public sealed class ProSkills
         }
 
         var aimed = Dist(start, shot.Target);
-        return terrain.SurfaceAt(result.Ball.X, result.Ball.Z) == terrain.SurfaceAt(shot.Target.X, shot.Target.Z)
+        var lie = terrain.SurfaceAt(shot.Target.X, shot.Target.Z);
+        return lie is Surface.Fairway or Surface.Green
+            && terrain.SurfaceAt(result.Ball.X, result.Ball.Z) == lie
             && Dist(result.Ball, shot.Target) <= PrecisionTolerance * aimed;
     }
 

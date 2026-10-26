@@ -148,6 +148,12 @@ public class ProTests(ITestOutputHelper output)
         Assert.Equal(2, p.Experience(ProSkill.Precision));
         Assert.Equal(0, p.Experience(ProSkill.Fade));
         Assert.Equal(0, p.Experience(ProSkill.Distance));
+
+        // Viser le rough n'est pas un lie voulu : même un coup au but ne compte que pour sa compétence générale.
+        var rough = ShotTests.Uniform(Surface.Rough, cells: 120);
+        p.Record(rough, start, draw, new ShotResult(new Point2(158, 243), false, 0, ShotOutcome.Rough, null), league: true, year: 1);
+        Assert.Equal(5, p.Experience(ProSkill.Irons));
+        Assert.Equal(2, p.Experience(ProSkill.Draw));
     }
 
     [Fact]
