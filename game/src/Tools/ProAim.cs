@@ -64,14 +64,16 @@ public partial class ProAim : Node3D
 
         var layer = new CanvasLayer { Name = "ProAimLayer" };
         _panel = new PanelContainer { Name = "ProAimPanel", Visible = false };
-        _panel.AnchorLeft = 0.5f;
-        _panel.AnchorRight = 0.5f;
+        // En bas à droite : le panneau des consignes de tonte occupe le bas à gauche.
+        _panel.AnchorLeft = 1f;
+        _panel.AnchorRight = 1f;
         _panel.AnchorTop = 1f;
         _panel.AnchorBottom = 1f;
-        _panel.OffsetLeft = -300f;
-        _panel.OffsetRight = 300f;
-        _panel.OffsetTop = -150f;
+        _panel.OffsetLeft = -620f;
+        _panel.OffsetRight = -8f;
+        _panel.OffsetTop = -190f;
         _panel.OffsetBottom = -8f;
+        _panel.GrowVertical = Control.GrowDirection.Begin;
         var box = new VBoxContainer();
         _label = new Label();
         box.AddChild(_label);
@@ -222,7 +224,7 @@ public partial class ProAim : Node3D
         // Caméra derrière le pro : le haut de l'écran regarde vers le trou.
         var yaw = Mathf.RadToDeg(Mathf.Atan2((float)(ball.X - Target.X), (float)(ball.Z - Target.Z)));
         var mid = new Vector3((float)(ball.X + Target.X) / 2f, 0f, (float)(ball.Z + Target.Z) / 2f);
-        _main.Camera.SetView(yaw, Math.Clamp((float)d * 1.3f, 40f, 300f), mid);
+        _main.Camera.SetView(yaw, Math.Clamp((float)d * 0.9f, 40f, 250f), mid);
         _panel!.Visible = true;
         _dirty = true;
     }

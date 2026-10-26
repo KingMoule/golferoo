@@ -388,7 +388,8 @@ public partial class Captures : Node
 
         // Le coup joué, la fiche du pro avec sa première expérience.
         main.ProAim.Play();
-        for (var i = 0; i < 2_000 && world.AwaitingPro is null; i++)
+        main.StepTicks(1);
+        for (var i = 0; i < 4_000 && world.AwaitingPro is null; i++)
         {
             main.StepTicks(1);
         }
