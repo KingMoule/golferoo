@@ -27,6 +27,7 @@ const double treeGrowLimitMs = 5.0;
 const double windFlightRatioLimit = 1.05;
 const double windPlanRatioLimit = 1.2;
 const double dayChangeLimitMs = 5.0;
+const double leagueDayLimitMs = 5.0;
 const double puddleFloodLimitMs = 20.0;
 
 // Carte plate de 512 x 512 cellules, la même à tous les facteurs.
@@ -174,6 +175,10 @@ allPassed &= wind.FlightRatio <= windFlightRatioLimit && wind.PlanRatio <= windP
 var dayChange = MeasureDayChange();
 allPassed &= dayChange.Median < dayChangeLimitMs;
 
+// Changement de jour avec une journée de ligue (C06 lot 3) : tirage des paires et création des groupes (15 inscrits), sur le trou du prototype.
+var leagueDay = MeasureLeagueDay(holePath);
+allPassed &= leagueDay.Median < leagueDayLimitMs;
+
 // Cuvettes des flaques (C04 lot 4) : remplissage depuis les bords sur 320 x 320 cellules (102 400) après une retouche du relief,
 // médiane de 11 passes. Critère sur un relief de collines et de creux comme en peint le pinceau ; le bruit pur à chaque coin
 // (pire cas, des creux partout) est donné pour information. Au sec, rien n'est calculé.
@@ -199,6 +204,7 @@ var report = new
     courseRating = new { games = CourseRater.DefaultGames, medianMs = rateMs[rateMs.Length / 2], maxMs = rateMs[^1] },
     benchmark = "c04-lot4",
     puddleFlood = new { cells = 320 * 320, medianMs = flood.Median, maxMs = flood.Max, noiseMedianMs = floodNoise.Median, limitMs = puddleFloodLimitMs, passed = flood.Median < puddleFloodLimitMs },
+    leagueDayChange = new { groups = leagueDay.Groups, medianMs = leagueDay.Median, maxMs = leagueDay.Max, limitMs = leagueDayLimitMs, passed = leagueDay.Median < leagueDayLimitMs },
     dayChange = new { trees = dayChange.Trees, medianMs = dayChange.Median, maxMs = dayChange.Max, fallen = dayChange.Fallen, limitMs = dayChangeLimitMs, passed = dayChange.Median < dayChangeLimitMs },
     wind = new
     {
@@ -420,6 +426,22 @@ static (double Median, double Max) MeasurePuddleFlood(bool noise)
 
     Array.Sort(samples);
     return (samples[samples.Length / 2], samples[^1]);
+}
+
+static (int Groups, double Median, double Max) MeasureLeagueDay(string holePath)
+{
+    var world = new World(seed: 5, HoleLoader.Load(holePath, 2), league: true) { Climate = Climate.Calm };
+    var samples = new List<double>();
+    foreach (var round in world.League!.Rounds)
+    {
+        world.Step((round.NominalDay * Calendar.TicksPerDay) - 1 - (int)world.Tick);
+        var t0 = Stopwatch.GetTimestamp();
+        world.Step();
+        samples.Add(Stopwatch.GetElapsedTime(t0).TotalMilliseconds);
+    }
+
+    samples.Sort();
+    return (world.League.Rounds[0].Pairs.Count, samples[samples.Count / 2], samples[^1]);
 }
 
 static (int Trees, double Median, double Max, int Fallen) MeasureDayChange()

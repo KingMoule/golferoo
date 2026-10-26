@@ -1,6 +1,8 @@
 using Golferoo.Sim.Golfers;
+using Golferoo.Sim.League;
 using Golferoo.Sim.Pathing;
 using Golferoo.Sim.Rating;
+using Golferoo.Sim.Scoring;
 using Golferoo.Sim.Shots;
 using Golferoo.Sim.Terrain;
 using Golferoo.Sim.Time;
@@ -39,13 +41,18 @@ public sealed partial class World
     private Point2? _exitPoint;
     private long _exitPointVersion = -1;
 
-    public World(ulong seed, TerrainGrid? terrain = null, IShotResolver? resolver = null)
+    public World(ulong seed, TerrainGrid? terrain = null, IShotResolver? resolver = null, bool league = false)
     {
         Seed = seed;
         Terrain = terrain;
         _rng = new DeterministicRng(seed);
         _resolver = resolver ?? (terrain is null ? new StubShotResolver() : new PhysicalShotResolver());
         Flow = terrain is null ? null : new FlowFieldCache(terrain);
+        if (league && terrain is not null)
+        {
+            League = new LeagueSeason(seed, LeagueSeason.GenerateMembers(seed));
+        }
+
         if (terrain is not null)
         {
             Trees = new TreeStand(terrain.CellsX * terrain.CellSize, terrain.CellsZ * terrain.CellSize, terrain);
@@ -68,6 +75,9 @@ public sealed partial class World
             Trees = new TreeStand(1.0, 1.0);
         }
     }
+
+    /// <summary>Ligue du club : nulle sauf si le monde est créé avec <c>league: true</c> et un terrain (le monde de C01 à C05 n'en a pas).</summary>
+    public LeagueSeason? League { get; }
 
     /// <summary>Arbres du monde (nul coût de marche : seul le sous-bois, surface Trees, bloque les golfeurs).</summary>
     public TreeStand Trees { get; }
@@ -284,19 +294,28 @@ public sealed partial class World
     }
 
     /// <summary>Ajoute une paire de golfeurs à l'entrée du tee. Elle joue quand la précédente a quitté le green.</summary>
-    public Group SpawnGroup()
+    public Group SpawnGroup() => AddGroup(2, null, -1);
+
+    /// <summary>Groupe de <paramref name="count"/> golfeurs ; ceux d'une journée de ligue portent leur membre et son niveau.</summary>
+    private Group AddGroup(int count, Member[]? members, int leagueRound)
     {
         var terrain = RequireTerrain();
         var spawn = new Point2(terrain.Tee.X - 10.0, terrain.Tee.Z);
-        var golfers = new List<Golfer>(2);
-        for (var i = 0; i < 2; i++)
+        var golfers = new List<Golfer>(count);
+        for (var i = 0; i < count; i++)
         {
             var p = GridQueries.NearestWalkablePoint(terrain, new Point2(spawn.X, spawn.Z + ((i * 3.0) - 1.5)));
             var golfer = new Golfer(_nextGolferId++, p, GolferState.Arriving) { Ball = terrain.Tee };
+            if (members is not null)
+            {
+                golfer.MemberId = members[i].Id;
+                golfer.Skill = members[i].Skill;
+            }
+
             golfers.Add(golfer);
         }
 
-        var group = new Group(_groups.Count, golfers);
+        var group = new Group(_groups.Count, golfers) { LeagueRound = leagueRound };
         _groups.Add(group);
         return group;
     }
@@ -339,6 +358,28 @@ public sealed partial class World
                 WaypointIndex = (int)(_rng.NextUInt64() % (ulong)_waypoints.Count),
             });
         }
+    }
+
+    /// <summary>Une paire de ligue a fini : la carte de chaque joueur (balle ramassée = 12 coups) revient à la ligue.</summary>
+    private void ReturnLeagueCards(TerrainGrid terrain, Group group)
+    {
+        var cards = new List<(int, ScoreCard)>(group.Golfers.Count);
+        foreach (var g in group.Golfers)
+        {
+            var card = new ScoreCard([terrain.Par]);
+            if (g.PickedUp)
+            {
+                card.PickUp(0);
+            }
+            else
+            {
+                card.Record(0, g.Strokes);
+            }
+
+            cards.Add((g.MemberId, card));
+        }
+
+        League!.GroupFinished(group.LeagueRound, cards, CourseRating, Tick);
     }
 
     public void Step()
@@ -384,6 +425,13 @@ public sealed partial class World
             }
 
             RefreshSoil();
+            if (League?.OnNewDay(DayIndex, WeatherOn(DayIndex).Sky == Sky.HeavyRain, Tick) is { } round)
+            {
+                foreach (var pair in round.Pairs)
+                {
+                    AddGroup(pair.Length, [.. pair.Select(id => League.Members[id])], round.Number);
+                }
+            }
         }
 
         if (Calendar.MonthIndex(Tick, _dayOffset) != month)
@@ -468,6 +516,8 @@ public sealed partial class World
             MixRating(ref hash, rating);
         }
 
+        League?.MixInto(ref hash);
+
         foreach (var c in _ratingCommands)
         {
             Mix(ref hash, 1UL);
@@ -506,6 +556,11 @@ public sealed partial class World
     private static void MixGolfer(ref ulong hash, Golfer g)
     {
         Mix(ref hash, (ulong)g.Id);
+        if (g.MemberId >= 0)
+        {
+            Mix(ref hash, (ulong)g.MemberId);
+        }
+
         Mix(ref hash, (ulong)g.State);
         Mix(ref hash, (ulong)g.Strokes);
         Mix(ref hash, (ulong)g.SwingTicks);
@@ -527,7 +582,7 @@ public sealed partial class World
         Mix(ref hash, (ulong)BitConverter.DoubleToInt64Bits(g.Ball.Z));
     }
 
-    private static void Mix(ref ulong hash, ulong value)
+    internal static void Mix(ref ulong hash, ulong value)
     {
         for (var i = 0; i < 8; i++)
         {
@@ -620,6 +675,10 @@ public sealed partial class World
                     if (Walk(terrain, g, ExitPoint))
                     {
                         g.State = GolferState.Done;
+                        if (group.LeagueRound >= 0 && group.Finished)
+                        {
+                            ReturnLeagueCards(terrain, group);
+                        }
                     }
 
                     break;

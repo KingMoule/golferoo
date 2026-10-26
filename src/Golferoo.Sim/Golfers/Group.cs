@@ -11,6 +11,9 @@ public sealed class Group
 
     public int Id { get; }
 
+    /// <summary>Journée de ligue de ce groupe (−1 hors ligue).</summary>
+    public int LeagueRound { get; internal init; } = -1;
+
     public IReadOnlyList<Golfer> Golfers { get; }
 
     /// <summary>Le groupe a joué son premier coup (le groupe précédent avait quitté le green).</summary>
