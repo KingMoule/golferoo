@@ -25,9 +25,9 @@ Ce qui prouve la réussite : sur le dogleg, depuis la balle de la capture de Gui
 ## Conception
 **Lot 1 : le planificateur voit les arbres** (`Shots/`)
 - Les simulations de planification passent les arbres à `BallSimulator` en mode *espérance* : un tronc arrête la balle comme à l'exécution ; une couronne ne tire pas au hasard, elle cumule la probabilité d'arrêt (`TreeCollision.StopProbability`) le long du vol. Le coût d'un candidat devient p × coût(arrêté au pied) + (1 − p) × coût(passé). Sans hasard, la planification reste déterministe et hors RNG du monde.
-- Directions essayées élargies jusqu'à ±90° quand la ligne du trou est bouchée, et une sortie basse (lancement à moitié de l'angle du club, comme le chip de C08) pour passer sous les branches.
+- Directions essayées élargies à tout le tour (de 35° à 180°, tous les 30° environ) quand la ligne du trou est bouchée, et une sortie basse (lancement à moitié de l'angle du club, comme le chip de C08) pour passer sous les branches.
 - Rendu : une balle ramassée n'est plus dessinée.
-- Banc : planifier un coup sur le dogleg avec ses arbres, limite à fixer à 2 fois le temps actuel.
+- Banc : rapport avec/sans arbres sur un drive ≤ 2,5.
 
 **Lot 2 : lire le trou** (`Shots/`, `Pathing/`)
 - Une carte de jeu par drapeau : pour chaque cellule, la distance au trou par un chemin que la balle peut suivre (forêts, bosquets et hors-limites bloquent ; l'eau se survole mais on n'y atterrit pas), comme un champ de flux mais pour la balle. Calculée à la demande et mise en cache comme `FlowFieldCache`, refaite quand le drapeau bouge ou que le terrain ou les arbres changent.

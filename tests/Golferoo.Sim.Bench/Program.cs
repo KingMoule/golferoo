@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Text.Json;
 using Golferoo.Sim;
+using Golferoo.Sim.Golfers;
 using Golferoo.Sim.Pathing;
 using Golferoo.Sim.Rating;
 using Golferoo.Sim.Shots;
@@ -32,6 +33,7 @@ const double leagueDayLimitMs = 5.0;
 const double puddleFloodLimitMs = 20.0;
 const double shotPreviewLimitMs = 2.0;
 const double tutorialLimitMs = 1.0;
+const double planTreesRatioLimit = 2.5;
 
 // Carte plate de 512 x 512 cellules, la même à tous les facteurs.
 var big = new TerrainGrid(new HeightField(512, 512, 2.0), "plat", new Point2(2, 2), new Point2(1000, 1000), new Point2(1000, 1000));
@@ -211,6 +213,13 @@ var blankWorld = new World(1, HoleLoader.Load(Path.Combine(Path.GetDirectoryName
 var holeCheck = Measure(200, 20, () => HoleCheck.Check(blankWorld.Terrain!));
 var tutorialStep = Measure(200, 20, () => TutorialSteps.Current(blankWorld));
 allPassed &= holeCheck.Median < tutorialLimitMs && tutorialStep.Median < tutorialLimitMs;
+
+// Planification avec arbres (C09 lot 1) : un drive planifié sur le dogleg avec ses arbres contre le même planificateur qui les ignore
+// (le temps d'avant le lot), médianes de passes alternées. Limite : 2,5 fois. Depuis la lisière de la forêt (ligne du trou bouchée, directions
+// élargies), la mesure est donnée pour information.
+var planTrees = MeasurePlanWithTrees(Path.Combine(Path.GetDirectoryName(holePath)!, "dogleg-par4.json"));
+allPassed &= planTrees.TeeMs / planTrees.TeeBlindMs <= planTreesRatioLimit;
+Console.WriteLine($"Planification dogleg : tee {planTrees.TeeMs:F2} ms avec arbres, {planTrees.TeeBlindMs:F2} ms sans (rapport {planTrees.TeeMs / planTrees.TeeBlindMs:F2}, limite {planTreesRatioLimit}) ; lisière {planTrees.EdgeMs:F2} ms");
 
 var report = new
 {
@@ -502,6 +511,43 @@ static (int Trees, double Median, double Max, int Fallen) MeasureDayChange()
     var fallen = world.Trees.Trees.Count(t => t.State == TreeState.Fallen);
     Array.Sort(samples);
     return (treeCount, samples[samples.Length / 2], samples[^1], fallen);
+}
+
+static (double TeeMs, double TeeBlindMs, double EdgeMs) MeasurePlanWithTrees(string path)
+{
+    var hole = HoleLoader.Load(path, 2);
+    var world = new World(1, hole);
+    var seeing = new PhysicalShotResolver { Trees = world.Trees, Season = world.Season };
+    var blind = new PhysicalShotResolver { Season = world.Season };
+    var edge = new Point2(18.5 * 8, 26.5 * 8);
+    double Plan(PhysicalShotResolver resolver, Point2 ball)
+    {
+        var t0 = Stopwatch.GetTimestamp();
+        resolver.Resolve(new ShotRequest(ball, hole.Hole, 0, SkillLevels.Bogey), hole, new DeterministicRng(3));
+        return Stopwatch.GetElapsedTime(t0).TotalMilliseconds;
+    }
+
+    for (var i = 0; i < 10; i++)
+    {
+        Plan(seeing, hole.Tee);
+        Plan(blind, hole.Tee);
+        Plan(seeing, edge);
+    }
+
+    var tee = new double[31];
+    var teeBlind = new double[31];
+    var edgeMs = new double[31];
+    for (var i = 0; i < tee.Length; i++)
+    {
+        tee[i] = Plan(seeing, hole.Tee);
+        teeBlind[i] = Plan(blind, hole.Tee);
+        edgeMs[i] = Plan(seeing, edge);
+    }
+
+    Array.Sort(tee);
+    Array.Sort(teeBlind);
+    Array.Sort(edgeMs);
+    return (tee[15], teeBlind[15], edgeMs[15]);
 }
 
 static (double Mean, double P99, double Max, double Median) Measure(int runs, int warmup, Action action)
