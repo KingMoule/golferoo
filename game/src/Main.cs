@@ -189,7 +189,12 @@ public partial class Main : Node3D
         Camera.SetView(45f, 150f, new Vector3(width / 2f, 0f, depth / 2f));
 
         World.TerrainEdited += OnTerrainEdited;
-        _ratingJob = new RatingJob(grid, World.Trees, World.Seed, World.Season, World.SetCourseRating);
+        if (!OS.GetCmdlineUserArgs().Contains("--fps-bench"))
+        {
+            // Pas en mesure FPS : avec 5 000 arbres la note prend ~30 s de cœur et fausse la mesure du rendu.
+            _ratingJob = new RatingJob(grid, World.Trees, World.Seed, World.Season, World.SetCourseRating);
+        }
+
         Brush = new Brush { Name = "Brush" };
         AddChild(Brush);
         Brush.Init(this);
