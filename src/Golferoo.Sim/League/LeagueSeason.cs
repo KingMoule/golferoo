@@ -28,10 +28,21 @@ public sealed class LeagueSeason
         "Manon", "Nicolas", "Océane", "Paul", "Quentin", "Romane", "Sam", "Thomas", "Ulysse", "Vera", "Yann", "Zoé",
     ];
 
+    /// <summary>Jours d'une année de jeu : la saison suivante repart au 1er avril.</summary>
+    public const int DaysPerYear = Calendar.DaysPerMonth * Calendar.MonthsPerYear;
+
+    /// <summary>Les finalistes de chaque division.</summary>
+    public const int FinalistsPerDivision = 4;
+
+    /// <summary>Montées et descentes à chaque frontière de division.</summary>
+    public const int MovesPerBoundary = 2;
+
     private readonly ulong _seed;
     private readonly Dictionary<int, Member> _byId;
     private int _next;
     private int _due;
+    private bool _adjusted;
+    private List<List<Member>> _finalists = [];
 
     public LeagueSeason(ulong seed, IReadOnlyList<Member> members)
     {
@@ -39,23 +50,42 @@ public sealed class LeagueSeason
         _seed = seed;
         Members = members;
         _byId = members.ToDictionary(m => m.Id);
-        Divisions = BuildDivisions(members);
-        for (var i = 0; i < RoundCount; i++)
-        {
-            Rounds.Add(new LeagueRound(i, NominalDay(i)));
-        }
-
+        Divisions = BuildDivisions(Enrolled(members).ToList());
+        (Rounds, Final) = NewRounds(0);
         _due = Rounds[0].NominalDay;
     }
 
     public IReadOnlyList<Member> Members { get; }
 
     /// <summary>Divisions de la première (la plus forte) à la dernière.</summary>
-    public IReadOnlyList<IReadOnlyList<Member>> Divisions { get; }
+    public IReadOnlyList<IReadOnlyList<Member>> Divisions { get; internal set; }
 
-    public List<LeagueRound> Rounds { get; } = [];
+    /// <summary>Année de la saison en cours, à partir de 0.</summary>
+    public int Year { get; private set; }
 
+    /// <summary>Les 5 journées de la saison en cours.</summary>
+    public List<LeagueRound> Rounds { get; private set; }
+
+    /// <summary>Finale de septembre (stroke play en brut), numérotée <see cref="RoundCount"/>.</summary>
+    public LeagueRound Final { get; private set; }
+
+    /// <summary>Classement de la finale, par division (identifiants de membre, le meilleur d'abord) ; vide avant la fin de la finale.</summary>
+    public IReadOnlyList<IReadOnlyList<int>> FinalRanking { get; private set; } = [];
+
+    /// <summary>Champion de la saison en cours (vainqueur de la finale de la division 1), nul avant.</summary>
+    public LeagueChampion? Champion { get; private set; }
+
+    /// <summary>Champions de toutes les saisons terminées ou en cours.</summary>
+    public List<LeagueChampion> Champions { get; } = [];
+
+    /// <summary>Journal des fins de saison (champion, montées, descentes), dans l'ordre.</summary>
+    public List<LeagueEvent> Events { get; } = [];
+
+    /// <summary>Les cinq journées sont closes (la finale n'a pas forcément eu lieu).</summary>
     public bool Finished => _next >= RoundCount && Rounds.All(r => r.Closed);
+
+    /// <summary>La finale et l'ajustement ont eu lieu : la saison attend le 1er avril.</summary>
+    public bool Adjusted => _adjusted;
 
     /// <summary>Jour prévu de la journée <paramref name="round"/> : le 5 de chaque mois, à partir d'avril.</summary>
     public static int NominalDay(int round) => (round * Calendar.DaysPerMonth) + RoundDayOfMonth - 1;
@@ -76,11 +106,27 @@ public sealed class LeagueSeason
         return members;
     }
 
-    private static List<IReadOnlyList<Member>> BuildDivisions(IReadOnlyList<Member> members)
+    private (List<LeagueRound> Rounds, LeagueRound Final) NewRounds(int year)
     {
-        var ordered = members.Where(m => !m.IsPro && m.Opinion >= MinOpinion)
-            .OrderBy(m => m.StartHandicap).ThenBy(m => m.Id)
-            .Concat(members.Where(m => m.IsPro)).ToList();
+        var start = year * DaysPerYear;
+        var rounds = new List<LeagueRound>(RoundCount);
+        for (var i = 0; i < RoundCount; i++)
+        {
+            rounds.Add(new LeagueRound(i, start + NominalDay(i)));
+        }
+
+        return (rounds, new LeagueRound(RoundCount, start + NominalDay(RoundCount), LeagueFormat.StrokePlay));
+    }
+
+    private LeagueRound RoundAt(int n) => n < RoundCount ? Rounds[n] : Final;
+
+    private static IEnumerable<Member> Enrolled(IEnumerable<Member> members) =>
+        members.Where(m => !m.IsPro && m.Opinion >= MinOpinion).OrderBy(m => m.StartHandicap).ThenBy(m => m.Id)
+            .Concat(members.Where(m => m.IsPro));
+
+    /// <summary>Divisions de <c>floor(inscrits / 8)</c> (au moins une) sur la liste déjà rangée.</summary>
+    private static List<IReadOnlyList<Member>> BuildDivisions(List<Member> ordered)
+    {
         var count = Math.Max(1, ordered.Count / DivisionSize);
         var divisions = new List<IReadOnlyList<Member>>(count);
         var start = 0;
@@ -100,7 +146,16 @@ public sealed class LeagueSeason
     /// </summary>
     public LeagueRound? OnNewDay(int day, bool storm, long tick)
     {
-        if (_next >= RoundCount || day < _due)
+        if (_adjusted && day >= (Year + 1) * DaysPerYear)
+        {
+            NewSeason();
+        }
+        else if (!_adjusted && _next > RoundCount && Final.Closed && day > Final.StartDay)
+        {
+            Adjust();
+        }
+
+        if (_next > RoundCount || day < _due || (_next == RoundCount && !Rounds.All(r => r.Closed)))
         {
             return null;
         }
@@ -111,13 +166,39 @@ public sealed class LeagueSeason
             return null;
         }
 
-        var round = Rounds[_next++];
+        var round = RoundAt(_next++);
         round.StartDay = day;
         round.StartTick = tick;
-        round.Pairs = Draw(round);
+        round.Pairs = round.Number == RoundCount ? DrawFinal() : Draw(round);
         round.Pending = round.Pairs.Count;
-        _due = _next < RoundCount ? Math.Max(Rounds[_next].NominalDay, day + 1) : 0;
+        _due = _next <= RoundCount ? Math.Max(RoundAt(_next).NominalDay, day + 1) : 0;
         return round;
+    }
+
+    /// <summary>Les quatre premiers de chaque division aux points de saison ; égalité : meilleur brut cumulé, puis identifiant.</summary>
+    internal List<List<Member>> Finalists() => [.. Divisions.Select(d => d
+        .OrderByDescending(m => m.SeasonPoints)
+        .ThenBy(m => Rounds.Sum(r => r.Cards.TryGetValue(m.Id, out var c) ? c.Gross : 0))
+        .ThenBy(m => m.Id)
+        .Take(FinalistsPerDivision).ToList())];
+
+    private List<int[]> DrawFinal()
+    {
+        var groups = new List<int[]>();
+        var finalists = Finalists();
+        for (var d = finalists.Count - 1; d >= 0; d--)
+        {
+            var ids = finalists[d].Where(m => !m.IsPro).Select(m => m.Id).ToArray();
+            for (var i = 0; i < ids.Length; i += 2)
+            {
+                groups.Add(i + 1 < ids.Length ? [ids[i], ids[i + 1]] : [ids[i]]);
+            }
+
+            groups.AddRange(finalists[d].Where(m => m.IsPro).Select(m => new[] { m.Id }));
+        }
+
+        _finalists = finalists;
+        return groups;
     }
 
     private List<int[]> Draw(LeagueRound round)
@@ -153,7 +234,7 @@ public sealed class LeagueSeason
     public void GroupFinished(int roundNumber, IReadOnlyList<(int MemberId, ScoreCard Card)> cards, CourseRating? rating, long tick)
     {
         ArgumentNullException.ThrowIfNull(cards);
-        var round = Rounds[roundNumber];
+        var round = RoundAt(roundNumber);
         foreach (var (id, card) in cards)
         {
             var differential = rating is null ? (double?)null : Handicap.Differential(card.Gross, rating, card.HoleCount);
@@ -170,6 +251,12 @@ public sealed class LeagueSeason
 
     private void Close(LeagueRound round)
     {
+        if (round.Number == RoundCount)
+        {
+            CloseFinal();
+            return;
+        }
+
         var partner = new Dictionary<int, int>();
         foreach (var pair in round.Pairs.Where(p => p.Length == 2))
         {
@@ -191,6 +278,85 @@ public sealed class LeagueSeason
                 m.SeasonPoints += points;
             }
         }
+    }
+
+    private void CloseFinal()
+    {
+        // Brut ; à égalité, l'ordre de qualification (points de saison).
+        FinalRanking = [.. _finalists.Select(f => (IReadOnlyList<int>)[.. f.OrderBy(m => Final.Cards[m.Id].Gross).Select(m => m.Id)])];
+        var winner = FinalRanking[0][0];
+        var champion = new LeagueChampion(Year, winner, Final.Cards[winner].Gross);
+        Champion = champion;
+        Champions.Add(champion);
+        Events.Add(new LeagueEvent(Year, LeagueEventType.Champion, winner, 0));
+    }
+
+    /// <summary>
+    /// Classement final de chaque division (points de saison, puis finale, puis identifiant) : les deux premiers de chaque
+    /// division hors la première montent, les deux derniers de chaque division hors la dernière descendent.
+    /// </summary>
+    private void Adjust()
+    {
+        _adjusted = true;
+        var last = Divisions.Count - 1;
+        if (last == 0)
+        {
+            return;
+        }
+
+        var standings = Divisions.Select((d, i) => d
+            .OrderByDescending(m => m.SeasonPoints)
+            .ThenBy(m => FinalPlace(i, m))
+            .ThenBy(m => m.Id).ToList()).ToList();
+        var next = new List<IReadOnlyList<Member>>(Divisions.Count);
+        for (var d = 0; d <= last; d++)
+        {
+            var arriving = d > 0 ? standings[d - 1].TakeLast(MovesPerBoundary).ToList() : [];
+            var rising = d < last ? standings[d + 1].Take(MovesPerBoundary).ToList() : [];
+            var staying = standings[d].Skip(d > 0 ? MovesPerBoundary : 0).SkipLast(d < last ? MovesPerBoundary : 0);
+            next.Add([.. arriving, .. staying, .. rising]);
+            Events.AddRange(rising.Select(m => new LeagueEvent(Year, LeagueEventType.Promoted, m.Id, d)));
+            Events.AddRange(arriving.Select(m => new LeagueEvent(Year, LeagueEventType.Relegated, m.Id, d)));
+        }
+
+        Divisions = next;
+    }
+
+    /// <summary>Place de <paramref name="m"/> à la finale de sa division ; les non-finalistes après les finalistes.</summary>
+    private int FinalPlace(int division, Member m)
+    {
+        for (var k = 0; k < FinalRanking[division].Count; k++)
+        {
+            if (FinalRanking[division][k] == m.Id)
+            {
+                return k;
+            }
+        }
+
+        return int.MaxValue;
+    }
+
+    /// <summary>1er avril : mêmes divisions rangées par l'ajustement, nouveaux inscrits et pro en bas, points remis à zéro.</summary>
+    private void NewSeason()
+    {
+        var kept = Divisions.SelectMany(d => d).Where(m => !m.IsPro && m.Opinion >= MinOpinion).ToList();
+        var known = kept.ToHashSet();
+        var ordered = kept.Concat(Enrolled(Members).Where(m => !m.IsPro && !known.Contains(m)))
+            .Concat(Members.Where(m => m.IsPro)).ToList();
+        Divisions = BuildDivisions(ordered);
+        Year++;
+        foreach (var m in Members)
+        {
+            m.SeasonPoints = 0;
+        }
+
+        (Rounds, Final) = NewRounds(Year);
+        FinalRanking = [];
+        Champion = null;
+        _finalists = [];
+        _next = 0;
+        _adjusted = false;
+        _due = Rounds[0].NominalDay;
     }
 
     private static int Key(LeagueRound round, int id, Dictionary<int, int> partner)
@@ -220,6 +386,26 @@ public sealed class LeagueSeason
     internal void MixInto(ref ulong hash)
     {
         World.Mix(ref hash, ((ulong)(uint)_next << 32) | (uint)_due);
+        World.Mix(ref hash, ((ulong)(uint)Year << 1) | (_adjusted ? 1UL : 0UL));
+        foreach (var division in Divisions)
+        {
+            World.Mix(ref hash, (ulong)division.Count);
+            foreach (var m in division)
+            {
+                World.Mix(ref hash, (ulong)(uint)m.Id);
+            }
+        }
+
+        foreach (var c in Champions)
+        {
+            World.Mix(ref hash, ((ulong)(uint)c.Year << 40) | ((ulong)(uint)c.MemberId << 20) | (uint)c.Gross);
+        }
+
+        foreach (var e in Events)
+        {
+            World.Mix(ref hash, ((ulong)(uint)e.Year << 40) | ((ulong)(uint)e.Type << 32) | ((ulong)(uint)e.MemberId << 8) | (uint)e.Division);
+        }
+
         foreach (var m in Members)
         {
             World.Mix(ref hash, (ulong)BitConverter.DoubleToInt64Bits(m.SeasonPoints));
@@ -231,7 +417,7 @@ public sealed class LeagueSeason
             }
         }
 
-        foreach (var r in Rounds)
+        foreach (var r in Rounds.Append(Final))
         {
             World.Mix(ref hash, ((ulong)(uint)r.StartDay << 32) | (uint)r.Pending);
             World.Mix(ref hash, (ulong)r.StartTick);

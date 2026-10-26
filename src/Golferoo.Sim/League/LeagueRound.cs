@@ -11,14 +11,14 @@ public enum LeagueFormat
     VersusPar = 3,
 }
 
-/// <summary>Une journée de ligue : format, paires, cartes rendues et points marqués.</summary>
+/// <summary>Une journée de ligue (ou la finale, numéro <see cref="LeagueSeason.RoundCount"/>) : format, paires, cartes rendues et points marqués.</summary>
 public sealed class LeagueRound
 {
-    internal LeagueRound(int number, int nominalDay)
+    internal LeagueRound(int number, int nominalDay, LeagueFormat? format = null)
     {
         Number = number;
         NominalDay = nominalDay;
-        Format = (LeagueFormat)(number % LeagueSeason.FormatCycle);
+        Format = format ?? (LeagueFormat)(number % LeagueSeason.FormatCycle);
     }
 
     /// <summary>Rang de la journée dans la saison, à partir de 0.</summary>
@@ -49,3 +49,16 @@ public sealed class LeagueRound
 
     internal int Pending { get; set; }
 }
+
+/// <summary>Champion du club d'une saison : vainqueur de la finale de la division 1, avec son brut.</summary>
+public readonly record struct LeagueChampion(int Year, int MemberId, int Gross);
+
+public enum LeagueEventType
+{
+    Champion = 0,
+    Promoted = 1,
+    Relegated = 2,
+}
+
+/// <summary>Événement de fin de saison ; <paramref name="Division"/> est la division (à partir de 0) du champion, ou de destination du membre promu ou relégué.</summary>
+public readonly record struct LeagueEvent(int Year, LeagueEventType Type, int MemberId, int Division);
