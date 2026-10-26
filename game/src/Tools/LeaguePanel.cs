@@ -140,7 +140,7 @@ public partial class LeaguePanel : CanvasLayer
         return _pro.Text;
     }
 
-    private void Notify(string text)
+    public void Notify(string text)
     {
         _notice.Text = text;
         _notice.Visible = true;

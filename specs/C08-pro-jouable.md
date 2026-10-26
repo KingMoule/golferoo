@@ -1,5 +1,5 @@
 # Votre pro : jouer ses coups et progresser par l'expérience
-Statut : validé
+Statut : livré
 Créé : 2026-10-26
 
 ## But
@@ -85,5 +85,5 @@ Ce qui prouve la réussite : sur le vrai trou, un draw contourne l'angle du dogl
 complet (lots 2 et 3 : physique du coup, état de partie) ; léger pour les lots 1, 4 et 5 (contenu et rendu)
 
 ## Clôture
-- [ ] Critères vérifiés
-- [ ] Statut passé à « livré », ligne mise à jour dans docs/chantiers.md
+- [x] Critères vérifiés (1 à 3 et 5 par les tests, le banc, la fumée et la CI ; audit indépendant des lots 2 et 3 conforme, une réserve corrigée ; 4 : captures `pro-aim` et `pro-sheet`, à juger par Guillaume, qui joue le trou avec `Lancer.bat`)
+- [x] Statut passé à « livré », ligne mise à jour dans docs/chantiers.md

@@ -2,6 +2,7 @@ using Godot;
 using Golferoo.Game.Rendering;
 using Golferoo.Sim;
 using Golferoo.Sim.Rating;
+using Golferoo.Sim.Shots;
 using Golferoo.Sim.Terrain;
 using Golferoo.Sim.Time;
 using Golferoo.Sim.Trees;
@@ -30,7 +31,7 @@ public partial class Captures : Node
     private const int FallWaitFrames = 300;
     private const float TurfSize = 100f;
 
-    private const int LeagueViewCount = 2;
+    private const int LeagueViewCount = 4;
 
     private int? _clearingMound;
     private string _outDir = string.Empty;
@@ -76,6 +77,8 @@ public partial class Captures : Node
         var main = GD.Load<PackedScene>("res://Main.tscn").Instantiate<Main>();
         AddChild(main);
         main.Paused = true;
+        // Les vues avancent le temps sans joueur : le pro joue avec l'IA, sans attendre son coup.
+        main.World.ManualPro = false;
         main.SpawnGroup();
         main.StepTicks(WarmupTicks);
 
@@ -274,7 +277,7 @@ public partial class Captures : Node
             }
         }
 
-        await LeagueViews(main);
+        await AimView(await LeagueViews(main));
         if (_failures == 0 && _index == expected + LeagueViewCount)
         {
             GD.Print($"CAPTURES OK {_index} images");
@@ -326,7 +329,7 @@ public partial class Captures : Node
     /// et à l'ajustement du lendemain (environ 8 s de calcul), après avoir donné au monde la note du parcours (calcul direct, 6 s).
     /// Vues : le panneau de ligue, puis la carte de score du pro.
     /// </summary>
-    private async Task LeagueViews(Main previous)
+    private async Task<Main> LeagueViews(Main previous)
     {
         previous.QueueFree();
         await Frames(2);
@@ -334,6 +337,7 @@ public partial class Captures : Node
         AddChild(main);
         main.Paused = true;
         var world = main.World;
+        world.ManualPro = false;
         world.SetCourseRating(CourseRater.Rate(world.Terrain!, world.Seed));
         var league = world.League!;
         for (var day = 0; day < 150 && !league.Final.Closed; day++)
@@ -352,6 +356,48 @@ public partial class Captures : Node
         main.League.ShowCard(league.Members.First(m => m.IsPro));
         await Frames(SettleFrames);
         Save("league-card");
+        return main;
+    }
+
+    /// <summary>C08 : le mode visée au départ d'une partie d'entraînement, un draw au driver vers l'angle du dogleg.</summary>
+    private async Task AimView(Main previous)
+    {
+        previous.QueueFree();
+        await Frames(2);
+        var main = GD.Load<PackedScene>("res://Main.tscn").Instantiate<Main>();
+        AddChild(main);
+        var world = main.World;
+        world.StartProRound();
+        for (var i = 0; i < 20_000 && world.AwaitingPro is null; i++)
+        {
+            world.Step();
+        }
+
+        main.StepTicks(1);
+        main.ProAim.Sync();
+        var tee = world.Terrain!.Tee;
+        main.ProAim.SetClub(Clubs.Driver);
+        main.ProAim.SetShape(ShotShape.Draw);
+        main.ProAim.SetTarget(new Point2(tee.X + 215.0, tee.Z + 15.0));
+        main.ProAim.SetForce(1.0);
+        main.ProAim.Sync();
+        main.SunDayFraction = 0.5;
+        await Frames(SettleFrames);
+        GD.Print($"AIM actif={main.ProAim.Active} prevue={main.ProAim.Preview.Ball} issue={main.ProAim.Preview.Outcome}");
+        Save("pro-aim");
+
+        // Le coup joué, la fiche du pro avec sa première expérience.
+        main.ProAim.Play();
+        main.StepTicks(1);
+        for (var i = 0; i < 4_000 && world.AwaitingPro is null; i++)
+        {
+            main.StepTicks(1);
+        }
+
+        main.ProPanel.Toggle();
+        await Frames(SettleFrames);
+        GD.Print($"PRO long-jeu={world.Pro!.Experience(Golferoo.Sim.Pro.ProSkill.LongGame)} draw={world.Pro.Experience(Golferoo.Sim.Pro.ProSkill.Draw)}");
+        Save("pro-sheet");
     }
 
     private async Task Frames(int count)

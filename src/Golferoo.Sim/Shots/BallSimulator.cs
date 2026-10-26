@@ -82,7 +82,9 @@ public static class BallSimulator
     /// <param name="rng">Source du hasard des couronnes : un tirage par pas qui traverse une couronne, aucun sinon.</param>
     /// <param name="recordPath">Vrai pour échantillonner la trajectoire au tick de simulation.</param>
     /// <param name="wind">Vent en vol, en m/s (horizontal) ; sans effet sur le roulement.</param>
-    public static SimulationResult Run(TerrainGrid terrain, Point2 start, Vec3 velocity, bool rolling, double drag, bool recordPath, double startHeight = 0.0, TreeStand? trees = null, Season season = Season.Summer, DeterministicRng? rng = null, Vec3 wind = default)
+    /// <param name="curve">Effet latéral : vitesse de rotation de la vitesse horizontale en vol, en rad/s (positif : draw, vers la gauche d'un droitier ; 0 : aucun).</param>
+    /// <param name="backspin">Part de la vitesse horizontale perdue au premier rebond (0 : aucune).</param>
+    public static SimulationResult Run(TerrainGrid terrain, Point2 start, Vec3 velocity, bool rolling, double drag, bool recordPath, double startHeight = 0.0, TreeStand? trees = null, Season season = Season.Summer, DeterministicRng? rng = null, Vec3 wind = default, double curve = 0.0, double backspin = 0.0)
     {
         if (trees is not null && rng is null)
         {
@@ -129,6 +131,14 @@ public static class BallSimulator
                 vx -= k * rx * Step;
                 vy -= (Gravity + (k * vy)) * Step;
                 vz -= k * rz * Step;
+                if (curve != 0.0)
+                {
+                    // a = curve × (vz, 0, −vx) : la vitesse horizontale tourne, vers la gauche pour un draw.
+                    var cx = vx;
+                    vx += curve * vz * Step;
+                    vz -= curve * cx * Step;
+                }
+
                 var px = x;
                 var py = y;
                 var pz = z;
@@ -177,6 +187,7 @@ public static class BallSimulator
                     h = terrain.Sample(x, z);
                     y = h;
                     crownDone = false;
+                    var firstContact = !landed;
                     if (!landed)
                     {
                         landed = true;
@@ -207,6 +218,12 @@ public static class BallSimulator
                         var tx = (vx - (vn * n.X)) * keep;
                         var ty = (vy - (vn * n.Y)) * keep;
                         var tz = (vz - (vn * n.Z)) * keep;
+                        if (firstContact && backspin != 0.0)
+                        {
+                            tx *= 1.0 - backspin;
+                            tz *= 1.0 - backspin;
+                        }
+
                         if (bounce < RollThreshold)
                         {
                             rolling = true;

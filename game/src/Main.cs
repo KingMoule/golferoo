@@ -83,6 +83,10 @@ public partial class Main : Node3D
 
     public bool Paused { get; set; }
 
+    public ProAim ProAim { get; private set; } = null!;
+
+    public ProPanel ProPanel { get; private set; } = null!;
+
     public int Speed => Speeds[_speedIndex];
 
     /// <summary>Valeur d'une option de ligne de commande après `--` (par exemple `--factor 2`), ou null.</summary>
@@ -212,6 +216,9 @@ public partial class Main : Node3D
         _league = new LeaguePanel { Name = "LeaguePanelLayer" };
         AddChild(_league);
         _league.Init(this);
+        ProPanel = new ProPanel { Name = "ProPanelLayer" };
+        AddChild(ProPanel);
+        ProPanel.Init(this);
 
         _hud = GetNode<Label>("TickLabel");
         _sun = GetNode<DirectionalLight3D>("Sun");
@@ -226,6 +233,15 @@ public partial class Main : Node3D
         if (OS.GetCmdlineUserArgs().Contains("--fps-bench"))
         {
             AddChild(new FpsBench { Name = "FpsBench" });
+        }
+
+        ProAim = new ProAim { Name = "ProAim" };
+        AddChild(ProAim);
+        ProAim.Init(this);
+        if (!OS.GetCmdlineUserArgs().Contains("--fps-bench"))
+        {
+            // Dans le jeu, le pro ne joue jamais seul : à son tour, le mode visée met le jeu en pause.
+            World.ManualPro = true;
         }
 
         if (OS.GetCmdlineUserArgs().Contains("--pro"))
@@ -269,6 +285,8 @@ public partial class Main : Node3D
         {
             case InputEventKey { Pressed: true, Echo: false } key:
                 HandleKey(key.Keycode);
+                break;
+            case InputEventMouseButton { Pressed: true, ButtonIndex: MouseButton.Left } click when ProAim.HandleClick(click.Position):
                 break;
             case InputEventMouseButton when Brush.Active || TreeTool.Active:
                 // Le pinceau garde les clics : la caméra ne reçoit plus que la molette et le clic du milieu.
@@ -330,7 +348,7 @@ public partial class Main : Node3D
 
     private void HandleKey(Key key)
     {
-        if (TreeTool.HandleKey(key))
+        if (ProAim.HandleKey(key) || TreeTool.HandleKey(key))
         {
             return;
         }
@@ -365,6 +383,9 @@ public partial class Main : Node3D
                 break;
             case Key.J:
                 _league?.Toggle();
+                break;
+            case Key.O:
+                ProPanel.Toggle();
                 break;
             case Key.F10:
                 SkipToNextMonth();
@@ -493,7 +514,7 @@ public partial class Main : Node3D
     {
         if (_hud is not null)
         {
-            _hud.Text = $"{Engine.GetFramesPerSecond()} FPS | {Actors.VisibleGolfers} golfeurs | tick {World.Tick} | x{Speed}{(Paused ? " (pause)" : string.Empty)} | {DateText()} (F10 : mois suivant, T : outil arbres) | travaux arbres {World.TreeSpending}\n{WeatherText()} (F9 : ciel suivant) | {StimpText()} (H : état du gazon) | {RatingText()}\n{_league?.ProText()} (J : ligue)";
+            _hud.Text = $"{Engine.GetFramesPerSecond()} FPS | {Actors.VisibleGolfers} golfeurs | tick {World.Tick} | x{Speed}{(Paused ? " (pause)" : string.Empty)} | {DateText()} (F10 : mois suivant, T : outil arbres) | travaux arbres {World.TreeSpending}\n{WeatherText()} (F9 : ciel suivant) | {StimpText()} (H : état du gazon) | {RatingText()}\n{_league?.ProText()} (J : ligue, O : votre pro)";
         }
     }
 

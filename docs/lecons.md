@@ -22,3 +22,4 @@ Ajouter sans relire tout le fichier : `echo "- ..." >> docs/lecons.md`. `/amelio
 - 2026-10-25 : les agents du dépôt (codeur, auditeur) n'étaient pas chargés dans une session de thread ; délégués en general-purpose avec le fichier de rôle à lire (C06).
 - 2026-10-25 : panne du téléchargement .NET de Microsoft (HTTP 409) ; repli apt ajouté à ci.yml (PR #51).
 - Reprendre une branche déjà fusionnée depuis main demande un push --force-with-lease (consigne de la session cloud), contraire à la règle « jamais de --force » : nommer une nouvelle branche pour la suite.
+- 2026-10-26 C08 : le brief d'audit doit citer le chemin des fichiers de données du chantier (le trou de test), l'auditeur a dû le chercher.

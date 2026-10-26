@@ -1,6 +1,7 @@
 using Golferoo.Sim.Golfers;
 using Golferoo.Sim.League;
 using Golferoo.Sim.Pathing;
+using Golferoo.Sim.Pro;
 using Golferoo.Sim.Rating;
 using Golferoo.Sim.Scoring;
 using Golferoo.Sim.Shots;
@@ -54,6 +55,8 @@ public sealed partial class World
         if (league && terrain is not null)
         {
             League = new LeagueSeason(seed, LeagueSeason.GenerateMembers(seed));
+            Pro = new ProSkills();
+            _proMemberId = League.Members.First(m => m.IsPro).Id;
         }
 
         if (terrain is not null)
@@ -322,6 +325,11 @@ public sealed partial class World
             golfers.Add(golfer);
         }
 
+        foreach (var g in golfers)
+        {
+            g.InLeague = leagueRound >= 0;
+        }
+
         var group = new Group(_groups.Count, golfers) { LeagueRound = leagueRound };
         _groups.Add(group);
         return group;
@@ -396,6 +404,7 @@ public sealed partial class World
         ApplyPendingEdits();
         ApplyTreeCommands();
         ApplyTurfCommands();
+        ApplyProShots();
         while (_ratingCommands.Count > 0)
         {
             CourseRating = _ratingCommands.Dequeue();
@@ -525,6 +534,7 @@ public sealed partial class World
         }
 
         League?.MixInto(ref hash);
+        MixPro(ref hash);
 
         foreach (var c in _ratingCommands)
         {
@@ -582,6 +592,11 @@ public sealed partial class World
             Mix(ref hash, (ulong)BitConverter.DoubleToInt64Bits(p.X));
             Mix(ref hash, (ulong)BitConverter.DoubleToInt64Bits(p.Y));
             Mix(ref hash, (ulong)BitConverter.DoubleToInt64Bits(p.Z));
+        }
+
+        if (g.PlannedShot is { } shot)
+        {
+            MixShot(ref hash, shot);
         }
 
         Mix(ref hash, (ulong)BitConverter.DoubleToInt64Bits(g.Position.X));
@@ -723,7 +738,7 @@ public sealed partial class World
         var farthest = -1.0;
         foreach (var g in group.Golfers)
         {
-            if (g.State is GolferState.Swinging or GolferState.Putting or GolferState.BallInFlight)
+            if (g.State is GolferState.Swinging or GolferState.Putting or GolferState.BallInFlight or GolferState.AwaitingShot)
             {
                 return;
             }
@@ -748,6 +763,10 @@ public sealed partial class World
             group.Started = true;
             shooter.State = terrain.SurfaceAt(shooter.Ball.X, shooter.Ball.Z) == Surface.Green ? GolferState.Putting : GolferState.Swinging;
             shooter.SwingTicks = SwingTicksCount;
+            if (IsManualPro(shooter))
+            {
+                shooter.State = GolferState.AwaitingShot;
+            }
         }
     }
 
@@ -782,7 +801,7 @@ public sealed partial class World
         }
 
         var request = new ShotRequest(g.Ball, terrain.Hole, g.Strokes, g.Skill);
-        var result = _resolver.Resolve(request, terrain, _rng);
+        var result = g.PlannedShot is { } shot ? ExecuteProShot(terrain, g, shot) : _resolver.Resolve(request, terrain, _rng);
         g.Pending = result;
         g.FlightPath = result.Trajectory;
         g.FlightIndex = 0;
@@ -799,6 +818,12 @@ public sealed partial class World
     private void Land(Golfer g)
     {
         var result = g.Pending;
+        if (g.PlannedShot is { } shot && Terrain is { } played)
+        {
+            Pro!.Record(played, g.Ball, shot, result, g.InLeague, Date.Year);
+            g.PlannedShot = null;
+        }
+
         g.Strokes += 1 + result.PenaltyStrokes;
         g.Ball = result.Ball;
 

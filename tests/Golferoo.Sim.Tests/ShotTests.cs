@@ -9,7 +9,7 @@ public class ShotTests
     private const double None = 0.0;
 
     /// <summary>Terrain de <paramref name="cells"/> × <paramref name="cells"/> cellules de 4 m, toutes de la même surface.</summary>
-    private static TerrainGrid Uniform(Surface surface, Func<double, double, double>? height = null, int cells = 150, Point2? hole = null)
+    internal static TerrainGrid Uniform(Surface surface, Func<double, double, double>? height = null, int cells = 150, Point2? hole = null)
     {
         const double cell = 4.0;
         var field = new HeightField(cells, cells, cell);
