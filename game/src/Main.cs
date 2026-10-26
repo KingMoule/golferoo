@@ -555,7 +555,7 @@ public partial class Main : Node3D
     {
         if (_hud is not null)
         {
-            _hud.Text = $"{Engine.GetFramesPerSecond()} FPS | {Actors.VisibleGolfers} golfeurs | tick {World.Tick} | x{Speed}{(Paused ? " (pause)" : string.Empty)} | {DateText()} (F10 : mois suivant, T : outil arbres) | travaux arbres {World.TreeSpending}\n{WeatherText()} (F9 : ciel suivant) | {StimpText()} (H : état du gazon) | {RatingText()}\n{_league?.ProText()} (J : ligue, O : votre pro)";
+            _hud.Text = $"{Engine.GetFramesPerSecond()} FPS | {Actors.VisibleGolfers} golfeurs | tick {World.Tick} | x{Speed}{(Paused ? " (pause)" : string.Empty)} | {DateText()} (F10 : mois suivant, T : outil arbres) | travaux arbres {World.TreeSpending}\n{WeatherText()} (F9 : ciel suivant) | {StimpText()} (H : état du gazon) | {RatingText()}{(_league is null ? string.Empty : $"\n{_league.ProText()} (J : ligue, O : votre pro)")}";
         }
     }
 
@@ -575,7 +575,7 @@ public partial class Main : Node3D
     private string RatingText() =>
         World.CourseRating is { } r
             ? $"Note {LeaguePanel.Decimal(r.Scratch18)} / slope {r.Slope}"
-            : "Note : calcul en cours";
+            : World.Terrain!.Blank ? "pas de ligue sur la terre vierge" : "Note : calcul en cours";
 
     private string WeatherText()
     {
