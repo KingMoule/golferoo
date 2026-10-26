@@ -49,6 +49,11 @@ public sealed partial class World
     {
         Seed = seed;
         Terrain = terrain;
+        if (terrain is { Blank: true })
+        {
+            _holeOpen = false;
+            ArgumentOutOfRangeException.ThrowIfEqual(league, true, nameof(league));
+        }
         _rng = new DeterministicRng(seed);
         _resolver = resolver ?? (terrain is null ? new StubShotResolver() : new PhysicalShotResolver());
         Flow = terrain is null ? null : new FlowFieldCache(terrain);
@@ -300,7 +305,7 @@ public sealed partial class World
     }
 
     /// <summary>Ajoute une paire de golfeurs à l'entrée du tee. Elle joue quand la précédente a quitté le green.</summary>
-    public Group SpawnGroup() => AddGroup(2, null, -1);
+    public Group SpawnGroup() => HoleOpen ? AddGroup(2, null, -1) : throw new InvalidOperationException("Le trou est fermé : il manque encore quelque chose (HoleCheck).");
 
     /// <summary>Partie d'entraînement : votre pro seul, hors ligue (sa carte ne compte pas pour son handicap). Exige la ligue.</summary>
     public Group StartProRound() =>
@@ -403,6 +408,7 @@ public sealed partial class World
         _rng.NextUInt64();
         ApplyPendingEdits();
         ApplyTreeCommands();
+        ApplyHoleCommands();
         ApplyTurfCommands();
         ApplyProShots();
         while (_ratingCommands.Count > 0)
@@ -523,6 +529,7 @@ public sealed partial class World
 
         MixPendingEdits(ref hash);
         MixTreeCommands(ref hash);
+        MixHoleCommands(ref hash);
         foreach (var c in _turfCommands)
         {
             Mix(ref hash, (byte)c.GreenSpeed | ((ulong)(byte)c.FairwayFirmness << 8) | ((ulong)(byte)c.RoughLength << 16));

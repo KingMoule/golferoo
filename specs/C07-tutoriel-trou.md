@@ -32,12 +32,12 @@ Ce qui prouve la réussite : un joueur qui n'a jamais vu le jeu dégage la place
 - Les contours fantômes sont ceux du coude, lus dans `dogleg-par4.json` : on reconstruit le vrai trou, ou on s'en écarte librement (contours indicatifs, Guillaume).
 
 **Sim** (`src/Golferoo.Sim/`)
-- `Terrain/HoleCheck.cs` : fonction pure qui rend la liste des manques (départ trop petit, green trop petit, trou hors du green, départ hors du départ peint, pas de chemin praticable, fairway trop court, arbre sur la ligne de jeu…), avec les seuils au lot 1 (de l'ordre de 40 m² de départ, 300 m² de green, 60 m de fairway). Le par se déduit de la distance (`TerrainGrid.DeducedPar`).
-- Commandes rejouables : `World.PlaceTee(point)` (sur une cellule `Tee`), `World.PlaceHole(point)` (sur une cellule `Green` ; réutilise `MovePin` de C05). Les arbres passent par les commandes de C02 (`RazeTree`, `RazeArea`, `PlantTree`).
-- `World.HoleOpen` : vrai par défaut, si bien que tous les mondes de C01 à C08 gardent leur somme de contrôle au bit près ; faux sur la terre vierge, où il passe à vrai dès que `HoleCheck` ne rend plus de manque (vérifié au changement de version du terrain, pas à chaque tick). Fermé, `SpawnGroup` ne fait rien et la ligue ne lance pas ses journées.
+- `Terrain/HoleCheck.cs` : fonction pure qui rend la liste des manques (départ trop petit, green trop petit, trou hors du green, départ hors du départ peint, pas de chemin praticable, fairway trop court, arbre sur la ligne de jeu…), avec les seuils au lot 1 (lot 1 : 40 m² de départ, 500 m² de fairway, 300 m² de green, 50 m entre départ et trou). Le par se déduit de la distance (`TerrainGrid.DeducedPar`).
+- Commandes rejouables : `World.PlaceTee(point)` (sur une cellule `Tee`), `World.PlaceHole(point)` (sur une cellule `Green` ; réutilise `MovePin` de C05) ; elles rendent faux, sans rien mettre en file, hors de leur surface. Les arbres passent par les commandes de C02 (`RazeTree`, `RazeArea`, `PlantTree`).
+- `World.HoleOpen` : vrai par défaut, si bien que tous les mondes de C01 à C08 gardent leur somme de contrôle au bit près ; faux sur la terre vierge, où il passe à vrai dès que `HoleCheck` ne rend plus de manque (vérifié au changement de version du terrain, pas à chaque tick). Fermé, `SpawnGroup` lève une exception (le rendu teste `HoleOpen` d'abord) ; la terre vierge se crée sans ligue (le constructeur refuse `league: true`).
 - `Tutorial/TutorialSteps.cs` : la liste ordonnée des étapes, chacune une condition sur le monde et un identifiant de texte. L'étape courante est la première non remplie : défaire un green ramène à l'étape du green. Aucun état propre, sauf le nombre d'arbres plantés depuis le début (pour l'étape de la pousse).
 
-**Étapes** (textes définitifs au lot 2)
+**Étapes** (textes définitifs au lot 2 ; la sim ne connaît que les étapes 2 à 8, l'accueil du pro est du rendu)
 1. Bienvenue : le pro se présente ; la caméra montre la terre vierge.
 2. Enlever les arbres du passage : touche T, clic sur un arbre puis R (ou X pour la zone) ; remplie quand les arbres de la ligne du fairway sont rasés.
 3. Planter une pousse : P plante un plant au curseur ; remplie au premier plant.
