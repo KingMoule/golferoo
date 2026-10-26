@@ -33,7 +33,7 @@ public class TreeTests
         var old = stand.Add(8, 9, TreeSpeciesId.Fir, 100 * 12);
         Assert.Equal(2, stand.Count);
         Assert.True(stand.Version > v0);
-        Assert.Equal(20.0, stand.MaxTopAt(5, 5), 1e-9);
+        Assert.Equal(20.0 * TreeSpeciesTable.SizeScale, stand.MaxTopAt(5, 5), 1e-9);
         Assert.Equal(double.NegativeInfinity, stand.MaxTopAt(40, 40));
 
         var v1 = stand.Version;
@@ -78,7 +78,7 @@ public class TreeTests
             }
 
             Assert.Equal(sp.AdultHeight, Tree.Height(sp, sp.AdultAgeMonths), 1e-9);
-            Assert.InRange(Tree.Height(sp, sp.AdultAgeMonths), 12.0, 25.0);
+            Assert.InRange(Tree.Height(sp, sp.AdultAgeMonths), 12.0 * TreeSpeciesTable.SizeScale, 25.0 * TreeSpeciesTable.SizeScale);
             Assert.Equal(sp.SaplingHeight, Tree.Height(sp, 0), 1e-9);
         }
     }
@@ -125,17 +125,18 @@ public class TreeTests
         for (ulong seed = 1; seed <= 5; seed++)
         {
             var world = new World(seed, Proto());
-            Assert.InRange(world.Trees.Count, 80, 200);
+            // Couronnes agrandies : l'espacement double avec elles, d'où moins d'arbres qu'à l'échelle réelle (80 à 200).
+            Assert.InRange(world.Trees.Count, 40, 120);
         }
     }
 
     [Fact]
-    public void MatureTree_Is12To25Meters()
+    public void MatureTree_Is12To25MetersAtRealSize()
     {
         var world = new World(1, Proto());
         var mature = world.Trees.Trees.Where(t => t.AgeMonths >= TreeSpeciesTable.Get(t.Species).AdultAgeMonths).ToList();
         Assert.NotEmpty(mature);
-        Assert.All(mature, t => Assert.InRange(t.Height(), 12.0, 25.0));
+        Assert.All(mature, t => Assert.InRange(t.Height(), 12.0 * TreeSpeciesTable.SizeScale, 25.0 * TreeSpeciesTable.SizeScale));
     }
 
     [Fact]

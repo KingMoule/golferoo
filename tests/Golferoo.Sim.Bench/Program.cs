@@ -285,7 +285,8 @@ static (int Trees, double Mean, double Median, double Max) MeasureTreeGrowth(Ter
 
 static (int Trees, int Flights, double NoTreesMs, double WithTreesMs, double Ratio, double RatioPerSimulatedSecond, double NoTreesSeconds, double WithTreesSeconds) MeasureTreeFlight(TerrainGrid map)
 {
-    const int treeCount = 20_000;
+    // 20 000 arbres à l'échelle réelle ; agrandis, leurs couronnes couvrent autant de terrain avec SizeScale² fois moins d'arbres.
+    var treeCount = (int)(20_000 / (TreeSpeciesTable.SizeScale * TreeSpeciesTable.SizeScale));
     const int flights = 400;
     var size = map.CellsX * map.CellSize;
     var stand = new TreeStand(size, size, map);

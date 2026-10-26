@@ -20,6 +20,8 @@ public partial class ActorLayer : Node3D
     private Node3D? _flag;
     private Point2 _flagAt;
 
+    private static readonly Basis GolferBasis = Basis.Identity.Scaled(Vector3.One * ProceduralMeshes.GolferScale);
+
     public int VisibleGolfers { get; private set; }
 
     public void Build(TerrainGrid grid)
@@ -115,7 +117,7 @@ public partial class ActorLayer : Node3D
             }
 
             var y = (float)_grid.Sample(pos.X, pos.Z);
-            _golfers.SetInstanceTransform(i, new Transform3D(Basis.Identity, new Vector3((float)pos.X, y, (float)pos.Z)));
+            _golfers.SetInstanceTransform(i, new Transform3D(GolferBasis, new Vector3((float)pos.X, y, (float)pos.Z)));
             _golfers.SetInstanceColor(i, StateColor(cur.State, cur.Id));
 
             if (cur.State != GolferState.Roaming && cur.State != GolferState.Done && !cur.Holed)

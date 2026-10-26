@@ -15,7 +15,8 @@ public class BallTreeTests
 
     private static TerrainGrid Flat()
     {
-        const int cells = 50;
+        // 320 m : une balle qui traverse la couronne d'un arbre agrandi (centre à 21 m) retombe encore sur la carte.
+        const int cells = 80;
         const double cell = 4.0;
         var field = new HeightField(cells, cells, cell);
         var size = cells * cell;
@@ -145,12 +146,12 @@ public class BallTreeTests
     {
         var terrain = Flat();
         var stand = StandWith(TreeSpeciesId.Oak, 100 * 12);
-        Assert.Equal(17.5, stand.MaxTopAt(TreeX, TreeZ), 1e-9);
+        Assert.Equal(17.5 * TreeSpeciesTable.SizeScale, stand.MaxTopAt(TreeX, TreeZ), 1e-9);
         var rng = new DeterministicRng(5);
         var before = rng.StateHash();
-        // 30 m de hauteur : la balle passe au-dessus du chêne (17,5 m) puis atterrit loin derrière.
-        var withTrees = Fly(terrain, stand, Season.Summer, 5, 30.0, path: true, rng: rng);
-        var without = Fly(terrain, null, Season.Summer, 5, 30.0, path: true);
+        // 30 m agrandis : la balle passe au-dessus du chêne (17,5 m agrandis) puis atterrit loin derrière.
+        var withTrees = Fly(terrain, stand, Season.Summer, 5, 30.0 * TreeSpeciesTable.SizeScale, path: true, rng: rng);
+        var without = Fly(terrain, null, Season.Summer, 5, 30.0 * TreeSpeciesTable.SizeScale, path: true);
         Assert.Equal(before, rng.StateHash());
         Assert.Equal(without.FirstLanding, withTrees.FirstLanding);
         Assert.Equal(without.Shot.Trajectory, withTrees.Shot.Trajectory);
@@ -243,9 +244,9 @@ public class BallTreeTests
         var stand = StandWith(TreeSpeciesId.Oak, 100 * 12);
         var rng = new DeterministicRng(3);
         var before = rng.StateHash();
-        double x = TreeX + 0.3, y = 9.5, z = TreeZ, vx = 60.0, vy = 0.0, vz = 0.0;
+        double x = TreeX + 0.3, y = 9.5 * TreeSpeciesTable.SizeScale, z = TreeZ, vx = 60.0, vy = 0.0, vz = 0.0;
         var done = true;
-        TreeCollision.Step(terrain, stand, Season.Summer, rng, new TreeCollision.Probe(), TreeX - 0.3, 9.5, TreeZ, ref x, ref y, ref z, ref vx, ref vy, ref vz, ref done);
+        TreeCollision.Step(terrain, stand, Season.Summer, rng, new TreeCollision.Probe(), TreeX - 0.3, 9.5 * TreeSpeciesTable.SizeScale, TreeZ, ref x, ref y, ref z, ref vx, ref vy, ref vz, ref done);
         Assert.Equal(before, rng.StateHash());
         Assert.Equal(60.0, vx);
         Assert.True(done);
@@ -286,10 +287,10 @@ public class BallTreeTests
         Assert.InRange(mean, 50, 200);
     }
 
-    /// <summary>Hauteur maximale atteinte par la balle après son premier contact avec le sol (rebond), pour une chute de 60 m.</summary>
+    /// <summary>Hauteur maximale atteinte par la balle après son premier contact avec le sol (rebond), pour une chute de 60 m agrandis.</summary>
     private static double ReboundApex(TerrainGrid terrain, TreeStand? stand, ulong seed)
     {
-        var sim = BallSimulator.Run(terrain, new Point2(TreeX + 1.0, TreeZ), new Vec3(0, 0, 0), false, 0.0, true, startHeight: 60.0, trees: stand, season: Season.Summer, rng: new DeterministicRng(seed));
+        var sim = BallSimulator.Run(terrain, new Point2(TreeX + 1.0, TreeZ), new Vec3(0, 0, 0), false, 0.0, true, startHeight: 60.0 * TreeSpeciesTable.SizeScale, trees: stand, season: Season.Summer, rng: new DeterministicRng(seed));
         var path = sim.Shot.Trajectory!;
         var landing = path.ToList().FindIndex(v => v.Y < 0.5);
         return path.Skip(landing).Take(40).Max(v => v.Y);
@@ -300,11 +301,11 @@ public class BallTreeTests
     {
         var terrain = Flat();
         var stand = StandWith(TreeSpeciesId.Oak, 100 * 12);
-        Assert.InRange(ReboundApex(terrain, null, 1), 6.0, 9.0); // sans arbre : apex d'environ 7,3 m, bien au-dessus de la base de la couronne (3 m)
+        Assert.InRange(ReboundApex(terrain, null, 1), 6.0 * TreeSpeciesTable.SizeScale, 9.0 * TreeSpeciesTable.SizeScale); // sans arbre : apex d'environ 7,3 m agrandis, bien au-dessus de la base de la couronne (3,5 m agrandis)
         var apexes = Enumerable.Range(1, 30).Select(sd => ReboundApex(terrain, stand, (ulong)sd)).OrderBy(a => a).ToList();
         Console.WriteLine($"Apex du rebond avec couronne : médiane {apexes[15]:F1}, max {apexes[^1]:F1}");
-        // Sans réarmement tous les rebonds monteraient à 7,3 m ; réarmée, la couronne en coupe la plupart en route.
-        Assert.True(apexes.Count(a => a < 7.0) >= 15, $"médiane {apexes[15]}");
+        // Sans réarmement tous les rebonds monteraient à 7,3 m agrandis ; réarmée, la couronne en coupe la plupart en route.
+        Assert.True(apexes.Count(a => a < 7.0 * TreeSpeciesTable.SizeScale) >= 15, $"médiane {apexes[15]}");
     }
 
     // --- Index : voisines et bord de carte ---
@@ -315,14 +316,14 @@ public class BallTreeTests
         var stand = new TreeStand(100, 100);
         stand.Add(15.9, 50, TreeSpeciesId.Fir, 100 * 12);
         Assert.Equal(double.NegativeInfinity, stand.MaxTopAt(16.5, 50));
-        Assert.Equal(20.0, stand.MaxTopNear(16.5, 50, 1.0), 1e-9);
-        Assert.Equal(20.0, stand.MaxTopNear(15.5, 50, 1.0), 1e-9);
+        Assert.Equal(20.0 * TreeSpeciesTable.SizeScale, stand.MaxTopNear(16.5, 50, 1.0), 1e-9);
+        Assert.Equal(20.0 * TreeSpeciesTable.SizeScale, stand.MaxTopNear(15.5, 50, 1.0), 1e-9);
         Assert.Equal(double.NegativeInfinity, stand.MaxTopNear(40, 50, 1.0));
         stand.Add(0.5, 0.5, TreeSpeciesId.Oak, 100 * 12);
         stand.Add(99.9, 99.9, TreeSpeciesId.Fir, 100 * 12);
-        Assert.Equal(17.5, stand.MaxTopNear(-3, -3, 6.0), 1e-9);
-        Assert.Equal(20.0, stand.MaxTopNear(104, 104, 6.0), 1e-9);
-        Assert.Equal(20.0, stand.MaxTopNear(99.9, 99.9, 6.0), 1e-9);
+        Assert.Equal(17.5 * TreeSpeciesTable.SizeScale, stand.MaxTopNear(-3, -3, 6.0), 1e-9);
+        Assert.Equal(20.0 * TreeSpeciesTable.SizeScale, stand.MaxTopNear(104, 104, 6.0), 1e-9);
+        Assert.Equal(20.0 * TreeSpeciesTable.SizeScale, stand.MaxTopNear(99.9, 99.9, 6.0), 1e-9);
     }
 
     // --- Pente : la porte de hauteur se compte en altitude ---
@@ -455,13 +456,14 @@ public class BallTreeTests
     }
 
     [Fact]
-    public void Species_AreDistinctAndHaveSaplingsBetweenOneAndThreeMeters()
+    public void Species_AreDistinctAndHaveSaplingsBetweenOneAndThreeMetersAtRealSize()
     {
+        var k = TreeSpeciesTable.SizeScale;
         foreach (var id in new[] { TreeSpeciesId.Oak, TreeSpeciesId.Birch, TreeSpeciesId.Fir })
         {
             var sp = TreeSpeciesTable.Get(id);
-            Assert.InRange(sp.SaplingHeight, 1.0, 3.0);
-            Assert.InRange(sp.AdultHeight, 15.0, 25.0);
+            Assert.InRange(sp.SaplingHeight, 1.0 * k, 3.0 * k);
+            Assert.InRange(sp.AdultHeight, 15.0 * k, 25.0 * k);
         }
 
         Assert.True(TreeSpeciesTable.Get(TreeSpeciesId.Oak).AdultCrownDiameter > TreeSpeciesTable.Get(TreeSpeciesId.Birch).AdultCrownDiameter);
@@ -522,10 +524,10 @@ public class BallTreeTests
     {
         var terrain = Cliff();
         var stand = new TreeStand(200, 200, terrain);
-        stand.Add(60, TreeZ, TreeSpeciesId.Oak, 100 * 12); // plateau à 30 m : cime à 47,5 m
-        stand.Add(180, TreeZ, TreeSpeciesId.Oak, 0); // plant en bas, sol à 0 : cime à 2 m
-        Assert.Equal(47.5, stand.MaxTopAt(60, TreeZ), 1e-9);
-        Assert.Equal(2.0, stand.MaxTopAt(180, TreeZ), 1e-9);
+        stand.Add(60, TreeZ, TreeSpeciesId.Oak, 100 * 12); // plateau à 30 m : cime à 30 + 17,5 m agrandis
+        stand.Add(180, TreeZ, TreeSpeciesId.Oak, 0); // plant en bas, sol à 0 : cime à 2 m agrandis
+        Assert.Equal(30.0 + (17.5 * TreeSpeciesTable.SizeScale), stand.MaxTopAt(60, TreeZ), 1e-9);
+        Assert.Equal(2.0 * TreeSpeciesTable.SizeScale, stand.MaxTopAt(180, TreeZ), 1e-9);
         Assert.Equal(double.NegativeInfinity, stand.MaxTopAt(150, 20));
 
         // Au-dessus du plant, à 10 m d'altitude, la balle est sous le maximum de la carte (47,5 m) mais au-dessus de la cime locale :
@@ -574,9 +576,9 @@ public class BallTreeTests
         var terrain = Flat();
         var world = new World(3, terrain);
         world.Trees.Add(100, 100, TreeSpeciesId.Fir, 100 * 12);
-        Assert.Equal(20.0, world.Trees.MaxTopAt(100, 100), 1e-9);
+        Assert.Equal(20.0 * TreeSpeciesTable.SizeScale, world.Trees.MaxTopAt(100, 100), 1e-9);
         world.RaiseTerrain(new Point2(100, 100), 12.0, 3.0);
         world.Step(1);
-        Assert.True(world.Trees.MaxTopAt(100, 100) > 20.0);
+        Assert.True(world.Trees.MaxTopAt(100, 100) > 20.0 * TreeSpeciesTable.SizeScale);
     }
 }

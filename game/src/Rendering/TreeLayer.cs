@@ -26,8 +26,8 @@ public partial class TreeLayer : Node3D
 {
     public const string ExternalTreePath = "res://assets/trees/tree.glb";
 
-    /// <summary>Sous cette hauteur, un arbre est un jeune plant, en mètres.</summary>
-    public const float SaplingMaxHeight = 4f;
+    /// <summary>Sous cette hauteur, un arbre est un jeune plant, en mètres (4 m à l'échelle réelle).</summary>
+    public const float SaplingMaxHeight = 4f * (float)TreeSpeciesTable.SizeScale;
 
     /// <summary>Durée de la chute d'un arbre, en secondes.</summary>
     public const float FallSeconds = 1.5f;
@@ -54,13 +54,13 @@ public partial class TreeLayer : Node3D
     public const int BallSlot = 1;
 
     /// <summary>Rayon d'éclaircie autour du curseur, en mètres (à l'échelle de l'écran).</summary>
-    public const float CursorFocusRadius = 6f;
+    public const float CursorFocusRadius = 12f;
 
     /// <summary>Rayon d'éclaircie autour de la balle suivie, en mètres.</summary>
-    public const float BallFocusRadius = 4f;
+    public const float BallFocusRadius = 8f;
 
-    /// <summary>Hauteur au-dessus du sol du point focal (un golfeur : 1 m), en mètres.</summary>
-    private const float FocusLift = 1f;
+    /// <summary>Hauteur au-dessus du sol du point focal (milieu d'un golfeur), en mètres.</summary>
+    private const float FocusLift = 0.5f * ProceduralMeshes.GolferHeight;
 
     private static readonly string[] FocusParameters = ["tree_focus_a", "tree_focus_b"];
     private const string WindParameter = "tree_wind";

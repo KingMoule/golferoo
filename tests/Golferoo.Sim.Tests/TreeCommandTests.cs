@@ -58,29 +58,30 @@ public class TreeCommandTests
         var w = new World(4, Woods());
         var terrain = w.Terrain!;
         var centre = new Point2(40, 40);
+        var radius = 15 * TreeSpeciesTable.SizeScale;
         Assert.Equal(Surface.Trees, terrain.SurfaceAt(40, 40));
         var old = w.Trees.Add(41, 41, TreeSpeciesId.Oak, 50 * 12 * 2, remarkable: true);
         var before = w.Trees.Count;
         var near = new List<Tree>();
-        w.Trees.Query(40, 40, 15, near);
+        w.Trees.Query(40, 40, radius, near);
         Assert.True(near.Count > 3);
         var version = terrain.SurfaceVersion;
 
-        w.RazeArea(centre, 15, keepRemarkable: true);
+        w.RazeArea(centre, radius, keepRemarkable: true);
         w.Step();
 
         near.Clear();
-        w.Trees.Query(40, 40, 15, near);
+        w.Trees.Query(40, 40, radius, near);
         Assert.Contains(near, t => t.Id == old.Id);
         Assert.All(near, t => Assert.True(t.Remarkable));
         Assert.True(w.Trees.Count < before);
         Assert.Equal(Surface.Rough, terrain.SurfaceAt(40, 40));
         Assert.True(terrain.SurfaceVersion > version);
 
-        w.RazeArea(centre, 15, keepRemarkable: false);
+        w.RazeArea(centre, radius, keepRemarkable: false);
         w.Step();
         near.Clear();
-        w.Trees.Query(40, 40, 15, near);
+        w.Trees.Query(40, 40, radius, near);
         Assert.Empty(near);
     }
 
@@ -110,7 +111,7 @@ public class TreeCommandTests
     }
 
     [Fact]
-    public void Sapling_GrowsPastFourMetres_AndMoundIsTallerThanSapling()
+    public void Sapling_GrowsPastYoungHeight_AndMoundIsTallerThanSapling()
     {
         var w = Open();
         w.PlantTree(30, 30, TreeSpeciesId.Oak, TreePlantStage.Sapling);
@@ -121,15 +122,15 @@ public class TreeCommandTests
         Assert.Equal(0, sapling.AgeMonths);
         Assert.InRange(mound.AgeMonths, 96, 120);
         Assert.True(mound.Height() > sapling.Height() + 3.0);
-        Assert.True(sapling.Height() < 4.0);
+        Assert.True(sapling.Height() < Tree.YoungMaxHeight);
 
         w.Trees.Grow(5 * 12);
         foreach (var species in new[] { TreeSpeciesId.Oak, TreeSpeciesId.Birch, TreeSpeciesId.Fir })
         {
-            Assert.True(Tree.Height(TreeSpeciesTable.Get(species), 5 * 12) > 4.0, species.ToString());
+            Assert.True(Tree.Height(TreeSpeciesTable.Get(species), 5 * 12) > Tree.YoungMaxHeight, species.ToString());
         }
 
-        Assert.True(w.Trees.Trees[0].Height() > 4.0);
+        Assert.True(w.Trees.Trees[0].Height() > Tree.YoungMaxHeight);
     }
 
     [Fact]

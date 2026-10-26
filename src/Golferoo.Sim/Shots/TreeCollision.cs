@@ -10,8 +10,11 @@ namespace Golferoo.Sim.Shots;
 /// </summary>
 public static class TreeCollision
 {
-    /// <summary>Coefficient d'extinction de la couronne (1/m) : une couronne pleine de 8 m de corde arrête environ neuf balles sur dix.</summary>
-    public const double CrownK = 0.3;
+    /// <summary>
+    /// Coefficient d'extinction de la couronne (1/m) : une couronne pleine de 8 m de corde (à l'échelle réelle) arrête environ
+    /// neuf balles sur dix. Divisé par <see cref="TreeSpeciesTable.SizeScale"/> : un arbre agrandi arrête autant de balles que nature.
+    /// </summary>
+    public const double CrownK = 0.3 / TreeSpeciesTable.SizeScale;
 
     /// <summary>Restitution de l'écorce : part de la vitesse normale qui revient après le choc avec un tronc.</summary>
     public const double BarkRestitution = 0.3;

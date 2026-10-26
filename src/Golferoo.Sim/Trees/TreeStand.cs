@@ -245,6 +245,16 @@ public sealed class TreeStand
         _top[ci] = max;
     }
 
+    /// <summary>Case de 16 m qui contient (x, z), bornée à la carte.</summary>
+    public int CellOf(double x, double z) => CellIndex(x, z);
+
+    /// <summary>
+    /// Majorant de <see cref="MaxTopNear"/> pour tout point de la case <paramref name="cell"/> : la marge est augmentée d'une
+    /// demi-case autour de son centre. La balle en vol le garde tant qu'elle reste dans la case.
+    /// </summary>
+    public double MaxTopAround(int cell, double margin) =>
+        MaxTopNear(((cell % _cellsX) + 0.5) * CellSize, ((cell / _cellsX) + 0.5) * CellSize, margin + (0.5 * CellSize));
+
     private int CellIndex(double x, double z)
     {
         var cx = Math.Clamp((int)Math.Floor(x / CellSize), 0, _cellsX - 1);

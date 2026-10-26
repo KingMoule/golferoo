@@ -16,7 +16,7 @@ public class ProTests(ITestOutputHelper output)
 
     private static World ManualWorld(ulong seed) => new(seed, Dogleg(), league: true) { ManualPro = true };
 
-    /// <summary>Le joueur le plus simple : droit sur l'angle du dogleg depuis le tee, puis sur le trou, avec le club dont la portée couvre la distance ; au green, le putter.</summary>
+    /// <summary>Le joueur le plus simple : droit sur l'angle du dogleg jusqu'à 30 m de lui (des arbres deux fois plus grands bouchent le raccourci), puis sur le trou, avec le club dont la portée couvre la distance ; au green, le putter.</summary>
     private static ProShot Simple(World w, Golfer pro)
     {
         var t = w.Terrain!;
@@ -25,7 +25,8 @@ public class ProTests(ITestOutputHelper output)
             return new ProShot(Clubs.Putter, t.Hole, ShotShape.Straight, 1.0);
         }
 
-        var target = pro.Ball.X < 200 ? new Point2(250, 236) : t.Hole;
+        var corner = new Point2(250, 236);
+        var target = Math.Abs(corner.X - pro.Ball.X) + Math.Abs(corner.Z - pro.Ball.Z) > 30 && pro.Ball.X < corner.X ? corner : t.Hole;
         var d = Math.Sqrt(Math.Pow(target.X - pro.Ball.X, 2) + Math.Pow(target.Z - pro.Ball.Z, 2));
         var club = Clubs.Full.LastOrDefault(c => c.TargetRange >= d) ?? Clubs.Driver;
         return new ProShot(club, target, ShotShape.Straight, Math.Min(1.0, Math.Sqrt(d / club.TargetRange)));

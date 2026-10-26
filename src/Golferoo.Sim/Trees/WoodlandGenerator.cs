@@ -21,9 +21,6 @@ public static class WoodlandGenerator
     /// <summary>Pas de la grille de jets, en mètres.</summary>
     private const double Pitch = 3.0;
 
-    /// <summary>Plus grand rayon de couronne possible : borne de la recherche des voisins.</summary>
-    private const double MaxCrownRadius = 7.0;
-
     /// <summary>Bornes cumulées du tirage de l'essence : 40 % de chêne, puis 20 % de bouleau, le reste (40 %) de sapin.</summary>
     private const double OakShare = 0.4;
 
@@ -74,7 +71,7 @@ public static class WoodlandGenerator
 
             var crown = Tree.CrownDiameter(spec, age) * 0.5;
             near.Clear();
-            stand.Query(x, z, crown + MaxCrownRadius, near);
+            stand.Query(x, z, crown + TreeSpeciesTable.MaxCrownRadius, near);
             var free = true;
             foreach (var other in near)
             {

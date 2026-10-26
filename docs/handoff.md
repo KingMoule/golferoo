@@ -18,6 +18,7 @@ C01 (prototype d'un trou) : lots 1 à 7 fusionnés (PR #6 à #12), lot 8 en PR #
 - Godot.NET.Sdk 4.7.2, jeu et simulation en `net10.0`. RNG maison (xoshiro256**).
 - 2026-10-24 : arbre par script Blender (`bpy`) au lieu de TRELLIS (RTX 2080 de 8 Go trop juste) ; filières dans `docs/assets-3d.md`.
 - 2026-10-24 : facteur 2 (Guillaume, sur le rapport C01).
+- 2026-10-26 : arbres et golfeurs deux fois plus grands que nature (Guillaume) : `TreeSpeciesTable.SizeScale` (sim : hauteur, couronne, tronc ; `CrownK` divisé d'autant, un arbre arrête autant de balles), `ProceduralMeshes.GolferScale` (rendu seul). Les boisements ont environ deux fois moins d'arbres.
 
 ## Prochaine étape
 Feuillage progressif le 2026-10-25 (PR #54, modèles 75 et 25 % de la PR #53) : couleur et chute des feuilles jour après jour (`Trees/Foliage.cs`, rendu seul), chaque arbre décalé de ±4 jours ; la couche des arbres se refait chaque jour au printemps et en automne. 322,1 FPS, 1 % bas 270 (Guillaume, RTX 2080, 5 000 arbres, version 81e542f = PR #54 sur main avec la #53).
