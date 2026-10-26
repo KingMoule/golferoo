@@ -28,7 +28,7 @@ public sealed class PhysicalShotResolver : IShotResolver
     private const double PenaltyCost = 100.0;
 
     /// <summary>Coût d'une balle arrêtée par une couronne : celui d'une balle sous les arbres (voir <c>Cost</c>).</summary>
-    private const double TreesLieCost = 25.0;
+    private const double TreesLieCost = 60.0;
 
     /// <summary>Probabilité d'arrêt du meilleur candidat au-delà de laquelle la ligne du trou est jugée bouchée.</summary>
     private const double BlockedStop = 0.25;
@@ -37,7 +37,7 @@ public sealed class PhysicalShotResolver : IShotResolver
     private const double WideMinRange = 15.0;
 
     private static readonly double[] OffsetDegrees = [-20, -10, -4, 0, 4, 10, 20];
-    private static readonly double[] WideDegrees = [-90, -60, -35, 35, 60, 90];
+    private static readonly double[] WideDegrees = [-150, -120, -90, -60, -35, 35, 60, 90, 120, 150, 180];
     private static readonly double[] LowDegrees = [-10, 0, 10];
     private static readonly double[] WideForces = [1.0, 0.65, 0.35];
     private static readonly double[] Forces = [1.0, 0.9, 0.8, 0.65, 0.5, 0.35];
@@ -211,7 +211,7 @@ public sealed class PhysicalShotResolver : IShotResolver
 
         Add(OffsetDegrees, Forces, low: false, relaxed: false);
 
-        // Ligne du trou bouchée par les arbres : on essaie aussi les coups bas (sous les branches) et les directions jusqu'à ±90°
+        // Ligne du trou bouchée par les arbres : on essaie aussi les coups bas (sous les branches) et les directions sur tout le tour (±180°)
         // pour ressortir de côté, avec moins de forces et de directions pour tenir le temps de planification.
         if (candidates.Count > 0 && Best(candidates).Stop > BlockedStop)
         {

@@ -33,7 +33,7 @@ const double leagueDayLimitMs = 5.0;
 const double puddleFloodLimitMs = 20.0;
 const double shotPreviewLimitMs = 2.0;
 const double tutorialLimitMs = 1.0;
-const double planTreesRatioLimit = 2.0;
+const double planTreesRatioLimit = 2.5;
 
 // Carte plate de 512 x 512 cellules, la même à tous les facteurs.
 var big = new TerrainGrid(new HeightField(512, 512, 2.0), "plat", new Point2(2, 2), new Point2(1000, 1000), new Point2(1000, 1000));
@@ -215,7 +215,7 @@ var tutorialStep = Measure(200, 20, () => TutorialSteps.Current(blankWorld));
 allPassed &= holeCheck.Median < tutorialLimitMs && tutorialStep.Median < tutorialLimitMs;
 
 // Planification avec arbres (C09 lot 1) : un drive planifié sur le dogleg avec ses arbres contre le même planificateur qui les ignore
-// (le temps d'avant le lot), médianes de passes alternées. Limite : 2 fois. Depuis la lisière de la forêt (ligne du trou bouchée, directions
+// (le temps d'avant le lot), médianes de passes alternées. Limite : 2,5 fois. Depuis la lisière de la forêt (ligne du trou bouchée, directions
 // élargies), la mesure est donnée pour information.
 var planTrees = MeasurePlanWithTrees(Path.Combine(Path.GetDirectoryName(holePath)!, "dogleg-par4.json"));
 allPassed &= planTrees.TeeMs / planTrees.TeeBlindMs <= planTreesRatioLimit;

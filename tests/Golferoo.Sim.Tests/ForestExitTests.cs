@@ -10,6 +10,13 @@ public class ForestExitTests
     /// <summary>Lisière sud de la forêt du coude (tuile 18,5 / 26,5, dans le rough) : la ligne droite au trou traverse la forêt, le fairway est à côté.</summary>
     private static readonly Point2 Edge = new(18.5 * 8, 26.5 * 8);
 
+    /// <summary>Lisière ouest (tuile 7,5 / 20,5) : la sortie se fait le long de la forêt, parfois en arrière.</summary>
+    private static readonly Point2 WestEdge = new(7.5 * 8, 20.5 * 8);
+
+    public static TheoryData<int> Balls => new() { 0, 1 };
+
+    private static Point2 BallOf(int i) => i == 0 ? Edge : WestEdge;
+
     private static (TerrainGrid Terrain, PhysicalShotResolver Resolver) Setup()
     {
         var terrain = HoleLoader.Load(Path.Combine(Path.GetDirectoryName(TerrainTests.HolePath())!, "dogleg-par4.json"), 2);
@@ -20,7 +27,7 @@ public class ForestExitTests
     private static double Dist(Point2 a, Point2 b) => Math.Sqrt(((a.X - b.X) * (a.X - b.X)) + ((a.Z - b.Z) * (a.Z - b.Z)));
 
     /// <summary>Joue des trous de niveau bogey depuis la lisière ; rend le nombre de coups maximal, les retapes dans les arbres et une empreinte.</summary>
-    private static (int MaxStrokes, int Retaps, ulong Hash) PlayFromEdge(int games = 100)
+    private static (int MaxStrokes, int Retaps, ulong Hash) PlayFromEdge(Point2 start, int games = 100)
     {
         var (terrain, resolver) = Setup();
         var worst = 0;
@@ -29,7 +36,7 @@ public class ForestExitTests
         for (ulong seed = 1; seed <= (ulong)games; seed++)
         {
             var rng = new DeterministicRng(seed);
-            var ball = Edge;
+            var ball = start;
             var strokes = 0;
             var lastTrees = false;
             var lastStart = ball;
@@ -60,24 +67,27 @@ public class ForestExitTests
         return (worst, retaps, hash);
     }
 
-    [Fact]
-    public void EdgeBall_TheStraightLineCrossesTheWoods()
+    [Theory]
+    [MemberData(nameof(Balls))]
+    public void EdgeBall_TheStraightLineCrossesTheWoods(int which)
     {
+        var edge = BallOf(which);
         var (terrain, _) = Setup();
         var woods = 0;
         for (var i = 1; i < 100; i++)
         {
-            woods += terrain.SurfaceAt(Edge.X + ((terrain.Hole.X - Edge.X) * i / 100.0), Edge.Z + ((terrain.Hole.Z - Edge.Z) * i / 100.0)) == Surface.Trees ? 1 : 0;
+            woods += terrain.SurfaceAt(edge.X + ((terrain.Hole.X - edge.X) * i / 100.0), edge.Z + ((terrain.Hole.Z - edge.Z) * i / 100.0)) == Surface.Trees ? 1 : 0;
         }
 
-        Assert.NotEqual(Surface.Trees, terrain.SurfaceAt(Edge.X, Edge.Z));
+        Assert.NotEqual(Surface.Trees, terrain.SurfaceAt(edge.X, edge.Z));
         Assert.True(woods > 30, $"{woods} points sur 99 dans les bois");
     }
 
-    [Fact]
-    public void BogeyGolfersAtTheWoodsEdge_NeverRetapIntoTheTrees_NorPickUp()
+    [Theory]
+    [MemberData(nameof(Balls))]
+    public void BogeyGolfersAtTheWoodsEdge_NeverRetapIntoTheTrees_NorPickUp(int which)
     {
-        var (worst, retaps, _) = PlayFromEdge();
+        var (worst, retaps, _) = PlayFromEdge(BallOf(which));
 
         Assert.Equal(0, retaps);
         Assert.True(worst < World.MaxStrokes, $"coups maximaux : {worst}");
@@ -86,6 +96,6 @@ public class ForestExitTests
     [Fact]
     public void Planning_IsDeterministic()
     {
-        Assert.Equal(PlayFromEdge(10).Hash, PlayFromEdge(10).Hash);
+        Assert.Equal(PlayFromEdge(WestEdge, 10).Hash, PlayFromEdge(WestEdge, 10).Hash);
     }
 }
