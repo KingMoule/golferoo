@@ -92,9 +92,12 @@ public static class HoleLoader
         var tee = ParsePoint(file.Tee, "tee", tilesX, tilesZ);
         var green = ParsePoint(file.Green, "green", tilesX, tilesZ);
         var hole = ParsePoint(file.Hole, "hole", tilesX, tilesZ);
-        RequireSurface(tileSurfaces, tilesX, tee, "tee", Surface.Tee);
-        RequireSurface(tileSurfaces, tilesX, green, "green", Surface.Green);
-        RequireSurface(tileSurfaces, tilesX, hole, "hole", Surface.Green);
+        if (!file.Blank)
+        {
+            RequireSurface(tileSurfaces, tilesX, tee, "tee", Surface.Tee);
+            RequireSurface(tileSurfaces, tilesX, green, "green", Surface.Green);
+            RequireSurface(tileSurfaces, tilesX, hole, "hole", Surface.Green);
+        }
 
         var cellsX = tilesX * factor;
         var cellsZ = tilesZ * factor;
@@ -127,6 +130,7 @@ public static class HoleLoader
             terrain.Par = par is >= 3 and <= 5 ? par : throw new HoleDataException($"par invalide : {par} (3, 4 ou 5 attendu).");
         }
 
+        terrain.Blank = file.Blank;
         terrain.IsolatedTrees = ParseTrees(file.Trees, tilesX, tilesZ, file.TileSize);
         return terrain;
     }
@@ -311,6 +315,9 @@ public static class HoleLoader
         public string? Name { get; set; }
 
         public double TileSize { get; set; }
+
+        /// <summary>Terre vierge : tee, green et hole ne sont que provisoires, sans contrainte de surface.</summary>
+        public bool Blank { get; set; }
 
         public int TilesX { get; set; }
 

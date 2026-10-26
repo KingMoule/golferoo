@@ -60,7 +60,13 @@ public sealed class TerrainGrid
     public string Name { get; }
 
     /// <summary>Position de départ, en mètres.</summary>
-    public Point2 Tee { get; }
+    public Point2 Tee { get; private set; }
+
+    /// <summary>Terre vierge (C07) : le fichier ne donne que des repères provisoires, départ et trou sont à poser et le trou reste fermé jusqu'à ce qu'il soit valide.</summary>
+    public bool Blank { get; internal set; }
+
+    /// <summary>Déplace le départ (pose du joueur, C07) ; compté dans la somme de contrôle du terrain.</summary>
+    internal void MoveTee(Point2 tee) => Tee = tee;
 
     /// <summary>Centre du green, en mètres.</summary>
     public Point2 Green { get; }

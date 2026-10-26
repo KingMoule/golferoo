@@ -7,6 +7,7 @@ using Golferoo.Sim.Shots;
 using Golferoo.Sim.Terrain;
 using Golferoo.Sim.Time;
 using Golferoo.Sim.Trees;
+using Golferoo.Sim.Tutorial;
 using Golferoo.Sim.Weather;
 
 // Banc de mesure de la simulation, à lancer en Release :
@@ -30,6 +31,7 @@ const double dayChangeLimitMs = 5.0;
 const double leagueDayLimitMs = 5.0;
 const double puddleFloodLimitMs = 20.0;
 const double shotPreviewLimitMs = 2.0;
+const double tutorialLimitMs = 1.0;
 
 // Carte plate de 512 x 512 cellules, la même à tous les facteurs.
 var big = new TerrainGrid(new HeightField(512, 512, 2.0), "plat", new Point2(2, 2), new Point2(1000, 1000), new Point2(1000, 1000));
@@ -204,8 +206,15 @@ Array.Sort(rateMs);
 var preview = Measure(200, 20, () => new PhysicalShotResolver().ExecuteShaped(rateTerrain.Tee, Clubs.Driver, 1, 0, 1.0, ShotShape.Draw, rateTerrain, null));
 allPassed &= preview.Median < shotPreviewLimitMs;
 
+// Tutoriel (C07 lot 1) : validité du trou et étape courante sur la terre vierge, médiane de 200 appels.
+var blankWorld = new World(1, HoleLoader.Load(Path.Combine(Path.GetDirectoryName(holePath)!, "blank-coude.json"), 2));
+var holeCheck = Measure(200, 20, () => HoleCheck.Check(blankWorld.Terrain!));
+var tutorialStep = Measure(200, 20, () => TutorialSteps.Current(blankWorld));
+allPassed &= holeCheck.Median < tutorialLimitMs && tutorialStep.Median < tutorialLimitMs;
+
 var report = new
 {
+    tutorial = new { holeCheckMedianMs = holeCheck.Median, stepMedianMs = tutorialStep.Median, limitMs = tutorialLimitMs, passed = holeCheck.Median < tutorialLimitMs && tutorialStep.Median < tutorialLimitMs },
     shotPreview = new { medianMs = preview.Median, maxMs = preview.Max, limitMs = shotPreviewLimitMs, passed = preview.Median < shotPreviewLimitMs },
     courseRating = new { games = CourseRater.DefaultGames, medianMs = rateMs[rateMs.Length / 2], maxMs = rateMs[^1] },
     benchmark = "c04-lot4",

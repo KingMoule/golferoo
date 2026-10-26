@@ -26,6 +26,9 @@ public sealed partial class World
     /// <summary>Commandes d'arbres refusées depuis le début.</summary>
     public int TreeCommandsRefused { get; private set; }
 
+    /// <summary>Plantations acceptées depuis le début (le tutoriel de C07 y lit l'étape de la pousse).</summary>
+    public int TreesPlanted { get; private set; }
+
     /// <summary>Commandes d'arbres en attente du prochain tick.</summary>
     public int PendingTreeCommands => _treeCommands.Count;
 
@@ -113,6 +116,10 @@ public sealed partial class World
             if (!ok)
             {
                 TreeCommandsRefused++;
+            }
+            else if (c.Kind == TreeCommandKind.Plant)
+            {
+                TreesPlanted++;
             }
         }
     }
