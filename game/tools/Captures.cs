@@ -1,6 +1,7 @@
 using Godot;
 using Golferoo.Game.Rendering;
 using Golferoo.Sim;
+using Golferoo.Sim.Rating;
 using Golferoo.Sim.Terrain;
 using Golferoo.Sim.Time;
 using Golferoo.Sim.Trees;
@@ -29,7 +30,16 @@ public partial class Captures : Node
     private const int FallWaitFrames = 300;
     private const float TurfSize = 100f;
 
+    private const int LeagueViewCount = 2;
+
     private int? _clearingMound;
+    private string _outDir = string.Empty;
+    private string _prefix = string.Empty;
+    private bool _thumbs;
+    private bool _full;
+    private int _index;
+    private int _failures;
+    private Vector2I? _size;
 
     private static readonly float[] Yaws = [45f, 135f, 225f, 315f];
 
@@ -57,11 +67,11 @@ public partial class Captures : Node
 
     private async Task<int> Run()
     {
-        var outDir = Main.CommandLineOption("--out") ?? "captures";
-        var thumbs = OS.GetCmdlineUserArgs().Contains("--thumbs");
-        var full = OS.GetCmdlineUserArgs().Contains("--full");
-        var prefix = Main.CommandLineOption("--prefix") ?? "";
-        System.IO.Directory.CreateDirectory(outDir);
+        _outDir = Main.CommandLineOption("--out") ?? "captures";
+        _thumbs = OS.GetCmdlineUserArgs().Contains("--thumbs");
+        _full = OS.GetCmdlineUserArgs().Contains("--full");
+        _prefix = Main.CommandLineOption("--prefix") ?? "";
+        System.IO.Directory.CreateDirectory(_outDir);
 
         var main = GD.Load<PackedScene>("res://Main.tscn").Instantiate<Main>();
         AddChild(main);
@@ -85,10 +95,7 @@ public partial class Captures : Node
             GD.Print($"TREES avant n={n} h_moy={h:F1} couronne_moy={c:F1} age_moy={main.World.Trees.MeanAgeMonths / 12.0:F1}");
         }
 
-        var failures = 0;
         var clearingTarget = center;
-        Vector2I? size = null;
-        var index = 0;
         var mid = new Vector3((float)(grid.Tee.X + grid.Green.X) / 2f, 0f, (float)(grid.Tee.Z + grid.Green.Z) / 2f);
         var views = new List<(string Name, float Size, Vector3 Target, float[] Yaws, Vector3? Followed)>
         {
@@ -126,7 +133,7 @@ public partial class Captures : Node
                 if (await FindCloseUp(main) is not { } close)
                 {
                     GD.PrintErr("CAPTURES FAIL aucune vue proche (pas de golfeur ou d'arbre mature)");
-                    failures++;
+                    _failures++;
                     continue;
                 }
 
@@ -180,7 +187,7 @@ public partial class Captures : Node
                 if (ReplantClearing(main) is not { } spot)
                 {
                     GD.PrintErr("CAPTURES FAIL aucun sous-bois à défricher");
-                    failures++;
+                    _failures++;
                     continue;
                 }
 
@@ -263,48 +270,96 @@ public partial class Captures : Node
                     GD.Print($"MOWERS {main.Mowers.ActiveMowers} premiere={main.Mowers.FirstPosition} cible={target}");
                 }
 
-                var image = GetViewport().GetTexture().GetImage();
-                var path = System.IO.Path.Combine(outDir, $"{prefix}capture-{index:00}-{zoomName}-{(int)yaw}.png");
-                index++;
-                var stddev = LuminanceStdDev(image);
-                var err = image.SavePng(path);
-                GD.Print($"CAPTURE {path} {image.GetWidth()}x{image.GetHeight()} stddev={stddev:F4} save={err}");
-                if (thumbs)
-                {
-                    // Vignette JPEG en base64 dans le journal : on peut regarder les captures sans télécharger l'artefact.
-                    var thumb = (Image)image.Duplicate();
-                    thumb.Resize(384, 216, Image.Interpolation.Bilinear);
-                    GD.Print($"THUMB {System.IO.Path.GetFileName(path)} {Convert.ToBase64String(thumb.SaveJpgToBuffer(0.7f))}");
-                }
-
-                if (full)
-                {
-                    // Taille réelle, JPEG qualité 85 : lisible sans télécharger l'artefact.
-                    GD.Print($"FULL {System.IO.Path.GetFileName(path)} {Convert.ToBase64String(image.SaveJpgToBuffer(0.85f))}");
-                }
-
-                if (err != Error.Ok || stddev <= 0.0001)
-                {
-                    GD.PrintErr($"CAPTURES FAIL {path} (écriture ou image uniforme)");
-                    failures++;
-                }
-
-                size ??= image.GetSize();
-                if (image.GetSize() != size)
-                {
-                    GD.PrintErr($"CAPTURES FAIL {path} taille différente");
-                    failures++;
-                }
+                Save(zoomName + "-" + (int)yaw);
             }
         }
 
-        if (failures == 0 && index == expected)
+        await LeagueViews(main);
+        if (_failures == 0 && _index == expected + LeagueViewCount)
         {
-            GD.Print($"CAPTURES OK {index} images");
+            GD.Print($"CAPTURES OK {_index} images");
             return 0;
         }
 
         return 1;
+    }
+
+    /// <summary>Enregistre l'image du viewport (PNG, et en JPEG base64 dans le journal avec --thumbs et --full) et contrôle taille et contenu.</summary>
+    private void Save(string name)
+    {
+        var image = GetViewport().GetTexture().GetImage();
+        var path = System.IO.Path.Combine(_outDir, $"{_prefix}capture-{_index:00}-{name}.png");
+        _index++;
+        var stddev = LuminanceStdDev(image);
+        var err = image.SavePng(path);
+        GD.Print($"CAPTURE {path} {image.GetWidth()}x{image.GetHeight()} stddev={stddev:F4} save={err}");
+        if (_thumbs)
+        {
+            // Vignette JPEG en base64 dans le journal : on peut regarder les captures sans télécharger l'artefact.
+            var thumb = (Image)image.Duplicate();
+            thumb.Resize(384, 216, Image.Interpolation.Bilinear);
+            GD.Print($"THUMB {System.IO.Path.GetFileName(path)} {Convert.ToBase64String(thumb.SaveJpgToBuffer(0.7f))}");
+        }
+
+        if (_full)
+        {
+            // Taille réelle, JPEG qualité 85 : lisible sans télécharger l'artefact.
+            GD.Print($"FULL {System.IO.Path.GetFileName(path)} {Convert.ToBase64String(image.SaveJpgToBuffer(0.85f))}");
+        }
+
+        if (err != Error.Ok || stddev <= 0.0001)
+        {
+            GD.PrintErr($"CAPTURES FAIL {path} (écriture ou image uniforme)");
+            _failures++;
+        }
+
+        _size ??= image.GetSize();
+        if (image.GetSize() != _size)
+        {
+            GD.PrintErr($"CAPTURES FAIL {path} taille différente");
+            _failures++;
+        }
+    }
+
+    /// <summary>
+    /// Une saison de ligue sur un monde neuf, sans rendu : on avance par <c>World.Step</c> jusqu'à la finale de septembre
+    /// et à l'ajustement du lendemain (environ 8 s de calcul), après avoir donné au monde la note du parcours (calcul direct, 6 s).
+    /// Vues : le panneau de ligue, puis la carte de score du pro.
+    /// </summary>
+    private async Task LeagueViews(Main previous)
+    {
+        previous.QueueFree();
+        await Frames(2);
+        var main = GD.Load<PackedScene>("res://Main.tscn").Instantiate<Main>();
+        AddChild(main);
+        main.Paused = true;
+        var world = main.World;
+        world.SetCourseRating(CourseRater.Rate(world.Terrain!, world.Seed));
+        var league = world.League!;
+        for (var day = 0; day < 150 && !league.Final.Closed; day++)
+        {
+            world.Step(Calendar.TicksPerDay);
+        }
+
+        world.Step(Calendar.TicksPerDay);
+        main.StepTicks(1);
+        GD.Print($"LEAGUE an={league.Year + 1} finale={league.Final.Closed} ajustee={league.Adjusted} champion={league.Champion?.MemberId} evenements={league.Events.Count}");
+        main.SunDayFraction = 0.5;
+        main.Camera.SetView(45f, 120f, new Vector3((float)world.Terrain!.Green.X, 0f, (float)world.Terrain.Green.Z));
+        main.League!.Toggle();
+        await Frames(SettleFrames);
+        Save("league-panel");
+        main.League.ShowCard(league.Members.First(m => m.IsPro));
+        await Frames(SettleFrames);
+        Save("league-card");
+    }
+
+    private async Task Frames(int count)
+    {
+        for (var f = 0; f < count; f++)
+        {
+            await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+        }
     }
 
     /// <summary>

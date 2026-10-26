@@ -73,6 +73,15 @@ public partial class SmokeTest : Node
             failures.Add($"le HUD n'affiche pas la vitesse des greens : « {hud.Text} »");
         }
 
+        if (_main.World.League is not { } league || !league.Divisions.Any(d => d.Any(m => m.IsPro)))
+        {
+            failures.Add("la ligue est absente ou le pro n'y est pas inscrit");
+        }
+        else if (_main.GetNodeOrNull<Label>("TickLabel") is { } label && !label.Text.Contains("Votre pro : division"))
+        {
+            failures.Add($"le HUD n'affiche pas le pro de la ligue : « {label.Text} »");
+        }
+
         var cells = _main.World.Terrain!;
         var expectedChunks = ((cells.CellsX + TerrainRenderer.ChunkCells - 1) / TerrainRenderer.ChunkCells)
             * ((cells.CellsZ + TerrainRenderer.ChunkCells - 1) / TerrainRenderer.ChunkCells);
