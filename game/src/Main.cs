@@ -37,6 +37,7 @@ public partial class Main : Node3D
     private int _day;
     private bool _turfOverlay;
     private RatingJob? _ratingJob;
+    private LeaguePanel? _league;
     private (long Version, string Text) _stimp = (-1, string.Empty);
 
     /// <summary>Moment de la journée imposé au soleil (captures) ; sans valeur, il suit le calendrier.</summary>
@@ -73,6 +74,9 @@ public partial class Main : Node3D
     public Brush Brush { get; private set; } = null!;
 
     public TreeTool TreeTool { get; private set; } = null!;
+
+    /// <summary>Panneau de la ligue (touche J).</summary>
+    public LeaguePanel? League => _league;
 
     public int Factor { get; private set; } = DefaultFactor;
 
@@ -145,7 +149,7 @@ public partial class Main : Node3D
 
         var grid = HoleLoader.Parse(ReadHoleJson(), Factor);
         GD.Print($"HOLE source={HoleSource}");
-        World = new World(seed: 1, grid);
+        World = new World(seed: 1, grid, league: true);
         if (OS.GetCmdlineUserArgs().Contains("--fps-bench"))
         {
             FpsBench.FillTrees(World.Trees, grid);
@@ -198,6 +202,10 @@ public partial class Main : Node3D
         var turfPanel = new TurfPanel { Name = "TurfPanelLayer" };
         AddChild(turfPanel);
         turfPanel.Init(this);
+
+        _league = new LeaguePanel { Name = "LeaguePanelLayer" };
+        AddChild(_league);
+        _league.Init(this);
 
         _hud = GetNode<Label>("TickLabel");
         _sun = GetNode<DirectionalLight3D>("Sun");
@@ -343,6 +351,9 @@ public partial class Main : Node3D
             case Key.L:
                 ToggleLoadMode();
                 break;
+            case Key.J:
+                _league?.Toggle();
+                break;
             case Key.F10:
                 SkipToNextMonth();
                 break;
@@ -371,6 +382,7 @@ public partial class Main : Node3D
     private void OnDayChanged()
     {
         _day = World.DayIndex;
+        _league?.OnDayChanged();
         var newMonth = World.Date.Month != _month;
         _month = World.Date.Month;
         // Un changement de feuillage refait déjà tous les blocs, croissance comprise.
@@ -469,7 +481,7 @@ public partial class Main : Node3D
     {
         if (_hud is not null)
         {
-            _hud.Text = $"{Engine.GetFramesPerSecond()} FPS | {Actors.VisibleGolfers} golfeurs | tick {World.Tick} | x{Speed}{(Paused ? " (pause)" : string.Empty)} | {DateText()} (F10 : mois suivant, T : outil arbres) | travaux arbres {World.TreeSpending}\n{WeatherText()} (F9 : ciel suivant) | {StimpText()} (H : état du gazon) | {RatingText()}";
+            _hud.Text = $"{Engine.GetFramesPerSecond()} FPS | {Actors.VisibleGolfers} golfeurs | tick {World.Tick} | x{Speed}{(Paused ? " (pause)" : string.Empty)} | {DateText()} (F10 : mois suivant, T : outil arbres) | travaux arbres {World.TreeSpending}\n{WeatherText()} (F9 : ciel suivant) | {StimpText()} (H : état du gazon) | {RatingText()}\n{_league?.ProText()} (J : ligue)";
         }
     }
 
@@ -488,7 +500,7 @@ public partial class Main : Node3D
 
     private string RatingText() =>
         World.CourseRating is { } r
-            ? $"Note {r.Scratch18.ToString("0.0", CultureInfo.InvariantCulture).Replace('.', ',')} / slope {r.Slope}"
+            ? $"Note {LeaguePanel.Decimal(r.Scratch18)} / slope {r.Slope}"
             : "Note : calcul en cours";
 
     private string WeatherText()
