@@ -46,6 +46,9 @@ public sealed class Golfer
 
     public int Id { get; }
 
+    /// <summary>Membre de la ligue qui joue ce golfeur (−1 pour un golfeur ordinaire).</summary>
+    public int MemberId { get; internal set; } = -1;
+
     public Point2 Position { get; internal set; }
 
     public GolferState State { get; internal set; }

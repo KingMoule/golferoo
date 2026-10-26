@@ -11,7 +11,13 @@ public sealed class Group
 
     public int Id { get; }
 
+    /// <summary>Journée de ligue de ce groupe (−1 hors ligue).</summary>
+    public int LeagueRound { get; internal init; } = -1;
+
     public IReadOnlyList<Golfer> Golfers { get; }
+
+    /// <summary>Ligue : tick à partir duquel le groupe peut jouer son premier coup, sans attendre le groupe précédent.</summary>
+    internal long ReleaseTick { get; set; }
 
     /// <summary>Le groupe a joué son premier coup (le groupe précédent avait quitté le green).</summary>
     public bool Started { get; internal set; }

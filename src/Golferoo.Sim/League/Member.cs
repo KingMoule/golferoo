@@ -1,0 +1,45 @@
+using Golferoo.Sim.Golfers;
+using Golferoo.Sim.Rating;
+
+namespace Golferoo.Sim.League;
+
+/// <summary>Carte de ligue d'un membre : brut, et écart avec la note du parcours du jour (nul s'il n'y en avait pas).</summary>
+public readonly record struct LeagueCard(int Round, int Gross, double? Differential);
+
+/// <summary>Membre du club (ou votre pro). Opinion du club de 0 à 100, fixe en C06.</summary>
+public sealed class Member
+{
+    private readonly List<LeagueCard> _cards = [];
+
+    public Member(int id, string name, double startHandicap, int opinion, bool isPro = false)
+    {
+        Id = id;
+        Name = name;
+        StartHandicap = startHandicap;
+        Opinion = opinion;
+        IsPro = isPro;
+    }
+
+    public int Id { get; }
+
+    public string Name { get; }
+
+    public double StartHandicap { get; }
+
+    /// <summary>Niveau de jeu du membre (<see cref="Golfer.Skill"/>).</summary>
+    public double Skill => SkillLevels.FromHandicap(StartHandicap);
+
+    public int Opinion { get; }
+
+    public bool IsPro { get; }
+
+    public IReadOnlyList<LeagueCard> Cards => _cards;
+
+    public double SeasonPoints { get; internal set; }
+
+    internal void AddCard(LeagueCard card) => _cards.Add(card);
+
+    /// <summary>Index d'après les cartes de ligue ; nul avant 3 écarts connus.</summary>
+    public double? Index(int courseHoles) =>
+        Handicap.Index([.. _cards.Where(c => c.Differential is not null).Select(c => c.Differential!.Value)], courseHoles);
+}
