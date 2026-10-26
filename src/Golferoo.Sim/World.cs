@@ -299,6 +299,10 @@ public sealed partial class World
     /// <summary>Ajoute une paire de golfeurs à l'entrée du tee. Elle joue quand la précédente a quitté le green.</summary>
     public Group SpawnGroup() => AddGroup(2, null, -1);
 
+    /// <summary>Partie d'entraînement : votre pro seul, hors ligue (sa carte ne compte pas pour son handicap). Exige la ligue.</summary>
+    public Group StartProRound() =>
+        AddGroup(1, [(League ?? throw new InvalidOperationException("Pas de ligue, donc pas de pro.")).Members.First(m => m.IsPro)], -1);
+
     /// <summary>Groupe de <paramref name="count"/> golfeurs ; ceux d'une journée de ligue portent leur membre et son niveau.</summary>
     private Group AddGroup(int count, Member[]? members, int leagueRound)
     {
