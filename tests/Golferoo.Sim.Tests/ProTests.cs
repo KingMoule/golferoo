@@ -77,6 +77,44 @@ public class ProTests(ITestOutputHelper output)
     }
 
     [Fact]
+    public void ManualPro_NeverPuttsFromInsideTwoMeters_TheGimmeHolesTheBall()
+    {
+        var w = ManualWorld(7);
+        var group = w.StartProRound();
+        for (var i = 0; i < 60_000 && !group.Finished; i++)
+        {
+            if (w.AwaitingPro is { } pro)
+            {
+                var d = Math.Sqrt(Math.Pow(w.Terrain!.Hole.X - pro.Ball.X, 2) + Math.Pow(w.Terrain.Hole.Z - pro.Ball.Z, 2));
+                Assert.True(w.Terrain.SurfaceAt(pro.Ball.X, pro.Ball.Z) != Surface.Green || d >= World.GimmeDistance, $"putt à {d:F2} m");
+                w.PlayProShot(Simple(w, pro));
+            }
+
+            w.Step();
+        }
+
+        Assert.True(Assert.Single(group.Golfers).Holed);
+    }
+
+    [Fact]
+    public void PlayProShot_IsPendingUntilTheNextTick()
+    {
+        var w = ManualWorld(9);
+        w.StartProRound();
+        while (w.AwaitingPro is null)
+        {
+            w.Step();
+        }
+
+        w.PlayProShot(Simple(w, w.AwaitingPro!));
+        Assert.True(w.ProShotPending);
+        Assert.NotNull(w.AwaitingPro);
+        w.Step();
+        Assert.False(w.ProShotPending);
+        Assert.Null(w.AwaitingPro);
+    }
+
+    [Fact]
     public void SameCommands_SameChecksum()
     {
         var a = ManualWorld(6);

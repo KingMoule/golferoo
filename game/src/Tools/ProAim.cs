@@ -121,7 +121,8 @@ public partial class ProAim : Node3D
             return;
         }
 
-        var pro = _main.World.AwaitingPro;
+        // Un coup envoyé attend son tick : sans ce garde, la visée se rouvrait aussitôt sur la cible par défaut et remettait la pause.
+        var pro = _main.World.ProShotPending ? null : _main.World.AwaitingPro;
         if (pro is not null && !Active)
         {
             Begin(pro.Ball);

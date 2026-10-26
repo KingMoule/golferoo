@@ -53,6 +53,9 @@ public sealed partial class World
         }
     }
 
+    /// <summary>Vrai tant qu'un coup du pro attend son tick : le mode visée ne doit pas se rouvrir entre-temps.</summary>
+    public bool ProShotPending => _proShots.Count > 0;
+
     /// <summary>Coup du pro, en file comme les autres commandes : joué au tick suivant s'il attend, ignoré sinon.</summary>
     public void PlayProShot(ProShot shot)
     {
@@ -75,7 +78,27 @@ public sealed partial class World
         return Execute(resolver, terrain, golfer.Ball, shot, null);
     }
 
+    /// <summary>Distance au trou sous laquelle le putt du pro est donné (« gimme ») : un coup, balle au trou.</summary>
+    public const double GimmeDistance = 2.0;
+
     private bool IsManualPro(Golfer g) => _manualPro && g.MemberId == _proMemberId;
+
+    /// <summary>Putt donné : sur le green à moins de <see cref="GimmeDistance"/> du trou, le coup compte et la balle est au trou, sans expérience.</summary>
+    private static bool Gimme(TerrainGrid terrain, Golfer g)
+    {
+        var dx = terrain.Hole.X - g.Ball.X;
+        var dz = terrain.Hole.Z - g.Ball.Z;
+        if (terrain.SurfaceAt(g.Ball.X, g.Ball.Z) != Surface.Green || (dx * dx) + (dz * dz) >= GimmeDistance * GimmeDistance)
+        {
+            return false;
+        }
+
+        g.Strokes++;
+        g.Ball = terrain.Hole;
+        g.Holed = true;
+        g.State = GolferState.Exiting;
+        return true;
+    }
 
     private void ApplyProShots()
     {

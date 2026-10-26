@@ -763,7 +763,7 @@ public sealed partial class World
             group.Started = true;
             shooter.State = terrain.SurfaceAt(shooter.Ball.X, shooter.Ball.Z) == Surface.Green ? GolferState.Putting : GolferState.Swinging;
             shooter.SwingTicks = SwingTicksCount;
-            if (IsManualPro(shooter))
+            if (IsManualPro(shooter) && !Gimme(terrain, shooter))
             {
                 shooter.State = GolferState.AwaitingShot;
             }

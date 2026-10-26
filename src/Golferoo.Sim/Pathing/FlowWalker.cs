@@ -14,8 +14,8 @@ public enum WalkResult
 /// <summary>Déplacement d'un golfeur le long d'un champ de flux.</summary>
 public static class FlowWalker
 {
-    /// <summary>Vitesse de marche de base en m/s, sur fairway.</summary>
-    public const double BaseSpeed = 1.3;
+    /// <summary>Vitesse de marche de base en m/s, sur fairway : trois fois le pas réel (1,3 m/s), c'est un jeu de simulation (Guillaume, 2026-10-26).</summary>
+    public const double BaseSpeed = 3.9;
 
     /// <summary>
     /// Avance d'un pas de <paramref name="dt"/> secondes vers <paramref name="target"/> en suivant <paramref name="field"/>

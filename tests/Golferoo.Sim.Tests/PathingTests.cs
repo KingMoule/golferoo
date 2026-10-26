@@ -201,7 +201,8 @@ public class PathingTests
                 var r = FlowWalker.Advance(t, field, ref pos, t.Green, World.TickSeconds);
                 Assert.NotEqual(WalkResult.Stuck, r);
                 Assert.True(t.IsWalkable(t.CellXOf(pos.X), t.CellZOf(pos.Z)), $"golfeur en terrain bloqué à {pos} (facteur {factor})");
-                Assert.True(Math.Abs(pos.X - previous.X) + Math.Abs(pos.Z - previous.Z) < 0.2);
+                // Pas de saut : au plus deux pas de marche par tick (le chemin se marche plus vite que le fairway).
+                Assert.True(Math.Abs(pos.X - previous.X) + Math.Abs(pos.Z - previous.Z) < 2.0 * FlowWalker.BaseSpeed * World.TickSeconds);
                 previous = pos;
                 arrived = r == WalkResult.Arrived;
             }

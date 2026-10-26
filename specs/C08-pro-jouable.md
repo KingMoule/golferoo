@@ -74,6 +74,12 @@ Ce qui prouve la réussite : sur le vrai trou, un draw contourne l'angle du dogl
 3. **La visée de l'original, avec un peu plus de profondeur** : six familles de clubs, du wedge (précis, court) au driver ; visée et trajectoire voulue (droit, draw, fade, chip) ; les wedges montent plus haut avec plus de spin, les clubs longs moins.
 4. **Deux paliers de compétences** : chaque coup fait progresser la ou les compétences générales ; un coup réussi (assez long, dans le lie voulu, près de la cible) fait aussi progresser la ou les spécialisées.
 
+## Retours de Guillaume après avoir joué (2026-10-26)
+- Le pro marchait trop lentement vers sa balle : tous les golfeurs marchent trois fois plus vite (`FlowWalker.BaseSpeed` de 1,3 à 3,9 m/s), « ça reste un jeu de simulation ».
+- Bogue : après « Jouer », la visée se rouvrait avant le tick du coup, remettait la cible par défaut et la pause ; il fallait trois essais. Corrigé (`World.ProShotPending`), vérifié par la fumée.
+- Gimme : sur le green à moins de 2 m du trou, le putt est donné (un coup, balle au trou, sans expérience).
+- L'interface sera retravaillée plus tard.
+
 ## Critères d'acceptation
 1. `dotnet test Golferoo.sln` passe ; des tests couvrent l'effet (un draw finit à gauche d'un coup droit de même visée, un fade à droite ; courbure du driver entre 10 et 20 m ; sans effet, trajectoire identique au bit près), le vrai trou (il se charge ; depuis le tee, un draw bien visé passe l'angle là où un coup droit de même portée touche les arbres ou le rough), l'expérience (un coup compte pour sa compétence générale, réussi ou non ; seul un coup réussi compte pour une spécialisée ; un coup de ligue compte double ; l'entraînement s'arrête au plafond de l'année et repart au 1er avril ; un pro qui ne réussit que des draws progresse en draw et pas en fade ; le handicap d'une compétence part de 36 et ne descend pas sous 2), les trajectoires (un wedge s'arrête plus près de son point de chute qu'un driver ; un chip roule plus qu'un coup droit du même club), la commande (le pro attend en `AwaitingShot` et ne joue jamais seul ; mêmes commandes, même somme de contrôle) et la partie d'entraînement (ses cartes n'entrent pas dans le handicap).
 2. Les trajectoires et sommes de contrôle des tests existants de C01 à C06 sont inchangées.
