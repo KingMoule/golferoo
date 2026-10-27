@@ -57,7 +57,7 @@ Ce qui prouve la réussite : sur le dogleg, depuis la balle de la capture de Gui
 
 **Décisions de Guillaume (2026-10-26)** : les trois recommandations, soit 1 (a) carte de jeu par drapeau, 2 (a) six archétypes nommés, 3 (a) les membres jouent draw et fade selon leur profil.
 
-**Cadrage des lots 3 et 4 (2026-10-27)** : réglages des styles décidés par Guillaume (voir lot 3) ; l'imaginatif devient l'artiste. Proposés, à confirmer : archétypes répartis uniformément, info-bulle reportée.
+**Cadrage des lots 3 et 4 (2026-10-27)** : réglages des styles décidés par Guillaume (voir lot 3) ; l'imaginatif devient l'artiste ; archétypes répartis uniformément ; info-bulle d'un golfeur reportée.
 
 ## Critères d'acceptation
 1. Lot 1 : sur le dogleg avec ses arbres, depuis une balle en lisière avec la forêt entre elle et le trou, 100 golfeurs de niveau bogey (graines différentes) ne finissent jamais deux coups de suite au pied des arbres depuis le même point, et aucun n'atteint `MaxStrokes` (test).
