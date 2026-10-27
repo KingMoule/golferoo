@@ -6,7 +6,7 @@ C00 à C08 livrés. C09 (golfeurs stratèges) en cours : lot 1 fusionné (PR #74
 ## En cours
 - C09, `specs/C09-golfeurs-strateges.md` (statut validé, choix de Guillaume dans la spec) [agent]
   - Lot 2 : PR #75 (`claude/project-thread-idoo4e`), carte de jeu par drapeau (`Pathing/PlayMap.cs`). Audit sain, 303 tests verts ; reste à confirmer la CI sur le dernier commit puis fusionner.
-  - Lots 3 (six profils : prudent, long frappeur, draw, fade, imaginatif, fonceur) et 4 (rendu, fiche du membre, capture `c09-profils`) : à faire, après la #75.
+  - Lots 3 (six profils : prudent, long frappeur, draw, fade, artiste, fonceur) et 4 (rendu, fiche du membre, capture `c09-profils`) : à faire, après la #75.
 - PR #73 « Arbres et golfeurs deux fois plus grands » (`claude/project-thread-wyqjkw`, commit 80da40f), conflits résolus mais en pause : le test de sortie de forêt de C09 y échoue (22 retapes sur 100 à la lisière ouest, un sapin de 33 m collé à la balle). À remettre à jour sur `main` après la #75, corriger ce test, puis fusionner. Ensuite Guillaume relance `Mesurer FPS.bat` : 1 250 arbres doublés, 204 FPS mesurés avant ce changement contre 333 auparavant [agent, puis guillaume].
 - C07 (tutoriel) et correctifs de pousse et d'outils (PR #72) : livrés. Guillaume juge encore les captures `tutorial-*` ; contours en pointillé à épaissir s'ils sont trop discrets [guillaume].
 - C08 : Guillaume juge les captures `pro-aim` et `pro-sheet`.
