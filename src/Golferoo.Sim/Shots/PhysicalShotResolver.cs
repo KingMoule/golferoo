@@ -308,7 +308,8 @@ public sealed class PhysicalShotResolver : IShotResolver
 
         var expectation = Trees is null ? null : new TreeCollision.Expectation();
         var shot = BallSimulator.Run(terrain, ball, velocity, rolling: false, _drag, recordPath: false, trees: Trees, season: Season, wind: Wind, backspin: backspin, expectation: expectation).Shot;
-        var wasted = Wasted(ball, shot.Ball);
+        // Un coup rentré, ou déjà pénalisé (hors limites, eau), ne compte pas comme gâché.
+        var wasted = shot.Holed || shot.PenaltyStrokes > 0 ? 0.0 : Wasted(ball, shot.Ball);
         var cost = Cost(shot, map, hole) + wasted;
         var crown = expectation?.Stopped ?? 0.0;
 
