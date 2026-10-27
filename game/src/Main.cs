@@ -207,7 +207,7 @@ public partial class Main : Node3D
 
         var width = (float)(grid.CellsX * grid.CellSize);
         var depth = (float)(grid.CellsZ * grid.CellSize);
-        Camera = new CameraRig { Name = "CameraRig", FollowSource = GolferPosition };
+        Camera = new CameraRig { Name = "CameraRig", FollowSource = GolferPosition, GroundHeight = TerrainHeight };
         Camera.SetBounds(new Rect2(0, 0, width, depth));
         AddChild(Camera);
         Camera.SetView(45f, 150f, new Vector3(width / 2f, 0f, depth / 2f));
@@ -358,6 +358,11 @@ public partial class Main : Node3D
                 break;
             case InputEventMouseMotion motion when (motion.ButtonMask & MouseButtonMask.Middle) != 0:
                 Camera.RotateFree(-motion.Relative.X * 0.006f);
+                if (Camera.Mode == CameraMode.Free)
+                {
+                    Camera.Tilt(motion.Relative.Y * 0.004f);
+                }
+
                 break;
             default:
                 break;
@@ -465,7 +470,13 @@ public partial class Main : Node3D
         {
             CameraHome();
         }
+        else if (@event.IsActionPressed("camera_toggle_mode"))
+        {
+            Camera.ToggleMode();
+        }
     }
+
+    private float TerrainHeight(float x, float z) => World.Terrain is { } terrain ? (float)terrain.Sample(x, z) : 0f;
 
     /// <summary>Centre la caméra sur le départ du trou et arrête le suivi (touche Début).</summary>
     public void CameraHome()

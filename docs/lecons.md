@@ -26,3 +26,5 @@ Ajouter sans relire tout le fichier : `echo "- ..." >> docs/lecons.md`. `/amelio
 - Journaux CI : le blob est refusé par le proxy ; `mcp__github__get_job_logs` avec `return_content` et `tail_lines` ≤ 700 marche, le journal complet (base64) fait planter le serveur MCP.
 - Agents en worktree : le garde-fou refuse les heredocs, `|` et guillemets français dans Bash ; supprimer le worktree d'un agent l'empêche d'être relancé par SendMessage.
 - C10 lot 1 (codeur) : en conteneur cloud, `apt-get update` avant `apt-get install dotnet-sdk-10.0` ; `dotnet test Golferoo.sln` dure environ 13 min, à lancer en arrière-plan.
+- C10 lot 2 (codeur) : attendre `dotnet test` par `until pgrep -f "dotnet test"` boucle sans fin (pgrep se reconnaît) ; utiliser `wait` ou lire le journal.
+- C10 lot 2 (auditeur) : « test sans Godot si possible » est flou pour la caméra (types Godot) : écrire « fumée Godot » dans la spec.

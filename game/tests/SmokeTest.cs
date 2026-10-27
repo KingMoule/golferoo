@@ -1,4 +1,5 @@
 using Godot;
+using Golferoo.Game.Cameras;
 using Golferoo.Game.Rendering;
 using Golferoo.Game.Tools;
 using Golferoo.Sim;
@@ -133,7 +134,7 @@ public partial class SmokeTest : Node
     /// <summary>C10 lot 1 : touches de caméra dans l'InputMap, Début centre sur le départ, Tab lance le suivi (vérifié par <see cref="CheckFollow"/>).</summary>
     private void CheckCamera(List<string> failures)
     {
-        foreach (var action in new[] { "camera_forward", "camera_back", "camera_left", "camera_right", "camera_rotate_left", "camera_rotate_right", "camera_home", "camera_follow_next" })
+        foreach (var action in new[] { "camera_forward", "camera_back", "camera_left", "camera_right", "camera_rotate_left", "camera_rotate_right", "camera_home", "camera_follow_next", "camera_toggle_mode" })
         {
             if (!InputMap.HasAction(action) || InputMap.ActionGetEvents(action).Count == 0)
             {
@@ -155,6 +156,71 @@ public partial class SmokeTest : Node
         {
             failures.Add("Tab : aucun golfeur suivi alors que deux sont sur le parcours");
         }
+
+        CheckFreeCamera(failures);
+    }
+
+    /// <summary>C10 lot 2 : la garde, la bascule iso, libre, iso (même cible, projection orthographique), Début et Tab en libre.</summary>
+    private void CheckFreeCamera(List<string> failures)
+    {
+        var grid = _main!.World.Terrain!;
+        var bounds = new Rect2(0, 0, (float)(grid.CellsX * grid.CellSize), (float)(grid.CellsZ * grid.CellSize));
+        Func<float, float, float> ground = (x, z) => (float)grid.Sample(x, z);
+        for (var i = -2; i <= 12; i++)
+        {
+            for (var k = -2; k <= 12; k++)
+            {
+                for (var h = -20f; h <= 60f; h += 20f)
+                {
+                    var wanted = new Vector3(bounds.Position.X + (bounds.Size.X * i / 10f), h, bounds.Position.Y + (bounds.Size.Y * k / 10f));
+                    var kept = CameraRig.KeepAbove(wanted, ground, bounds);
+                    var inside = kept.X >= bounds.Position.X && kept.X <= bounds.End.X && kept.Z >= bounds.Position.Y && kept.Z <= bounds.End.Y;
+                    if (!inside || kept.Y < ground(kept.X, kept.Z) + CameraRig.Clearance - 0.001f)
+                    {
+                        failures.Add($"garde : {wanted} devient {kept}, hors carte ou sous 1,5 m du sol");
+                        return;
+                    }
+                }
+            }
+        }
+
+        var camera = _main.Camera;
+        var target = new Vector3(bounds.Size.X / 2f, 0f, bounds.Size.Y / 2f);
+        camera.SetView(45f, 150f, target);
+        camera.SetMode(CameraMode.Free, instant: true);
+        var position = camera.View!.GlobalPosition;
+        if (camera.View.Projection != Camera3D.ProjectionType.Perspective)
+        {
+            failures.Add("libre : la projection n'est pas en perspective");
+        }
+
+        if (position.Y < ground(position.X, position.Z) + CameraRig.Clearance - 0.001f)
+        {
+            failures.Add("libre : la caméra est sous 1,5 m du sol");
+        }
+
+        camera.SetMode(CameraMode.Iso, instant: true);
+        if (camera.View.Projection != Camera3D.ProjectionType.Orthogonal || camera.Target.DistanceTo(target) > 0.01f)
+        {
+            failures.Add($"bascule iso, libre, iso : projection {camera.View.Projection}, cible à {camera.Target.DistanceTo(target):F3} m");
+        }
+
+        // Début puis Tab en mode libre ; le suivi reste lancé pour CheckFollow, la vue revient en iso.
+        camera.SetMode(CameraMode.Free, instant: true);
+        _main.CameraHome();
+        var tee = grid.Tee;
+        if (new Vector2(camera.Target.X - (float)tee.X, camera.Target.Z - (float)tee.Z).Length() > 0.01f)
+        {
+            failures.Add("libre : Début ne centre pas sur le départ");
+        }
+
+        _main.CameraFollowNext();
+        if (camera.FollowedId is null)
+        {
+            failures.Add("libre : Tab ne suit aucun golfeur");
+        }
+
+        camera.SetMode(CameraMode.Iso, instant: true);
     }
 
     /// <summary>Quelques images après Tab : la cible de la caméra est à moins de 1 m du golfeur suivi.</summary>
