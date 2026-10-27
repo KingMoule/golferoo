@@ -158,6 +158,54 @@ public partial class SmokeTest : Node
         }
 
         CheckFreeCamera(failures);
+        CheckHorizon(failures);
+    }
+
+    /// <summary>C10 lot 5 : l'anneau d'horizon existe, entoure la carte (quatre côtés, coins) et joint le bord du terrain sans marche.</summary>
+    private void CheckHorizon(List<string> failures)
+    {
+        var horizon = _main!.Horizon;
+        var grid = _main.World.Terrain!;
+        var w = (float)(grid.CellsX * grid.CellSize);
+        var d = (float)(grid.CellsZ * grid.CellSize);
+        if (horizon.Mesh is null || horizon.TriangleCount is < 500 or > 8000)
+        {
+            failures.Add($"horizon : maillage absent ou hors budget ({horizon.TriangleCount} triangles)");
+            return;
+        }
+
+        var box = horizon.Mesh.GetAabb();
+        if (box.Position.X > -HorizonLayer.Width + 1f || box.End.X < w + HorizonLayer.Width - 1f || box.Position.Z > -HorizonLayer.Width + 1f || box.End.Z < d + HorizonLayer.Width - 1f)
+        {
+            failures.Add($"horizon : l'anneau n'entoure pas la carte ({box})");
+        }
+
+        // Jonction : le long des quatre bords et aux coins, la hauteur de l'anneau égale celle du terrain à 0,1 m près.
+        for (var t = 0; t <= 8; t++)
+        {
+            var f = t / 8f;
+            foreach (var (x, z) in new[] { (f * w, 0f), (f * w, d), (0f, f * d), (w, f * d) })
+            {
+                var seam = Mathf.Abs(horizon.HeightAt(x, z) - (float)grid.Sample(x, z));
+                if (seam > 0.1f)
+                {
+                    failures.Add($"horizon : marche de {seam:F2} m en ({x:F0}, {z:F0})");
+                    return;
+                }
+            }
+        }
+
+        // Et juste au-delà du bord, pas de saut non plus (une marche de plus de 1 m sur 2 m serait visible).
+        foreach (var (x, z) in new[] { (-2f, d / 2f), (w + 2f, d / 2f), (w / 2f, -2f), (w / 2f, d + 2f), (-2f, -2f), (w + 2f, d + 2f) })
+        {
+            var px = Mathf.Clamp(x, 0f, w);
+            var pz = Mathf.Clamp(z, 0f, d);
+            if (Mathf.Abs(horizon.HeightAt(x, z) - (float)grid.Sample(px, pz)) > 1f)
+            {
+                failures.Add($"horizon : saut au-delà du bord en ({x:F0}, {z:F0})");
+                return;
+            }
+        }
     }
 
     /// <summary>C10 lot 2 : la garde, la bascule iso, libre, iso (même cible, projection orthographique), Début et Tab en libre.</summary>

@@ -76,6 +76,9 @@ public partial class Main : Node3D
 
     public TerrainRenderer TerrainView { get; private set; } = null!;
 
+    /// <summary>Anneau de relief et collines autour de la carte.</summary>
+    public HorizonLayer Horizon { get; private set; } = null!;
+
     /// <summary>Ciel et pluie à l'écran.</summary>
     public WeatherView WeatherView { get; private set; } = null!;
 
@@ -196,6 +199,10 @@ public partial class Main : Node3D
         AddChild(TerrainView);
         TerrainView.Build(grid, World.Trees);
         TerrainView.SetDate(World.Date);
+
+        Horizon = new HorizonLayer { Name = "Horizon" };
+        AddChild(Horizon);
+        Horizon.Build(grid);
 
         Actors = new ActorLayer { Name = "Actors" };
         AddChild(Actors);
@@ -591,6 +598,13 @@ public partial class Main : Node3D
         {
             _dirtyCells = null;
             TerrainView.RebuildChunks(rect);
+
+            // Relief retouché sur le bord de la carte : l'horizon repart de la nouvelle hauteur du bord (quelques ms, rare).
+            var grid = World.Terrain!;
+            if (rect.Position.X <= 0 || rect.Position.Y <= 0 || rect.End.X >= grid.CellsX || rect.End.Y >= grid.CellsZ)
+            {
+                Horizon.Build(grid);
+            }
         }
     }
 
