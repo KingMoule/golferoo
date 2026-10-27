@@ -23,3 +23,5 @@ Ajouter sans relire tout le fichier : `echo "- ..." >> docs/lecons.md`. `/amelio
 - 2026-10-25 : panne du téléchargement .NET de Microsoft (HTTP 409) ; repli apt ajouté à ci.yml (PR #51).
 - Reprendre une branche déjà fusionnée depuis main demande un push --force-with-lease (consigne de la session cloud), contraire à la règle « jamais de --force » : nommer une nouvelle branche pour la suite.
 - 2026-10-26 C08 : le brief d'audit doit citer le chemin des fichiers de données du chantier (le trou de test), l'auditeur a dû le chercher.
+- Journaux CI : le blob est refusé par le proxy ; `mcp__github__get_job_logs` avec `return_content` et `tail_lines` ≤ 700 marche, le journal complet (base64) fait planter le serveur MCP.
+- Agents en worktree : le garde-fou refuse les heredocs, `|` et guillemets français dans Bash ; supprimer le worktree d'un agent l'empêche d'être relancé par SendMessage.
