@@ -35,7 +35,7 @@ public partial class Captures : Node
     private const int LeagueViewCount = 5;
     private const int TutorialViewCount = 3;
     private const int ProfileViewCount = 3;
-    private const int FreeViewCount = 3;
+    private const int FreeViewCount = 4;
 
     /// <summary>Lisière sud de la forêt du coude, la balle de <c>ForestExitTests.Edge</c> (tuile 18,5 / 26,5 de 8 m).</summary>
     private static readonly Point2 ForestEdge = new(18.5 * 8, 26.5 * 8);
