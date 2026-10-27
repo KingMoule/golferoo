@@ -358,7 +358,11 @@ public partial class Main : Node3D
                 break;
             case InputEventMouseMotion motion when (motion.ButtonMask & MouseButtonMask.Middle) != 0:
                 Camera.RotateFree(-motion.Relative.X * 0.006f);
-                Camera.Tilt(motion.Relative.Y * 0.004f);
+                if (Camera.Mode == CameraMode.Free)
+                {
+                    Camera.Tilt(motion.Relative.Y * 0.004f);
+                }
+
                 break;
             default:
                 break;

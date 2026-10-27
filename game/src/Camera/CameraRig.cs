@@ -252,7 +252,11 @@ public partial class CameraRig : Node3D
         _camera.Projection = Camera3D.ProjectionType.Perspective;
         _camera.Fov = FovDegrees;
         Rotation = new Vector3(0f, _yaw, 0f);
-        _camera.GlobalPosition = KeepAbove(aim + offset, GroundHeight, _bounds);
-        _camera.LookAt(aim, Vector3.Up);
+        var position = KeepAbove(aim + offset, GroundHeight, _bounds);
+        _camera.GlobalPosition = position;
+        // Bornée dans un coin, la caméra peut se retrouver à la verticale de la cible : le haut devient alors le cap.
+        var flat = new Vector2(aim.X - position.X, aim.Z - position.Z);
+        var up = flat.LengthSquared() < 1e-4f ? new Vector3(-offset.X, 0f, -offset.Z).Normalized() : Vector3.Up;
+        _camera.LookAt(aim, up);
     }
 }
