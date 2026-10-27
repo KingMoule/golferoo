@@ -53,7 +53,9 @@ public partial class SmokeTest : Node
 
         if (_frames >= FramesToRun + TutorialFrames)
         {
-            Finish(CheckTutorial());
+            var tutorialFailures = CheckTutorial();
+            CheckFollow(tutorialFailures);
+            Finish(tutorialFailures);
         }
     }
 
@@ -128,6 +130,50 @@ public partial class SmokeTest : Node
         return failures;
     }
 
+    /// <summary>C10 lot 1 : touches de caméra dans l'InputMap, Début centre sur le départ, Tab lance le suivi (vérifié par <see cref="CheckFollow"/>).</summary>
+    private void CheckCamera(List<string> failures)
+    {
+        foreach (var action in new[] { "camera_forward", "camera_back", "camera_left", "camera_right", "camera_rotate_left", "camera_rotate_right", "camera_home", "camera_follow_next" })
+        {
+            if (!InputMap.HasAction(action) || InputMap.ActionGetEvents(action).Count == 0)
+            {
+                failures.Add($"action {action} absente de l'InputMap");
+            }
+        }
+
+        var tee = _main!.World.Terrain!.Tee;
+        _main.Camera.SetView(45f, 150f, Vector3.Zero);
+        _main.CameraHome();
+        var offTee = new Vector2(_main.Camera.Target.X - (float)tee.X, _main.Camera.Target.Z - (float)tee.Z).Length();
+        if (offTee > 0.01f)
+        {
+            failures.Add($"Début : cible à {offTee:F2} m du départ");
+        }
+
+        _main.CameraFollowNext();
+        if (_main.Camera.FollowedId is null)
+        {
+            failures.Add("Tab : aucun golfeur suivi alors que deux sont sur le parcours");
+        }
+    }
+
+    /// <summary>Quelques images après Tab : la cible de la caméra est à moins de 1 m du golfeur suivi.</summary>
+    private void CheckFollow(List<string> failures)
+    {
+        if (_main!.Camera.FollowedId is not { } id)
+        {
+            failures.Add("suivi : arrêté alors que le golfeur est encore sur le parcours");
+            return;
+        }
+
+        var golfer = _main.World.Snapshot().Golfers.First(g => g.Id == id);
+        var distance = new Vector2(_main.Camera.Target.X - (float)golfer.Position.X, _main.Camera.Target.Z - (float)golfer.Position.Z).Length();
+        if (distance > 1f)
+        {
+            failures.Add($"suivi : cible à {distance:F2} m du golfeur {id}");
+        }
+    }
+
     private List<string> Check()
     {
         var failures = new List<string>();
@@ -180,6 +226,7 @@ public partial class SmokeTest : Node
             failures.Add($"G devait créer 2 golfeurs, obtenu {golfers}");
         }
 
+        CheckCamera(failures);
         CheckBrush(failures);
         CheckAssets(failures);
         CheckAssetLibrary(failures);
