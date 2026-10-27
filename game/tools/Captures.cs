@@ -598,6 +598,12 @@ public partial class Captures : Node
             await Frames(SettleFrames);
             Save("c10-libre-" + name);
         }
+
+        // Horizon : depuis le bord est de la carte, 5° au-dessus de l'horizon, regard vers l'extérieur (+x).
+        var edge = new Vector3((float)(grid.CellsX * grid.CellSize) - 6f, 0f, (float)(grid.CellsZ * grid.CellSize) / 2f);
+        main.Camera.SetFreeView(Mathf.RadToDeg(Mathf.Atan2(-1f, 0f)), 5f, 40f, edge);
+        await Frames(SettleFrames);
+        Save("c10-horizon");
     }
 
     /// <summary>Un panneau plus large que ses ancres (<paramref name="width"/> px) déborde : la capture échoue.</summary>
