@@ -1,6 +1,6 @@
 using Godot;
 
-namespace Golferoo.Game.CameraRig;
+namespace Golferoo.Game.Cameras;
 
 /// <summary>Modes de vue du <see cref="CameraRig"/> (la caméra libre en perspective viendra au lot 2).</summary>
 public enum CameraMode

@@ -1,5 +1,6 @@
 using System.Globalization;
 using Godot;
+using Golferoo.Game.Cameras;
 using Golferoo.Game.Rendering;
 using Golferoo.Game.Tools;
 using Golferoo.Game.Tutorial;
@@ -82,7 +83,7 @@ public partial class Main : Node3D
 
     public MowerLayer Mowers { get; private set; } = null!;
 
-    public CameraRig.CameraRig Camera { get; private set; } = null!;
+    public CameraRig Camera { get; private set; } = null!;
 
     public Brush Brush { get; private set; } = null!;
 
@@ -206,7 +207,7 @@ public partial class Main : Node3D
 
         var width = (float)(grid.CellsX * grid.CellSize);
         var depth = (float)(grid.CellsZ * grid.CellSize);
-        Camera = new CameraRig.CameraRig { Name = "CameraRig", FollowSource = GolferPosition };
+        Camera = new CameraRig { Name = "CameraRig", FollowSource = GolferPosition };
         Camera.SetBounds(new Rect2(0, 0, width, depth));
         AddChild(Camera);
         Camera.SetView(45f, 150f, new Vector3(width / 2f, 0f, depth / 2f));
@@ -469,7 +470,7 @@ public partial class Main : Node3D
 
     /// <summary>Suit le golfeur suivant sur le parcours, par id croissant (touche Tab).</summary>
     public void CameraFollowNext() =>
-        Camera.Follow(CameraRig.CameraRig.NextGolfer(_current.Golfers.Select(g => g.Id), Camera.FollowedId));
+        Camera.Follow(CameraRig.NextGolfer(_current.Golfers.Select(g => g.Id), Camera.FollowedId));
 
     private Vector3? GolferPosition(int id)
     {
