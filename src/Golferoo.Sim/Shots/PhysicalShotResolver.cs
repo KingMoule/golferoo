@@ -31,6 +31,12 @@ public sealed class PhysicalShotResolver : IShotResolver
     /// <summary>Coût d'une balle arrêtée par une couronne : celui d'une balle sous les arbres (voir <c>Cost</c>).</summary>
     private const double TreesLieCost = 60.0;
 
+    /// <summary>
+    /// Une balle qui finit à moins de ce rayon de son départ (rebond sur un tronc collé à elle) a gâché un coup : elle coûte
+    /// <see cref="PenaltyCost"/> de plus. Sans ce coût, rester sur place battait toute sortie de forêt et le golfeur retapait sans fin.
+    /// </summary>
+    private const double WastedRadius = 5.0;
+
     /// <summary>Probabilité d'arrêt du meilleur candidat au-delà de laquelle la ligne du trou est jugée bouchée.</summary>
     private const double BlockedStop = 0.25;
 
@@ -302,20 +308,25 @@ public sealed class PhysicalShotResolver : IShotResolver
 
         var expectation = Trees is null ? null : new TreeCollision.Expectation();
         var shot = BallSimulator.Run(terrain, ball, velocity, rolling: false, _drag, recordPath: false, trees: Trees, season: Season, wind: Wind, backspin: backspin, expectation: expectation).Shot;
-        var cost = Cost(shot, map, hole);
+        var wasted = Wasted(ball, shot.Ball);
+        var cost = Cost(shot, map, hole) + wasted;
         var crown = expectation?.Stopped ?? 0.0;
 
-        // Part des balles qui finissent sous les arbres : arrêtées par une couronne, ou passées mais retombées dans le bois.
-        stop = crown + ((1.0 - crown) * (shot.Outcome == ShotOutcome.Trees ? 1.0 : 0.0));
+        // Part des balles qui finissent sous les arbres : arrêtées par une couronne, ou passées mais retombées dans le bois
+        // ou renvoyées à leur départ par un tronc (la ligne est bouchée tout autant).
+        stop = crown + ((1.0 - crown) * (shot.Outcome == ShotOutcome.Trees || wasted > 0.0 ? 1.0 : 0.0));
         if (crown <= 0.0)
         {
             return cost;
         }
 
         var at = expectation!.StopPoint;
-        var stopped = map.DistanceAt(at.X, at.Z, hole) + TreesLieCost;
+        var stopped = map.DistanceAt(at.X, at.Z, hole) + TreesLieCost + Wasted(ball, at);
         return (crown * stopped) + ((1.0 - crown) * cost);
     }
+
+    private static double Wasted(Point2 from, Point2 to) =>
+        ((to.X - from.X) * (to.X - from.X)) + ((to.Z - from.Z) * (to.Z - from.Z)) < WastedRadius * WastedRadius ? PenaltyCost : 0.0;
 
     private ShotResult Putt(in ShotRequest request, TerrainGrid terrain, DeterministicRng rng)
     {
