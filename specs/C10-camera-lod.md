@@ -1,5 +1,5 @@
 # Caméra à modes, caméra libre et niveaux de détail
-Statut : validé
+Statut : livré
 Créé : 2026-10-27
 
 ## But
@@ -74,5 +74,5 @@ Ce qui prouve la réussite : le joueur passe de la vue iso à une vue libre jusq
 léger (rendu et caméra seulement, aucune règle de la sim touchée).
 
 ## Clôture
-- [ ] Critères vérifiés
-- [ ] Statut passé à « livré », ligne mise à jour dans docs/chantiers.md
+- [x] Critères vérifiés (CI verte sur chaque lot, mesure de Guillaume du 2026-10-27 : rasante 369,8 FPS, lot 4 sauté ; captures `c10-libre-*` et `c10-horizon` à juger par Guillaume)
+- [x] Statut passé à « livré », ligne mise à jour dans docs/chantiers.md
