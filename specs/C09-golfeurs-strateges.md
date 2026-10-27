@@ -3,7 +3,7 @@ Statut : validé
 Créé : 2026-10-26
 
 ## But
-Retour de jeu de Guillaume (2026-10-26) : une paire a vu sa balle s'arrêter en lisière de forêt, puis a retapé dans la forêt coup après coup, la balle retombant toujours au même endroit ; ils ont fini par avancer vers le green en laissant leur balle près des arbres. Les golfeurs doivent prendre des décisions logiques (jouer le fairway plutôt que viser droit au trou à travers une forêt), et des golfeurs différents doivent jouer différemment (imaginatif, long frappeur, amateur de draw ou de fade…).
+Retour de jeu de Guillaume (2026-10-26) : une paire a vu sa balle s'arrêter en lisière de forêt, puis a retapé dans la forêt coup après coup, la balle retombant toujours au même endroit ; ils ont fini par avancer vers le green en laissant leur balle près des arbres. Les golfeurs doivent prendre des décisions logiques (jouer le fairway plutôt que viser droit au trou à travers une forêt), et des golfeurs différents doivent jouer différemment (artiste, long frappeur, amateur de draw ou de fade…).
 
 **Cause, vérifiée dans le code.** `PhysicalShotResolver.Plan` simule ses candidats sans arbres (« La planification les ignore : elle ne contourne pas les arbres, elle les subit », déjà noté comme suite de C02). Le golfeur choisit donc la ligne droite à travers la forêt, la balle tape les arbres et retombe à leur pied, et il recommence jusqu'à `World.MaxStrokes` (12) : balle ramassée, il part vers la sortie. Le rendu (`ActorLayer`) dessine encore une balle ramassée, d'où la balle « restée » près de la forêt. Deux autres limites aggravent le cas : le coût d'un point de chute est sa distance à vol d'oiseau au trou (une balle derrière la forêt « paraît » proche), et les directions essayées ne s'écartent que de 20° de la ligne du trou (impossible de ressortir de côté vers le fairway).
 
@@ -34,14 +34,20 @@ Ce qui prouve la réussite : sur le dogleg, depuis la balle de la capture de Gui
 - Le coût d'un point de chute devient une estimation des coups restants : distance par la carte de jeu, plus une pénalité de lie (rough, bunker, sous les arbres). Sur un dogleg, le coin du fairway vaut alors mieux qu'un rough derrière la forêt, même s'il est plus loin à vol d'oiseau.
 - Sommes de contrôle et calibrage de `SkillLevels` (test de calibrage sur proto-par4) recalculés une fois, dans ce lot.
 
-**Lot 3 : profils de golfeurs** (`Golfers/`, `League/`)
-- Un profil est fait de quatre réglages du planificateur : prudence (poids des pénalités et des coups ratés sur les flancs), puissance (préférence pour le driver et le bois, un peu plus de vitesse et de dispersion), effet favori (aucun, draw ou fade, avec sa maîtrise), imagination (candidats en plus : effets autour d'un obstacle, sortie basse, trouée entre deux arbres, attaque du drapeau).
-- Archétypes nommés (choix 2) : prudent, long frappeur, joueur de draw, joueur de fade, imaginatif, fonceur. Chaque membre reçoit le sien de la graine ; les golfeurs ordinaires aussi.
-- Les membres jouent draw et fade selon leur profil (choix 3), avec l'exécution de C08 (`ShotShapes`) ; cela lève une limite écrite au hors périmètre de C08.
-- Le niveau reste le handicap : un profil change la manière, et son effet sur le score dépend du trou (un long frappeur aime un par 5 ouvert, un prudent un trou étroit).
+**Lot 3 : profils de golfeurs** (`Golfers/`, `League/`, `Shots/`) ; démarre après la fusion de la #73, qui modifie `PhysicalShotResolver.cs` et la taille des arbres (calibrage sur les arbres définitifs)
+- `Golfers/GolferProfile.cs` : `enum Archetype` (valeurs dans la somme de contrôle) et un réglage par archétype. Un profil neutre, attribué à personne, sert à `CourseRater` : la note dépend du trou, pas du tirage des membres. `ShotRequest` porte le profil.
+- Le niveau reste le handicap : un profil change la manière, et son effet sur le score dépend du trou.
+- Les six archétypes (cadrage avec Guillaume, 2026-10-27) :
+  - **Prudent** : pénalités, lies difficiles et flancs pèsent plus dans le coût ; vise le centre du green, sort de la forêt de côté.
+  - **Long frappeur** : driver et bois 3 vont 10 % plus loin, fers 5 et 7 inchangés, fer 9 et wedge 5 % moins loin ; dispersion normale ; préfère le driver au départ.
+  - **Joueur de draw** et **joueur de fade** : chaque coup plein essaie le coup droit et son effet, puis garde le meilleur. Avec son effet : 5 % plus loin et dispersion −20 % ; en coup droit : dispersion +5 %. Exécution par `ShotShapes`, régularité de l'effet liée au niveau (`amountSigma` proportionnel au niveau). Deux fois plus de simulations de planification pour ces joueurs : le banc vérifie la limite.
+  - **Artiste** (remplace l'imaginatif) : joue mieux dans un bel endroit, sans coups créatifs. Une *beauté* de 0 à 1 par cellule, calculée sur un rayon de 15 m : l'eau, la lisière des arbres, les fleurs au printemps (leur placement par hachage de cellule passe de `FlowerLayer` à la sim, le rendu le lit), et une liste de sources de beauté posées dans le monde (vide pour l'instant ; les objets de décor futurs s'y ajouteront sans toucher au calcul). Mise en cache, refaite quand le terrain, les arbres ou la saison changent. Exécution : dispersion × (1 − 0,25 × beauté au point de départ). Planification : coût d'un point de chute diminué de 5 m × beauté, si bien qu'il ne s'éloigne jamais du trou de plus de 5 m pour un bel endroit.
+  - **Fonceur** : pénalités et flancs pèsent moins, vise le drapeau et la ligne courte au-dessus du coin.
+- Attribution : le profil d'un membre vient d'un hachage de la graine et de son id, hors du flux de `GenerateMembers` (noms et handicaps inchangés) ; uniforme sur les six archétypes. Les golfeurs ordinaires tirent le leur du RNG du monde à leur arrivée.
+- Les membres jouent draw et fade selon leur profil (choix 3) ; cela lève une limite écrite au hors périmètre de C08.
 
 **Lot 4 : rendu** (`game/src/`)
-- Profil sur la fiche du membre (panneau J) et dans l'info-bulle d'un golfeur.
+- Profil sur la fiche du membre (`LeaguePanel.ShowCard` : « Nom | handicap 14,2 | joueur de draw ») et colonne « Style » dans les divisions si elle tient dans le panneau. L'info-bulle d'un golfeur sur le terrain est reportée : elle n'existe pas encore et demande le survol des golfeurs en 3D.
 - Capture `c09-profils` : depuis le tee du dogleg, les trajectoires prévues de chaque archétype au même niveau, et la sortie de forêt depuis la balle de la capture de Guillaume.
 
 ## Choix à trancher par Guillaume
@@ -51,16 +57,19 @@ Ce qui prouve la réussite : sur le dogleg, depuis la balle de la capture de Gui
 
 **Décisions de Guillaume (2026-10-26)** : les trois recommandations, soit 1 (a) carte de jeu par drapeau, 2 (a) six archétypes nommés, 3 (a) les membres jouent draw et fade selon leur profil.
 
+**Cadrage des lots 3 et 4 (2026-10-27)** : réglages des styles décidés par Guillaume (voir lot 3) ; l'imaginatif devient l'artiste ; archétypes répartis uniformément ; info-bulle d'un golfeur reportée.
+
 ## Critères d'acceptation
 1. Lot 1 : sur le dogleg avec ses arbres, depuis une balle en lisière avec la forêt entre elle et le trou, 100 golfeurs de niveau bogey (graines différentes) ne finissent jamais deux coups de suite au pied des arbres depuis le même point, et aucun n'atteint `MaxStrokes` (test).
 2. Lot 1 : la planification reste déterministe (même graine, même somme de contrôle) et le banc de planification passe sa limite (`dotnet run -c Release --project tests/Golferoo.Sim.Bench`).
 3. Lot 1 : une balle ramassée n'apparaît plus dans les captures.
 4. Lot 2 : sur le dogleg, la part des drives d'un golfeur scratch qui s'arrêtent sur le fairway monte d'au moins 20 points par rapport à la mesure faite avant le lot (test qui affiche les deux).
 5. Lot 2 : le test de calibrage de `SkillLevels` passe, et la note du parcours du dogleg ne monte pas (les golfeurs jouent mieux, pas plus mal).
-6. Lot 3 : à niveau égal sur le dogleg, sur 200 trous chacun, le long frappeur prend le driver au départ plus souvent que le prudent ; le joueur de draw joue un draw sur plus de la moitié de ses coups pleins ; le prudent finit avec moins de pénalités que le fonceur (test).
-7. Lot 3 : chaque membre a un profil stable d'une partie à l'autre (même graine, même profil).
-8. Lot 4 : la capture `c09-profils` montre des trajectoires différentes par archétype ; le profil apparaît sur la fiche du membre.
-9. Tous lots : `dotnet test Golferoo.sln`, `dotnet format Golferoo.sln --verify-no-changes` et les quatre jobs de CI verts.
+6. Lot 3 : à niveau égal sur le dogleg, sur 200 trous chacun, le long frappeur prend le driver au départ plus souvent que le prudent ; le joueur de draw joue un draw sur plus de la moitié de ses coups pleins ; le prudent finit avec moins de pénalités que le fonceur ; le long frappeur porte son drive plus loin que le prudent (test).
+7. Lot 3 : chaque membre a un profil stable d'une partie à l'autre (même graine, même profil), et les noms et handicaps de `GenerateMembers` ne changent pas.
+8. Lot 3 : la beauté vaut 0 au milieu d'un fairway sans eau ni arbres et monte près de l'eau ; une source de beauté ajoutée au monde la fait monter ; sur 200 coups depuis un même bel endroit, l'artiste disperse moins qu'un golfeur neutre du même niveau ; son point visé n'est jamais plus loin du trou (carte de jeu) que celui du golfeur neutre de plus de 5 m (test).
+9. Lot 4 : la capture `c09-profils` montre des trajectoires différentes par archétype ; le profil apparaît sur la fiche du membre.
+10. Tous lots : `dotnet test Golferoo.sln`, `dotnet format Golferoo.sln --verify-no-changes` et les quatre jobs de CI verts.
 
 ## Niveau de contrôle
 complet (lots 1 à 3 : décisions des golfeurs, sommes de contrôle, note du parcours), léger (lot 4).
