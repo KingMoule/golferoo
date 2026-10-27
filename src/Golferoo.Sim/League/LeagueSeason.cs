@@ -1,3 +1,4 @@
+using Golferoo.Sim.Golfers;
 using Golferoo.Sim.Rating;
 using Golferoo.Sim.Scoring;
 using Golferoo.Sim.Time;
@@ -99,10 +100,10 @@ public sealed class LeagueSeason
         {
             var name = $"{FirstNames[(int)(rng.NextUInt64() % (ulong)FirstNames.Length)]} {(char)('A' + (int)(rng.NextUInt64() % 26))}.";
             var handicap = 2 + (int)(rng.NextUInt64() % 35);
-            members.Add(new Member(i, name, handicap, (int)(rng.NextUInt64() % 101)));
+            members.Add(new Member(i, name, handicap, (int)(rng.NextUInt64() % 101), profile: GolferProfile.ForMember(seed, i)));
         }
 
-        members.Add(new Member(ClubMembers, "Votre pro", 36, 100, isPro: true));
+        members.Add(new Member(ClubMembers, "Votre pro", 36, 100, isPro: true, GolferProfile.ForMember(seed, ClubMembers)));
         return members;
     }
 

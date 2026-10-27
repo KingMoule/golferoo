@@ -1,4 +1,6 @@
+using Golferoo.Sim.Golfers;
 using Golferoo.Sim.Pathing;
+using Golferoo.Sim.Pro;
 using Golferoo.Sim.Terrain;
 using Golferoo.Sim.Trees;
 
@@ -23,7 +25,6 @@ public sealed class PhysicalShotResolver : IShotResolver
     private const double MaxPuttSpeed = 10.0;
     private const int PuttIterations = 8;
     private const int Finalists = 4;
-    private const double FlankSigmas = 1.5;
 
     /// <summary>Coût d'un coup de pénalité, en mètres équivalents.</summary>
     private const double PenaltyCost = 100.0;
@@ -54,6 +55,8 @@ public sealed class PhysicalShotResolver : IShotResolver
 
     private readonly double _drag;
     private readonly PlayMapCache _maps = new();
+    private readonly Lock _beautyLock = new();
+    private BeautyMap? _beauty;
 
     public PhysicalShotResolver(double drag = BallSimulator.DefaultDrag)
     {
@@ -72,36 +75,72 @@ public sealed class PhysicalShotResolver : IShotResolver
     /// <summary>Vent du moment, réglé par le monde. Le golfeur le connaît exactement : la planification simule avec lui.</summary>
     public Vec3 Wind { get; set; }
 
-    public ShotResult Resolve(in ShotRequest request, TerrainGrid terrain, DeterministicRng rng)
+    /// <summary>Sources de beauté posées dans le monde (objets de décor), pour l'artiste (<see cref="BeautyMap"/>). Le monde y met les siennes.</summary>
+    public IReadOnlyList<Point2> BeautySources { get; set; } = [];
+
+    public ShotResult Resolve(in ShotRequest request, TerrainGrid terrain, DeterministicRng rng) => Resolve(request, terrain, rng, out _);
+
+    /// <summary>Comme <see cref="Resolve(in ShotRequest, TerrainGrid, DeterministicRng)"/>, en rendant le coup planifié (nul pour un putt).</summary>
+    internal ShotResult Resolve(in ShotRequest request, TerrainGrid terrain, DeterministicRng rng, out ShotPlan? planned)
     {
+        var profile = GolferProfile.Of(request.Profile);
+        var beauty = profile.Artist ? Beauty(terrain).At(request.Ball.X, request.Ball.Z) : 0.0;
         if (terrain.SurfaceAt(request.Ball.X, request.Ball.Z) == Surface.Green)
         {
-            return Putt(request, terrain, rng);
+            planned = null;
+            return Putt(request, terrain, rng, profile.BeautyFactor(beauty));
         }
 
-        var plan = Plan(request, terrain);
-        return Execute(request.Ball, plan.Club, plan.DirX, plan.DirZ, plan.Force, terrain, rng, request.Skill, plan.Low);
+        var plan = Plan(request, terrain, profile);
+        planned = plan;
+        var shapeSigma = plan.Shape == ShotShape.Straight ? 0.0 : ProSkills.ShapeSigmaPerLevel * request.Skill;
+        return Execute(request.Ball, plan.Club, plan.DirX, plan.DirZ, plan.Force * profile.Speed(plan.Club, plan.Shape), terrain, rng, request.Skill, plan.Low,
+            profile.Dispersion(plan.Shape, beauty), plan.Shape, shapeSigma);
+    }
+
+    /// <summary>Carte de beauté du terrain, refaite quand le terrain, les arbres, la saison ou les sources ont changé.</summary>
+    internal BeautyMap Beauty(TerrainGrid terrain)
+    {
+        lock (_beautyLock)
+        {
+            if (_beauty is null || !_beauty.IsFor(terrain, Trees, Season, BeautySources))
+            {
+                _beauty = BeautyMap.Build(terrain, Trees, Season, BeautySources);
+            }
+
+            return _beauty;
+        }
     }
 
     /// <summary>
     /// Exécute un coup avec la dispersion du club (direction et vitesse tirées du RNG), élargie par le niveau de jeu
     /// et avec une balle un peu moins rapide au-delà du niveau 1. Au niveau 1, chaque facteur vaut exactement 1.
     /// <paramref name="low"/> : sortie basse, lancement à la moitié de l'angle du club comme le chip de <see cref="ShotShape.Chip"/>.
+    /// <paramref name="dispersion"/> multiplie encore les écarts types (profil du golfeur). <paramref name="shape"/> : draw ou fade
+    /// (<see cref="ShotShapes"/>), dont l'effet varie d'un écart type <paramref name="amountSigma"/>.
     /// </summary>
-    public ShotResult Execute(Point2 ball, Club club, double dirX, double dirZ, double force, TerrainGrid terrain, DeterministicRng rng, double skill = 1.0, bool low = false)
+    public ShotResult Execute(Point2 ball, Club club, double dirX, double dirZ, double force, TerrainGrid terrain, DeterministicRng rng, double skill = 1.0, bool low = false,
+        double dispersion = 1.0, ShotShape shape = ShotShape.Straight, double amountSigma = 0.0)
     {
-        var eps = club.DirectionSigma * skill * Gauss(rng);
+        var sigma = skill * dispersion;
+        var eps = club.DirectionSigma * sigma * Gauss(rng);
         var power = 1.0 - (PowerLossPerSkill * Math.Max(0.0, skill - 1.0));
-        var speed = club.Speed * force * (1.0 + (club.SpeedSigma * skill * Gauss(rng))) * power;
+        var speed = club.Speed * force * (1.0 + (club.SpeedSigma * sigma * Gauss(rng))) * power;
         Rotate(dirX, dirZ, eps, 1.0 - (eps * eps / 2.0), out var ux, out var uz);
         var velocity = new Vec3(ux * club.LaunchCos * speed, club.LaunchSin * speed, uz * club.LaunchCos * speed);
         var backspin = 0.0;
-        if (low)
+        var curve = 0.0;
+        if (shape is ShotShape.Draw or ShotShape.Fade)
+        {
+            var amount = amountSigma > 0.0 ? Math.Clamp(1.0 + (amountSigma * Gauss(rng)), 0.0, 2.0) : 1.0;
+            (velocity, curve, backspin) = ShotShapes.Launch(club, ux, uz, speed, shape, amount);
+        }
+        else if (low)
         {
             (velocity, _, backspin) = ShotShapes.Launch(club, ux, uz, speed, ShotShape.Chip);
         }
 
-        return BallSimulator.Run(terrain, ball, velocity, rolling: false, _drag, recordPath: true, trees: Trees, season: Season, rng: rng, wind: Wind, backspin: backspin).Shot;
+        return BallSimulator.Run(terrain, ball, velocity, rolling: false, _drag, recordPath: true, trees: Trees, season: Season, rng: rng, wind: Wind, curve: curve, backspin: backspin).Shot;
     }
 
     /// <summary>
@@ -163,10 +202,14 @@ public sealed class PhysicalShotResolver : IShotResolver
         return (s - 2.0) * 1.7320508075688772;
     }
 
-    private static double Cost(in ShotResult r, PlayMap map, Point2 hole)
+    /// <summary>
+    /// Coût d'un point de chute : distance au trou par la carte de jeu, pénalités et lie ; pénalités et lies difficiles pèsent
+    /// <see cref="GolferProfile.Risk"/> fois.
+    /// </summary>
+    private static double Cost(in ShotResult r, PlayMap map, Point2 hole, GolferProfile profile)
     {
-        var cost = map.DistanceAt(r.Ball.X, r.Ball.Z, hole) + (PenaltyCost * r.PenaltyStrokes);
-        cost += r.Outcome switch
+        var cost = map.DistanceAt(r.Ball.X, r.Ball.Z, hole) + (profile.Risk * PenaltyCost * r.PenaltyStrokes);
+        var lie = r.Outcome switch
         {
             ShotOutcome.Green => -8.0,
             ShotOutcome.Fairway or ShotOutcome.Tee or ShotOutcome.Path => -2.0,
@@ -176,22 +219,24 @@ public sealed class PhysicalShotResolver : IShotResolver
             ShotOutcome.Water or ShotOutcome.OutOfBounds => 60.0,
             _ => 0.0,
         };
-        return cost;
+        return cost + (lie > 0.0 ? profile.Risk * lie : lie);
     }
 
-    private (Club Club, double DirX, double DirZ, double Force, bool Low) Plan(in ShotRequest request, TerrainGrid terrain)
+    private ShotPlan Plan(in ShotRequest request, TerrainGrid terrain, GolferProfile profile)
     {
-        var ex = request.Hole.X - request.Ball.X;
-        var ez = request.Hole.Z - request.Ball.Z;
+        // Le prudent vise le centre du green plutôt que le drapeau.
+        var ball = request.Ball;
+        var hole = profile.Safe ? GreenCenter(terrain, request.Hole) : request.Hole;
+        var ex = hole.X - ball.X;
+        var ez = hole.Z - ball.Z;
         var dist = Math.Sqrt((ex * ex) + (ez * ez));
         if (dist < 1e-9)
         {
-            return (Clubs.Wedge, 1.0, 0.0, Forces[^1], false);
+            return new ShotPlan(Clubs.Wedge, 1.0, 0.0, Forces[^1], false, ShotShape.Straight, ball);
         }
 
-        var ball = request.Ball;
-        var hole = request.Hole;
         var map = _maps.Get(terrain, Trees, hole);
+        var beauty = profile.Artist ? Beauty(terrain) : null;
 
         // Ligne du trou barrée par des bois : on vise le chemin que la balle peut suivre (le coin du fairway), pas le drapeau.
         var ux = ex / dist;
@@ -209,15 +254,30 @@ public sealed class PhysicalShotResolver : IShotResolver
             }
         }
 
-        var candidates = new List<(double Cost, double Stop, Club Club, double DirX, double DirZ, double Force, bool Low)>();
+        var candidates = new List<(double Cost, double Stop, double Beauty, ShotPlan Plan)>();
+
+        // Le long frappeur préfère le driver au départ.
+        var driverBonus = profile.Long && request.StrokeNumber == 0 ? GolferProfile.TeeDriverBonus : 0.0;
+
+        void Try(Club club, double dx, double dz, double force, bool low, ShotShape shape)
+        {
+            var cost = Evaluate(ball, hole, map, club, dx, dz, force * profile.Speed(club, shape), low, shape, terrain, profile, beauty, out var stop, out var landing, out var bonus);
+            if (ReferenceEquals(club, Clubs.Driver))
+            {
+                cost -= driverBonus;
+            }
+
+            candidates.Add((cost, stop, bonus, new ShotPlan(club, dx, dz, force, low, shape, landing)));
+        }
 
         void Add(IReadOnlyList<double> degrees, IReadOnlyList<double> forces, bool low, bool relaxed)
         {
             foreach (var club in Clubs.Full)
             {
+                var length = profile.DistanceFactor(club);
                 foreach (var force in forces)
                 {
-                    var range = club.TargetRange * force * force;
+                    var range = club.TargetRange * force * force * length;
                     if (range > (1.3 * dist) + 15.0 || range < (relaxed ? WideMinRange : 0.3 * dist))
                     {
                         continue;
@@ -227,8 +287,13 @@ public sealed class PhysicalShotResolver : IShotResolver
                     {
                         var radians = degree * Math.PI / 180.0;
                         Rotate(ux, uz, Math.Sin(radians), Math.Cos(radians), out var dx, out var dz);
-                        var cost = Evaluate(ball, hole, map, club, dx, dz, force, low, terrain, out var stop);
-                        candidates.Add((cost, stop, club, dx, dz, force, low));
+                        Try(club, dx, dz, force, low, ShotShape.Straight);
+
+                        // Joueur de draw ou de fade : chaque coup plein est aussi essayé avec son effet.
+                        if (!low && profile.Shape != ShotShape.Straight)
+                        {
+                            Try(club, dx, dz, force, low, profile.Shape);
+                        }
                     }
                 }
             }
@@ -246,23 +311,36 @@ public sealed class PhysicalShotResolver : IShotResolver
 
         if (candidates.Count == 0)
         {
-            return (Clubs.Wedge, ux, uz, Forces[^1], false);
+            return new ShotPlan(Clubs.Wedge, ux, uz, Forces[^1], false, ShotShape.Straight, ball);
         }
 
-        // Les meilleurs candidats sont re-testés avec la direction décalée de chaque côté, pour préférer un coup sûr.
+        // Les meilleurs candidats sont re-testés avec la direction décalée de chaque côté, pour préférer un coup sûr. Le profil règle
+        // l'écart de ces flancs (Flank, en écarts types du club), qui suit la dispersion de l'effet choisi mais pas celle due à la beauté.
+        // La beauté (artiste) ne compte qu'à ce choix final : les finalistes sont ceux du golfeur neutre, et l'artiste ne s'en écarte que
+        // pour un point de chute plus beau.
         candidates.Sort(static (a, b) => a.Cost.CompareTo(b.Cost));
-        var best = candidates[0];
+        var best = candidates[0].Plan;
         var bestScore = double.MaxValue;
         for (var k = 0; k < Math.Min(Finalists, candidates.Count); k++)
         {
-            var c = candidates[k];
-            var eps = c.Club.DirectionSigma * FlankSigmas;
+            var (cost, _, bonus, c) = candidates[k];
+            var eps = c.Club.DirectionSigma * profile.Flank * profile.Dispersion(c.Shape, 0.0);
             var cos = 1.0 - (eps * eps / 2.0);
+            var force = c.Force * profile.Speed(c.Club, c.Shape);
             Rotate(c.DirX, c.DirZ, eps, cos, out var ax, out var az);
             Rotate(c.DirX, c.DirZ, -eps, cos, out var bx, out var bz);
-            var left = Evaluate(ball, hole, map, c.Club, ax, az, c.Force, c.Low, terrain, out _);
-            var right = Evaluate(ball, hole, map, c.Club, bx, bz, c.Force, c.Low, terrain, out _);
-            var score = ((2.0 * c.Cost) + left + right) / 4.0;
+            var left = Evaluate(ball, hole, map, c.Club, ax, az, force, c.Low, c.Shape, terrain, profile, beauty, out _, out _, out var leftBonus);
+            var right = Evaluate(ball, hole, map, c.Club, bx, bz, force, c.Low, c.Shape, terrain, profile, beauty, out _, out _, out var rightBonus);
+            var score = ((2.0 * (cost - bonus)) + (left - leftBonus) + (right - rightBonus)) / 4.0;
+            if (profile.Safe)
+            {
+                // Le prudent teste aussi le coup trop long et trop court (écart de vitesse du club, au même nombre d'écarts types).
+                var depth = c.Club.SpeedSigma * profile.Flank;
+                var longer = Evaluate(ball, hole, map, c.Club, c.DirX, c.DirZ, force * (1.0 + depth), c.Low, c.Shape, terrain, profile, beauty, out _, out _, out var longBonus);
+                var shorter = Evaluate(ball, hole, map, c.Club, c.DirX, c.DirZ, force * (1.0 - depth), c.Low, c.Shape, terrain, profile, beauty, out _, out _, out var shortBonus);
+                score = ((4.0 * score) + (longer - longBonus) + (shorter - shortBonus)) / 6.0;
+            }
+
             if (score < bestScore)
             {
                 bestScore = score;
@@ -270,10 +348,41 @@ public sealed class PhysicalShotResolver : IShotResolver
             }
         }
 
-        return (best.Club, best.DirX, best.DirZ, best.Force, best.Low);
+        return best;
     }
 
-    private static (double Cost, double Stop, Club Club, double DirX, double DirZ, double Force, bool Low) Best(List<(double Cost, double Stop, Club Club, double DirX, double DirZ, double Force, bool Low)> candidates)
+    /// <summary>Centre (moyenne des cellules) du green qui porte le drapeau ; le drapeau lui-même s'il n'est pas sur un green.</summary>
+    private static Point2 GreenCenter(TerrainGrid terrain, Point2 hole)
+    {
+        var start = (terrain.CellXOf(hole.X), terrain.CellZOf(hole.Z));
+        if (terrain.GetCellSurface(start.Item1, start.Item2) != Surface.Green)
+        {
+            return hole;
+        }
+
+        var seen = new HashSet<(int, int)> { start };
+        var queue = new Queue<(int X, int Z)>();
+        queue.Enqueue(start);
+        double sx = 0.0, sz = 0.0;
+        while (queue.Count > 0)
+        {
+            var (x, z) = queue.Dequeue();
+            var c = terrain.CellCenter(x, z);
+            sx += c.X;
+            sz += c.Z;
+            foreach (var (nx, nz) in new[] { (x + 1, z), (x - 1, z), (x, z + 1), (x, z - 1) })
+            {
+                if (nx >= 0 && nz >= 0 && nx < terrain.CellsX && nz < terrain.CellsZ && terrain.GetCellSurface(nx, nz) == Surface.Green && seen.Add((nx, nz)))
+                {
+                    queue.Enqueue((nx, nz));
+                }
+            }
+        }
+
+        return new Point2(sx / seen.Count, sz / seen.Count);
+    }
+
+    private static (double Cost, double Stop, double Beauty, ShotPlan Plan) Best(List<(double Cost, double Stop, double Beauty, ShotPlan Plan)> candidates)
     {
         var best = candidates[0];
         foreach (var c in candidates)
@@ -290,14 +399,22 @@ public sealed class PhysicalShotResolver : IShotResolver
     /// <summary>
     /// Coût espéré d'un candidat, sans hasard : p × coût(arrêté au pied des arbres) + (1 − p) × coût(passé), p étant la probabilité
     /// cumulée d'être arrêté par une couronne. Les troncs agissent comme à l'exécution. <paramref name="stop"/> : part des balles
-    /// qui finissent sous les arbres, pour juger la ligne du trou bouchée.
+    /// qui finissent sous les arbres, pour juger la ligne du trou bouchée ; <paramref name="landing"/> : où la balle passée s'arrête ;
+    /// <paramref name="bonus"/> : coût retiré par la beauté espérée du point de chute (artiste : 5 m × beauté, 0 sans <paramref name="beauty"/>).
+    /// <paramref name="force"/> comprend déjà le facteur de vitesse du profil.
     /// </summary>
-    private double Evaluate(Point2 ball, Point2 hole, PlayMap map, Club club, double dirX, double dirZ, double force, bool low, TerrainGrid terrain, out double stop)
+    private double Evaluate(Point2 ball, Point2 hole, PlayMap map, Club club, double dirX, double dirZ, double force, bool low, ShotShape shape, TerrainGrid terrain,
+        GolferProfile profile, BeautyMap? beauty, out double stop, out Point2 landing, out double bonus)
     {
         var speed = club.Speed * force;
         Vec3 velocity;
         var backspin = 0.0;
-        if (low)
+        var curve = 0.0;
+        if (shape != ShotShape.Straight)
+        {
+            (velocity, curve, backspin) = ShotShapes.Launch(club, dirX, dirZ, speed, shape);
+        }
+        else if (low)
         {
             (velocity, _, backspin) = ShotShapes.Launch(club, dirX, dirZ, speed, ShotShape.Chip);
         }
@@ -307,10 +424,12 @@ public sealed class PhysicalShotResolver : IShotResolver
         }
 
         var expectation = Trees is null ? null : new TreeCollision.Expectation();
-        var shot = BallSimulator.Run(terrain, ball, velocity, rolling: false, _drag, recordPath: false, trees: Trees, season: Season, wind: Wind, backspin: backspin, expectation: expectation).Shot;
+        var shot = BallSimulator.Run(terrain, ball, velocity, rolling: false, _drag, recordPath: false, trees: Trees, season: Season, wind: Wind, curve: curve, backspin: backspin, expectation: expectation).Shot;
+        landing = shot.Ball;
         // Un coup rentré, ou déjà pénalisé (hors limites, eau), ne compte pas comme gâché.
         var wasted = shot.Holed || shot.PenaltyStrokes > 0 ? 0.0 : Wasted(ball, shot.Ball);
-        var cost = Cost(shot, map, hole) + wasted;
+        var cost = Cost(shot, map, hole, profile) + wasted;
+        bonus = beauty is null ? 0.0 : GolferProfile.BeautyCost * beauty.At(shot.Ball.X, shot.Ball.Z);
         var crown = expectation?.Stopped ?? 0.0;
 
         // Part des balles qui finissent sous les arbres : arrêtées par une couronne, ou passées mais retombées dans le bois
@@ -322,14 +441,19 @@ public sealed class PhysicalShotResolver : IShotResolver
         }
 
         var at = expectation!.StopPoint;
-        var stopped = map.DistanceAt(at.X, at.Z, hole) + TreesLieCost + Wasted(ball, at);
+        var stopped = map.DistanceAt(at.X, at.Z, hole) + (profile.Risk * TreesLieCost) + Wasted(ball, at);
+        if (beauty is not null)
+        {
+            bonus = (crown * GolferProfile.BeautyCost * beauty.At(at.X, at.Z)) + ((1.0 - crown) * bonus);
+        }
+
         return (crown * stopped) + ((1.0 - crown) * cost);
     }
 
     private static double Wasted(Point2 from, Point2 to) =>
         ((to.X - from.X) * (to.X - from.X)) + ((to.Z - from.Z) * (to.Z - from.Z)) < WastedRadius * WastedRadius ? PenaltyCost : 0.0;
 
-    private ShotResult Putt(in ShotRequest request, TerrainGrid terrain, DeterministicRng rng)
+    private ShotResult Putt(in ShotRequest request, TerrainGrid terrain, DeterministicRng rng, double dispersion)
     {
         var ball = request.Ball;
         var ex = request.Hole.X - ball.X;
@@ -389,9 +513,13 @@ public sealed class PhysicalShotResolver : IShotResolver
         }
 
         var club = Clubs.Putter;
-        var eps = (club.DirectionSigma + (PuttSigmaPerMeter * dist)) * request.Skill * Gauss(rng);
-        var noisy = bestSpeed * (1.0 + (club.SpeedSigma * request.Skill * Gauss(rng)));
+        var sigma = request.Skill * dispersion;
+        var eps = (club.DirectionSigma + (PuttSigmaPerMeter * dist)) * sigma * Gauss(rng);
+        var noisy = bestSpeed * (1.0 + (club.SpeedSigma * sigma * Gauss(rng)));
         Rotate(bestX, bestZ, eps, 1.0 - (eps * eps / 2.0), out var dx, out var dz);
         return BallSimulator.Run(terrain, ball, new Vec3(dx * noisy, 0, dz * noisy), rolling: true, _drag, recordPath: true).Shot;
     }
 }
+
+/// <summary>Coup planifié : club, direction, force (sans le facteur de vitesse du profil), sortie basse, effet, et point de chute prévu.</summary>
+internal readonly record struct ShotPlan(Club Club, double DirX, double DirZ, double Force, bool Low, ShotShape Shape, Point2 Landing);

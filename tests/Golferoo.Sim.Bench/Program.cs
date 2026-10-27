@@ -36,6 +36,7 @@ const double tutorialLimitMs = 1.0;
 const double planTreesRatioLimit = 2.5;
 const double playMapDoglegLimitMs = 5.0;
 const double playMap512LimitMs = 150.0;
+const double planProfileRatioLimit = 2.5;
 
 // Carte plate de 512 x 512 cellules, la même à tous les facteurs.
 var big = new TerrainGrid(new HeightField(512, 512, 2.0), "plat", new Point2(2, 2), new Point2(1000, 1000), new Point2(1000, 1000));
@@ -232,8 +233,16 @@ var map512 = Measure(20, 5, () => PlayMap.Build(big, null, new Point2(1000, 1000
 allPassed &= mapDogleg.Median < playMapDoglegLimitMs && map512.Median < playMap512LimitMs;
 Console.WriteLine($"Carte de jeu : dogleg {mapDogleg.Median:F2} ms (limite {playMapDoglegLimitMs}), 512x512 {map512.Median:F2} ms (limite {playMap512LimitMs})");
 
+// Profils de golfeurs (C09 lot 3) : un drive planifié sur le dogleg par chaque archétype contre le golfeur neutre, médianes de passes
+// alternées. Le joueur de draw ou de fade essaie chaque coup plein droit et avec son effet (deux fois plus de simulations). Limite : 2,5 fois.
+var planProfiles = MeasurePlanProfiles(Path.Combine(Path.GetDirectoryName(holePath)!, "dogleg-par4.json"));
+var planProfileWorst = planProfiles.Max(p => p.Ms) / planProfiles.First(p => p.Profile == Archetype.Neutral).Ms;
+allPassed &= planProfileWorst <= planProfileRatioLimit;
+Console.WriteLine($"Planification par profil (dogleg, tee) : {string.Join(", ", planProfiles.Select(p => $"{p.Profile} {p.Ms:F2} ms"))} ; pire rapport {planProfileWorst:F2} (limite {planProfileRatioLimit})");
+
 var report = new
 {
+    planProfiles = new { teeMedianMs = planProfiles.ToDictionary(p => p.Profile.ToString(), p => p.Ms), worstRatio = planProfileWorst, limit = planProfileRatioLimit, passed = planProfileWorst <= planProfileRatioLimit },
     playMap = new { doglegMedianMs = mapDogleg.Median, doglegLimitMs = playMapDoglegLimitMs, map512MedianMs = map512.Median, map512LimitMs = playMap512LimitMs, passed = mapDogleg.Median < playMapDoglegLimitMs && map512.Median < playMap512LimitMs },
     tutorial = new { holeCheckMedianMs = holeCheck.Median, stepMedianMs = tutorialStep.Median, limitMs = tutorialLimitMs, passed = holeCheck.Median < tutorialLimitMs && tutorialStep.Median < tutorialLimitMs },
     shotPreview = new { medianMs = preview.Median, maxMs = preview.Max, limitMs = shotPreviewLimitMs, passed = preview.Median < shotPreviewLimitMs },
@@ -560,6 +569,35 @@ static (double TeeMs, double TeeBlindMs, double EdgeMs) MeasurePlanWithTrees(str
     Array.Sort(teeBlind);
     Array.Sort(edgeMs);
     return (tee[15], teeBlind[15], edgeMs[15]);
+}
+
+static List<(Archetype Profile, double Ms)> MeasurePlanProfiles(string path)
+{
+    var hole = HoleLoader.Load(path, 2);
+    var world = new World(1, hole);
+    var resolver = new PhysicalShotResolver { Trees = world.Trees, Season = world.Season };
+    var profiles = Enum.GetValues<Archetype>();
+    double Plan(Archetype profile)
+    {
+        var t0 = Stopwatch.GetTimestamp();
+        resolver.Resolve(new ShotRequest(hole.Tee, hole.Hole, 0, SkillLevels.Bogey, profile), hole, new DeterministicRng(3));
+        return Stopwatch.GetElapsedTime(t0).TotalMilliseconds;
+    }
+
+    var samples = profiles.ToDictionary(p => p, _ => new double[31]);
+    for (var i = -10; i < 31; i++)
+    {
+        foreach (var p in profiles)
+        {
+            var ms = Plan(p);
+            if (i >= 0)
+            {
+                samples[p][i] = ms;
+            }
+        }
+    }
+
+    return [.. profiles.Select(p => (p, samples[p].Order().ElementAt(15)))];
 }
 
 static (double Mean, double P99, double Max, double Median) Measure(int runs, int warmup, Action action)

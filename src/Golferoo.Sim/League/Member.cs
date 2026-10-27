@@ -11,9 +11,10 @@ public sealed class Member
 {
     private readonly List<LeagueCard> _cards = [];
 
-    public Member(int id, string name, double startHandicap, int opinion, bool isPro = false)
+    public Member(int id, string name, double startHandicap, int opinion, bool isPro = false, Archetype profile = Archetype.Neutral)
     {
         Id = id;
+        Profile = profile;
         Name = name;
         StartHandicap = startHandicap;
         Opinion = opinion;
@@ -28,6 +29,9 @@ public sealed class Member
 
     /// <summary>Niveau de jeu du membre (<see cref="Golfer.Skill"/>).</summary>
     public double Skill => SkillLevels.FromHandicap(StartHandicap);
+
+    /// <summary>Style de jeu du membre, stable d'une partie à l'autre (<see cref="GolferProfile.ForMember"/>).</summary>
+    public Archetype Profile { get; }
 
     public int Opinion { get; internal set; }
 
