@@ -319,4 +319,25 @@ public class ProfileTests(ITestOutputHelper output)
             Assert.Equal(p1, p2);
         }
     }
+
+    /// <summary>Lot 4 : le coup prévu d'un profil (capture c09-profils) est celui que la planification choisit, sans hasard.</summary>
+    [Fact]
+    public void Planned_IsThePlannedShotWithoutChance()
+    {
+        var (terrain, world) = Dogleg();
+        var resolver = new PhysicalShotResolver { Trees = world.Trees, Season = world.Season };
+        var landings = new HashSet<Point2>();
+        for (var a = 1; a <= GolferProfile.Count; a++)
+        {
+            var request = new ShotRequest(terrain.Tee, terrain.Hole, 0, Level, (Archetype)a);
+            var planned = resolver.Planned(request, terrain)!.Value;
+            resolver.Resolve(request, terrain, new DeterministicRng(1), out var plan);
+            Assert.Equal(plan!.Value.Landing, planned.Ball);
+            Assert.True(planned.Trajectory is { Count: > 1 });
+            landings.Add(planned.Ball);
+        }
+
+        Assert.True(landings.Count >= 3, $"{landings.Count} points de chute distincts pour {GolferProfile.Count} archétypes");
+        Assert.Null(resolver.Planned(new ShotRequest(terrain.Green, terrain.Hole, 1, Level), terrain));
+    }
 }

@@ -14,7 +14,7 @@ public enum Archetype : byte
     /// <summary>Driver et bois 3 10 % plus loin, fers 9 et wedge 5 % moins loin ; préfère le driver au départ.</summary>
     LongHitter = 2,
 
-    /// <summary>Essaie le draw à chaque coup plein : avec, 5 % plus loin et 20 % moins dispersé ; droit, 5 % plus dispersé.</summary>
+    /// <summary>Essaie le draw à chaque coup plein : avec, portée × <see cref="GolferProfile.ShapedDistance"/> et dispersion × <see cref="GolferProfile.ShapedDispersion"/> ; droit, dispersion × <see cref="GolferProfile.StraightDispersion"/>.</summary>
     Drawer = 3,
 
     /// <summary>Comme le joueur de draw, avec le fade.</summary>

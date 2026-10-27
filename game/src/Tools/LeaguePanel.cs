@@ -1,5 +1,6 @@
 using System.Globalization;
 using Godot;
+using Golferoo.Sim.Golfers;
 using Golferoo.Sim.League;
 using Calendar = Golferoo.Sim.Time.Calendar;
 
@@ -15,6 +16,8 @@ public partial class LeaguePanel : CanvasLayer
 
     private static readonly string[] MonthNames = ["janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août", "septembre", "octobre", "novembre", "décembre"];
     private static readonly string[] FormatNames = ["stroke play", "stableford", "match play", "contre le par"];
+    /// <summary>Style de jeu d'un membre (C09), dans l'ordre de <see cref="Archetype"/> ; le neutre n'est attribué à personne.</summary>
+    private static readonly string[] StyleNames = ["", "prudent", "long frappeur", "joueur de draw", "joueur de fade", "artiste", "fonceur"];
     private static readonly Color ProColor = new(1f, 0.85f, 0.3f);
 
     private Main _main = null!;
@@ -187,8 +190,8 @@ public partial class LeaguePanel : CanvasLayer
         for (var d = 0; d < _league.Divisions.Count; d++)
         {
             _divisions.AddChild(new Label { Text = $"Division {d + 1}" });
-            var grid = new GridContainer { Columns = 4 };
-            foreach (var head in new[] { "Rang", "Nom", "Hcp", "Points" })
+            var grid = new GridContainer { Columns = 5 };
+            foreach (var head in new[] { "Rang", "Nom", "Hcp", "Points", "Style" })
             {
                 grid.AddChild(new Label { Text = head });
             }
@@ -203,6 +206,7 @@ public partial class LeaguePanel : CanvasLayer
                 grid.AddChild(name);
                 grid.AddChild(Cell(HandicapShort(m), m));
                 grid.AddChild(Cell(Decimal(m.SeasonPoints), m));
+                grid.AddChild(Cell(Style(m), m));
             }
 
             _divisions.AddChild(grid);
@@ -216,6 +220,12 @@ public partial class LeaguePanel : CanvasLayer
             ShowCard(_shown);
         }
     }
+
+    /// <summary>Nom d'un style de jeu : « joueur de draw ».</summary>
+    public static string StyleName(Archetype archetype) => StyleNames[(int)archetype];
+
+    /// <summary>Style d'un membre ; votre pro n'en a pas : il joue le coup du joueur.</summary>
+    private static string Style(Member member) => member.IsPro ? "" : StyleName(member.Profile);
 
     private static Label Cell(string text, Member member)
     {
@@ -241,7 +251,7 @@ public partial class LeaguePanel : CanvasLayer
             child.QueueFree();
         }
 
-        _cardBody.AddChild(new Label { Text = $"{member.Name} | {HandicapText(member)}" });
+        _cardBody.AddChild(new Label { Text = $"{member.Name} | {HandicapText(member)}" + (member.IsPro ? "" : $" | {Style(member)}") });
         var grid = new GridContainer { Columns = 4 };
         foreach (var head in new[] { "Journée", "Format", "Brut", "Écart" })
         {

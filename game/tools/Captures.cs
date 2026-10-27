@@ -1,6 +1,7 @@
 using Godot;
 using Golferoo.Game.Rendering;
 using Golferoo.Sim;
+using Golferoo.Sim.Golfers;
 using Golferoo.Sim.Rating;
 using Golferoo.Sim.Shots;
 using Golferoo.Sim.Terrain;
@@ -31,8 +32,18 @@ public partial class Captures : Node
     private const int FallWaitFrames = 300;
     private const float TurfSize = 100f;
 
-    private const int LeagueViewCount = 4;
+    private const int LeagueViewCount = 5;
     private const int TutorialViewCount = 3;
+    private const int ProfileViewCount = 2;
+
+    /// <summary>Lisière sud de la forêt du coude, la balle de <c>ForestExitTests.Edge</c> (tuile 18,5 / 26,5 de 8 m).</summary>
+    private static readonly Point2 ForestEdge = new(18.5 * 8, 26.5 * 8);
+
+    /// <summary>Couleur de chaque archétype attribuable dans <c>c09-profils</c> et <c>c09-sortie</c>, dans l'ordre de <see cref="Archetype"/>.</summary>
+    private static readonly Color[] ProfileColors =
+    [
+        new(0.3f, 0.6f, 1f), new(1f, 0.25f, 0.2f), new(1f, 0.9f, 0.2f), new(1f, 0.3f, 1f), Colors.White, new(0.2f, 1f, 0.85f),
+    ];
 
     private int? _clearingMound;
     private string _outDir = string.Empty;
@@ -279,8 +290,8 @@ public partial class Captures : Node
             }
         }
 
-        await TutorialViews(await AimView(await LeagueViews(main)));
-        if (_failures == 0 && _index == expected + LeagueViewCount + TutorialViewCount)
+        await TutorialViews(await ProfileViews(await AimView(await LeagueViews(main))));
+        if (_failures == 0 && _index == expected + LeagueViewCount + TutorialViewCount + ProfileViewCount)
         {
             GD.Print($"CAPTURES OK {_index} images");
             return 0;
@@ -354,7 +365,14 @@ public partial class Captures : Node
         main.Camera.SetView(45f, 120f, new Vector3((float)world.Terrain!.Green.X, 0f, (float)world.Terrain.Green.Z));
         main.League!.Toggle();
         await Frames(SettleFrames);
+        // Largeur prévue 352 px (C09 : la colonne « Style » doit tenir sans élargir le panneau).
+        GD.Print($"LEAGUE largeur panneau={main.League.GetNode<Control>("LeaguePanel").Size.X}");
         Save("league-panel");
+
+        // C09 : la fiche d'un membre porte son style (celle du pro n'en a pas).
+        main.League.ShowCard(league.Members.First(m => !m.IsPro));
+        await Frames(SettleFrames);
+        Save("league-card-member");
         main.League.ShowCard(league.Members.First(m => m.IsPro));
         await Frames(SettleFrames);
         Save("league-card");
@@ -400,6 +418,93 @@ public partial class Captures : Node
         await Frames(SettleFrames);
         GD.Print($"PRO long-jeu={world.Pro!.Experience(Golferoo.Sim.Pro.ProSkill.LongGame)} draw={world.Pro.Experience(Golferoo.Sim.Pro.ProSkill.Draw)}");
         Save("pro-sheet");
+        return main;
+    }
+
+    /// <summary>
+    /// C09 : le premier coup prévu (sans hasard ni vent) de chaque archétype, au même niveau (handicap 10), une couleur par archétype :
+    /// depuis le départ du dogleg (<c>c09-profils</c>), puis depuis la balle en lisière de forêt du lot 1 (<c>c09-sortie</c>).
+    /// </summary>
+    private async Task<Main> ProfileViews(Main previous)
+    {
+        previous.QueueFree();
+        await Frames(2);
+        var main = GD.Load<PackedScene>("res://Main.tscn").Instantiate<Main>();
+        AddChild(main);
+        main.Paused = true;
+        main.SunDayFraction = 0.5;
+        var world = main.World;
+        var terrain = world.Terrain!;
+        var resolver = new PhysicalShotResolver { Trees = world.Trees, Season = world.Season };
+        var level = SkillLevels.FromHandicap(10);
+        var mesh = new ImmediateMesh();
+        main.AddChild(new MeshInstance3D
+        {
+            Mesh = mesh,
+            CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
+            MaterialOverride = new StandardMaterial3D
+            {
+                ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
+                VertexColorUseAsAlbedo = true,
+                NoDepthTest = true,
+                RenderPriority = 10,
+            },
+        });
+        var legend = new VBoxContainer();
+        var panel = new PanelContainer { Position = new Vector2(16f, 16f) };
+        panel.AddChild(legend);
+        var layer = new CanvasLayer { Layer = 10 };
+        layer.AddChild(panel);
+        main.AddChild(layer);
+
+        foreach (var (name, ball, title) in new[] { ("c09-profils", terrain.Tee, "depuis le départ"), ("c09-sortie", ForestEdge, "depuis la lisière") })
+        {
+            mesh.ClearSurfaces();
+            foreach (var child in legend.GetChildren())
+            {
+                legend.RemoveChild(child);
+                child.QueueFree();
+            }
+
+            legend.AddChild(new Label { Text = $"Coup prévu, handicap 10, {title}" });
+            var far = 0.0;
+            for (var a = 1; a <= GolferProfile.Count; a++)
+            {
+                var archetype = (Archetype)a;
+                var color = ProfileColors[a - 1];
+                var label = new Label { Text = LeaguePanel.StyleName(archetype) };
+                label.AddThemeColorOverride("font_color", color);
+                legend.AddChild(label);
+                if (resolver.Planned(new ShotRequest(ball, terrain.Hole, ball == terrain.Tee ? 0 : 1, level, archetype), terrain) is not { Trajectory: { Count: > 1 } path } shot)
+                {
+                    continue;
+                }
+
+                var d = Math.Sqrt(Math.Pow(shot.Ball.X - ball.X, 2) + Math.Pow(shot.Ball.Z - ball.Z, 2));
+                far = Math.Max(far, d);
+                GD.Print($"PROFIL {name} {archetype} chute=({shot.Ball.X:F1},{shot.Ball.Z:F1}) distance={d:F1} issue={shot.Outcome}");
+                // Trois brins décalés de 0,4 m : un trait lisible de loin.
+                foreach (var o in new[] { -0.4f, 0f, 0.4f })
+                {
+                    mesh.SurfaceBegin(Mesh.PrimitiveType.LineStrip);
+                    mesh.SurfaceSetColor(color);
+                    foreach (var p in path)
+                    {
+                        mesh.SurfaceAddVertex(new Vector3((float)p.X + o, (float)p.Y + 0.3f, (float)p.Z + o));
+                    }
+
+                    mesh.SurfaceEnd();
+                }
+            }
+
+            // Le départ : tout le trou ; la lisière : centrée sur la balle, assez large pour les sorties.
+            var fromTee = ball == terrain.Tee;
+            var target = fromTee ? new Vector3((float)(ball.X + terrain.Hole.X) / 2f, 0f, (float)(ball.Z + terrain.Hole.Z) / 2f) : new Vector3((float)ball.X, 0f, (float)ball.Z);
+            main.Camera.SetView(45f, fromTee ? 260f : (float)Math.Max(80.0, 2.4 * far), target);
+            await Frames(SettleFrames);
+            Save(name);
+        }
+
         return main;
     }
 
