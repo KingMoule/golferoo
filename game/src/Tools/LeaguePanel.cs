@@ -46,9 +46,10 @@ public partial class LeaguePanel : CanvasLayer
 
         _panel = new PanelContainer { Name = "LeaguePanel", Visible = false, AnchorLeft = 1f, AnchorRight = 1f, OffsetLeft = -360f, OffsetRight = -8f, OffsetTop = 60f };
         var box = new VBoxContainer();
-        _title = new Label();
-        _rating = new Label();
-        _champion = new Label();
+        // Renvoi à la ligne : « Ligue, an 1 | Prochaine journée : 5 avril, stroke play » élargissait le panneau à 396 px.
+        _title = new Label { AutowrapMode = TextServer.AutowrapMode.WordSmart };
+        _rating = new Label { AutowrapMode = TextServer.AutowrapMode.WordSmart };
+        _champion = new Label { AutowrapMode = TextServer.AutowrapMode.WordSmart };
         _divisions = new VBoxContainer();
         var scroll = new ScrollContainer { CustomMinimumSize = new Vector2(340f, 420f), HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled };
         scroll.AddChild(_divisions);
@@ -190,7 +191,7 @@ public partial class LeaguePanel : CanvasLayer
         for (var d = 0; d < _league.Divisions.Count; d++)
         {
             _divisions.AddChild(new Label { Text = $"Division {d + 1}" });
-            // Pas de colonne « Style » : elle élargissait le panneau à 396 px (C09) ; le style est sur la fiche.
+            // Pas de colonne « Style » (C09) : le style est sur la fiche.
             var grid = new GridContainer { Columns = 4 };
             foreach (var head in new[] { "Rang", "Nom", "Hcp", "Points" })
             {
