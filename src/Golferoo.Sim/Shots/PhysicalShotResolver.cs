@@ -101,6 +101,23 @@ public sealed class PhysicalShotResolver : IShotResolver
             profile.Dispersion(plan.Shape, beauty), plan.Shape, shapeSigma);
     }
 
+    /// <summary>
+    /// Coup que planifie le golfeur de <paramref name="request"/>, joué sans hasard, trajectoire comprise : celui que la planification
+    /// a évalué (arbres en espérance, sans perte de vitesse due au niveau). Nul sur le green (putt). Sert aux captures.
+    /// </summary>
+    public ShotResult? Planned(in ShotRequest request, TerrainGrid terrain)
+    {
+        if (terrain.SurfaceAt(request.Ball.X, request.Ball.Z) == Surface.Green)
+        {
+            return null;
+        }
+
+        var profile = GolferProfile.Of(request.Profile);
+        var plan = Plan(request, terrain, profile);
+        var expectation = Trees is null ? null : new TreeCollision.Expectation();
+        return Simulate(request.Ball, plan.Club, plan.DirX, plan.DirZ, plan.Force * profile.Speed(plan.Club, plan.Shape), plan.Low, plan.Shape, terrain, expectation, recordPath: true);
+    }
+
     /// <summary>Carte de beauté du terrain, refaite quand le terrain, les arbres, la saison ou les sources ont changé.</summary>
     internal BeautyMap Beauty(TerrainGrid terrain)
     {
@@ -428,25 +445,8 @@ public sealed class PhysicalShotResolver : IShotResolver
     private double Evaluate(Point2 ball, Point2 hole, PlayMap map, Club club, double dirX, double dirZ, double force, bool low, ShotShape shape, TerrainGrid terrain,
         GolferProfile profile, BeautyMap? beauty, out double stop, out Point2 landing, out double bonus)
     {
-        var speed = club.Speed * force;
-        Vec3 velocity;
-        var backspin = 0.0;
-        var curve = 0.0;
-        if (shape != ShotShape.Straight)
-        {
-            (velocity, curve, backspin) = ShotShapes.Launch(club, dirX, dirZ, speed, shape);
-        }
-        else if (low)
-        {
-            (velocity, _, backspin) = ShotShapes.Launch(club, dirX, dirZ, speed, ShotShape.Chip);
-        }
-        else
-        {
-            velocity = new Vec3(dirX * club.LaunchCos * speed, club.LaunchSin * speed, dirZ * club.LaunchCos * speed);
-        }
-
         var expectation = Trees is null ? null : new TreeCollision.Expectation();
-        var shot = BallSimulator.Run(terrain, ball, velocity, rolling: false, _drag, recordPath: false, trees: Trees, season: Season, wind: Wind, curve: curve, backspin: backspin, expectation: expectation).Shot;
+        var shot = Simulate(ball, club, dirX, dirZ, force, low, shape, terrain, expectation, recordPath: false);
         landing = shot.Ball;
         // Un coup rentré, ou déjà pénalisé (hors limites, eau), ne compte pas comme gâché.
         var wasted = shot.Holed || shot.PenaltyStrokes > 0 ? 0.0 : Wasted(ball, shot.Ball);
@@ -468,6 +468,30 @@ public sealed class PhysicalShotResolver : IShotResolver
         bonus *= 1.0 - crown;
 
         return (crown * stopped) + ((1.0 - crown) * cost);
+    }
+
+    /// <summary>Vol et roule sans hasard d'un coup candidat ; les arbres sont vus en espérance (<paramref name="expectation"/>), sans tirage.</summary>
+    private ShotResult Simulate(Point2 ball, Club club, double dirX, double dirZ, double force, bool low, ShotShape shape, TerrainGrid terrain,
+        TreeCollision.Expectation? expectation, bool recordPath)
+    {
+        var speed = club.Speed * force;
+        Vec3 velocity;
+        var backspin = 0.0;
+        var curve = 0.0;
+        if (shape != ShotShape.Straight)
+        {
+            (velocity, curve, backspin) = ShotShapes.Launch(club, dirX, dirZ, speed, shape);
+        }
+        else if (low)
+        {
+            (velocity, _, backspin) = ShotShapes.Launch(club, dirX, dirZ, speed, ShotShape.Chip);
+        }
+        else
+        {
+            velocity = new Vec3(dirX * club.LaunchCos * speed, club.LaunchSin * speed, dirZ * club.LaunchCos * speed);
+        }
+
+        return BallSimulator.Run(terrain, ball, velocity, rolling: false, _drag, recordPath: recordPath, trees: Trees, season: Season, wind: Wind, curve: curve, backspin: backspin, expectation: expectation).Shot;
     }
 
     private static double Wasted(Point2 from, Point2 to) =>

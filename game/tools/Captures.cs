@@ -1,6 +1,7 @@
 using Godot;
 using Golferoo.Game.Rendering;
 using Golferoo.Sim;
+using Golferoo.Sim.Golfers;
 using Golferoo.Sim.Rating;
 using Golferoo.Sim.Shots;
 using Golferoo.Sim.Terrain;
@@ -31,8 +32,24 @@ public partial class Captures : Node
     private const int FallWaitFrames = 300;
     private const float TurfSize = 100f;
 
-    private const int LeagueViewCount = 4;
+    private const int LeagueViewCount = 5;
     private const int TutorialViewCount = 3;
+    private const int ProfileViewCount = 3;
+
+    /// <summary>Lisière sud de la forêt du coude, la balle de <c>ForestExitTests.Edge</c> (tuile 18,5 / 26,5 de 8 m).</summary>
+    private static readonly Point2 ForestEdge = new(18.5 * 8, 26.5 * 8);
+
+    /// <summary>
+    /// Approche de 130 m dans le rough au nord du coude (<c>ProfileTests.Approach</c>) : les six archétypes y visent six points
+    /// de chute écartés de 10 m au moins, trouvés en balayant le dogleg tous les 8 m.
+    /// </summary>
+    private static readonly Point2 Approach = new(148, 28);
+
+    /// <summary>Couleur de chaque archétype attribuable dans <c>c09-profils</c> et <c>c09-sortie</c>, dans l'ordre de <see cref="Archetype"/>.</summary>
+    private static readonly Color[] ProfileColors =
+    [
+        new(0.3f, 0.6f, 1f), new(1f, 0.25f, 0.2f), new(1f, 0.9f, 0.2f), new(1f, 0.3f, 1f), Colors.White, new(0.2f, 1f, 0.85f),
+    ];
 
     private int? _clearingMound;
     private string _outDir = string.Empty;
@@ -279,8 +296,8 @@ public partial class Captures : Node
             }
         }
 
-        await TutorialViews(await AimView(await LeagueViews(main)));
-        if (_failures == 0 && _index == expected + LeagueViewCount + TutorialViewCount)
+        await TutorialViews(await ProfileViews(await AimView(await LeagueViews(main))));
+        if (_failures == 0 && _index == expected + LeagueViewCount + TutorialViewCount + ProfileViewCount)
         {
             GD.Print($"CAPTURES OK {_index} images");
             return 0;
@@ -354,7 +371,14 @@ public partial class Captures : Node
         main.Camera.SetView(45f, 120f, new Vector3((float)world.Terrain!.Green.X, 0f, (float)world.Terrain.Green.Z));
         main.League!.Toggle();
         await Frames(SettleFrames);
+        CheckWidth(main.League.GetNode<Control>("LeaguePanel"), 352f);
         Save("league-panel");
+
+        // C09 : la fiche d'un membre porte son style (celle du pro n'en a pas), sans élargir la carte.
+        main.League.ShowCard(league.Members.First(m => !m.IsPro));
+        await Frames(SettleFrames);
+        CheckWidth(main.League.GetNode<Control>("LeagueCard"), 332f);
+        Save("league-card-member");
         main.League.ShowCard(league.Members.First(m => m.IsPro));
         await Frames(SettleFrames);
         Save("league-card");
@@ -403,6 +427,100 @@ public partial class Captures : Node
         return main;
     }
 
+    /// <summary>
+    /// C09 : le coup prévu de chaque archétype, au même niveau (handicap 10), une couleur par archétype, sans hasard et sans vent
+    /// (le résolveur de la vue a un vent nul ; le HUD affiche celui du monde) : depuis le départ du dogleg (<c>c09-profils</c>),
+    /// depuis une approche où les six chutes diffèrent (<c>c09-approche</c>), puis depuis la balle en lisière du lot 1 (<c>c09-sortie</c>).
+    /// </summary>
+    private async Task<Main> ProfileViews(Main previous)
+    {
+        previous.QueueFree();
+        await Frames(2);
+        var main = GD.Load<PackedScene>("res://Main.tscn").Instantiate<Main>();
+        AddChild(main);
+        main.Paused = true;
+        main.SunDayFraction = 0.5;
+        var world = main.World;
+        var terrain = world.Terrain!;
+        var resolver = new PhysicalShotResolver { Trees = world.Trees, Season = world.Season };
+        var level = SkillLevels.FromHandicap(10);
+        var mesh = new ImmediateMesh();
+        main.AddChild(new MeshInstance3D
+        {
+            Mesh = mesh,
+            CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
+            MaterialOverride = new StandardMaterial3D
+            {
+                ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
+                VertexColorUseAsAlbedo = true,
+                NoDepthTest = true,
+                RenderPriority = 10,
+            },
+        });
+        var legend = new VBoxContainer();
+        // À gauche sous le HUD, au-dessus du panneau des consignes de tonte.
+        var panel = new PanelContainer { Position = new Vector2(16f, 240f) };
+        panel.AddChild(legend);
+        var layer = new CanvasLayer { Layer = 10 };
+        layer.AddChild(panel);
+        main.AddChild(layer);
+
+        // Le départ et l'approche : centrés entre la balle et le trou ; la lisière : centrée sur la balle, assez large pour les sorties.
+        var views = new[]
+        {
+            ("c09-profils", terrain.Tee, "depuis le départ", true, 260f),
+            ("c09-approche", Approach, "approche de 130 m", true, 170f),
+            ("c09-sortie", ForestEdge, "depuis la lisière", false, 0f),
+        };
+        foreach (var (name, ball, title, between, size) in views)
+        {
+            mesh.ClearSurfaces();
+            foreach (var child in legend.GetChildren())
+            {
+                legend.RemoveChild(child);
+                child.QueueFree();
+            }
+
+            legend.AddChild(new Label { Text = $"Coup prévu, handicap 10, sans vent, {title}" });
+            var far = 0.0;
+            for (var a = 1; a <= GolferProfile.Count; a++)
+            {
+                var archetype = (Archetype)a;
+                var color = ProfileColors[a - 1];
+                var label = new Label { Text = LeaguePanel.StyleName(archetype) };
+                label.AddThemeColorOverride("font_color", color);
+                legend.AddChild(label);
+                if (resolver.Planned(new ShotRequest(ball, terrain.Hole, ball == terrain.Tee ? 0 : 1, level, archetype), terrain) is not { Trajectory: { Count: > 1 } path } shot)
+                {
+                    continue;
+                }
+
+                var d = Math.Sqrt(Math.Pow(shot.Ball.X - ball.X, 2) + Math.Pow(shot.Ball.Z - ball.Z, 2));
+                far = Math.Max(far, d);
+                GD.Print($"PROFIL {name} {archetype} chute=({shot.Ball.X:F1},{shot.Ball.Z:F1}) distance={d:F1} issue={shot.Outcome}");
+                // Trois brins décalés de 0,4 m : un trait lisible de loin.
+                foreach (var o in new[] { -0.4f, 0f, 0.4f })
+                {
+                    mesh.SurfaceBegin(Mesh.PrimitiveType.LineStrip);
+                    mesh.SurfaceSetColor(color);
+                    foreach (var p in path)
+                    {
+                        mesh.SurfaceAddVertex(new Vector3((float)p.X + o, (float)p.Y + 0.3f, (float)p.Z + o));
+                    }
+
+                    mesh.SurfaceEnd();
+                }
+            }
+
+            var target = between ? new Vector3((float)(ball.X + terrain.Hole.X) / 2f, 0f, (float)(ball.Z + terrain.Hole.Z) / 2f) : new Vector3((float)ball.X, 0f, (float)ball.Z);
+            main.Camera.SetView(45f, between ? size : (float)Math.Max(80.0, 2.4 * far), target);
+            await Frames(SettleFrames);
+            Save(name);
+        }
+
+        return main;
+    }
+
     /// <summary>C07 : la terre vierge et ses arbres cerclés, l'étape du green avec son contour, le trou valide.</summary>
     private async Task TutorialViews(Main previous)
     {
@@ -448,6 +566,17 @@ public partial class Captures : Node
         main.Camera.SetView(45f, 220f, center);
         await Frames(SettleFrames);
         Save("tutorial-done");
+    }
+
+    /// <summary>Un panneau plus large que ses ancres (<paramref name="width"/> px) déborde : la capture échoue.</summary>
+    private void CheckWidth(Control panel, float width)
+    {
+        GD.Print($"LEAGUE largeur {panel.Name}={panel.Size.X} (au plus {width})");
+        if (panel.Size.X > width + 0.5f)
+        {
+            GD.PrintErr($"CAPTURES FAIL {panel.Name} trop large : {panel.Size.X} px au lieu de {width}");
+            _failures++;
+        }
     }
 
     private async Task Frames(int count)

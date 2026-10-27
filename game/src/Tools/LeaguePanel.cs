@@ -1,5 +1,6 @@
 using System.Globalization;
 using Godot;
+using Golferoo.Sim.Golfers;
 using Golferoo.Sim.League;
 using Calendar = Golferoo.Sim.Time.Calendar;
 
@@ -15,6 +16,8 @@ public partial class LeaguePanel : CanvasLayer
 
     private static readonly string[] MonthNames = ["janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août", "septembre", "octobre", "novembre", "décembre"];
     private static readonly string[] FormatNames = ["stroke play", "stableford", "match play", "contre le par"];
+    /// <summary>Style de jeu d'un membre (C09), dans l'ordre de <see cref="Archetype"/> ; le neutre n'est attribué à personne.</summary>
+    private static readonly string[] StyleNames = ["", "prudent", "long frappeur", "joueur de draw", "joueur de fade", "artiste", "fonceur"];
     private static readonly Color ProColor = new(1f, 0.85f, 0.3f);
 
     private Main _main = null!;
@@ -43,9 +46,10 @@ public partial class LeaguePanel : CanvasLayer
 
         _panel = new PanelContainer { Name = "LeaguePanel", Visible = false, AnchorLeft = 1f, AnchorRight = 1f, OffsetLeft = -360f, OffsetRight = -8f, OffsetTop = 60f };
         var box = new VBoxContainer();
-        _title = new Label();
-        _rating = new Label();
-        _champion = new Label();
+        // Renvoi à la ligne : « Ligue, an 1 | Prochaine journée : 5 avril, stroke play » élargissait le panneau à 396 px.
+        _title = new Label { AutowrapMode = TextServer.AutowrapMode.WordSmart };
+        _rating = new Label { AutowrapMode = TextServer.AutowrapMode.WordSmart };
+        _champion = new Label { AutowrapMode = TextServer.AutowrapMode.WordSmart };
         _divisions = new VBoxContainer();
         var scroll = new ScrollContainer { CustomMinimumSize = new Vector2(340f, 420f), HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled };
         scroll.AddChild(_divisions);
@@ -187,6 +191,7 @@ public partial class LeaguePanel : CanvasLayer
         for (var d = 0; d < _league.Divisions.Count; d++)
         {
             _divisions.AddChild(new Label { Text = $"Division {d + 1}" });
+            // Pas de colonne « Style » (C09) : le style est sur la fiche.
             var grid = new GridContainer { Columns = 4 };
             foreach (var head in new[] { "Rang", "Nom", "Hcp", "Points" })
             {
@@ -217,6 +222,12 @@ public partial class LeaguePanel : CanvasLayer
         }
     }
 
+    /// <summary>Nom d'un style de jeu : « joueur de draw ».</summary>
+    public static string StyleName(Archetype archetype) => StyleNames[(int)archetype];
+
+    /// <summary>Style d'un membre ; votre pro n'en a pas : il joue le coup du joueur.</summary>
+    private static string Style(Member member) => member.IsPro ? "" : StyleName(member.Profile);
+
     private static Label Cell(string text, Member member)
     {
         var label = new Label { Text = text };
@@ -241,7 +252,8 @@ public partial class LeaguePanel : CanvasLayer
             child.QueueFree();
         }
 
-        _cardBody.AddChild(new Label { Text = $"{member.Name} | {HandicapText(member)}" });
+        // Renvoi à la ligne : « Vera L. | pas encore de handicap | long frappeur » dépasse la largeur de la carte.
+        _cardBody.AddChild(new Label { Text = $"{member.Name} | {HandicapText(member)}" + (member.IsPro ? "" : $" | {Style(member)}"), AutowrapMode = TextServer.AutowrapMode.WordSmart });
         var grid = new GridContainer { Columns = 4 };
         foreach (var head in new[] { "Journée", "Format", "Brut", "Écart" })
         {
