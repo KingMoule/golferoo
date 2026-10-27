@@ -35,6 +35,7 @@ public partial class Captures : Node
     private const int LeagueViewCount = 5;
     private const int TutorialViewCount = 3;
     private const int ProfileViewCount = 3;
+    private const int FreeViewCount = 3;
 
     /// <summary>Lisière sud de la forêt du coude, la balle de <c>ForestExitTests.Edge</c> (tuile 18,5 / 26,5 de 8 m).</summary>
     private static readonly Point2 ForestEdge = new(18.5 * 8, 26.5 * 8);
@@ -296,8 +297,8 @@ public partial class Captures : Node
             }
         }
 
-        await TutorialViews(await ProfileViews(await AimView(await LeagueViews(main))));
-        if (_failures == 0 && _index == expected + LeagueViewCount + TutorialViewCount + ProfileViewCount)
+        await FreeViews(await TutorialViews(await ProfileViews(await AimView(await LeagueViews(main)))));
+        if (_failures == 0 && _index == expected + LeagueViewCount + TutorialViewCount + ProfileViewCount + FreeViewCount)
         {
             GD.Print($"CAPTURES OK {_index} images");
             return 0;
@@ -522,7 +523,7 @@ public partial class Captures : Node
     }
 
     /// <summary>C07 : la terre vierge et ses arbres cerclés, l'étape du green avec son contour, le trou valide.</summary>
-    private async Task TutorialViews(Main previous)
+    private async Task<Main> TutorialViews(Main previous)
     {
         previous.QueueFree();
         await Frames(2);
@@ -566,6 +567,37 @@ public partial class Captures : Node
         main.Camera.SetView(45f, 220f, center);
         await Frames(SettleFrames);
         Save("tutorial-done");
+        return main;
+    }
+
+    /// <summary>C10 lot 2 : caméra libre sur le dogleg, du départ vers le green, à environ 60°, 30° et 8° au-dessus de l'horizon.</summary>
+    private async Task FreeViews(Main previous)
+    {
+        previous.QueueFree();
+        await Frames(2);
+        var main = GD.Load<PackedScene>("res://Main.tscn").Instantiate<Main>();
+        AddChild(main);
+        main.Paused = true;
+        main.World.ManualPro = false;
+        main.SpawnGroup();
+        main.StepTicks(WarmupTicks);
+        main.SunDayFraction = 0.5;
+        main.Brush.SetProcess(false);
+        main.TerrainView.Trees?.SetFocus(TreeLayer.CursorSlot, null, 0f);
+        var grid = main.World.Terrain!;
+        var tee = new Vector3((float)grid.Tee.X, 0f, (float)grid.Tee.Z);
+        var toGreen = new Vector3((float)grid.Green.X, 0f, (float)grid.Green.Z) - tee;
+        var length = toGreen.Length();
+        toGreen /= length;
+
+        // La caméra est derrière la cible, sur la droite départ-green : cap = direction opposée au regard.
+        var yaw = Mathf.RadToDeg(Mathf.Atan2(-toGreen.X, -toGreen.Z));
+        foreach (var (name, pitch, distance, ahead) in new[] { ("haute", 60f, 170f, 0.5f), ("mi", 30f, 100f, 0.25f), ("rasante", 8f, 45f, 0.12f) })
+        {
+            main.Camera.SetFreeView(yaw, pitch, distance, tee + (toGreen * length * ahead));
+            await Frames(SettleFrames);
+            Save("c10-libre-" + name);
+        }
     }
 
     /// <summary>Un panneau plus large que ses ancres (<paramref name="width"/> px) déborde : la capture échoue.</summary>
