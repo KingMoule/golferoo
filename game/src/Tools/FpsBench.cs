@@ -14,8 +14,11 @@ public partial class FpsBench : Node
     private const double MeasureSeconds = 30;
     private const double ShowSeconds = 10;
 
-    /// <summary>Nombre d'arbres visé par la mesure (critère 7 de specs/C02-arbres-echelle.md).</summary>
-    public const int BenchTrees = 5000;
+    /// <summary>
+    /// Nombre d'arbres visé par la mesure : 5 000 à l'échelle réelle (critère 7 de specs/C02-arbres-echelle.md) ; agrandis,
+    /// leurs couronnes couvrent autant de terrain avec SizeScale² fois moins d'arbres.
+    /// </summary>
+    public const int BenchTrees = (int)(5000 / (TreeSpeciesTable.SizeScale * TreeSpeciesTable.SizeScale));
 
     /// <summary>
     /// Complète le boisement jusqu'à <see cref="BenchTrees"/> arbres adultes, en grille sur toute la carte et sans

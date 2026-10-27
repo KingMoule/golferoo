@@ -198,8 +198,8 @@ public sealed partial class World
         var age = c.Stage == TreePlantStage.Mound ? TreeCosts.MoundAgeMonths(Trees.NextId) : 0;
         var crown = Tree.CrownDiameter(species, age) * 0.5;
         var near = new List<Tree>();
-        // Rayon de recherche : un tronc couché s'étend jusqu'à la hauteur de l'arbre (20 m au plus) depuis son pied.
-        Trees.Query(c.X, c.Z, Math.Max(crown + TreeSpeciesTable.MaxCrownRadius, 25.0), near);
+        // Rayon de recherche : un tronc couché s'étend jusqu'à la hauteur de l'arbre depuis son pied.
+        Trees.Query(c.X, c.Z, Math.Max(crown + TreeSpeciesTable.MaxCrownRadius, TreeSpeciesTable.MaxHeight + 5.0), near);
         foreach (var other in near)
         {
             if (other.State == TreeState.Stump && Dist2(other.X, other.Z, c.X, c.Z) < StumpClearance * StumpClearance)

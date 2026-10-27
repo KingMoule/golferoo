@@ -109,6 +109,8 @@ public static class BallSimulator
         var treeHit = false;
         var crownDone = false;
         var probe = trees is null ? null : new TreeCollision.Probe();
+        var gateCell = -1;
+        var gateTop = double.NegativeInfinity;
         var closest = start;
         var closestD2 = Dist2(x, z, terrain.Hole);
         var end = End.Rest;
@@ -159,8 +161,15 @@ public static class BallSimulator
                 }
 
                 var h = terrain.Sample(x, z);
-                // L'index donne l'altitude absolue de la cime la plus haute autour de la balle (sol au pied + hauteur).
-                if (trees is not null && y < trees.MaxTopNear(x, z, TreeCollision.Margin))
+                // L'index donne l'altitude absolue de la cime la plus haute autour de la balle (sol au pied + hauteur),
+                // relue seulement quand la balle change de case : à chaque pas, elle coûtait la moitié d'un vol sans arbres.
+                if (trees is not null && trees.CellOf(x, z) is var cell && cell != gateCell)
+                {
+                    gateCell = cell;
+                    gateTop = trees.MaxTopAround(cell, TreeCollision.Margin);
+                }
+
+                if (trees is not null && y < gateTop)
                 {
                     TreeCollision.Step(terrain, trees, season, rng, probe!, px, py, pz, ref x, ref y, ref z, ref vx, ref vy, ref vz, ref crownDone, expectation);
                     h = terrain.Sample(x, z);

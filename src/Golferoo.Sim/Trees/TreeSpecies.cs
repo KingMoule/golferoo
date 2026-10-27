@@ -46,10 +46,32 @@ public sealed record TreeSpecies(
     public double CrownDensity(Season season) => CrownDensities[(int)season];
 }
 
-/// <summary>Table des essences du thème Parkland, comme <see cref="Terrain.SurfaceTable"/>.</summary>
+/// <summary>
+/// Table des essences du thème Parkland, comme <see cref="Terrain.SurfaceTable"/>. Les commentaires donnent les tailles
+/// réelles ; la table les multiplie par <see cref="SizeScale"/>.
+/// </summary>
 public static class TreeSpeciesTable
 {
-    private static readonly TreeSpecies[] Table =
+    /// <summary>
+    /// Agrandissement des arbres par rapport à nature (hauteur, couronne et tronc), comme les golfeurs au rendu :
+    /// à l'échelle réelle, un arbre se lisait mal à côté du trou en vue iso (Guillaume, 2026-10-26).
+    /// </summary>
+    public const double SizeScale = 2.0;
+
+    private static readonly TreeSpecies[] Table = Array.ConvertAll(RealSize(), Scaled);
+
+    private static TreeSpecies Scaled(TreeSpecies s) => s with
+    {
+        AdultHeight = s.AdultHeight * SizeScale,
+        AdultCrownDiameter = s.AdultCrownDiameter * SizeScale,
+        TrunkDiameter = s.TrunkDiameter * SizeScale,
+        FirstBranchHeight = s.FirstBranchHeight * SizeScale,
+        SaplingHeight = s.SaplingHeight * SizeScale,
+        SaplingCrownDiameter = s.SaplingCrownDiameter * SizeScale,
+        SaplingTrunkDiameter = s.SaplingTrunkDiameter * SizeScale,
+    };
+
+    private static TreeSpecies[] RealSize() =>
     [
         // Chêne : 15 à 20 m, couronne 10 à 14 m (ovale), tronc 0,4 à 0,8 m, adulte vers 40 à 60 ans.
         new(TreeSpeciesId.Oak, "Chêne", TreeKind.Broadleaf, AdultHeight: 17.5, AdultCrownDiameter: 12.0, TrunkDiameter: 0.6, FirstBranchHeight: 3.5, AdultAgeMonths: 50 * 12, SaplingHeight: 2.0, SaplingCrownDiameter: 1.2, SaplingTrunkDiameter: 0.05, CrownDensities: [0.4, 1.0, 0.6, 0.45]),
@@ -61,6 +83,9 @@ public static class TreeSpeciesTable
 
     /// <summary>Plus grand rayon de couronne d'un adulte, toutes essences, en mètres.</summary>
     public static double MaxCrownRadius { get; } = Table.Max(t => t.AdultCrownDiameter) * 0.5;
+
+    /// <summary>Plus grande hauteur d'un adulte, toutes essences, en mètres (longueur d'un tronc couché).</summary>
+    public static double MaxHeight { get; } = Table.Max(t => t.AdultHeight);
 
     public static int Count => Table.Length;
 

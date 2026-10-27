@@ -19,7 +19,7 @@ public readonly record struct Tree(int Id, double X, double Z, TreeSpeciesId Spe
     public const double RemarkableAgeFactor = 1.5;
 
     /// <summary>Sous cette hauteur, un arbre est jeune : il pousse plus vite après une pluie de printemps (M9), la tempête l'épargne.</summary>
-    public const double YoungMaxHeight = 4.0;
+    public const double YoungMaxHeight = 4.0 * TreeSpeciesTable.SizeScale;
 
     /// <summary>Vrai si un arbre de cette essence et de cet âge est remarquable (âge d'au moins 1,5 fois l'âge adulte).</summary>
     public static bool IsRemarkableAge(TreeSpecies species, int ageMonths) => ageMonths >= RemarkableAgeFactor * species.AdultAgeMonths;

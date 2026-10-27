@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using Godot;
+using Golferoo.Sim.Trees;
 
 namespace Golferoo.Game.Rendering;
 
@@ -30,7 +31,16 @@ public static class ProceduralMeshes
 
     public static IReadOnlyList<AssetStat> Stats => StatList;
 
-    /// <summary>Golfeur de 1,8 m, pieds en y = 0, visière vers +Z. Surface 0 : haut et casquette (couleur de sommet multipliée par la couleur d'instance), 1 : peau, 2 : pantalon et chaussures (couleurs fixes du matériau).</summary>
+    /// <summary>
+    /// Agrandissement des personnages au rendu, le même que celui des arbres (<see cref="TreeSpeciesTable.SizeScale"/>) :
+    /// à 1,8 m, un golfeur se lisait mal à côté du trou en vue iso (Guillaume, 2026-10-26). La balle et le drapeau gardent leur taille.
+    /// </summary>
+    public const float GolferScale = (float)TreeSpeciesTable.SizeScale;
+
+    /// <summary>Hauteur affichée d'un golfeur, en mètres.</summary>
+    public const float GolferHeight = 1.8f * GolferScale;
+
+    /// <summary>Golfeur de 1,8 m (avant <see cref="GolferScale"/>), pieds en y = 0, visière vers +Z. Surface 0 : haut et casquette (couleur de sommet multipliée par la couleur d'instance), 1 : peau, 2 : pantalon et chaussures (couleurs fixes du matériau).</summary>
     public static ArrayMesh Golfer() => Get("Golfer", () =>
     {
         var b = new Builder();
