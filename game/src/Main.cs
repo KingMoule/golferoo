@@ -1,6 +1,6 @@
 using System.Globalization;
 using Godot;
-using Golferoo.Game.CameraRig;
+using Golferoo.Game.Cameras;
 using Golferoo.Game.Rendering;
 using Golferoo.Game.Tools;
 using Golferoo.Game.Tutorial;
@@ -83,7 +83,7 @@ public partial class Main : Node3D
 
     public MowerLayer Mowers { get; private set; } = null!;
 
-    public IsoCamera Camera { get; private set; } = null!;
+    public CameraRig Camera { get; private set; } = null!;
 
     public Brush Brush { get; private set; } = null!;
 
@@ -207,7 +207,7 @@ public partial class Main : Node3D
 
         var width = (float)(grid.CellsX * grid.CellSize);
         var depth = (float)(grid.CellsZ * grid.CellSize);
-        Camera = new IsoCamera { Name = "IsoCamera" };
+        Camera = new CameraRig { Name = "CameraRig", FollowSource = GolferPosition };
         Camera.SetBounds(new Rect2(0, 0, width, depth));
         AddChild(Camera);
         Camera.SetView(45f, 150f, new Vector3(width / 2f, 0f, depth / 2f));
@@ -312,12 +312,22 @@ public partial class Main : Node3D
         UpdateHud(delta);
     }
 
+    /// <summary>Tab passe avant l'UI : sinon un bouton qui a le focus le prend pour la navigation (<c>ui_focus_next</c>).</summary>
+    public override void _Input(InputEvent @event)
+    {
+        if (@event.IsActionPressed("camera_follow_next"))
+        {
+            CameraFollowNext();
+            GetViewport().SetInputAsHandled();
+        }
+    }
+
     public override void _UnhandledInput(InputEvent @event)
     {
         switch (@event)
         {
             case InputEventKey { Pressed: true, Echo: false } key:
-                HandleKey(key.Keycode);
+                HandleKey(key);
                 break;
             case InputEventMouseButton { Pressed: true, ButtonIndex: MouseButton.Left } click when ProAim.HandleClick(click.Position):
                 break;
@@ -387,8 +397,9 @@ public partial class Main : Node3D
         Render();
     }
 
-    private void HandleKey(Key key)
+    private void HandleKey(InputEventKey @event)
     {
+        var key = @event.Keycode;
         if (ProAim.HandleKey(key) || PlaceTool.HandleKey(key) || TreeTool.HandleKey(key))
         {
             return;
@@ -434,15 +445,56 @@ public partial class Main : Node3D
             case Key.F9:
                 World.CycleSky();
                 break;
-            case Key.Q:
-                Camera.RotateQuarter(-1);
-                break;
-            case Key.E:
-                Camera.RotateQuarter(1);
-                break;
             default:
+                HandleCameraAction(@event);
                 break;
         }
+    }
+
+    private void HandleCameraAction(InputEvent @event)
+    {
+        if (@event.IsActionPressed("camera_rotate_left"))
+        {
+            Camera.RotateQuarter(-1);
+        }
+        else if (@event.IsActionPressed("camera_rotate_right"))
+        {
+            Camera.RotateQuarter(1);
+        }
+        else if (@event.IsActionPressed("camera_home"))
+        {
+            CameraHome();
+        }
+    }
+
+    /// <summary>Centre la caméra sur le départ du trou et arrête le suivi (touche Début).</summary>
+    public void CameraHome()
+    {
+        if (World.Terrain is not { } terrain)
+        {
+            return;
+        }
+
+        var tee = terrain.Tee;
+        Camera.CenterOn(new Vector3((float)tee.X, 0f, (float)tee.Z));
+    }
+
+    /// <summary>Suit le golfeur suivant sur le parcours, par id croissant (touche Tab).</summary>
+    public void CameraFollowNext() =>
+        Camera.Follow(CameraRig.NextGolfer(_current.Golfers.Select(g => g.Id), Camera.FollowedId));
+
+    /// <summary>Position du golfeur au dernier instantané lu par le rendu, ou null s'il a quitté le parcours.</summary>
+    public Vector3? GolferPosition(int id)
+    {
+        foreach (var g in _current.Golfers)
+        {
+            if (g.Id == id)
+            {
+                return new Vector3((float)g.Position.X, 0f, (float)g.Position.Z);
+            }
+        }
+
+        return null;
     }
 
     /// <summary>Commande de debug (F10) : saute au 1er du mois suivant ; les arbres poussent et la couche les redessine.</summary>

@@ -1,13 +1,20 @@
 using Godot;
 
-namespace Golferoo.Game.CameraRig;
+namespace Golferoo.Game.Cameras;
+
+/// <summary>Modes de vue du <see cref="CameraRig"/> (la caméra libre en perspective viendra au lot 2).</summary>
+public enum CameraMode
+{
+    Iso,
+}
 
 /// <summary>
-/// Caméra orthographique isométrique : rotation par quarts (Q/E, animée) et libre (clic du milieu glissé),
-/// zoom à la molette, déplacement ZQSD/WASD et flèches.
+/// Caméra à modes ; pour l'instant seul le mode isométrique orthographique existe : rotation par quarts
+/// (actions camera_rotate_*, animée) et libre (clic du milieu glissé), zoom à la molette, déplacement par les actions camera_*.
+/// Les touches sont dans l'InputMap (project.godot), jamais codées ici. Suivi d'un golfeur : voir <see cref="Follow"/>.
 /// Elle ne lit jamais le clic gauche (réservé au pinceau, voir Tools/Brush.cs) ni le clic droit.
 /// </summary>
-public partial class IsoCamera : Node3D
+public partial class CameraRig : Node3D
 {
     private const float PitchDegrees = 35.264f;
     private const float MinSize = 6f;
@@ -19,6 +26,14 @@ public partial class IsoCamera : Node3D
     private float _size = 140f;
     private Vector3 _target;
     private Rect2 _bounds = new(0, 0, 100, 100);
+
+    /// <summary>Position (x, y, z) du golfeur d'identifiant donné, ou null s'il a quitté le parcours (fournie par Main).</summary>
+    public Func<int, Vector3?>? FollowSource { get; set; }
+
+    public CameraMode Mode { get; private set; } = CameraMode.Iso;
+
+    /// <summary>Golfeur suivi, ou null.</summary>
+    public int? FollowedId { get; private set; }
 
     public float YawDegrees => Mathf.RadToDeg(_yaw);
 
@@ -48,6 +63,34 @@ public partial class IsoCamera : Node3D
         Apply();
     }
 
+    /// <summary>Centre la cible sur un point et arrête le suivi.</summary>
+    public void CenterOn(Vector3 point)
+    {
+        FollowedId = null;
+        _target = point;
+        Apply();
+    }
+
+    /// <summary>Suit le golfeur d'identifiant donné (null : arrête le suivi).</summary>
+    public void Follow(int? id) => FollowedId = id;
+
+    /// <summary>Golfeur suivant dans l'ordre des identifiants (le premier si aucun n'est suivi ou après le dernier) ; null si la liste est vide.</summary>
+    public static int? NextGolfer(IEnumerable<int> ids, int? current)
+    {
+        int? first = null;
+        int? next = null;
+        foreach (var id in ids)
+        {
+            first = first is null || id < first ? id : first;
+            if (current is null || id > current)
+            {
+                next = next is null || id < next ? id : next;
+            }
+        }
+
+        return next ?? first;
+    }
+
     public void RotateQuarter(int direction) => _yawTarget += direction * Mathf.Pi / 2f;
 
     public void Zoom(float factor) => _size = Mathf.Clamp(_size * factor, MinSize, MaxSize);
@@ -67,33 +110,26 @@ public partial class IsoCamera : Node3D
             _yaw = _yawTarget;
         }
 
-        var move = Vector2.Zero;
-        if (Input.IsKeyPressed(Key.W) || Input.IsKeyPressed(Key.Z) || Input.IsKeyPressed(Key.Up))
-        {
-            move.Y -= 1f;
-        }
-
-        if (Input.IsKeyPressed(Key.S) || Input.IsKeyPressed(Key.Down))
-        {
-            move.Y += 1f;
-        }
-
-        if (Input.IsKeyPressed(Key.A) || Input.IsKeyPressed(Key.Left))
-        {
-            move.X -= 1f;
-        }
-
-        if (Input.IsKeyPressed(Key.D) || Input.IsKeyPressed(Key.Right))
-        {
-            move.X += 1f;
-        }
-
+        var move = Input.GetVector("camera_left", "camera_right", "camera_forward", "camera_back");
         if (move != Vector2.Zero)
         {
+            FollowedId = null;
+
             // Dans le repère de la caméra, à plat : avant = -Z local, droite = +X local.
             var basis = new Basis(Vector3.Up, _yaw);
             var world = (basis.X * move.X) + (basis.Z * move.Y);
             _target += world.Normalized() * (_size * 0.9f * dt);
+        }
+        else if (FollowedId is { } id)
+        {
+            if (FollowSource?.Invoke(id) is { } position)
+            {
+                _target = new Vector3(position.X, 0f, position.Z);
+            }
+            else
+            {
+                FollowedId = null;
+            }
         }
 
         Apply();
