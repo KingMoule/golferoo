@@ -34,6 +34,8 @@ const double puddleFloodLimitMs = 20.0;
 const double shotPreviewLimitMs = 2.0;
 const double tutorialLimitMs = 1.0;
 const double planTreesRatioLimit = 2.5;
+const double playMapDoglegLimitMs = 5.0;
+const double playMap512LimitMs = 150.0;
 
 // Carte plate de 512 x 512 cellules, la même à tous les facteurs.
 var big = new TerrainGrid(new HeightField(512, 512, 2.0), "plat", new Point2(2, 2), new Point2(1000, 1000), new Point2(1000, 1000));
@@ -221,8 +223,18 @@ var planTrees = MeasurePlanWithTrees(Path.Combine(Path.GetDirectoryName(holePath
 allPassed &= planTrees.TeeMs / planTrees.TeeBlindMs <= planTreesRatioLimit;
 Console.WriteLine($"Planification dogleg : tee {planTrees.TeeMs:F2} ms avec arbres, {planTrees.TeeBlindMs:F2} ms sans (rapport {planTrees.TeeMs / planTrees.TeeBlindMs:F2}, limite {planTreesRatioLimit}) ; lisière {planTrees.EdgeMs:F2} ms");
 
+// Carte de jeu d'un drapeau (C09 lot 2) : construction sur le dogleg avec ses arbres, et sur la carte plate de 512 x 512 (sans arbre),
+// médianes. Une carte se refait quand le drapeau change de cellule, que le terrain est repeint ou que les arbres bougent : jamais dans un tick de jeu.
+var doglegTerrain = HoleLoader.Load(Path.Combine(Path.GetDirectoryName(holePath)!, "dogleg-par4.json"), 2);
+var doglegWorld = new World(1, doglegTerrain);
+var mapDogleg = Measure(100, 20, () => PlayMap.Build(doglegTerrain, doglegWorld.Trees, doglegTerrain.Hole));
+var map512 = Measure(20, 5, () => PlayMap.Build(big, null, new Point2(1000, 1000)));
+allPassed &= mapDogleg.Median < playMapDoglegLimitMs && map512.Median < playMap512LimitMs;
+Console.WriteLine($"Carte de jeu : dogleg {mapDogleg.Median:F2} ms (limite {playMapDoglegLimitMs}), 512x512 {map512.Median:F2} ms (limite {playMap512LimitMs})");
+
 var report = new
 {
+    playMap = new { doglegMedianMs = mapDogleg.Median, doglegLimitMs = playMapDoglegLimitMs, map512MedianMs = map512.Median, map512LimitMs = playMap512LimitMs, passed = mapDogleg.Median < playMapDoglegLimitMs && map512.Median < playMap512LimitMs },
     tutorial = new { holeCheckMedianMs = holeCheck.Median, stepMedianMs = tutorialStep.Median, limitMs = tutorialLimitMs, passed = holeCheck.Median < tutorialLimitMs && tutorialStep.Median < tutorialLimitMs },
     shotPreview = new { medianMs = preview.Median, maxMs = preview.Max, limitMs = shotPreviewLimitMs, passed = preview.Median < shotPreviewLimitMs },
     courseRating = new { games = CourseRater.DefaultGames, medianMs = rateMs[rateMs.Length / 2], maxMs = rateMs[^1] },

@@ -1,35 +1,26 @@
-Mis à jour : 2026-10-26
+Mis à jour : 2026-10-27
 
 ## État
-C01 (prototype d'un trou) : lots 1 à 7 fusionnés (PR #6 à #12), lot 8 en PR #14. Bilan dans `docs/prototype-c01-rapport.md` : simulation C# pure, déterministe, très sous ses budgets ; rendu Godot 4.7 .NET à 632 FPS (RTX 2080, 1080p, 200 golfeurs) ; **facteur 2 retenu** (cellules de 4 m, `Main.DefaultFactor`).
+C00 à C08 livrés. C09 (golfeurs stratèges) en cours : lot 1 fusionné (PR #74), lot 2 en PR #75, lots 3 et 4 à faire. Reprise après un changement de compte Claude : tout le contexte est dans le dépôt, rien dans l'ancien projet.
 
-## Outils en place
-- CI : simulation (format, tests, banc JSON), fumée Godot, captures en rendu logiciel (lignes `THUMB`/`FULL` en JPEG base64 dans le journal, facteurs 3 et 4 en plus pour comparaison), export Windows (artefact `golferoo-windows` : `Lancer.bat`, `Mesurer FPS.bat` → `fps-result.txt`).
-- Le JSON du trou est copié dans `game/data/` à la compilation (ignoré par git) et lu en `res://`.
-- Arbre affiché : `game/assets/trees/tree.glb`, produit par `python -I tools/blender/tree_lowpoly.py` (`pip install bpy==5.2.3`). Golfeur, balle, drapeau et arbre de repli : `game/src/Rendering/ProceduralMeshes.cs`.
-- Banc : le champ 512² est jugé sur la médiane, après un tour à blanc qui laisse le JIT optimiser (sinon le facteur 2, mesuré en premier, échouait au hasard).
+## En cours
+- C09, `specs/C09-golfeurs-strateges.md` (statut validé, choix de Guillaume dans la spec) [agent]
+  - Lot 2 : PR #75 (`claude/project-thread-idoo4e`), carte de jeu par drapeau (`Pathing/PlayMap.cs`). Audit sain, 303 tests verts ; reste à confirmer la CI sur le dernier commit puis fusionner.
+  - Lots 3 (six profils : prudent, long frappeur, draw, fade, imaginatif, fonceur) et 4 (rendu, fiche du membre, capture `c09-profils`) : à faire, après la #75.
+- PR #73 « Arbres et golfeurs deux fois plus grands » (`claude/project-thread-wyqjkw`, commit 80da40f), conflits résolus mais en pause : le test de sortie de forêt de C09 y échoue (22 retapes sur 100 à la lisière ouest, un sapin de 33 m collé à la balle). À remettre à jour sur `main` après la #75, corriger ce test, puis fusionner. Ensuite Guillaume relance `Mesurer FPS.bat` : 1 250 arbres doublés, 204 FPS mesurés avant ce changement contre 333 auparavant [agent, puis guillaume].
+- C07 (tutoriel) et correctifs de pousse et d'outils (PR #72) : livrés. Guillaume juge encore les captures `tutorial-*` ; contours en pointillé à épaissir s'ils sont trop discrets [guillaume].
+- C08 : Guillaume juge les captures `pro-aim` et `pro-sheet`.
 
-## Défauts connus (suites proposées dans le rapport)
-- L'eau garde un contour en escalier de cellules ; le liseré du drapeau peut scintiller de près.
-- Chaque champ de flux alloue ~2 Mo (tas des gros objets) : réutiliser les tampons avant les grands parcours. Planifier un drive coûte ~15 ms, non mesuré sous charge.
-- Le pinceau n'a été essayé à la souris que par Guillaume.
+## Reporté (à reprendre plus tard)
+Dispersion des coups, lissage des bordures de fairway, green et bunker ; accueil des membres par le pro avec l'humeur ; eau en escalier et scintillement du drapeau (`docs/prototype-c01-rapport.md`) ; tampons des champs de flux à réutiliser avant les grands parcours ; le banc du changement de jour frôle sa limite de 5 ms en CI.
 
-## Décisions récentes
-- Godot.NET.Sdk 4.7.2, jeu et simulation en `net10.0`. RNG maison (xoshiro256**).
-- 2026-10-24 : arbre par script Blender (`bpy`) au lieu de TRELLIS (RTX 2080 de 8 Go trop juste) ; filières dans `docs/assets-3d.md`.
-- 2026-10-24 : facteur 2 (Guillaume, sur le rapport C01).
-- 2026-10-26 : arbres et golfeurs deux fois plus grands que nature (Guillaume) : `TreeSpeciesTable.SizeScale` (sim : hauteur, couronne, tronc ; `CrownK` divisé d'autant, un arbre arrête autant de balles), `ProceduralMeshes.GolferScale` (rendu seul). Les boisements ont environ deux fois moins d'arbres.
-
-## Prochaine étape
-Feuillage progressif le 2026-10-25 (PR #54, modèles 75 et 25 % de la PR #53) : couleur et chute des feuilles jour après jour (`Trees/Foliage.cs`, rendu seul), chaque arbre décalé de ±4 jours ; la couche des arbres se refait chaque jour au printemps et en automne. 322,1 FPS, 1 % bas 270 (Guillaume, RTX 2080, 5 000 arbres, version 81e542f = PR #54 sur main avec la #53).
-C07 livré le 2026-10-26 (PR #67 à #69, `specs/C07-tutoriel-trou.md`) : terre vierge `data/holes/blank-coude.json` (`"blank": true`, sans ligue), `HoleCheck` et `World.PlaceTee`/`PlaceHole`/`HoleOpen` (la sim ouvre le trou dès qu'il est valide), `Tutorial/TutorialSteps.cs` ; rendu : bulle du pro (`game/src/Tutorial/`), contours fantômes, outil de pose (V), proposition au lancement avec « Plus tard », `Tutoriel.bat` (`-- --tutorial`). À faire : Guillaume fait le tutoriel et juge les captures `tutorial-*` ; les contours en pointillé sont fins, à épaissir s'il les trouve trop discrets.
-C08 livré le 2026-10-26 (PR #62 à #64, `specs/C08-pro-jouable.md`) : le jeu charge le dogleg `data/holes/dogleg-par4.json` (la mesure FPS garde le prototype) ; trajectoires et spin (`Shots/ShotShape.cs`) ; votre pro ne joue jamais seul dans le jeu (`World.ManualPro`, `AwaitingShot`, mode visée `ProAim`, pause à son tour) ; compétences et expérience (`Pro/ProSkills.cs`, fiche touche O, partie d'entraînement, `-- --pro`). Les tests et le banc gardent `ManualPro` faux. À faire : Guillaume joue le trou et juge les captures `pro-aim` et `pro-sheet`. Suite : l'accueil des membres par le pro avec l'humeur.
-C06 livré le 2026-10-26 (PR #51, #55, #56, #58 à #60, `specs/C06-handicap-ligues.md`) : niveau de jeu par golfeur, note du parcours et slope (`Rating/`, calcul en arrière-plan), handicap WHS simplifié, ligue de 40 membres plus votre pro (`League/`, `new World(seed, grid, league: true)`), une journée le 5 de chaque mois d'avril à août, finale le 5 septembre, montées et descentes ; panneau J, carte de score et HUD du pro. À faire : Guillaume juge les captures et mesure les FPS (`Mesurer FPS.bat`). Suite : C08 (le pro joue ses coups, progression par expérience) et C07, à cadrer. Mesure FPS de Guillaume après C06 : 324,9 moyen mais pire image 135 ms et tick 0,195 ms ; la note d'un parcours à 5 000 arbres prend ~30 s de cœur et tombait dans la mesure, elle est désormais coupée en mode `--fps-bench` (à remesurer).
-C05 livré le 2026-10-25 (PR #44, #46 à #50, `specs/C05-entretien-gazon.md`) : gazon par cellule (`src/Golferoo.Sim/Turf/` : hauteur en 64es de la référence, usure), tonte au changement de jour selon trois consignes (`World.SetTurfSettings`, panneau en bas à gauche), stimp au HUD, usure par les pas, mottes et marques réparée la nuit, drapeau qui change de place chaque jour (`PinPicker`), texture d'état dans `terrain.gdshader`, surcouche H, tondeuses visibles au rendu seul (`MowerLayer`). 308,6 FPS (Guillaume, RTX 2080). Suite : C06 et P3 en parallèle, puis C07. Le banc du changement de jour frôle sa limite de 5 ms en CI.
-C04 livré le 2026-10-25 (PR #34 à #40, `specs/C04-meteo-saisons.md`) : météo du jour fonction pure de (graine, climat, jour) (`src/Golferoo.Sim/Weather/`), prévision à 3 jours, F9 = ciel suivant ; vent sur la balle (×3 dans l'axe, ×6 de travers) et le planificateur ; sol mouillé, chutes par tempête, M9 ; flaques (`Terrain/Puddles.cs`) avec dégagement ; feuillage par saison, pluie, fleurs de printemps (`game/src/Rendering/FlowerLayer.cs`). FPS sous forte pluie : 320,9 (Guillaume, RTX 2080), au-dessus des 302 du pack à 800 triangles. Rendu des saisons et de la pluie jugé bon par Guillaume dans le jeu. Suite : C05.
-C03 livré le 2026-10-25 (PR #27, #31, #33, `specs/C03-calendrier-sol.md`) : calendrier déduit du tick (`src/Golferoo.Sim/Time/Calendar.cs` : journée de 6 min en x1, mois de 10 jours, 12 mois, départ le 1er avril), saison calculée (plus de setter), arbres +4 mois par mois de jeu, hiver doux sans neige, soleil qui tourne (`game/src/SunPath.cs`), F10 = mois suivant ; sol par cellule selon la saison (`TerrainGrid.Soil`, été = référence au bit près, un seul monde par terrain). Suite : C04 (météo ; feuillus d'hiver de la PR #30 pour le rendu des saisons).
-C02 livré le 2026-10-25 (PR #19 à #26, `specs/C02-arbres-echelle.md`) : arbres objets de la sim (`src/Golferoo.Sim/Trees/`), chêne, bouleau et sapin à l'échelle réelle (pack à 800 triangles depuis la PR #29, 302 FPS avec 5 000 arbres), balle contre tronc et couronne selon la saison, croissance (F10), outil arbres (T : raser, planter, faire tomber, dégager). Mesure FPS (Guillaume) : 453,5 FPS avec 5 000 arbres et 200 golfeurs, 1080p, RTX 2080 (`Mesurer FPS.bat` remplit la carte à 5 000 arbres). Suites : `World.Season` hors somme de contrôle (C03), chutes par la météo (C04), le planificateur ignore les arbres.
-R03 tranché par Guillaume le 2026-10-24 (`docs/boucles-v1.md`, section « Décisions ») : première version avec météo et saisons, entretien du gazon, ligues, arbres vivants et un tutoriel simple ; ni scénarios, ni mode photo (caméra prête), ni nuit. Côtés positifs de la pluie M1 à M9 tous gardés. Chantiers C03 à C07 à cadrer, C02 élargi aux arbres vivants. Ordre : P1, C02, C03, C04, C05 ; en parallèle C06 et P3 puis C07.
+## Règles de projet
+- Fusion : une PR prête (quatre jobs de CI verts sur le dernier commit, audit prévu par la spec sans bloquant, aucun commentaire de revue ouvert) est fusionnée par la session elle-même (`merge_pull_request`, méthode merge, `expectedHeadSha`). On ne supprime pas la branche. Exception : une PR qui touche `CLAUDE.md`, `.claude/` ou `docs/workflow.md` attend Guillaume.
+- Assets 3D : tout ce que Guillaume génère avec d'autres IA est recensé dans `catalogue-assets/` (catalogue_complet.html et recensement-catalogue.md, dossier partagé du projet, copie sur son PC). Partir de ce catalogue avant de demander ou d'importer un asset ; filières dans `docs/assets-3d.md`.
+- Agents du dépôt (codeur, auditeur, relecteur) non chargés en session cloud de projet : déléguer à un agent général qui lit `.claude/agents/<rôle>.md`.
 
 ## Environnement cloud
-Pas de .NET préinstallé : `apt-get install dotnet-sdk-10.0` marche ; dot.net/builds.dotnet est refusé par le proxy. Godot ne se télécharge pas (github releases en 403) : la CI fait foi pour Godot. `pip install bpy==5.2.3` marche. Artefacts CI non téléchargeables depuis le conteneur : passer par les journaux.
+`apt-get install dotnet-sdk-10.0` marche (dot.net refusé par le proxy). Godot ne se télécharge pas : la CI fait foi. `pip install bpy==5.2.3` marche. Artefacts CI non téléchargeables : lire les journaux. Mesure de référence (RTX 2080, 1080p) : 632 FPS prototype, 322 FPS à 5 000 arbres.
+
+## Prochaine étape
+Fusionner la PR #75 si la CI est verte, puis remettre la #73 à jour sur `main`, puis le lot 3 de C09.
