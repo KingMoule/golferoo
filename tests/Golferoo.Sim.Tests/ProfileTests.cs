@@ -320,6 +320,31 @@ public class ProfileTests(ITestOutputHelper output)
         }
     }
 
+    /// <summary>
+    /// Approche de 130 m dans le rough au nord du coude, la balle de la capture <c>c09-approche</c> (<c>Captures.Approach</c>) :
+    /// trouvée en balayant le dogleg tous les 8 m, c'est l'approche où les six chutes prévues s'écartent le plus (10,7 m au moins).
+    /// </summary>
+    private static readonly Point2 Approach = new(148, 28);
+
+    /// <summary>Lot 4 (critère 9) : depuis l'approche de la capture, les six archétypes visent six points de chute distincts.</summary>
+    [Fact]
+    public void Planned_SixArchetypesLandApartOnTheApproach()
+    {
+        var (terrain, world) = Dogleg();
+        var resolver = new PhysicalShotResolver { Trees = world.Trees, Season = world.Season };
+        var landings = Enumerable.Range(1, GolferProfile.Count)
+            .Select(a => resolver.Planned(new ShotRequest(Approach, terrain.Hole, 1, Level, (Archetype)a), terrain)!.Value.Ball).ToArray();
+        for (var i = 0; i < landings.Length; i++)
+        {
+            output.WriteLine($"{(Archetype)(i + 1)} ({landings[i].X:F1}, {landings[i].Z:F1})");
+            for (var j = i + 1; j < landings.Length; j++)
+            {
+                var d = Math.Sqrt(Math.Pow(landings[i].X - landings[j].X, 2) + Math.Pow(landings[i].Z - landings[j].Z, 2));
+                Assert.True(d >= 3.0, $"{(Archetype)(i + 1)} et {(Archetype)(j + 1)} à {d:F1} m");
+            }
+        }
+    }
+
     /// <summary>Lot 4 : le coup prévu d'un profil (capture c09-profils) est celui que la planification choisit, sans hasard.</summary>
     [Fact]
     public void Planned_IsThePlannedShotWithoutChance()

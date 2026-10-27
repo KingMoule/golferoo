@@ -190,8 +190,9 @@ public partial class LeaguePanel : CanvasLayer
         for (var d = 0; d < _league.Divisions.Count; d++)
         {
             _divisions.AddChild(new Label { Text = $"Division {d + 1}" });
-            var grid = new GridContainer { Columns = 5 };
-            foreach (var head in new[] { "Rang", "Nom", "Hcp", "Points", "Style" })
+            // Pas de colonne « Style » : elle élargissait le panneau à 396 px (C09) ; le style est sur la fiche.
+            var grid = new GridContainer { Columns = 4 };
+            foreach (var head in new[] { "Rang", "Nom", "Hcp", "Points" })
             {
                 grid.AddChild(new Label { Text = head });
             }
@@ -206,7 +207,6 @@ public partial class LeaguePanel : CanvasLayer
                 grid.AddChild(name);
                 grid.AddChild(Cell(HandicapShort(m), m));
                 grid.AddChild(Cell(Decimal(m.SeasonPoints), m));
-                grid.AddChild(Cell(Style(m), m));
             }
 
             _divisions.AddChild(grid);
@@ -251,7 +251,8 @@ public partial class LeaguePanel : CanvasLayer
             child.QueueFree();
         }
 
-        _cardBody.AddChild(new Label { Text = $"{member.Name} | {HandicapText(member)}" + (member.IsPro ? "" : $" | {Style(member)}") });
+        // Renvoi à la ligne : « Vera L. | pas encore de handicap | long frappeur » dépasse la largeur de la carte.
+        _cardBody.AddChild(new Label { Text = $"{member.Name} | {HandicapText(member)}" + (member.IsPro ? "" : $" | {Style(member)}"), AutowrapMode = TextServer.AutowrapMode.WordSmart });
         var grid = new GridContainer { Columns = 4 };
         foreach (var head in new[] { "Journée", "Format", "Brut", "Écart" })
         {

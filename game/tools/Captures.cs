@@ -34,10 +34,16 @@ public partial class Captures : Node
 
     private const int LeagueViewCount = 5;
     private const int TutorialViewCount = 3;
-    private const int ProfileViewCount = 2;
+    private const int ProfileViewCount = 3;
 
     /// <summary>Lisière sud de la forêt du coude, la balle de <c>ForestExitTests.Edge</c> (tuile 18,5 / 26,5 de 8 m).</summary>
     private static readonly Point2 ForestEdge = new(18.5 * 8, 26.5 * 8);
+
+    /// <summary>
+    /// Approche de 130 m dans le rough au nord du coude (<c>ProfileTests.Approach</c>) : les six archétypes y visent six points
+    /// de chute écartés de 10 m au moins, trouvés en balayant le dogleg tous les 8 m.
+    /// </summary>
+    private static readonly Point2 Approach = new(148, 28);
 
     /// <summary>Couleur de chaque archétype attribuable dans <c>c09-profils</c> et <c>c09-sortie</c>, dans l'ordre de <see cref="Archetype"/>.</summary>
     private static readonly Color[] ProfileColors =
@@ -365,13 +371,13 @@ public partial class Captures : Node
         main.Camera.SetView(45f, 120f, new Vector3((float)world.Terrain!.Green.X, 0f, (float)world.Terrain.Green.Z));
         main.League!.Toggle();
         await Frames(SettleFrames);
-        // Largeur prévue 352 px (C09 : la colonne « Style » doit tenir sans élargir le panneau).
-        GD.Print($"LEAGUE largeur panneau={main.League.GetNode<Control>("LeaguePanel").Size.X}");
+        CheckWidth(main.League.GetNode<Control>("LeaguePanel"), 352f);
         Save("league-panel");
 
-        // C09 : la fiche d'un membre porte son style (celle du pro n'en a pas).
+        // C09 : la fiche d'un membre porte son style (celle du pro n'en a pas), sans élargir la carte.
         main.League.ShowCard(league.Members.First(m => !m.IsPro));
         await Frames(SettleFrames);
+        CheckWidth(main.League.GetNode<Control>("LeagueCard"), 332f);
         Save("league-card-member");
         main.League.ShowCard(league.Members.First(m => m.IsPro));
         await Frames(SettleFrames);
@@ -422,8 +428,9 @@ public partial class Captures : Node
     }
 
     /// <summary>
-    /// C09 : le premier coup prévu (sans hasard ni vent) de chaque archétype, au même niveau (handicap 10), une couleur par archétype :
-    /// depuis le départ du dogleg (<c>c09-profils</c>), puis depuis la balle en lisière de forêt du lot 1 (<c>c09-sortie</c>).
+    /// C09 : le coup prévu de chaque archétype, au même niveau (handicap 10), une couleur par archétype, sans hasard et sans vent
+    /// (le résolveur de la vue a un vent nul ; le HUD affiche celui du monde) : depuis le départ du dogleg (<c>c09-profils</c>),
+    /// depuis une approche où les six chutes diffèrent (<c>c09-approche</c>), puis depuis la balle en lisière du lot 1 (<c>c09-sortie</c>).
     /// </summary>
     private async Task<Main> ProfileViews(Main previous)
     {
@@ -451,13 +458,21 @@ public partial class Captures : Node
             },
         });
         var legend = new VBoxContainer();
-        var panel = new PanelContainer { Position = new Vector2(16f, 16f) };
+        // À gauche sous le HUD, au-dessus du panneau des consignes de tonte.
+        var panel = new PanelContainer { Position = new Vector2(16f, 240f) };
         panel.AddChild(legend);
         var layer = new CanvasLayer { Layer = 10 };
         layer.AddChild(panel);
         main.AddChild(layer);
 
-        foreach (var (name, ball, title) in new[] { ("c09-profils", terrain.Tee, "depuis le départ"), ("c09-sortie", ForestEdge, "depuis la lisière") })
+        // Le départ et l'approche : centrés entre la balle et le trou ; la lisière : centrée sur la balle, assez large pour les sorties.
+        var views = new[]
+        {
+            ("c09-profils", terrain.Tee, "depuis le départ", true, 260f),
+            ("c09-approche", Approach, "approche de 130 m", true, 170f),
+            ("c09-sortie", ForestEdge, "depuis la lisière", false, 0f),
+        };
+        foreach (var (name, ball, title, between, size) in views)
         {
             mesh.ClearSurfaces();
             foreach (var child in legend.GetChildren())
@@ -466,7 +481,7 @@ public partial class Captures : Node
                 child.QueueFree();
             }
 
-            legend.AddChild(new Label { Text = $"Coup prévu, handicap 10, {title}" });
+            legend.AddChild(new Label { Text = $"Coup prévu, handicap 10, sans vent, {title}" });
             var far = 0.0;
             for (var a = 1; a <= GolferProfile.Count; a++)
             {
@@ -497,10 +512,8 @@ public partial class Captures : Node
                 }
             }
 
-            // Le départ : tout le trou ; la lisière : centrée sur la balle, assez large pour les sorties.
-            var fromTee = ball == terrain.Tee;
-            var target = fromTee ? new Vector3((float)(ball.X + terrain.Hole.X) / 2f, 0f, (float)(ball.Z + terrain.Hole.Z) / 2f) : new Vector3((float)ball.X, 0f, (float)ball.Z);
-            main.Camera.SetView(45f, fromTee ? 260f : (float)Math.Max(80.0, 2.4 * far), target);
+            var target = between ? new Vector3((float)(ball.X + terrain.Hole.X) / 2f, 0f, (float)(ball.Z + terrain.Hole.Z) / 2f) : new Vector3((float)ball.X, 0f, (float)ball.Z);
+            main.Camera.SetView(45f, between ? size : (float)Math.Max(80.0, 2.4 * far), target);
             await Frames(SettleFrames);
             Save(name);
         }
@@ -553,6 +566,17 @@ public partial class Captures : Node
         main.Camera.SetView(45f, 220f, center);
         await Frames(SettleFrames);
         Save("tutorial-done");
+    }
+
+    /// <summary>Un panneau plus large que ses ancres (<paramref name="width"/> px) déborde : la capture échoue.</summary>
+    private void CheckWidth(Control panel, float width)
+    {
+        GD.Print($"LEAGUE largeur {panel.Name}={panel.Size.X} (au plus {width})");
+        if (panel.Size.X > width + 0.5f)
+        {
+            GD.PrintErr($"CAPTURES FAIL {panel.Name} trop large : {panel.Size.X} px au lieu de {width}");
+            _failures++;
+        }
     }
 
     private async Task Frames(int count)
