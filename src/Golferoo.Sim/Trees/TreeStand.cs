@@ -1,3 +1,4 @@
+using Golferoo.Sim.Save;
 using Golferoo.Sim.Terrain;
 
 namespace Golferoo.Sim.Trees;
@@ -52,14 +53,51 @@ public sealed class TreeStand
     public Tree Add(double x, double z, TreeSpeciesId species, int ageMonths, bool remarkable = false)
     {
         var tree = new Tree(_nextId++, x, z, species, ageMonths, TreeState.Standing, remarkable);
-        _trees.Add(tree);
-        _ageSum += ageMonths;
-        _byId[tree.Id] = tree;
-        var ci = CellIndex(x, z);
-        (_cells[ci] ??= []).Add(tree.Id);
-        _top[ci] = Math.Max(_top[ci], TopOf(tree));
+        Insert(tree);
         Version++;
         return tree;
+    }
+
+    private void Insert(Tree tree)
+    {
+        _trees.Add(tree);
+        _ageSum += tree.AgeMonths;
+        _byId[tree.Id] = tree;
+        var ci = CellIndex(tree.X, tree.Z);
+        (_cells[ci] ??= []).Add(tree.Id);
+        _top[ci] = Math.Max(_top[ci], TopOf(tree));
+    }
+
+    internal void Write(SaveWriter w)
+    {
+        w.Int(_nextId);
+        w.Long(Version);
+        w.List(_trees, t =>
+        {
+            w.Int(t.Id);
+            w.Double(t.X);
+            w.Double(t.Z);
+            w.Byte((byte)t.Species);
+            w.Int(t.AgeMonths);
+            w.Byte((byte)t.State);
+            w.Bool(t.Remarkable);
+            w.Float(t.FallYaw);
+        });
+    }
+
+    /// <summary>Relit les arbres dans leur ordre ; l'index spatial et les altitudes de cime se reconstruisent (le relief doit déjà être relu).</summary>
+    internal static TreeStand Read(SaveReader r, double widthMeters, double depthMeters, TerrainGrid? terrain)
+    {
+        var stand = new TreeStand(widthMeters, depthMeters, terrain);
+        var (nextId, version) = (r.Int(), r.Long());
+        foreach (var t in r.List(() => new Tree(r.Int(), r.Double(), r.Double(), (TreeSpeciesId)r.Byte(), r.Int(), (TreeState)r.Byte(), r.Bool(), r.Float())))
+        {
+            stand.Insert(t);
+        }
+
+        stand._nextId = nextId;
+        stand.Version = version;
+        return stand;
     }
 
     public bool TryGet(int id, out Tree tree) => _byId.TryGetValue(id, out tree);

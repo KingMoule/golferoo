@@ -1,3 +1,5 @@
+using Golferoo.Sim.Save;
+
 namespace Golferoo.Sim.Terrain;
 
 /// <summary>
@@ -43,6 +45,22 @@ public sealed class HeightField
     public double DepthMeters => CellsZ * CellSize;
 
     internal double[] Corners => _corners;
+
+    internal void Write(SaveWriter w)
+    {
+        w.Int(CellsX);
+        w.Int(CellsZ);
+        w.Double(CellSize);
+        w.Doubles(_corners);
+    }
+
+    internal static HeightField Read(SaveReader r)
+    {
+        var field = new HeightField(r.Int(), r.Int(), r.Double());
+        r.Doubles(field._corners.Length).CopyTo(field._corners, 0);
+        field._maxDirty = true;
+        return field;
+    }
 
     /// <summary>Plus grande hauteur des coins, donc du relief (surface bilinéaire), en mètres. Entretenue à chaque écriture.</summary>
     public double MaxCornerHeight

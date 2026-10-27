@@ -1,3 +1,7 @@
+using System.Runtime.InteropServices;
+using Golferoo.Sim.Save;
+using Golferoo.Sim.Trees;
+
 namespace Golferoo.Sim.Terrain;
 
 /// <summary>
@@ -329,6 +333,57 @@ public sealed class TerrainGrid
         }
 
         return hash;
+    }
+
+    /// <summary>Écrit tout l'état du terrain, gazon compris. Sol, flaques et champs de flux se recalculent : ils ne sont pas écrits.</summary>
+    internal void Write(SaveWriter w)
+    {
+        Heights.Write(w);
+        w.String(Name);
+        w.Point(Tee);
+        w.Point(Green);
+        w.Point(Hole);
+        w.Int(Par);
+        w.Bool(Blank);
+        w.Long(Version);
+        w.Long(SurfaceVersion);
+        w.Long(HeightVersion);
+        w.Bytes(MemoryMarshal.AsBytes(Surfaces));
+        w.List(IsolatedTrees, p =>
+        {
+            w.Point(new Point2(p.X, p.Z));
+            w.Byte((byte)p.Species);
+            w.Int(p.AgeMonths);
+        });
+        Turf.Write(w);
+    }
+
+    internal static TerrainGrid Read(SaveReader r)
+    {
+        var heights = HeightField.Read(r);
+        var name = r.String();
+        var (tee, green, hole) = (r.Point(), r.Point(), r.Point());
+        var terrain = new TerrainGrid(heights, name, tee, green, hole)
+        {
+            Par = r.Int(),
+            Blank = r.Bool(),
+            Version = r.Long(),
+            SurfaceVersion = r.Long(),
+            HeightVersion = r.Long(),
+        };
+        var surfaces = r.Bytes(terrain._surfaces.Length);
+        for (var i = 0; i < surfaces.Length; i++)
+        {
+            terrain._surfaces[i] = surfaces[i] < SurfaceTable.Count ? (Surface)surfaces[i] : throw new InvalidDataException("Surface inconnue.");
+        }
+
+        terrain.IsolatedTrees = r.List(() =>
+        {
+            var at = r.Point();
+            return new TreePlacement(at.X, at.Z, (TreeSpeciesId)r.Byte(), r.Int());
+        });
+        terrain.Turf.Read(r);
+        return terrain;
     }
 
     private static void Mix(ref ulong hash, ulong value)

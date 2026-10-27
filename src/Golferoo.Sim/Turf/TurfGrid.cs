@@ -1,3 +1,4 @@
+using Golferoo.Sim.Save;
 using Golferoo.Sim.Shots;
 using Golferoo.Sim.Terrain;
 using Golferoo.Sim.Trees;
@@ -153,6 +154,25 @@ public sealed class TurfGrid
         var resistance = SurfaceTable.Get(Surface.Green).RollResistance * (n == 0 ? 1.0 : sum / n);
         var meters = StimpSpeed * StimpSpeed / (2.0 * resistance * BallSimulator.Gravity);
         return (meters, meters / MetersPerFoot);
+    }
+
+    internal void Write(SaveWriter w)
+    {
+        w.Byte((byte)_settings.GreenSpeed);
+        w.Byte((byte)_settings.FairwayFirmness);
+        w.Byte((byte)_settings.RoughLength);
+        w.Long(Version);
+        w.Bytes(_height);
+        w.Bytes(_wear);
+    }
+
+    /// <summary>Relit l'état écrit par <see cref="Write"/> dans ce gazon, créé avec le terrain.</summary>
+    internal void Read(SaveReader r)
+    {
+        _settings = new TurfSettings((GreenSpeed)r.Byte(), (FairwayFirmness)r.Byte(), (RoughLength)r.Byte());
+        Version = r.Long();
+        r.Bytes(_height.Length).CopyTo(_height, 0);
+        r.Bytes(_wear.Length).CopyTo(_wear, 0);
     }
 
     /// <summary>Empreinte FNV-1a 64 bits (consignes, hauteurs et usure), pour <see cref="World.Checksum"/>.</summary>
