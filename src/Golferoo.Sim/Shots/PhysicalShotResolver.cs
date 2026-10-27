@@ -1,3 +1,4 @@
+using Golferoo.Sim.Pathing;
 using Golferoo.Sim.Terrain;
 using Golferoo.Sim.Trees;
 
@@ -42,7 +43,11 @@ public sealed class PhysicalShotResolver : IShotResolver
     private static readonly double[] WideForces = [1.0, 0.65, 0.35];
     private static readonly double[] Forces = [1.0, 0.9, 0.8, 0.65, 0.5, 0.35];
 
+    /// <summary>Un chemin de balle plus long que la ligne droite de ce facteur : on vise le chemin et non plus le drapeau.</summary>
+    private const double DetourFactor = 1.05;
+
     private readonly double _drag;
+    private readonly PlayMapCache _maps = new();
 
     public PhysicalShotResolver(double drag = BallSimulator.DefaultDrag)
     {
@@ -152,11 +157,9 @@ public sealed class PhysicalShotResolver : IShotResolver
         return (s - 2.0) * 1.7320508075688772;
     }
 
-    private static double Cost(in ShotResult r, Point2 hole)
+    private static double Cost(in ShotResult r, PlayMap map, Point2 hole)
     {
-        var dx = r.Ball.X - hole.X;
-        var dz = r.Ball.Z - hole.Z;
-        var cost = Math.Sqrt((dx * dx) + (dz * dz)) + (PenaltyCost * r.PenaltyStrokes);
+        var cost = map.DistanceAt(r.Ball.X, r.Ball.Z, hole) + (PenaltyCost * r.PenaltyStrokes);
         cost += r.Outcome switch
         {
             ShotOutcome.Green => -8.0,
@@ -180,10 +183,26 @@ public sealed class PhysicalShotResolver : IShotResolver
             return (Clubs.Wedge, 1.0, 0.0, Forces[^1], false);
         }
 
-        var ux = ex / dist;
-        var uz = ez / dist;
         var ball = request.Ball;
         var hole = request.Hole;
+        var map = _maps.Get(terrain, Trees, hole);
+
+        // Ligne du trou barrée par des bois : on vise le chemin que la balle peut suivre (le coin du fairway), pas le drapeau.
+        var ux = ex / dist;
+        var uz = ez / dist;
+        if (map.DistanceAt(ball.X, ball.Z, hole) > DetourFactor * dist)
+        {
+            var way = map.Waypoint(ball, Clubs.Driver.TargetRange, hole);
+            var wx = way.X - ball.X;
+            var wz = way.Z - ball.Z;
+            var wd = Math.Sqrt((wx * wx) + (wz * wz));
+            if (wd > 1e-9)
+            {
+                ux = wx / wd;
+                uz = wz / wd;
+            }
+        }
+
         var candidates = new List<(double Cost, double Stop, Club Club, double DirX, double DirZ, double Force, bool Low)>();
 
         void Add(IReadOnlyList<double> degrees, IReadOnlyList<double> forces, bool low, bool relaxed)
@@ -202,7 +221,7 @@ public sealed class PhysicalShotResolver : IShotResolver
                     {
                         var radians = degree * Math.PI / 180.0;
                         Rotate(ux, uz, Math.Sin(radians), Math.Cos(radians), out var dx, out var dz);
-                        var cost = Evaluate(ball, hole, club, dx, dz, force, low, terrain, out var stop);
+                        var cost = Evaluate(ball, hole, map, club, dx, dz, force, low, terrain, out var stop);
                         candidates.Add((cost, stop, club, dx, dz, force, low));
                     }
                 }
@@ -235,8 +254,8 @@ public sealed class PhysicalShotResolver : IShotResolver
             var cos = 1.0 - (eps * eps / 2.0);
             Rotate(c.DirX, c.DirZ, eps, cos, out var ax, out var az);
             Rotate(c.DirX, c.DirZ, -eps, cos, out var bx, out var bz);
-            var left = Evaluate(ball, hole, c.Club, ax, az, c.Force, c.Low, terrain, out _);
-            var right = Evaluate(ball, hole, c.Club, bx, bz, c.Force, c.Low, terrain, out _);
+            var left = Evaluate(ball, hole, map, c.Club, ax, az, c.Force, c.Low, terrain, out _);
+            var right = Evaluate(ball, hole, map, c.Club, bx, bz, c.Force, c.Low, terrain, out _);
             var score = ((2.0 * c.Cost) + left + right) / 4.0;
             if (score < bestScore)
             {
@@ -267,7 +286,7 @@ public sealed class PhysicalShotResolver : IShotResolver
     /// cumulée d'être arrêté par une couronne. Les troncs agissent comme à l'exécution. <paramref name="stop"/> : part des balles
     /// qui finissent sous les arbres, pour juger la ligne du trou bouchée.
     /// </summary>
-    private double Evaluate(Point2 ball, Point2 hole, Club club, double dirX, double dirZ, double force, bool low, TerrainGrid terrain, out double stop)
+    private double Evaluate(Point2 ball, Point2 hole, PlayMap map, Club club, double dirX, double dirZ, double force, bool low, TerrainGrid terrain, out double stop)
     {
         var speed = club.Speed * force;
         Vec3 velocity;
@@ -283,7 +302,7 @@ public sealed class PhysicalShotResolver : IShotResolver
 
         var expectation = Trees is null ? null : new TreeCollision.Expectation();
         var shot = BallSimulator.Run(terrain, ball, velocity, rolling: false, _drag, recordPath: false, trees: Trees, season: Season, wind: Wind, backspin: backspin, expectation: expectation).Shot;
-        var cost = Cost(shot, hole);
+        var cost = Cost(shot, map, hole);
         var crown = expectation?.Stopped ?? 0.0;
 
         // Part des balles qui finissent sous les arbres : arrêtées par une couronne, ou passées mais retombées dans le bois.
@@ -294,7 +313,7 @@ public sealed class PhysicalShotResolver : IShotResolver
         }
 
         var at = expectation!.StopPoint;
-        var stopped = Math.Sqrt(((at.X - hole.X) * (at.X - hole.X)) + ((at.Z - hole.Z) * (at.Z - hole.Z))) + TreesLieCost;
+        var stopped = map.DistanceAt(at.X, at.Z, hole) + TreesLieCost;
         return (crown * stopped) + ((1.0 - crown) * cost);
     }
 
