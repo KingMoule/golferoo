@@ -21,4 +21,4 @@ Dispersion des coups, lissage des bordures de fairway, green et bunker ; accueil
 `apt-get install dotnet-sdk-10.0` marche (dot.net refusé par le proxy). Godot ne se télécharge pas : la CI fait foi. `pip install bpy==5.2.3` marche. Artefacts CI non téléchargeables : lire les journaux. Mesure de référence (RTX 2080, 1080p) : 632 FPS prototype, 322 FPS à 5 000 arbres.
 
 ## Prochaine étape
-Guillaume choisit le prochain chantier.
+C10 (caméra à modes et niveaux de détail, `specs/C10-camera-lod.md`, validé) : à construire.
