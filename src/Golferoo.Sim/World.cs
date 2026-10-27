@@ -41,6 +41,7 @@ public sealed partial class World
     private readonly List<Group> _groups = [];
     private readonly List<Golfer> _roamers = [];
     private readonly List<Point2> _waypoints = [];
+    private readonly List<Point2> _beautySources = [];
     private int _nextGolferId;
     private Point2? _exitPoint;
     private long _exitPointVersion = -1;
@@ -79,6 +80,7 @@ public sealed partial class World
             {
                 physical.Trees = Trees;
                 physical.Season = Season;
+                physical.BeautySources = _beautySources;
             }
         }
         else
@@ -89,6 +91,12 @@ public sealed partial class World
 
     /// <summary>Ligue du club : nulle sauf si le monde est créé avec <c>league: true</c> et un terrain (le monde de C01 à C05 n'en a pas).</summary>
     public LeagueSeason? League { get; }
+
+    /// <summary>Sources de beauté posées dans le monde (objets de décor, aucun pour l'instant), lues par l'artiste (<see cref="BeautyMap"/>).</summary>
+    public IReadOnlyList<Point2> BeautySources => _beautySources;
+
+    /// <summary>Pose une source de beauté (objet de décor) au point <paramref name="at"/>.</summary>
+    public void AddBeautySource(Point2 at) => _beautySources.Add(at);
 
     /// <summary>Arbres du monde (nul coût de marche : seul le sous-bois, surface Trees, bloque les golfeurs).</summary>
     public TreeStand Trees { get; }
@@ -325,6 +333,11 @@ public sealed partial class World
             {
                 golfer.MemberId = members[i].Id;
                 golfer.Skill = members[i].Skill;
+                golfer.Profile = members[i].Profile;
+            }
+            else
+            {
+                golfer.Profile = GolferProfile.Pick(_rng);
             }
 
             golfers.Add(golfer);
@@ -549,6 +562,13 @@ public sealed partial class World
             MixRating(ref hash, c);
         }
 
+        Mix(ref hash, (ulong)_beautySources.Count);
+        foreach (var b in _beautySources)
+        {
+            Mix(ref hash, (ulong)BitConverter.DoubleToInt64Bits(b.X));
+            Mix(ref hash, (ulong)BitConverter.DoubleToInt64Bits(b.Z));
+        }
+
         Mix(ref hash, (ulong)Trees.Count);
         foreach (var t in Trees.Trees)
         {
@@ -586,6 +606,7 @@ public sealed partial class World
             Mix(ref hash, (ulong)g.MemberId);
         }
 
+        Mix(ref hash, (ulong)g.Profile);
         Mix(ref hash, (ulong)g.State);
         Mix(ref hash, (ulong)g.Strokes);
         Mix(ref hash, (ulong)g.SwingTicks);
@@ -807,7 +828,7 @@ public sealed partial class World
             terrain.Turf.AddWear(terrain.CellXOf(g.Ball.X), terrain.CellZOf(g.Ball.Z), TurfGrid.DivotWear);
         }
 
-        var request = new ShotRequest(g.Ball, terrain.Hole, g.Strokes, g.Skill);
+        var request = new ShotRequest(g.Ball, terrain.Hole, g.Strokes, g.Skill, g.Profile);
         var result = g.PlannedShot is { } shot ? ExecuteProShot(terrain, g, shot) : _resolver.Resolve(request, terrain, _rng);
         g.Pending = result;
         g.FlightPath = result.Trajectory;

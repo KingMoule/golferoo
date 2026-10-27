@@ -4,16 +4,13 @@ using Golferoo.Sim.Terrain;
 namespace Golferoo.Game.Rendering;
 
 /// <summary>
-/// Fleurs de printemps dans le rough : touffes <c>flowers_spring_01</c> à <c>03</c> (<c>res://assets/bushes/</c>), une sur
-/// <see cref="CellsPerTuft"/> cellules de rough choisies par hachage de la cellule (stable d'une partie à l'autre), en MultiMesh.
+/// Fleurs de printemps dans le rough : touffes <c>flowers_spring_01</c> à <c>03</c> (<c>res://assets/bushes/</c>), posées sur les
+/// cellules que choisit la sim (<see cref="Flowers"/>, qui s'en sert aussi pour la beauté), en MultiMesh.
 /// Le matériau <c>Blossom</c> (blanc cassé) prend la couleur de l'instance ; le feuillage garde la sienne. Visible au printemps
-/// seulement ; rien dans la sim. Sans les modèles, la couche reste vide.
+/// seulement. Sans les modèles, la couche reste vide.
 /// </summary>
 public partial class FlowerLayer : Node3D
 {
-    /// <summary>Une touffe pour tant de cellules de rough, en moyenne.</summary>
-    public const int CellsPerTuft = 3;
-
     /// <summary>Les touffes font 0,5 m : on les grossit pour qu'elles se lisent à la distance de la caméra.</summary>
     private const float MinScale = 2.0f;
     private const float MaxScale = 3.2f;
@@ -73,12 +70,12 @@ public partial class FlowerLayer : Node3D
         {
             for (var cx = 0; cx < _grid.CellsX; cx++)
             {
-                var h = Hash(cx, cz);
-                if (_grid.GetCellSurface(cx, cz) != Surface.Rough || h % CellsPerTuft != 0)
+                if (!Flowers.HasTuft(_grid, cx, cz))
                 {
                     continue;
                 }
 
+                var h = Flowers.Hash(cx, cz);
                 var variant = (int)((h >> 4) % (uint)_meshes.Length);
                 if (_meshes[variant] is null)
                 {
@@ -151,18 +148,6 @@ public partial class FlowerLayer : Node3D
         finally
         {
             root.Free();
-        }
-    }
-
-    private static uint Hash(int x, int z)
-    {
-        unchecked
-        {
-            var h = ((uint)x * 2654435761u) ^ ((uint)z * 2246822519u);
-            h ^= h >> 15;
-            h *= 0x2c1b3c6du;
-            h ^= h >> 12;
-            return h;
         }
     }
 }

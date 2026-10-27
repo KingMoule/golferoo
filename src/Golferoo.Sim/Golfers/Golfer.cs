@@ -65,6 +65,9 @@ public sealed class Golfer
     /// <summary>Niveau de jeu : multiplie la dispersion (1 = golfeur de référence, plus grand = plus brouillon). Voir <see cref="SkillLevels"/>.</summary>
     public double Skill { get; internal set; } = 1.0;
 
+    /// <summary>Style de jeu (<see cref="GolferProfile"/>) : celui du membre, ou tiré à l'arrivée pour un golfeur ordinaire.</summary>
+    public Archetype Profile { get; internal set; }
+
     public bool Holed { get; internal set; }
 
     /// <summary>Balle ramassée après le nombre maximal de coups, sans être entrée dans le trou.</summary>
