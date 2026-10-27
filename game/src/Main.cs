@@ -598,6 +598,13 @@ public partial class Main : Node3D
         {
             _dirtyCells = null;
             TerrainView.RebuildChunks(rect);
+
+            // Relief retouché sur le bord de la carte : l'horizon repart de la nouvelle hauteur du bord (quelques ms, rare).
+            var grid = World.Terrain!;
+            if (rect.Position.X <= 0 || rect.Position.Y <= 0 || rect.End.X >= grid.CellsX || rect.End.Y >= grid.CellsZ)
+            {
+                Horizon.Build(grid);
+            }
         }
     }
 

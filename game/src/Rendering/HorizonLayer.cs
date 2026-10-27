@@ -33,6 +33,7 @@ public partial class HorizonLayer : MeshInstance3D
         _map = new Rect2(0, 0, (float)(grid.CellsX * grid.CellSize), (float)(grid.CellsZ * grid.CellSize));
         var xs = Lines(_map.Size.X);
         var zs = Lines(_map.Size.Y);
+        TriangleCount = 0;
 
         var st = new SurfaceTool();
         st.Begin(Mesh.PrimitiveType.Triangles);
