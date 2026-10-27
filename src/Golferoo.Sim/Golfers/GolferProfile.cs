@@ -40,12 +40,12 @@ public enum Archetype : byte
 public sealed record GolferProfile(Archetype Archetype, double Risk, double Flank, ShotShape Shape = ShotShape.Straight, bool Long = false, bool Artist = false, bool Safe = false)
 {
     /// <summary>Distance gagnée avec son effet par un joueur de draw ou de fade.</summary>
-    public const double ShapedDistance = 1.03;
+    public const double ShapedDistance = 1.0;
 
     /// <summary>Dispersion d'un joueur de draw ou de fade avec son effet, et en coup droit.</summary>
-    public const double ShapedDispersion = 0.92;
+    public const double ShapedDispersion = 1.0;
 
-    public const double StraightDispersion = 1.05;
+    public const double StraightDispersion = 1.10;
 
     /// <summary>Coût retiré au driver du long frappeur au départ, en mètres : il le préfère.</summary>
     public const double TeeDriverBonus = 10.0;
