@@ -295,13 +295,13 @@ jobs:
           cd build/windows
           printf '@echo off\r\ncd /d "%%~dp0"\r\nstart "" Golferoo.exe\r\n' > Lancer.bat
           printf '@echo off\r\ncd /d "%%~dp0"\r\nstart "" Golferoo.exe -- --tutorial\r\n' > Tutoriel.bat
-          printf '@echo off\r\ncd /d "%%~dp0"\r\nGolferoo.exe -- --fps-bench\r\necho.\r\ntype fps-result.txt\r\npause\r\n' > "Mesurer FPS.bat"
+          printf '@echo off\r\ncd /d "%%~dp0"\r\nGolferoo.exe -- --fps-bench\r\nGolferoo.exe -- --fps-bench-low\r\necho.\r\ntype fps-result.txt\r\necho.\r\ntype fps-result-low.txt\r\npause\r\n' > "Mesurer FPS.bat"
           printf '%s\r\n' \
             "GOLFEROO - prototype d'un trou (version ${GITHUB_SHA::7})" \
             "1. Dezippez tout le dossier (ne lancez pas le jeu depuis le zip)." \
             "2. Pour jouer : double-clic sur Lancer.bat (Tutoriel.bat ouvre directement le tutoriel de construction d'un trou)." \
-            "3. Pour mesurer les FPS : double-clic sur Mesurer FPS.bat, attendez environ 55 secondes sans toucher a rien." \
-            "4. Envoyez-moi le fichier fps-result.txt (cree dans ce dossier) ou une photo de l'ecran final." > LISEZMOI.txt
+            "3. Pour mesurer les FPS : double-clic sur Mesurer FPS.bat, attendez environ 110 secondes sans toucher a rien (deux mesures)." \
+            "4. Envoyez-moi les fichiers fps-result.txt et fps-result-low.txt (crees dans ce dossier) ou une photo de l'ecran final." > LISEZMOI.txt
           ls -la
 
       - uses: actions/upload-artifact@v4

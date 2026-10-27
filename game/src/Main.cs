@@ -18,7 +18,7 @@ namespace Golferoo.Game;
 public partial class Main : Node3D
 {
     /// <summary>Trou joué : le dogleg de C08 ; la mesure FPS garde le trou du prototype pour rester comparable.</summary>
-    public static string HoleFile => TutorialMode ? "data/holes/blank-coude.json" : OS.GetCmdlineUserArgs().Contains("--fps-bench") ? "data/holes/proto-par4.json" : "data/holes/dogleg-par4.json";
+    public static string HoleFile => TutorialMode ? "data/holes/blank-coude.json" : FpsBench.Active ? "data/holes/proto-par4.json" : "data/holes/dogleg-par4.json";
 
     private static bool? _tutorialOverride;
 
@@ -174,7 +174,7 @@ public partial class Main : Node3D
         var grid = HoleLoader.Parse(ReadHoleJson(), Factor);
         GD.Print($"HOLE source={HoleSource}");
         World = new World(seed: 1, grid, league: !grid.Blank);
-        if (OS.GetCmdlineUserArgs().Contains("--fps-bench"))
+        if (FpsBench.Active)
         {
             FpsBench.FillTrees(World.Trees, grid);
         }
@@ -213,7 +213,7 @@ public partial class Main : Node3D
         Camera.SetView(45f, 150f, new Vector3(width / 2f, 0f, depth / 2f));
 
         World.TerrainEdited += OnTerrainEdited;
-        if (!OS.GetCmdlineUserArgs().Contains("--fps-bench") && !grid.Blank)
+        if (!FpsBench.Active && !grid.Blank)
         {
             // Pas en mesure FPS : avec 5 000 arbres la note prend ~30 s de cœur et fausse la mesure du rendu.
             _ratingJob = new RatingJob(grid, World.Trees, World.Seed, World.Season, World.SetCourseRating);
@@ -248,6 +248,8 @@ public partial class Main : Node3D
 
         _hud = GetNode<Label>("TickLabel");
         _sun = GetNode<DirectionalLight3D>("Sun");
+        _sun.DirectionalShadowMode = DirectionalLight3D.ShadowMode.Parallel4Splits;
+        _sun.DirectionalShadowMaxDistance = 400f;
         WeatherView = new WeatherView { Name = "WeatherView" };
         AddChild(WeatherView);
         WeatherView.Init(environment.Environment, _sun);
@@ -256,7 +258,7 @@ public partial class Main : Node3D
         ResetSnapshots();
         UpdateHud(0);
 
-        if (OS.GetCmdlineUserArgs().Contains("--fps-bench"))
+        if (FpsBench.Active)
         {
             AddChild(new FpsBench { Name = "FpsBench" });
         }
@@ -264,13 +266,13 @@ public partial class Main : Node3D
         ProAim = new ProAim { Name = "ProAim" };
         AddChild(ProAim);
         ProAim.Init(this);
-        if (!OS.GetCmdlineUserArgs().Contains("--fps-bench") && World.League is not null)
+        if (!FpsBench.Active && World.League is not null)
         {
             // Dans le jeu, le pro ne joue jamais seul : à son tour, le mode visée met le jeu en pause.
             World.ManualPro = true;
         }
 
-        if (!OS.GetCmdlineUserArgs().Contains("--fps-bench"))
+        if (!FpsBench.Active)
         {
             Tutorial = new TutorialPanel { Name = "TutorialPanelLayer" };
             AddChild(Tutorial);
@@ -598,6 +600,9 @@ public partial class Main : Node3D
         {
             var date = World.Date;
             _sun.Basis = SunPath.At(SunDayFraction ?? date.DayFraction, date.Season);
+
+            // Ombres en cascades seulement en vue libre : en iso, le rendu reste sans ombres portées.
+            _sun.ShadowEnabled = Camera.Mode == CameraMode.Free;
         }
     }
 

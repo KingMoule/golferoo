@@ -1,4 +1,5 @@
 using Godot;
+using Golferoo.Game.Cameras;
 using Golferoo.Sim.Terrain;
 using Golferoo.Sim.Trees;
 
@@ -7,12 +8,44 @@ namespace Golferoo.Game.Tools;
 /// <summary>
 /// Mode mesure (`-- --fps-bench`) : 1920x1080, vsync coupé, 200 golfeurs, 5 s de chauffe puis 30 s de mesure.
 /// Affiche le résultat, l'écrit dans fps-result.txt à côté de l'exécutable et quitte 10 s plus tard.
+/// `-- --fps-bench-low` : même chargement, mais en caméra libre rasante qui longe le parcours (fps-result-low.txt).
 /// </summary>
 public partial class FpsBench : Node
 {
     private const double WarmupSeconds = 5;
     private const double MeasureSeconds = 30;
     private const double ShowSeconds = 10;
+
+    /// <summary>Vrai si l'une des deux mesures est demandée (même trou, mêmes arbres, pas d'interface de jeu).</summary>
+    public static bool Active => Low || OS.GetCmdlineUserArgs().Contains("--fps-bench");
+
+    /// <summary>Vrai pour la mesure en vue rasante.</summary>
+    public static bool Low => OS.GetCmdlineUserArgs().Contains("--fps-bench-low");
+
+    private const float LowPitchDegrees = 8f;
+    private const float LowDistance = 15f;
+    private const float LowSpeed = 12f;
+
+    /// <summary>
+    /// Cible de la vue rasante après <paramref name="seconds"/> : va du départ au green à vitesse constante puis revient (aller-retour).
+    /// À 8° et 15 m de la cible, la caméra est à environ 2 m du sol.
+    /// </summary>
+    public static Vector3 LowTarget(Vector2 tee, Vector2 green, double seconds)
+    {
+        var length = tee.DistanceTo(green);
+        var travelled = (float)(seconds * LowSpeed) % (2f * length);
+        var t = (travelled <= length ? travelled : (2f * length) - travelled) / Math.Max(length, 0.001f);
+        var p = tee.Lerp(green, t);
+        return new Vector3(p.X, 0f, p.Y);
+    }
+
+    /// <summary>Place la caméra libre rasante à l'instant donné, regard vers le green.</summary>
+    public static void PlaceLow(CameraRig camera, Vector2 tee, Vector2 green, double seconds)
+    {
+        var target = LowTarget(tee, green, seconds);
+        var dir = (green - tee).Normalized();
+        camera.SetFreeView(Mathf.RadToDeg(Mathf.Atan2(-dir.X, -dir.Y)), LowPitchDegrees, LowDistance, target);
+    }
 
     /// <summary>
     /// Nombre d'arbres visé par la mesure : 5 000 à l'échelle réelle (critère 7 de specs/C02-arbres-echelle.md) ; agrandis,
@@ -77,6 +110,12 @@ public partial class FpsBench : Node
     public override void _Process(double delta)
     {
         _elapsed += delta;
+        if (Low && !_done)
+        {
+            var terrain = _main.World.Terrain!;
+            PlaceLow(_main.Camera, new Vector2((float)terrain.Tee.X, (float)terrain.Tee.Z), new Vector2((float)terrain.Green.X, (float)terrain.Green.Z), _elapsed);
+        }
+
         if (_done)
         {
             if (_elapsed >= WarmupSeconds + MeasureSeconds + ShowSeconds)
@@ -129,7 +168,7 @@ public partial class FpsBench : Node
         }
 
         var text =
-            $"Golferoo - mesure FPS\n" +
+            $"Golferoo - mesure FPS{(Low ? " (vue rasante)" : string.Empty)}\n" +
             $"FPS moyen : {avg:F1}\n" +
             $"1 % bas : {1.0 / p99:F1} FPS (pire image {sorted[^1] * 1000:F1} ms, p99 {p99 * 1000:F1} ms)\n" +
             $"Tick de simulation moyen : {tickMs:F3} ms\n" +
@@ -140,12 +179,12 @@ public partial class FpsBench : Node
             $"Version : {version}\n" +
             $"Images mesurees : {_frames.Count} en {total:F1} s\n";
         _label.Text = text + "\nFermeture dans 10 s.";
-        GD.Print($"FPSBENCH avg={avg:F1} low1={1.0 / p99:F1} tickMs={tickMs:F3} golfers={_main.Actors.VisibleGolfers} trees={_main.World.Trees.Count} res={size.X:F0}x{size.Y:F0} factor={_main.Factor} gpu=\"{RenderingServer.GetVideoAdapterName()}\" version={version}");
+        GD.Print($"FPSBENCH{(Low ? "-LOW" : string.Empty)} avg={avg:F1} low1={1.0 / p99:F1} tickMs={tickMs:F3} golfers={_main.Actors.VisibleGolfers} trees={_main.World.Trees.Count} res={size.X:F0}x{size.Y:F0} factor={_main.Factor} gpu=\"{RenderingServer.GetVideoAdapterName()}\" version={version}");
 
         var dir = System.IO.Path.GetDirectoryName(OS.GetExecutablePath()) ?? ".";
         try
         {
-            System.IO.File.WriteAllText(System.IO.Path.Combine(dir, "fps-result.txt"), text);
+            System.IO.File.WriteAllText(System.IO.Path.Combine(dir, Low ? "fps-result-low.txt" : "fps-result.txt"), text);
         }
         catch (Exception e)
         {
