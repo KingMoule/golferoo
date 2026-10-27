@@ -224,7 +224,7 @@ public partial class SmokeTest : Node
         CheckLowBenchPath(failures, camera, grid, bounds, ground);
     }
 
-    /// <summary>Trajet de la mesure rasante : sur 80 s échantillonnées, la caméra reste dans la carte et à 1,5 m au moins du sol, ombres actives en libre seulement.</summary>
+    /// <summary>Trajet de la mesure rasante : sur 80 s échantillonnées, la caméra reste dans la carte et à 1,5 m au moins du sol.</summary>
     private void CheckLowBenchPath(List<string> failures, CameraRig camera, TerrainGrid grid, Rect2 bounds, Func<float, float, float> ground)
     {
         var tee = new Vector2((float)grid.Tee.X, (float)grid.Tee.Z);
