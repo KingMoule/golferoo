@@ -17,6 +17,9 @@ internal sealed class SaveReader
         _in = new BinaryReader(body, Encoding.UTF8, leaveOpen: true);
     }
 
+    /// <summary>Octets restant à lire.</summary>
+    internal long Remaining => _body.Length - _body.Position;
+
     internal bool Bool() => _in.ReadBoolean();
 
     internal byte Byte() => _in.ReadByte();

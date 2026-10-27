@@ -12,6 +12,9 @@ internal static class SaveFormat
 {
     internal const int Version = 1;
 
+    /// <summary>Plafond du corps, compressé comme décompressé, à la lecture.</summary>
+    internal const int MaxBodyBytes = 64 * 1024 * 1024;
+
     private static readonly byte[] Magic = "GOLF"u8.ToArray();
 
     internal static void Write(Stream output, ulong checksum, SaveWriter body)
@@ -63,7 +66,7 @@ internal static class SaveFormat
             checksum = header.ReadUInt64();
             var length = header.ReadInt32();
             var bodyHash = header.ReadUInt64();
-            if (length < 0)
+            if (length < 0 || length > MaxBodyBytes || (input.CanSeek && length > input.Length - input.Position))
             {
                 throw new InvalidDataException("Longueur impossible dans l'en-tête.");
             }
@@ -76,7 +79,16 @@ internal static class SaveFormat
 
             using var gzip = new GZipStream(new MemoryStream(packed), CompressionMode.Decompress);
             var body = new MemoryStream();
-            gzip.CopyTo(body);
+            var chunk = new byte[81920];
+            int read;
+            while ((read = gzip.Read(chunk)) > 0)
+            {
+                body.Write(chunk, 0, read);
+                if (body.Length > MaxBodyBytes)
+                {
+                    throw new InvalidDataException("Corps décompressé trop grand.");
+                }
+            }
             if (Hash(body.GetBuffer().AsSpan(0, (int)body.Length)) != bodyHash)
             {
                 throw new InvalidDataException("Corps de sauvegarde corrompu (empreinte fausse).");

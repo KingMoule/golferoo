@@ -128,6 +128,31 @@ public class SaveTests
         Assert.Throws<NotSupportedException>(() => world.Save(new MemoryStream()));
     }
 
+    /// <summary>Fichier forgé : l'en-tête (magique, version, somme de contrôle) de <paramref name="original"/>, puis ce corps compressé avec cette empreinte.</summary>
+    private static byte[] Pack(byte[] original, byte[] raw, ulong hash)
+    {
+        var packed = new MemoryStream();
+        using (var gzip = new GZipStream(packed, CompressionLevel.Fastest, leaveOpen: true))
+        {
+            gzip.Write(raw);
+        }
+
+        var file = new MemoryStream();
+        file.Write(original, 0, 16);
+        file.Write(BitConverter.GetBytes((int)packed.Length));
+        file.Write(BitConverter.GetBytes(hash));
+        file.Write(packed.ToArray());
+        return file.ToArray();
+    }
+
+    private static byte[] Unpack(byte[] file)
+    {
+        var raw = new MemoryStream();
+        using var gzip = new GZipStream(new MemoryStream(file, 28, file.Length - 28), CompressionMode.Decompress);
+        gzip.CopyTo(raw);
+        return raw.ToArray();
+    }
+
     private static bool Throws(Action load)
     {
         try
@@ -204,19 +229,9 @@ public class SaveTests
 
         var raw = body.ToArray();
         raw[188] ^= 1; // le tick (8 + 5 tables de climat de 36 octets) : le gzip est valide, le monde diffère
-        var packed = new MemoryStream();
-        using (var gzip = new GZipStream(packed, CompressionLevel.Fastest, leaveOpen: true))
-        {
-            gzip.Write(raw);
-        }
+        var forged = Pack(bytes, raw, Golferoo.Sim.Save.SaveFormat.Hash(raw));
 
-        var forged = new MemoryStream();
-        forged.Write(bytes, 0, 16); // magique, version, somme de contrôle
-        forged.Write(BitConverter.GetBytes((int)packed.Length));
-        forged.Write(BitConverter.GetBytes(Golferoo.Sim.Save.SaveFormat.Hash(raw)));
-        forged.Write(packed.ToArray());
-
-        Assert.Throws<InvalidDataException>(() => Load(forged.ToArray()));
+        Assert.Throws<InvalidDataException>(() => Load(forged));
     }
 
     [Fact]
@@ -268,5 +283,115 @@ public class SaveTests
         Assert.Equal(a.Trees.NextId, b.Trees.NextId);
         Assert.Equal(a.Date, b.Date);
         Assert.Equal(a.TreesPlanted, b.TreesPlanted);
+    }
+
+    [Fact]
+    public void Load_ImpossibleTerrainSize_Throws()
+    {
+        var world = Build(1, "proto", "start");
+        var bytes = Save(world);
+        var raw = Unpack(bytes);
+        var dims = BitConverter.GetBytes(world.Terrain!.CellsX).Concat(BitConverter.GetBytes(world.Terrain.CellsZ)).ToArray();
+        var at = raw.AsSpan().IndexOf(dims);
+        Assert.True(at > 0);
+        foreach (var (x, z) in new[] { (1_000_000, 1_000_000), (int.MaxValue, 1), (0, 5), (-3, 5), (4096, 4096) })
+        {
+            var forged = (byte[])raw.Clone();
+            BitConverter.GetBytes(x).CopyTo(forged, at);
+            BitConverter.GetBytes(z).CopyTo(forged, at + 4);
+
+            Assert.Throws<InvalidDataException>(() => Load(Pack(bytes, forged, Golferoo.Sim.Save.SaveFormat.Hash(forged))));
+        }
+    }
+
+    [Fact]
+    public void Load_ImpossibleBodyLength_Throws()
+    {
+        var bytes = Save(Build(1, "proto", "start"));
+
+        foreach (var length in new[] { -1, bytes.Length, int.MaxValue, 100_000_000 })
+        {
+            var forged = (byte[])bytes.Clone();
+            BitConverter.GetBytes(length).CopyTo(forged, 16);
+            Assert.Throws<InvalidDataException>(() => Load(forged));
+        }
+    }
+
+    [Fact]
+    public void Load_DecompressedBodyOverTheCap_Throws()
+    {
+        var bytes = Save(Build(1, "proto", "start"));
+        var huge = new byte[Golferoo.Sim.Save.SaveFormat.MaxBodyBytes + 1]; // des zéros : le gzip tient en quelques Ko
+
+        Assert.Throws<InvalidDataException>(() => Load(Pack(bytes, huge, 0)));
+    }
+
+    [Fact]
+    public void Reloaded_PaintingWoodsAfterwards_DrawsTheSameTrees()
+    {
+        var original = Build(2, "dogleg", "queued");
+        original.Step(5);
+        var loaded = Load(Save(original));
+
+        foreach (var w in new[] { original, loaded })
+        {
+            w.PaintSurface(new Point2(60, 100), 15, Surface.Trees);
+            w.Step(3);
+        }
+
+        Assert.Equal(original.Checksum(), loaded.Checksum());
+    }
+
+    [Fact]
+    public void Reloaded_SpawningAGroupAfterwards_GivesTheSameGolferIds()
+    {
+        var original = Build(3, "proto", "flight");
+        var loaded = Load(Save(original));
+
+        foreach (var w in new[] { original, loaded })
+        {
+            w.SpawnGroup();
+            w.Step(10);
+        }
+
+        Assert.Equal(original.Checksum(), loaded.Checksum());
+    }
+
+    [Fact]
+    public void Reloaded_DuringAHoledShotAndAPenaltyShot_PlaysOutTheSame()
+    {
+        Assert.True(PlaysOutTheSameFromAFlight(g => g.Pending.Holed), "aucun coup au trou trouvé");
+        Assert.True(PlaysOutTheSameFromAFlight(g => g.Pending.PenaltyStrokes > 0), "aucun coup avec pénalité trouvé");
+    }
+
+    /// <summary>Cherche (graines 1 à 80) un vol qui vérifie <paramref name="inFlight"/>, le sauve, le recharge et joue la partie jusqu'au bout des deux côtés.</summary>
+    private static bool PlaysOutTheSameFromAFlight(Func<Golfer, bool> inFlight)
+    {
+        for (ulong seed = 1; seed <= 80; seed++)
+        {
+            var world = new World(seed, Hole("proto"));
+            var group = world.SpawnGroup();
+            for (var i = 0; i < 20_000 && !group.Finished; i++)
+            {
+                world.Step();
+                if (group.Golfers.Any(g => g.State == GolferState.BallInFlight && inFlight(g)))
+                {
+                    var loaded = Load(Save(world));
+                    Assert.Equal(world.Checksum(), loaded.Checksum());
+                    var other = loaded.Groups[0];
+                    for (var k = 0; k < 20_000 && !(group.Finished && other.Finished); k++)
+                    {
+                        world.Step();
+                        loaded.Step();
+                    }
+
+                    Assert.True(group.Finished && other.Finished);
+                    Assert.Equal(world.Checksum(), loaded.Checksum());
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 }
