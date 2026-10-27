@@ -312,6 +312,16 @@ public partial class Main : Node3D
         UpdateHud(delta);
     }
 
+    /// <summary>Tab passe avant l'UI : sinon un bouton qui a le focus le prend pour la navigation (<c>ui_focus_next</c>).</summary>
+    public override void _Input(InputEvent @event)
+    {
+        if (@event.IsActionPressed("camera_follow_next"))
+        {
+            CameraFollowNext();
+            GetViewport().SetInputAsHandled();
+        }
+    }
+
     public override void _UnhandledInput(InputEvent @event)
     {
         switch (@event)
@@ -455,16 +465,17 @@ public partial class Main : Node3D
         {
             CameraHome();
         }
-        else if (@event.IsActionPressed("camera_follow_next"))
-        {
-            CameraFollowNext();
-        }
     }
 
     /// <summary>Centre la caméra sur le départ du trou et arrête le suivi (touche Début).</summary>
     public void CameraHome()
     {
-        var tee = World.Terrain!.Tee;
+        if (World.Terrain is not { } terrain)
+        {
+            return;
+        }
+
+        var tee = terrain.Tee;
         Camera.CenterOn(new Vector3((float)tee.X, 0f, (float)tee.Z));
     }
 
@@ -472,7 +483,8 @@ public partial class Main : Node3D
     public void CameraFollowNext() =>
         Camera.Follow(CameraRig.NextGolfer(_current.Golfers.Select(g => g.Id), Camera.FollowedId));
 
-    private Vector3? GolferPosition(int id)
+    /// <summary>Position du golfeur au dernier instantané lu par le rendu, ou null s'il a quitté le parcours.</summary>
+    public Vector3? GolferPosition(int id)
     {
         foreach (var g in _current.Golfers)
         {

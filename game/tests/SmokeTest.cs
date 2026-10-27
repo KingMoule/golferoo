@@ -166,8 +166,14 @@ public partial class SmokeTest : Node
             return;
         }
 
-        var golfer = _main.World.Snapshot().Golfers.First(g => g.Id == id);
-        var distance = new Vector2(_main.Camera.Target.X - (float)golfer.Position.X, _main.Camera.Target.Z - (float)golfer.Position.Z).Length();
+        // Même instantané que celui que lit la caméra : un golfeur qui avance entre deux instantanés ne fausse pas la mesure.
+        if (_main.GolferPosition(id) is not { } golfer)
+        {
+            failures.Add($"suivi : golfeur {id} introuvable");
+            return;
+        }
+
+        var distance = new Vector2(_main.Camera.Target.X - golfer.X, _main.Camera.Target.Z - golfer.Z).Length();
         if (distance > 1f)
         {
             failures.Add($"suivi : cible à {distance:F2} m du golfeur {id}");

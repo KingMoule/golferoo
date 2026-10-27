@@ -25,3 +25,4 @@ Ajouter sans relire tout le fichier : `echo "- ..." >> docs/lecons.md`. `/amelio
 - 2026-10-26 C08 : le brief d'audit doit citer le chemin des fichiers de données du chantier (le trou de test), l'auditeur a dû le chercher.
 - Journaux CI : le blob est refusé par le proxy ; `mcp__github__get_job_logs` avec `return_content` et `tail_lines` ≤ 700 marche, le journal complet (base64) fait planter le serveur MCP.
 - Agents en worktree : le garde-fou refuse les heredocs, `|` et guillemets français dans Bash ; supprimer le worktree d'un agent l'empêche d'être relancé par SendMessage.
+- C10 lot 1 (codeur) : en conteneur cloud, `apt-get update` avant `apt-get install dotnet-sdk-10.0` ; `dotnet test Golferoo.sln` dure environ 13 min, à lancer en arrière-plan.
