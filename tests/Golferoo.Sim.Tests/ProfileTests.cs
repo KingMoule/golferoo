@@ -185,7 +185,7 @@ public class ProfileTests(ITestOutputHelper output)
     }
 
     [Fact]
-    public void Artist_ScattersLessInABeautifulPlace_AndNeverAimsMoreThanFiveMetersFarther()
+    public void Artist_ScattersLessInABeautifulPlace()
     {
         var terrain = HoleLoader.Load(TerrainTests.HolePath(), 2);
         var world = new World(1, terrain);
@@ -211,29 +211,99 @@ public class ProfileTests(ITestOutputHelper output)
         var neutral = Spread(Archetype.Neutral);
         output.WriteLine($"dispersion : artiste {artist:F2} m, neutre {neutral:F2} m");
         Assert.True(artist < neutral);
+    }
 
-        // Point visé : celui du golfeur neutre, à 5 m près sur la carte de jeu, depuis des départs répartis sur le trou.
-        var map = Pathing.PlayMap.Build(terrain, world.Trees, terrain.Hole);
+    /// <summary>
+    /// Point visé : celui du golfeur neutre, à 5 m près sur la carte de jeu, depuis une cellule sur trois du proto et du dogleg,
+    /// en été et au printemps (fleurs), par trois vents, au niveau 1,4.
+    /// </summary>
+    [Fact]
+    public void Artist_NeverAimsMoreThanFiveMetersFartherThanNeutral()
+    {
+        var holes = new[] { TerrainTests.HolePath(), Path.Combine(Path.GetDirectoryName(TerrainTests.HolePath())!, "dogleg-par4.json") };
+        Vec3[] winds = [new(0.0, 0.0, 0.0), new(-4.0, 0.0, 3.0), new(5.0, 0.0, -2.0)];
         var worst = double.MinValue;
-        for (var cz = 2; cz < terrain.CellsZ; cz += 7)
+        var where = "";
+        var gate = new object();
+        foreach (var path in holes)
         {
-            for (var cx = 2; cx < terrain.CellsX; cx += 7)
+            var terrain = HoleLoader.Load(path, 2);
+            var world = new World(1, terrain);
+            var map = Pathing.PlayMap.Build(terrain, world.Trees, terrain.Hole);
+            var starts = new List<Point2>();
+            for (var cz = 0; cz < terrain.CellsZ; cz += 3)
             {
-                var from = terrain.CellCenter(cx, cz);
-                if (terrain.GetCellSurface(cx, cz) is not (Surface.Fairway or Surface.Rough or Surface.Tee))
+                for (var cx = 0; cx < terrain.CellsX; cx += 3)
                 {
-                    continue;
+                    if (terrain.GetCellSurface(cx, cz) is Surface.Fairway or Surface.Rough or Surface.Tee)
+                    {
+                        starts.Add(terrain.CellCenter(cx, cz));
+                    }
                 }
+            }
 
-                resolver.Resolve(new ShotRequest(from, terrain.Hole, 1, Level, Archetype.Artist), terrain, new DeterministicRng(1), out var a);
-                resolver.Resolve(new ShotRequest(from, terrain.Hole, 1, Level), terrain, new DeterministicRng(1), out var n);
-                var gap = map.DistanceAt(a!.Value.Landing.X, a.Value.Landing.Z, terrain.Hole) - map.DistanceAt(n!.Value.Landing.X, n.Value.Landing.Z, terrain.Hole);
-                worst = Math.Max(worst, gap);
+            foreach (var season in new[] { Trees.Season.Summer, Trees.Season.Spring })
+            {
+                foreach (var wind in winds)
+                {
+                    var resolver = new PhysicalShotResolver { Trees = world.Trees, Season = season, Wind = wind, BeautySources = world.BeautySources };
+                    Parallel.ForEach(starts, from =>
+                    {
+                        resolver.Resolve(new ShotRequest(from, terrain.Hole, 1, 1.4, Archetype.Artist), terrain, new DeterministicRng(1), out var a);
+                        resolver.Resolve(new ShotRequest(from, terrain.Hole, 1, 1.4), terrain, new DeterministicRng(1), out var n);
+                        var gap = map.DistanceAt(a!.Value.Landing.X, a.Value.Landing.Z, terrain.Hole) - map.DistanceAt(n!.Value.Landing.X, n.Value.Landing.Z, terrain.Hole);
+                        lock (gate)
+                        {
+                            if (gap > worst)
+                            {
+                                worst = gap;
+                                where = $"{Path.GetFileName(path)} {from} {season} vent {wind}";
+                            }
+                        }
+                    });
+                }
             }
         }
 
-        output.WriteLine($"écart du point visé de l'artiste au plus : {worst:F2} m");
-        Assert.True(worst <= GolferProfile.BeautyCost + 1e-9, $"{worst:F2} m");
+        output.WriteLine($"écart du point visé de l'artiste au plus : {worst:F2} m ({where})");
+        Assert.True(worst <= GolferProfile.BeautyCost + 1e-9, $"{worst:F2} m ({where})");
+    }
+
+    [Fact]
+    public void Cautious_AimsAtTheFlag_OnAShortApproach()
+    {
+        var (terrain, world) = Dogleg();
+        var resolver = new PhysicalShotResolver { Trees = world.Trees, Season = world.Season };
+        double Left(Archetype profile)
+        {
+            var total = 0.0;
+            var n = 0;
+            for (var cz = 0; cz < terrain.CellsZ; cz++)
+            {
+                for (var cx = 0; cx < terrain.CellsX; cx++)
+                {
+                    var from = terrain.CellCenter(cx, cz);
+                    var d = Math.Sqrt(((from.X - terrain.Hole.X) * (from.X - terrain.Hole.X)) + ((from.Z - terrain.Hole.Z) * (from.Z - terrain.Hole.Z)));
+                    if (d is < 10.0 or > 25.0 || terrain.GetCellSurface(cx, cz) is not (Surface.Fairway or Surface.Rough))
+                    {
+                        continue;
+                    }
+
+                    resolver.Resolve(new ShotRequest(from, terrain.Hole, 1, Level, profile), terrain, new DeterministicRng(1), out var plan);
+                    var l = plan!.Value.Landing;
+                    total += Math.Sqrt(((l.X - terrain.Hole.X) * (l.X - terrain.Hole.X)) + ((l.Z - terrain.Hole.Z) * (l.Z - terrain.Hole.Z)));
+                    n++;
+                }
+            }
+
+            Assert.True(n > 0);
+            return total / n;
+        }
+
+        var cautious = Left(Archetype.Cautious);
+        var neutral = Left(Archetype.Neutral);
+        output.WriteLine($"approche de 10 à 25 m, distance prévue au drapeau : prudent {cautious:F1} m, neutre {neutral:F1} m");
+        Assert.True(cautious < 3.0, $"{cautious:F1} m");
     }
 
     [Fact]

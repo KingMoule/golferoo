@@ -53,6 +53,9 @@ public sealed class PhysicalShotResolver : IShotResolver
     /// <summary>Un chemin de balle plus long que la ligne droite de ce facteur : on vise le chemin et non plus le drapeau.</summary>
     private const double DetourFactor = 1.05;
 
+    /// <summary>Distance au drapeau au-delà de laquelle le prudent vise le centre du green ; plus près, il vise le drapeau.</summary>
+    private const double SafeAimRange = 40.0;
+
     private readonly double _drag;
     private readonly PlayMapCache _maps = new();
     private readonly Lock _beautyLock = new();
@@ -224,9 +227,11 @@ public sealed class PhysicalShotResolver : IShotResolver
 
     private ShotPlan Plan(in ShotRequest request, TerrainGrid terrain, GolferProfile profile)
     {
-        // Le prudent vise le centre du green plutôt que le drapeau.
+        // Le prudent vise le centre du green plutôt que le drapeau, sauf sur une approche courte.
         var ball = request.Ball;
-        var hole = profile.Safe ? GreenCenter(terrain, request.Hole) : request.Hole;
+        var fx = request.Hole.X - ball.X;
+        var fz = request.Hole.Z - ball.Z;
+        var hole = profile.Safe && (fx * fx) + (fz * fz) > SafeAimRange * SafeAimRange ? GreenCenter(terrain, request.Hole) : request.Hole;
         var ex = hole.X - ball.X;
         var ez = hole.Z - ball.Z;
         var dist = Math.Sqrt((ex * ex) + (ez * ez));
@@ -316,12 +321,13 @@ public sealed class PhysicalShotResolver : IShotResolver
 
         // Les meilleurs candidats sont re-testés avec la direction décalée de chaque côté, pour préférer un coup sûr. Le profil règle
         // l'écart de ces flancs (Flank, en écarts types du club), qui suit la dispersion de l'effet choisi mais pas celle due à la beauté.
-        // La beauté (artiste) ne compte qu'à ce choix final : les finalistes sont ceux du golfeur neutre, et l'artiste ne s'en écarte que
-        // pour un point de chute plus beau.
+        // La beauté (artiste) ne compte qu'à ce choix final, et seulement entre les finalistes dont le point de chute n'est pas plus loin
+        // du trou (carte de jeu) que celui du choix neutre de plus de BeautyCost : il ne s'en écarte que pour un point de chute plus beau.
         candidates.Sort(static (a, b) => a.Cost.CompareTo(b.Cost));
-        var best = candidates[0].Plan;
-        var bestScore = double.MaxValue;
-        for (var k = 0; k < Math.Min(Finalists, candidates.Count); k++)
+        var count = Math.Min(Finalists, candidates.Count);
+        var scores = new (double Neutral, double Beauty)[count];
+        var best = 0;
+        for (var k = 0; k < count; k++)
         {
             var (cost, _, bonus, c) = candidates[k];
             var eps = c.Club.DirectionSigma * profile.Flank * profile.Dispersion(c.Shape, 0.0);
@@ -331,24 +337,40 @@ public sealed class PhysicalShotResolver : IShotResolver
             Rotate(c.DirX, c.DirZ, -eps, cos, out var bx, out var bz);
             var left = Evaluate(ball, hole, map, c.Club, ax, az, force, c.Low, c.Shape, terrain, profile, beauty, out _, out _, out var leftBonus);
             var right = Evaluate(ball, hole, map, c.Club, bx, bz, force, c.Low, c.Shape, terrain, profile, beauty, out _, out _, out var rightBonus);
-            var score = ((2.0 * (cost - bonus)) + (left - leftBonus) + (right - rightBonus)) / 4.0;
+            var score = ((2.0 * cost) + left + right) / 4.0;
             if (profile.Safe)
             {
                 // Le prudent teste aussi le coup trop long et trop court (écart de vitesse du club, au même nombre d'écarts types).
                 var depth = c.Club.SpeedSigma * profile.Flank;
-                var longer = Evaluate(ball, hole, map, c.Club, c.DirX, c.DirZ, force * (1.0 + depth), c.Low, c.Shape, terrain, profile, beauty, out _, out _, out var longBonus);
-                var shorter = Evaluate(ball, hole, map, c.Club, c.DirX, c.DirZ, force * (1.0 - depth), c.Low, c.Shape, terrain, profile, beauty, out _, out _, out var shortBonus);
-                score = ((4.0 * score) + (longer - longBonus) + (shorter - shortBonus)) / 6.0;
+                var longer = Evaluate(ball, hole, map, c.Club, c.DirX, c.DirZ, force * (1.0 + depth), c.Low, c.Shape, terrain, profile, beauty, out _, out _, out _);
+                var shorter = Evaluate(ball, hole, map, c.Club, c.DirX, c.DirZ, force * (1.0 - depth), c.Low, c.Shape, terrain, profile, beauty, out _, out _, out _);
+                score = ((4.0 * score) + longer + shorter) / 6.0;
             }
 
-            if (score < bestScore)
+            scores[k] = (score, ((2.0 * bonus) + leftBonus + rightBonus) / 4.0);
+            if (score < scores[best].Neutral)
             {
-                bestScore = score;
-                best = c;
+                best = k;
             }
         }
 
-        return best;
+        if (beauty is not null)
+        {
+            var reach = map.DistanceAt(candidates[best].Plan.Landing.X, candidates[best].Plan.Landing.Z, hole) + GolferProfile.BeautyCost;
+            var artist = best;
+            for (var k = 0; k < count; k++)
+            {
+                var landing = candidates[k].Plan.Landing;
+                if (scores[k].Neutral - scores[k].Beauty < scores[artist].Neutral - scores[artist].Beauty && map.DistanceAt(landing.X, landing.Z, hole) <= reach)
+                {
+                    artist = k;
+                }
+            }
+
+            best = artist;
+        }
+
+        return candidates[best].Plan;
     }
 
     /// <summary>Centre (moyenne des cellules) du green qui porte le drapeau ; le drapeau lui-même s'il n'est pas sur un green.</summary>
@@ -400,7 +422,7 @@ public sealed class PhysicalShotResolver : IShotResolver
     /// Coût espéré d'un candidat, sans hasard : p × coût(arrêté au pied des arbres) + (1 − p) × coût(passé), p étant la probabilité
     /// cumulée d'être arrêté par une couronne. Les troncs agissent comme à l'exécution. <paramref name="stop"/> : part des balles
     /// qui finissent sous les arbres, pour juger la ligne du trou bouchée ; <paramref name="landing"/> : où la balle passée s'arrête ;
-    /// <paramref name="bonus"/> : coût retiré par la beauté espérée du point de chute (artiste : 5 m × beauté, 0 sans <paramref name="beauty"/>).
+    /// <paramref name="bonus"/> : coût retiré par la beauté espérée du point de chute, nulle sous les arbres (artiste : 5 m × beauté, 0 sans <paramref name="beauty"/>).
     /// <paramref name="force"/> comprend déjà le facteur de vitesse du profil.
     /// </summary>
     private double Evaluate(Point2 ball, Point2 hole, PlayMap map, Club club, double dirX, double dirZ, double force, bool low, ShotShape shape, TerrainGrid terrain,
@@ -442,10 +464,8 @@ public sealed class PhysicalShotResolver : IShotResolver
 
         var at = expectation!.StopPoint;
         var stopped = map.DistanceAt(at.X, at.Z, hole) + (profile.Risk * TreesLieCost) + Wasted(ball, at);
-        if (beauty is not null)
-        {
-            bonus = (crown * GolferProfile.BeautyCost * beauty.At(at.X, at.Z)) + ((1.0 - crown) * bonus);
-        }
+        // Arrêtée sous les arbres, la balle ne gagne rien à la beauté : l'artiste n'est pas récompensé de tirer dans les bois.
+        bonus *= 1.0 - crown;
 
         return (crown * stopped) + ((1.0 - crown) * cost);
     }

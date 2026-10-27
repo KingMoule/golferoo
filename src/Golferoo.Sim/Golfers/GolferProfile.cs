@@ -8,7 +8,7 @@ public enum Archetype : byte
     /// <summary>Profil de référence, attribué à personne : sert à la note du parcours (<see cref="Rating.CourseRater"/>).</summary>
     Neutral = 0,
 
-    /// <summary>Pénalités, lies difficiles et flancs (aussi trop long et trop court) pèsent plus ; vise le centre du green.</summary>
+    /// <summary>Pénalités, lies difficiles et flancs (aussi trop long et trop court) pèsent plus ; vise le centre du green (au-delà de 40 m).</summary>
     Cautious = 1,
 
     /// <summary>Driver et bois 3 10 % plus loin, fers 9 et wedge 5 % moins loin ; préfère le driver au départ.</summary>
@@ -36,7 +36,7 @@ public enum Archetype : byte
 /// <param name="Shape">Effet essayé à chaque coup plein en plus du coup droit (<see cref="ShotShape.Straight"/> : aucun).</param>
 /// <param name="Long">Longueur du long frappeur (<see cref="DistanceFactor"/>).</param>
 /// <param name="Artist">Sensible à la beauté du lieu.</param>
-/// <param name="Safe">Vise le centre du green plutôt que le drapeau, et teste aussi le coup trop long et trop court au choix final.</param>
+/// <param name="Safe">Vise le centre du green plutôt que le drapeau au-delà de 40 m, et teste aussi le coup trop long et trop court au choix final.</param>
 public sealed record GolferProfile(Archetype Archetype, double Risk, double Flank, ShotShape Shape = ShotShape.Straight, bool Long = false, bool Artist = false, bool Safe = false)
 {
     /// <summary>Distance gagnée avec son effet par un joueur de draw ou de fade.</summary>
