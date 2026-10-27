@@ -1,7 +1,7 @@
 Mis à jour : 2026-10-27
 
 ## État
-C00 à C09 livrés. C09 (golfeurs stratèges) : quatre lots (#74, #75, #79, #80), réglage final du draw et du fade (#82). Reprise après un changement de compte Claude : tout le contexte est dans le dépôt, rien dans l'ancien projet.
+C00 à C09 livrés. C09 (golfeurs stratèges) : quatre lots (#74, #75, #79, #80), réglage final du draw et du fade (#83). Reprise après un changement de compte Claude : tout le contexte est dans le dépôt, rien dans l'ancien projet.
 
 ## En cours
 - C09 livré. Mineurs relevés par l'audit, à reprendre si Guillaume les remarque en jeu : fonceur avec moins de pénalités que le neutre (9 contre 12) ; dispersion de l'artiste en baisse de 6 % seulement au test ; légende de `c09-profils` sur le tee ; bannière du champion sur la fiche ; erreurs de jugement des golfeurs (hors périmètre, à reparler). Images dans le dossier partagé `c09/`.
