@@ -945,6 +945,7 @@ public partial class SmokeTest : Node
         ["vehicles"] = 800,
         ["buildings"] = 3000,
         ["structures"] = 600,
+        ["ui"] = 0, // polices et icônes de l'interface (C13) : aucun modèle 3D admis.
     };
 
     /// <summary>
