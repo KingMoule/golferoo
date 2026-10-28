@@ -107,6 +107,24 @@ public sealed partial class World
             w.Bool(c.IsTee);
             w.Point(c.Point);
         });
+        w.List(_courseCommands, c =>
+        {
+            w.Bool(c.Add);
+            w.Point(c.Tee);
+            w.Point(c.Pin);
+        });
+        w.Bool(_ratingStale);
+        w.Int(HoleCommandsRefused);
+        w.List(_heldCards, h =>
+        {
+            w.Int(h.Round);
+            w.Long(h.Tick);
+            w.List(h.Cards, c =>
+            {
+                w.Int(c.MemberId);
+                c.Card.Write(w);
+            });
+        });
         w.List(_turfCommands, s =>
         {
             w.Byte((byte)s.GreenSpeed);
@@ -175,13 +193,25 @@ public sealed partial class World
             _holeCommands.Enqueue(c);
         }
 
+        foreach (var c in r.List(() => (Add: r.Bool(), Tee: r.Point(), Pin: r.Point())))
+        {
+            _courseCommands.Enqueue(c);
+        }
+
+        _ratingStale = r.Bool();
+        HoleCommandsRefused = r.Int();
+        foreach (var h in r.List(() => (Round: r.Int(), Tick: r.Long(), Cards: r.List(() => (MemberId: r.Int(), Card: Golferoo.Sim.Scoring.ScoreCard.Read(r))).ToArray())))
+        {
+            _heldCards.Add((h.Round, h.Cards, h.Tick));
+        }
+
         var holeCount = Terrain?.Course.Count ?? 1;
         if (_holesOpen.Length != holeCount || _holeCommands.Any(c => c.Hole < 1 || c.Hole > holeCount))
         {
             throw new InvalidDataException("Sauvegarde incohérente : états ou commandes de trous hors du parcours.");
         }
 
-        if (_groups.Any(g => g.Hole < 1 || g.Hole > holeCount || g.Golfers.Any(o => o.Card is null || o.Card.HoleCount != holeCount)))
+        if (_groups.Any(g => g.Golfers.Any(o => o.Card is null) || (!g.Finished && (g.Hole < 1 || g.Hole > holeCount || g.Golfers.Any(o => o.Card!.HoleCount < g.Hole || o.Card.HoleCount > holeCount)))))
         {
             throw new InvalidDataException("Sauvegarde incohérente : trou ou carte de score d'un groupe hors du parcours.");
         }

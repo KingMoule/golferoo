@@ -7,17 +7,17 @@ public sealed class Course
 {
     public const int MaxHoles = 18;
 
-    private readonly CourseHole[] _holes;
+    private readonly List<CourseHole> _holes;
 
     public Course(IEnumerable<CourseHole> holes)
     {
         _holes = [.. holes];
-        if (_holes.Length is < 1 or > MaxHoles)
+        if (_holes.Count is < 1 or > MaxHoles)
         {
-            throw new ArgumentException($"Un parcours compte de 1 à {MaxHoles} trous ({_holes.Length} reçus).", nameof(holes));
+            throw new ArgumentException($"Un parcours compte de 1 à {MaxHoles} trous ({_holes.Count} reçus).", nameof(holes));
         }
 
-        for (var i = 0; i < _holes.Length; i++)
+        for (var i = 0; i < _holes.Count; i++)
         {
             if (_holes[i].Number != i + 1)
             {
@@ -28,12 +28,18 @@ public sealed class Course
 
     public IReadOnlyList<CourseHole> Holes => _holes;
 
-    public int Count => _holes.Length;
+    /// <summary>Ajoute un trou en fin de parcours (jeu, C12 lot 5).</summary>
+    internal void Add(CourseHole hole) => _holes.Add(hole);
+
+    /// <summary>Retire le dernier trou.</summary>
+    internal void RemoveLast() => _holes.RemoveAt(_holes.Count - 1);
+
+    public int Count => _holes.Count;
 
     /// <summary>Le trou de ce numéro (1 à N).</summary>
-    public CourseHole this[int number] => number >= 1 && number <= _holes.Length
+    public CourseHole this[int number] => number >= 1 && number <= _holes.Count
         ? _holes[number - 1]
-        : throw new ArgumentOutOfRangeException(nameof(number), number, $"Trou inexistant (1 à {_holes.Length}).");
+        : throw new ArgumentOutOfRangeException(nameof(number), number, $"Trou inexistant (1 à {_holes.Count}).");
 
     /// <summary>Le trou 1 comme avant : départ, green et drapeau d'abord. Les trous suivants s'ajoutent avec leur numéro et leur par, ce qui laisse la somme d'un trou seul inchangée.</summary>
     internal void MixInto(ref ulong hash)

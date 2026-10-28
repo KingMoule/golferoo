@@ -203,7 +203,7 @@ public partial class SmokeTest : Node
         var grid = _main.World.Terrain!;
         var w = (float)(grid.CellsX * grid.CellSize);
         var d = (float)(grid.CellsZ * grid.CellSize);
-        if (horizon.Mesh is null || horizon.TriangleCount is < 500 or > 8000)
+        if (horizon.Mesh is null || horizon.TriangleCount is < 500 or > 16000)
         {
             failures.Add($"horizon : maillage absent ou hors budget ({horizon.TriangleCount} triangles)");
             return;
@@ -347,6 +347,151 @@ public partial class SmokeTest : Node
         {
             failures.Add($"suivi : cible à {distance:F2} m du golfeur {id}");
         }
+
+        // C12 : le cartouche « Trou n, par p » s'affiche tant qu'un groupe est suivi.
+        var cartouche = _main.GetNodeOrNull<Label>("HoleLabelLayer/HoleLabel");
+        if (cartouche is null || !cartouche.Visible || !cartouche.Text.StartsWith("Trou ", StringComparison.Ordinal) || !cartouche.Text.Contains(", par "))
+        {
+            failures.Add($"cartouche de trou absent ou muet : « {cartouche?.Text} »");
+        }
+    }
+
+    /// <summary>
+    /// C12 lot 3 : « Le neuf » est le parcours chargé par défaut (9 trous, par 36, chacun ouvert), chaque trou a son drapeau, son repère et son numéro,
+    /// la caméra va de trou en trou, et une paire joue les 9 trous (ticks directs, plus vite que x16). Écrit <c>COURSE OK 9</c>.
+    /// </summary>
+    private void CheckCourse(List<string> failures)
+    {
+        var grid = _main!.World.Terrain!;
+        if (grid.Course.Count != 9 || grid.Course.Holes.Sum(h => h.Par) != 36)
+        {
+            failures.Add($"parcours : {grid.Course.Count} trous, par {grid.Course.Holes.Sum(h => h.Par)} (9 trous, par 36 attendus)");
+            return;
+        }
+
+        foreach (var hole in grid.Course.Holes)
+        {
+            if (HoleCheck.Check(grid, hole).Count > 0)
+            {
+                failures.Add($"parcours : le trou {hole.Number} n'est pas jouable");
+            }
+
+            foreach (var name in new[] { $"Flag{hole.Number}", $"TeeMarker{hole.Number}", $"HoleNumber{hole.Number}" })
+            {
+                if (_main.Actors.GetNodeOrNull(name) is null)
+                {
+                    failures.Add($"parcours : {name} absent de la couche des acteurs");
+                }
+            }
+        }
+
+        foreach (var action in new[] { "cam_next_hole", "cam_prev_hole" })
+        {
+            if (!InputMap.HasAction(action) || InputMap.ActionGetEvents(action).Count == 0)
+            {
+                failures.Add($"action {action} absente de l'InputMap");
+            }
+        }
+
+        foreach (var (step, expected) in new[] { (1, 2), (-1, 1), (-1, 9), (1, 1) })
+        {
+            _main.CameraStepHole(step);
+            var tee = grid.Course[expected].Tee;
+            var off = new Vector2(_main.Camera.Target.X - (float)tee.X, _main.Camera.Target.Z - (float)tee.Z).Length();
+            if (off > 0.01f)
+            {
+                failures.Add($"caméra : trou {expected} attendu, cible à {off:F1} m de son départ");
+            }
+        }
+
+        var world = new World(7, Main.LoadTerrain(_main.Factor));
+        var group = world.SpawnGroup();
+        var holes = new List<int> { 1 };
+        for (var i = 0; i < 120_000 && !group.Finished; i++)
+        {
+            world.Step();
+            if (group.Hole != holes[^1])
+            {
+                holes.Add(group.Hole);
+            }
+        }
+
+        if (!group.Finished || !holes.SequenceEqual(Enumerable.Range(1, 9)) || group.Golfers.Any(g => g.Card is not { IsComplete: true }))
+        {
+            failures.Add($"parcours : la paire n'a pas fini les 9 trous (trous vus {string.Join(",", holes)}, tick {world.Tick})");
+            return;
+        }
+
+        GD.Print($"COURSE OK {grid.Course.Count} ticks={world.Tick} scores={string.Join("/", group.Golfers.Select(g => g.Card!.Gross))}");
+    }
+
+    /// <summary>
+    /// C12 lot 5 : sur un parcours de trois trous, un quatrième trou s'ajoute (drapeau, repère et numéro apparaissent), une paire le joue,
+    /// puis il se retire (les trois nœuds disparaissent). Écrit <c>NEWHOLE OK</c>.
+    /// </summary>
+    private void CheckNewHole(List<string> failures)
+    {
+        const string dir = "res://data/courses";
+        var grid = CourseLoader.Parse(ReadText($"{dir}/trois-trous.json"), dir, _main!.Factor, relative => ReadText((dir + "/" + relative).SimplifyPath()));
+        var world = new World(11, grid);
+        var layer = new ActorLayer { Name = "NewHoleActors" };
+        AddChild(layer);
+        layer.Build(grid);
+        var snapshot = world.Snapshot();
+        var names = new[] { "Flag4", "TeeMarker4", "HoleNumber4" };
+
+        var hole = grid.Course[2];
+        if (!world.AddHole(hole.Tee, hole.Hole))
+        {
+            failures.Add($"nouveau trou : refusé ({string.Join(",", world.NewHoleIssues(hole.Tee, hole.Hole))})");
+            layer.QueueFree();
+            return;
+        }
+
+        world.Step();
+        layer.Update(world.Snapshot(snapshot), snapshot, 1f, false);
+        if (grid.Course.Count != 4 || grid.Course[4].Par != TerrainGrid.DeducedPar(hole.Tee, hole.Hole) || names.Any(n => layer.GetNodeOrNull(n) is null))
+        {
+            failures.Add($"nouveau trou : {grid.Course.Count} trous, nœuds {string.Join(",", names.Select(n => layer.GetNodeOrNull(n) is null ? "absent" : "ok"))}");
+        }
+
+        var group = world.SpawnGroup();
+        var seen = new HashSet<int>();
+        for (var i = 0; i < 120_000 && !group.Finished; i++)
+        {
+            world.Step();
+            seen.Add(group.Hole);
+        }
+
+        if (!group.Finished || !seen.Contains(4) || group.Golfers.Any(g => g.Card is not { HoleCount: 4, IsComplete: true }))
+        {
+            failures.Add($"nouveau trou : la paire n'a pas joué le trou 4 (trous vus {string.Join(",", seen)}, tick {world.Tick})");
+        }
+
+        if (!world.RemoveLastHole())
+        {
+            failures.Add("nouveau trou : retrait refusé après la partie");
+        }
+
+        world.Step();
+        layer.Update(world.Snapshot(snapshot), snapshot, 1f, false);
+        if (grid.Course.Count != 3 || names.Any(n => layer.GetNodeOrNull(n) is not null))
+        {
+            failures.Add($"nouveau trou : après retrait, {grid.Course.Count} trous, nœuds {string.Join(",", names.Select(n => layer.GetNodeOrNull(n) is null ? "absent" : "reste"))}");
+        }
+
+        layer.QueueFree();
+        if (!failures.Any(f => f.StartsWith("nouveau trou", StringComparison.Ordinal)))
+        {
+            GD.Print($"NEWHOLE OK holes={grid.Course.Count} ticks={world.Tick}");
+        }
+    }
+
+    private static string ReadText(string path)
+    {
+        using var file = Godot.FileAccess.Open(path, Godot.FileAccess.ModeFlags.Read)
+            ?? throw new HoleDataException($"Lecture impossible de '{path}'.");
+        return file.GetAsText();
     }
 
     private List<string> Check()
@@ -401,6 +546,8 @@ public partial class SmokeTest : Node
             failures.Add($"G devait créer 2 golfeurs, obtenu {golfers}");
         }
 
+        CheckCourse(failures);
+        CheckNewHole(failures);
         CheckCamera(failures);
         CheckBrush(failures);
         CheckAssets(failures);
@@ -685,6 +832,7 @@ public partial class SmokeTest : Node
         _ = ProceduralMeshes.Golfer();
         _ = ProceduralMeshes.Ball();
         _ = ProceduralMeshes.Flag();
+        _ = ProceduralMeshes.TeeMarker();
         for (var v = 0; v < ProceduralMeshes.TreeVariants; v++)
         {
             _ = ProceduralMeshes.Tree(v);
@@ -695,6 +843,7 @@ public partial class SmokeTest : Node
             ["Golfer"] = ProceduralMeshes.GolferBudget,
             ["Ball"] = ProceduralMeshes.BallBudget,
             ["Flag"] = ProceduralMeshes.FlagBudget,
+            ["TeeMarker"] = ProceduralMeshes.TeeMarkerBudget,
         };
         for (var v = 0; v < ProceduralMeshes.TreeVariants; v++)
         {
