@@ -63,6 +63,7 @@ public partial class Captures : Node
     private bool _thumbs;
     private bool _full;
     private int _index;
+    private int _limit;
     private int _failures;
     private Vector2I? _size;
 
@@ -100,6 +101,7 @@ public partial class Captures : Node
         _thumbs = OS.GetCmdlineUserArgs().Contains("--thumbs");
         _full = OS.GetCmdlineUserArgs().Contains("--full");
         _prefix = Main.CommandLineOption("--prefix") ?? "";
+        _limit = int.TryParse(Main.CommandLineOption("--limit"), out var limit) ? limit : 0;
         System.IO.Directory.CreateDirectory(_outDir);
         if (Main.CommandLineOption("--only") == "course")
         {
@@ -344,6 +346,13 @@ public partial class Captures : Node
         {
             // Taille réelle, JPEG qualité 85 : lisible sans télécharger l'artefact.
             GD.Print($"FULL {System.IO.Path.GetFileName(path)} {Convert.ToBase64String(image.SaveJpgToBuffer(0.85f))}");
+        }
+
+        if (_limit > 0 && _index == _limit)
+        {
+            // Les passes aux facteurs 3 et 4 ne gardent que les premières vues (rapport C01) : `-- --limit n` s'arrête après n images.
+            GD.Print($"CAPTURES OK {_index} images (limite)");
+            GetTree().Quit(_failures == 0 && err == Error.Ok && stddev > 0.0001 ? 0 : 1);
         }
 
         if (err != Error.Ok || stddev <= 0.0001)
