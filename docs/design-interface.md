@@ -34,5 +34,5 @@ Validés par Guillaume le 2026-10-28 (C13), sur la maquette v2 : [Golferoo, thè
 - Verre : coins de 16 à 18 px, flou de l'arrière-plan (shader), ombre douce. Pastilles : arrondi complet, 34 px de haut. Boutons d'outil : 52 px, coins de 14 px ; boutons ronds : 44 px.
 - Contenu cartoon : trait `#1D2A24` de 2 à 3 px, ombre pleine décalée vers le bas.
 - **Fredoka** (titres, boutons, noms) et **Nunito** (texte, chiffres), libres (OFL), embarquées. À 1080p : 18 à 20 titre de panneau, 15 texte, 13 légende, jamais moins de 12.
-- Icônes : silhouettes pleines, une couleur, pack CC0 de Kenney pour l'alpha ; les nouvelles suivront ces principes.
+- Icônes : silhouettes pleines, une couleur. Commandes génériques tirées du pack CC0 « Game Icons » de Kenney ; icônes du métier (golf, construction) dessinées en SVG dans le même style.
 - Échelle d'interface 100 % en 1080p (référence), 125 % et 150 % proposés.

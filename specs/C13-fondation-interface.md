@@ -23,7 +23,7 @@ Ce qui prouve la réussite : une fumée Godot prend chaque outil et ouvre chaque
 
 ## Périmètre et hors périmètre
 **Dans le périmètre**
-- Thème Godot construit en code, polices Fredoka et Nunito, verre dépoli (shader), icônes Kenney, et sept composants : panneau, pastille, bouton d'outil, vignette, info-bulle, jauge, tableau.
+- Thème Godot construit en code, polices Fredoka et Nunito (paquets npm `@fontsource`, licence OFL), verre dépoli (shader), icônes Kenney et icônes du métier en SVG, et sept composants : panneau, pastille, bouton d'outil, vignette, info-bulle, jauge, tableau.
 - Barre du bas à deux étages, tiroirs d'outils à onglets et vignettes, bulldozer, boutons ronds des panneaux et de la caméra.
 - Pile de panneaux ; migration des quatre panneaux existants sur les composants.
 - Birdie à la place de `ShowMessage` et des avis de la ligue.
@@ -79,7 +79,9 @@ Ce qui prouve la réussite : une fumée Godot prend chaque outil et ouvre chaque
 Lots 1 puis 2 en série ; 3 et 4 en parallèle après 2 (zones disjointes : panneaux et tutoriel, Birdie et échelle).
 
 ## Choix à trancher par Guillaume
-Aucun : les huit questions du cadrage sont tranchées. Une action de sa part : **déposer le pack « Game Icons » de Kenney** (zip CC0 de kenney.nl) dans le dossier du projet sous `c13/`, car le conteneur cloud ne peut pas télécharger depuis kenney.nl. En attendant, le lot 1 avance avec des silhouettes SVG provisoires (celles de la maquette), remplacées dès réception du pack.
+Aucun : les huit questions du cadrage sont tranchées.
+
+**Icônes** : Guillaume a fourni le pack « Game Icons » de Kenney (CC0, 105 icônes, dossier du projet `c13/kenney_game-icons.zip`). Il couvre les commandes génériques (pause, avance rapide, croix, engrenage, trophée, vidéo, information, sauvegarde, avertissement, cadenas, poubelle) mais aucune icône de golf ni de construction. Le lot 1 copie dans `game/assets/ui/icons/` les seules icônes utilisées (PNG blanc 2x, avec la licence) et dessine en SVG, dans le même style de silhouette pleine, celles du métier : Terrain, Relief, Arbres, Trous, Bâtiments, Aménagements, Gazon, Vues, Bulldozer, Birdie, Votre pro (point de départ : les silhouettes de la maquette v2).
 
 ## Critères d'acceptation
 1. `UiTheme` applique la palette et les polices de `docs/design-interface.md` : la fumée vérifie que le style de panneau et la police d'un bouton de chaque calque d'interface viennent du thème.
