@@ -1,0 +1,134 @@
+{
+ "name": "Dix-huit (banc)",
+ "tilesX": 188,
+ "tilesZ": 125,
+ "ground": "Rough",
+ "holes": [
+  {
+   "file": "../../../data/holes/proto-par4.json",
+   "x": 0,
+   "z": 0,
+   "rotation": 0,
+   "number": 1
+  },
+  {
+   "file": "../../../data/holes/proto-par4.json",
+   "x": 48,
+   "z": 0,
+   "rotation": 0,
+   "number": 2
+  },
+  {
+   "file": "../../../data/holes/proto-par4.json",
+   "x": 96,
+   "z": 0,
+   "rotation": 0,
+   "number": 3
+  },
+  {
+   "file": "../../../data/holes/proto-par4.json",
+   "x": 96,
+   "z": 16,
+   "rotation": 2,
+   "number": 4
+  },
+  {
+   "file": "../../../data/holes/proto-par4.json",
+   "x": 48,
+   "z": 16,
+   "rotation": 2,
+   "number": 5
+  },
+  {
+   "file": "../../../data/holes/proto-par4.json",
+   "x": 0,
+   "z": 16,
+   "rotation": 2,
+   "number": 6
+  },
+  {
+   "file": "../../../data/holes/proto-par4.json",
+   "x": 0,
+   "z": 32,
+   "rotation": 0,
+   "number": 7
+  },
+  {
+   "file": "../../../data/holes/proto-par4.json",
+   "x": 48,
+   "z": 32,
+   "rotation": 0,
+   "number": 8
+  },
+  {
+   "file": "../../../data/holes/proto-par4.json",
+   "x": 96,
+   "z": 32,
+   "rotation": 0,
+   "number": 9
+  },
+  {
+   "file": "../../../data/holes/proto-par4.json",
+   "x": 96,
+   "z": 48,
+   "rotation": 2,
+   "number": 10
+  },
+  {
+   "file": "../../../data/holes/proto-par4.json",
+   "x": 48,
+   "z": 48,
+   "rotation": 2,
+   "number": 11
+  },
+  {
+   "file": "../../../data/holes/proto-par4.json",
+   "x": 0,
+   "z": 48,
+   "rotation": 2,
+   "number": 12
+  },
+  {
+   "file": "../../../data/holes/proto-par4.json",
+   "x": 0,
+   "z": 64,
+   "rotation": 0,
+   "number": 13
+  },
+  {
+   "file": "../../../data/holes/proto-par4.json",
+   "x": 48,
+   "z": 64,
+   "rotation": 0,
+   "number": 14
+  },
+  {
+   "file": "../../../data/holes/proto-par4.json",
+   "x": 96,
+   "z": 64,
+   "rotation": 0,
+   "number": 15
+  },
+  {
+   "file": "../../../data/holes/dogleg-par4.json",
+   "x": 144,
+   "z": 72,
+   "rotation": 0,
+   "number": 16
+  },
+  {
+   "file": "../../../data/holes/dogleg-par4.json",
+   "x": 144,
+   "z": 36,
+   "rotation": 2,
+   "number": 17
+  },
+  {
+   "file": "../../../data/holes/dogleg-par4.json",
+   "x": 144,
+   "z": 0,
+   "rotation": 0,
+   "number": 18
+  }
+ ]
+}

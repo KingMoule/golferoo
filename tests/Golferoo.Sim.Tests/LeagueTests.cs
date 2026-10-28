@@ -264,7 +264,7 @@ public class LeagueTests(ITestOutputHelper output)
         var round = world.League.Rounds[0];
         output.WriteLine($"{round.Pairs.Count} groupes : {(round.EndTick - round.StartTick) / (double)Calendar.TicksPerDay:F2} jour(s) de jeu");
         Assert.True(round.Pairs.Count >= 11);
-        // C12 lot 2 : les groupes s'attendent (le groupe suivant ne joue pas son approche avant que celui de devant ait fini le trou), la journée dure donc environ 4 jours de jeu au lieu de 2 ; les journées sont à un mois d'écart.
+        // Mesuré sur main avant C12 : 1,33 jour de jeu. Depuis C12 lot 2, les groupes s'attendent (le groupe suivant ne joue pas son approche avant que celui de devant ait fini le trou) : 4,11 jours. Les journées sont à un mois d'écart.
         Assert.True(round.EndTick - round.StartTick < 5L * Calendar.TicksPerDay);
     }
 

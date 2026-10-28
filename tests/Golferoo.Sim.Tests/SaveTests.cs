@@ -392,6 +392,42 @@ public class SaveTests
         Assert.Equal(original.Checksum(), loaded.Checksum());
     }
 
+    /// <summary>C12 lot 4 : un golfeur au milieu de la planification de son coup (candidats déjà évalués), et des champs de flux qui attendent après une retouche.</summary>
+    [Theory]
+    [InlineData("plan")]
+    [InlineData("flow")]
+    public void MidPlanOrMidRetouch_ReloadedAndAdvanced_HasTheSameChecksum(string scenario)
+    {
+        var original = new World(4, Hole("dogleg"));
+        original.SetLoadMode(40);
+        original.SpawnGroup();
+        if (scenario == "plan")
+        {
+            for (var i = 0; i < 6000 && !original.Groups[0].Golfers.Any(g => g.Plan is { IsDone: false, Stage: > 0 } or { IsDone: false, Cursor: > 20 }); i++)
+            {
+                original.Step();
+            }
+
+            Assert.Contains(original.Groups[0].Golfers, g => g.Plan is { IsDone: false });
+        }
+        else
+        {
+            original.Step(300);
+            original.PaintSurface(new Point2(150, 70), 12, Surface.Bunker);
+            original.Step();
+            Assert.NotEmpty(original.Flow!.Pending);
+        }
+
+        var bytes = Save(original);
+        var loaded = Load(bytes);
+        Assert.Equal(original.Checksum(), loaded.Checksum());
+        Assert.Equal(bytes, Save(loaded));
+        original.Step(600);
+        loaded.Step(600);
+
+        Assert.Equal(original.Checksum(), loaded.Checksum());
+    }
+
     [Fact]
     public void NewState_EntersTheChecksum()
     {

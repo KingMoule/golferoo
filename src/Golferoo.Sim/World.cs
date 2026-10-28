@@ -28,6 +28,9 @@ public sealed partial class World
     /// <summary>Durée d'un coup (geste), en ticks.</summary>
     private const int SwingTicksCount = TicksPerSecond;
 
+    /// <summary>Budget de planification par tick, tous golfeurs confondus, en pas de simulation de la balle (<see cref="Shots.BallSimulator.Step"/>) : environ 0,3 µs chacun, soit 1,5 à 2 ms par tick. Un drive complet en compte des dizaines de milliers.</summary>
+    public const int PlanBudgetPerTick = 6500;
+
     /// <summary>Ramassage de la balle après ce nombre de coups : garde-fou contre une partie sans fin.</summary>
     public const int MaxStrokes = 12;
 
@@ -97,6 +100,7 @@ public sealed partial class World
                 physical.Trees = Trees;
                 physical.Season = Season;
                 physical.BeautySources = _beautySources;
+                physical.MapCapacity = MapCapacityFor(terrain);
             }
         }
         else
@@ -478,10 +482,13 @@ public sealed partial class World
                 physical.Wind = Wind;
             }
 
+            Flow!.BeginTick();
             for (var i = 0; i < _groups.Count; i++)
             {
                 UpdateGroup(Terrain, i);
             }
+
+            AdvancePlans(Terrain);
 
             for (var i = 0; i < _roamers.Count; i++)
             {
@@ -582,6 +589,15 @@ public sealed partial class World
             Mix(ref hash, Terrain.Turf.Checksum());
         }
 
+        if (Flow is { Pending.Count: > 0 })
+        {
+            Mix(ref hash, (ulong)Flow.Pending.Count);
+            foreach (var key in Flow.Pending)
+            {
+                Mix(ref hash, (ulong)key);
+            }
+        }
+
         MixPendingEdits(ref hash);
         MixTreeCommands(ref hash);
         MixHoleCommands(ref hash);
@@ -675,6 +691,8 @@ public sealed partial class World
             MixShot(ref hash, shot);
         }
 
+        g.Plan?.MixInto(ref hash);
+
         Mix(ref hash, (ulong)BitConverter.DoubleToInt64Bits(g.Position.X));
         Mix(ref hash, (ulong)BitConverter.DoubleToInt64Bits(g.Position.Z));
         Mix(ref hash, (ulong)BitConverter.DoubleToInt64Bits(g.Ball.X));
@@ -727,6 +745,13 @@ public sealed partial class World
         return found ? result : GridQueries.NearestWalkablePoint(terrain, want);
     }
 
+    /// <summary>
+    /// Cartes de jeu à garder : un drapeau et un centre de green par trou (le prudent), plus quatre pour les drapeaux déplacés d'un jour à l'autre, dans la limite d'environ 32 Mo ; avec moins, chaque coup
+    /// d'un autre trou refait une carte de plusieurs millisecondes.
+    /// </summary>
+    internal static int MapCapacityFor(TerrainGrid terrain) =>
+        Math.Clamp(32_000_000 / (terrain.CellsX * terrain.CellsZ * 8), 4, (2 * terrain.Course.Count) + 4);
+
     private TerrainGrid RequireTerrain() =>
         Terrain ?? throw new InvalidOperationException("Ce monde n'a pas de terrain.");
 
@@ -752,7 +777,11 @@ public sealed partial class World
         }
 
         var target = _waypoints[g.WaypointIndex];
-        var field = Flow!.Get(target);
+        if (Flow!.TryGet(target) is not { } field)
+        {
+            return;
+        }
+
         var pos = g.Position;
         var result = FlowWalker.Advance(terrain, field, ref pos, target, TickSeconds);
         g.Position = pos;
@@ -795,7 +824,8 @@ public sealed partial class World
                     break;
                 case GolferState.Swinging:
                 case GolferState.Putting:
-                    if (--g.SwingTicks <= 0)
+                    // Le geste dure SwingTicksCount ticks ; le coup ne part pas avant que sa planification soit finie.
+                    if (--g.SwingTicks <= 0 && g.Plan is not { IsDone: false })
                     {
                         Hit(terrain, g, hole.Hole);
                     }
@@ -859,6 +889,7 @@ public sealed partial class World
             group.Started = true;
             shooter.State = terrain.SurfaceAt(shooter.Ball.X, shooter.Ball.Z) == Surface.Green ? GolferState.Putting : GolferState.Swinging;
             shooter.SwingTicks = SwingTicksCount;
+            shooter.Plan = shooter.State == GolferState.Swinging && !IsManualPro(shooter) && _resolver is PhysicalShotResolver ? new PlanJob() : null;
             if (IsManualPro(shooter) && !Gimme(terrain, hole.Hole, shooter))
             {
                 shooter.State = GolferState.AwaitingShot;
@@ -950,7 +981,11 @@ public sealed partial class World
 
     private bool Walk(TerrainGrid terrain, Golfer g, Point2 target)
     {
-        var field = Flow!.Get(target);
+        if (Flow!.TryGet(target) is not { } field)
+        {
+            return false; // son champ de flux attend d'être refait après une retouche : il reste sur place ce tick-là
+        }
+
         var pos = g.Position;
         var (cx, cz) = (terrain.CellXOf(pos.X), terrain.CellZOf(pos.Z));
         var result = FlowWalker.Advance(terrain, field, ref pos, target, TickSeconds);
@@ -971,6 +1006,38 @@ public sealed partial class World
         return result == WalkResult.Arrived;
     }
 
+    /// <summary>
+    /// Fait avancer les planifications de coups en cours, golfeur après golfeur dans l'ordre des groupes, avec un budget de
+    /// <see cref="PlanBudgetPerTick"/> pas de simulation par tick pour tout le monde : un drive planifié d'un seul tenant coûte des dizaines de
+    /// millisecondes. Le budget se compte en pas de simulation, jamais en temps : le résultat ne dépend que de l'état. Une évaluation en cours
+    /// finit toujours, le budget peut donc être dépassé d'un vol.
+    /// </summary>
+    private void AdvancePlans(TerrainGrid terrain)
+    {
+        if (_resolver is not PhysicalShotResolver physical)
+        {
+            return;
+        }
+
+        var budget = PlanBudgetPerTick;
+        foreach (var group in _groups)
+        {
+            foreach (var g in group.Golfers)
+            {
+                if (budget <= 0)
+                {
+                    return;
+                }
+
+                if (g.Plan is { IsDone: false } job && g.State == GolferState.Swinging)
+                {
+                    var request = new ShotRequest(g.Ball, terrain.Course[group.Hole].Hole, g.Strokes, g.Skill, g.Profile);
+                    budget = physical.Advance(job, request, terrain, budget).Left;
+                }
+            }
+        }
+    }
+
     private void Hit(TerrainGrid terrain, Golfer g, Point2 pin)
     {
         if (terrain.SurfaceAt(g.Ball.X, g.Ball.Z) is Surface.Fairway or Surface.Tee)
@@ -979,7 +1046,10 @@ public sealed partial class World
         }
 
         var request = new ShotRequest(g.Ball, pin, g.Strokes, g.Skill, g.Profile);
-        var result = g.PlannedShot is { } shot ? ExecuteProShot(terrain, g, shot, pin) : _resolver.Resolve(request, terrain, _rng);
+        var result = g.PlannedShot is { } shot ? ExecuteProShot(terrain, g, shot, pin)
+            : g.Plan is { Result: { } plan } && _resolver is PhysicalShotResolver physical ? physical.ExecutePlan(request, plan, terrain, _rng)
+            : _resolver.Resolve(request, terrain, _rng);
+        g.Plan = null;
         g.Pending = result;
         g.FlightPath = result.Trajectory;
         g.FlightIndex = 0;

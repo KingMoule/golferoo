@@ -118,6 +118,8 @@ public sealed partial class World
         w.Bool(League is not null);
         League?.Write(w);
         Pro?.Write(w);
+        w.List(Flow?.Pending ?? [], w.Int);
+        w.List(Flow?.CachedKeys ?? [], w.Int);
         w.Bool(_manualPro);
     }
 
@@ -206,6 +208,8 @@ public sealed partial class World
             _proMemberId = League.Members.First(m => m.IsPro).Id;
         }
 
+        var pendingFlow = r.List(r.Int);
+        var cachedFlow = r.List(r.Int);
         _manualPro = r.Bool();
         if (_manualPro && League is null)
         {
@@ -215,7 +219,7 @@ public sealed partial class World
         _resolver = resolver ?? (Terrain is null ? new StubShotResolver() : new PhysicalShotResolver());
         if (Terrain is not null)
         {
-            Flow = new FlowFieldCache(Terrain);
+            Flow = new FlowFieldCache(Terrain, pending: pendingFlow, cached: cachedFlow);
             Terrain.Soil.Season = Season;
             RefreshSoil();
             if (_resolver is PhysicalShotResolver physical)
@@ -223,6 +227,7 @@ public sealed partial class World
                 physical.Trees = Trees;
                 physical.Season = Season;
                 physical.BeautySources = _beautySources;
+                physical.MapCapacity = MapCapacityFor(Terrain);
             }
         }
     }

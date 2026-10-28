@@ -19,7 +19,9 @@ public sealed class BeautyMap
 
     private readonly float[] _beauty;
     private readonly TerrainGrid _terrain;
-    private readonly long _terrainVersion;
+    private long _terrainVersion;
+    private bool[] _water = [];
+    private bool[] _flowers = [];
     private readonly TreeStand? _trees;
     private readonly long _treesVersion;
     private readonly Season _season;
@@ -47,6 +49,36 @@ public sealed class BeautyMap
         && ReferenceEquals(trees, _trees) && (trees?.Version ?? 0) == _treesVersion
         && season == _season && ReferenceEquals(sources, _sources) && sources.Count == _sourceCount;
 
+    /// <summary>
+    /// Comme <see cref="IsFor"/>, mais une retouche des surfaces qui laisse l'eau où elle était ne compte pas et les fleurs du printemps non plus :
+    /// la carte est alors la même, on la garde (C12 lot 4 : sans cela, chaque retouche coûtait une carte entière au premier artiste qui joue).
+    /// </summary>
+    public bool StillValid(TerrainGrid terrain, TreeStand? trees, Season season, IReadOnlyList<Point2> sources)
+    {
+        if (IsFor(terrain, trees, season, sources))
+        {
+            return true;
+        }
+
+        if (!ReferenceEquals(terrain, _terrain) || !ReferenceEquals(trees, _trees) || (trees?.Version ?? 0) != _treesVersion
+            || season != _season || !ReferenceEquals(sources, _sources) || sources.Count != _sourceCount)
+        {
+            return false;
+        }
+
+        var nx = terrain.CellsX;
+        for (var i = 0; i < _water.Length; i++)
+        {
+            if ((terrain.GetCellSurface(i % nx, i / nx) == Surface.Water) != _water[i] || (season == Season.Spring && Flowers.HasTuft(terrain, i % nx, i / nx) != _flowers[i]))
+            {
+                return false;
+            }
+        }
+
+        _terrainVersion = terrain.SurfaceVersion;
+        return true;
+    }
+
     public static BeautyMap Build(TerrainGrid terrain, TreeStand? trees, Season season, IReadOnlyList<Point2> sources)
     {
         var map = new BeautyMap(terrain, trees, season, sources);
@@ -70,6 +102,7 @@ public sealed class BeautyMap
             mask[i] = terrain.GetCellSurface(i % nx, i / nx) == Surface.Water;
         }
 
+        map._water = (bool[])mask.Clone();
         Add(WaterWeight);
         if (trees is not null && trees.Count > 0)
         {
@@ -91,6 +124,7 @@ public sealed class BeautyMap
                 mask[i] = Flowers.HasTuft(terrain, i % nx, i / nx);
             }
 
+            map._flowers = (bool[])mask.Clone();
             Add(FlowerWeight);
         }
 

@@ -97,10 +97,15 @@ public class CourseReadingTests(ITestOutputHelper output)
         var other = cache.Get(terrain, world.Trees, terrain.Hole);
         Assert.Same(other, cache.Get(terrain, world.Trees, terrain.Hole));
 
+        // Lot 4 : une retouche qui ne change pas les coûts de la carte (rough, fairway, bunker) la laisse en place ; du sous-bois la refait.
         terrain.PaintCell(5, 5, terrain.GetCellSurface(5, 5) == Surface.Rough ? Surface.Fairway : Surface.Rough);
+        Assert.Same(other, cache.Get(terrain, world.Trees, terrain.Hole));
+        terrain.PaintCell(5, 5, Surface.Trees);
         var repainted = cache.Get(terrain, world.Trees, terrain.Hole);
         Assert.NotSame(other, repainted);
 
+        // Un arbre adulte seul ne fait pas un bosquet (deux couronnes) ; deux au même endroit, si.
+        world.Trees.Add(10.0, 10.0, Trees.TreeSpeciesId.Oak, 600);
         world.Trees.Add(10.0, 10.0, Trees.TreeSpeciesId.Oak, 600);
         Assert.NotSame(repainted, cache.Get(terrain, world.Trees, terrain.Hole));
     }
