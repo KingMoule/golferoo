@@ -1,3 +1,4 @@
+using Golferoo.Sim.Economy;
 using Golferoo.Sim.Terrain;
 using Golferoo.Sim.Trees;
 
@@ -5,7 +6,8 @@ namespace Golferoo.Sim;
 
 /// <summary>
 /// Commandes sur les arbres, en file comme <see cref="PaintSurface"/> : appliquées au début du tick suivant, dans l'ordre,
-/// comptées dans <see cref="Checksum"/>. Une commande refusée (arbre absent, lieu interdit) est comptée dans
+/// comptées dans <see cref="Checksum"/>, débitées au grand livre (catégorie Arbres) aux prix de <see cref="Economy"/>. Une commande refusée
+/// (arbre absent, lieu interdit, ou limite de découvert, qui lève aussi <see cref="Ledger.PurchaseRefused"/>) est comptée dans
 /// <see cref="TreeCommandsRefused"/> et ne coûte rien.
 /// Un tronc tombé et une souche n'arrêtent pas la balle dans ce lot et ne comptent pas dans <see cref="TreeStand.MaxTopNear"/> :
 /// la collision avec les troncs couchés est hors périmètre.
@@ -19,9 +21,6 @@ public sealed partial class World
 
     /// <summary>Levé quand un arbre vient de tomber (état <see cref="TreeState.Fallen"/>, direction dans <see cref="Tree.FallYaw"/>) : le rendu joue la chute.</summary>
     public event Action<Tree>? TreeFelled;
-
-    /// <summary>Dépenses cumulées en travaux sur les arbres (constantes de <see cref="TreeCosts"/>), sans caisse.</summary>
-    public long TreeSpending { get; private set; }
 
     /// <summary>Commandes d'arbres refusées depuis le début.</summary>
     public int TreeCommandsRefused { get; private set; }
@@ -78,7 +77,7 @@ public sealed partial class World
         _treeCommands.Enqueue(new TreeCommand(TreeCommandKind.Fell, id, 0, 0, direction, false, TreeSpeciesId.Oak, TreePlantStage.Sapling));
     }
 
-    /// <summary>Dégage un tronc tombé : il devient une souche. Coût : <see cref="TreeCosts.ClearFallen"/>.</summary>
+    /// <summary>Dégage un tronc tombé : il devient une souche. Coût : <see cref="EconomyParams.TreeClearFallen"/>.</summary>
     public void ClearFallen(int id)
     {
         RequireTerrain();
@@ -131,7 +130,11 @@ public sealed partial class World
             return false;
         }
 
-        TreeSpending += TreeCosts.RazeCost(tree);
+        if (!TrySpend(LedgerCategory.Trees, Economy.RazeCost(tree)))
+        {
+            return false;
+        }
+
         Trees.Remove(id);
         NotifyTrees(terrain, tree.X, tree.Z, tree.X, tree.Z);
         return true;
@@ -142,6 +145,7 @@ public sealed partial class World
         var near = new List<Tree>();
         Trees.Query(center.X, center.Z, radius, near);
         var doomed = new HashSet<int>();
+        var cost = 0L;
         foreach (var t in near)
         {
             if (keepRemarkable && t.Remarkable)
@@ -150,12 +154,18 @@ public sealed partial class World
             }
 
             doomed.Add(t.Id);
-            TreeSpending += t.State switch
+            cost += t.State switch
             {
-                TreeState.Standing => TreeCosts.RazeCost(t),
-                TreeState.Fallen => TreeCosts.ClearFallen,
+                TreeState.Standing => Economy.RazeCost(t),
+                TreeState.Fallen => Economy.TreeClearFallen,
                 _ => 0,
             };
+        }
+
+        var cells = terrain.CountPaint(center, radius, Surface.Rough, Surface.Trees);
+        if (!TrySpend(LedgerCategory.Trees, cost + Price(cells * terrain.CellSize * terrain.CellSize, Economy.TreeClearPerM2)))
+        {
+            return false;
         }
 
         if (doomed.Count > 0)
@@ -163,8 +173,7 @@ public sealed partial class World
             Trees.RemoveWhere(t => doomed.Contains(t.Id));
         }
 
-        var cleared = terrain.PaintDisc(center, radius, Surface.Rough, Surface.Trees, out var cells);
-        TreeSpending += (long)Math.Round(cells * terrain.CellSize * terrain.CellSize * TreeCosts.ClearPerSquareMeter);
+        var cleared = terrain.PaintDisc(center, radius, Surface.Rough, Surface.Trees, out _);
         if (cleared is { } rect)
         {
             // Une surface a changé : les champs de flux se recalculent comme après une peinture.
@@ -195,7 +204,7 @@ public sealed partial class World
         }
 
         var species = TreeSpeciesTable.Get(c.Species);
-        var age = c.Stage == TreePlantStage.Mound ? TreeCosts.MoundAgeMonths(Trees.NextId) : 0;
+        var age = c.Stage == TreePlantStage.Mound ? TreePlanting.MoundAgeMonths(Trees.NextId) : 0;
         var crown = Tree.CrownDiameter(species, age) * 0.5;
         var near = new List<Tree>();
         // Rayon de recherche : un tronc couché s'étend jusqu'à la hauteur de l'arbre depuis son pied.
@@ -226,7 +235,11 @@ public sealed partial class World
             }
         }
 
-        TreeSpending += TreeCosts.PlantCost(c.Stage);
+        if (!TrySpend(LedgerCategory.Trees, Economy.PlantCost(c.Stage)))
+        {
+            return false;
+        }
+
         Trees.Add(c.X, c.Z, c.Species, age);
         NotifyTrees(terrain, c.X, c.Z, c.X, c.Z);
         return true;
@@ -269,7 +282,11 @@ public sealed partial class World
             return false;
         }
 
-        TreeSpending += TreeCosts.ClearFallen;
+        if (!TrySpend(LedgerCategory.Trees, Economy.TreeClearFallen))
+        {
+            return false;
+        }
+
         Trees.SetState(id, TreeState.Stump, tree.FallYaw);
         NotifyTrees(terrain, tree.X, tree.Z, tree.X + (Math.Cos(tree.FallYaw) * tree.Height()), tree.Z + (Math.Sin(tree.FallYaw) * tree.Height()));
         return true;
@@ -287,7 +304,7 @@ public sealed partial class World
 
     private void MixTreeCommands(ref ulong hash)
     {
-        Mix(ref hash, (ulong)TreeSpending);
+        MixEconomy(ref hash);
         Mix(ref hash, (ulong)TreeCommandsRefused);
         Mix(ref hash, (ulong)_treeCommands.Count);
         foreach (var c in _treeCommands)

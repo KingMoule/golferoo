@@ -1,3 +1,4 @@
+using Golferoo.Sim.Economy;
 using Golferoo.Sim.Golfers;
 using Golferoo.Sim.League;
 using Golferoo.Sim.Pathing;
@@ -61,10 +62,12 @@ public sealed partial class World
     private Point2?[] _exitPoints = [];
     private long _exitPointVersion = -1;
 
-    public World(ulong seed, TerrainGrid? terrain = null, IShotResolver? resolver = null, bool league = false)
+    public World(ulong seed, TerrainGrid? terrain = null, IShotResolver? resolver = null, bool league = false, EconomyParams? economy = null)
     {
         Seed = seed;
         Terrain = terrain;
+        Economy = economy ?? EconomyParams.Facile;
+        Ledger = new Ledger(Economy.StartingMoney);
         if (terrain is not null)
         {
             _holesOpen = [.. terrain.Course.Holes.Select(_ => !terrain.Blank)];
@@ -261,6 +264,7 @@ public sealed partial class World
     /// <summary>Debug : saute au 1er du mois suivant et fait pousser les arbres.</summary>
     public void SkipToNextMonth()
     {
+        CloseMonth(CurrentMonth);
         _dayOffset += Calendar.DaysPerMonth - Date.Day + 1;
         _rainyDays = 0;
         GrowTrees();
@@ -507,7 +511,7 @@ public sealed partial class World
             }
         }
 
-        var month = Calendar.MonthIndex(Tick, _dayOffset);
+        var month = CurrentMonth;
         var day = DayIndex;
         Tick++;
         if (DayIndex != day)
@@ -530,8 +534,9 @@ public sealed partial class World
             }
         }
 
-        if (Calendar.MonthIndex(Tick, _dayOffset) != month)
+        if (CurrentMonth != month)
         {
+            CloseMonth(month);
             SpringRain(day);
             GrowTrees();
         }

@@ -11,7 +11,7 @@ namespace Golferoo.Game.Tools;
 /// fait ce que dit <see cref="Mode"/> : sélectionner l'arbre sous le curseur, planter un plant ou une motte de <see cref="Species"/>,
 /// ou raser la zone au rayon du pinceau (sous-bois compris, remarquables épargnés si <see cref="KeepRemarkable"/>).
 /// Les touches d'avant (T, R, X, K, Y, P, M, F, C, [ et ]) restent actives sans être affichées ; F (faire tomber, debug) n'a pas de bouton.
-/// Ne fait que poster des commandes à <see cref="World"/> : aucune règle ici ; les coûts affichés viennent de <see cref="TreeCosts"/>.
+/// Ne fait que poster des commandes à <see cref="World"/> : aucune règle ici ; les coûts affichés viennent de <see cref="World.Economy"/>.
 /// </summary>
 public partial class TreeTool : Node3D
 {

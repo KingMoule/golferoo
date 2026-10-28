@@ -1,3 +1,4 @@
+using Golferoo.Sim.Economy;
 using Golferoo.Sim.Golfers;
 using Golferoo.Sim.League;
 using Golferoo.Sim.Pathing;
@@ -64,7 +65,8 @@ public sealed partial class World
         w.Int(_nextGolferId);
         w.List(_holesOpen, w.Bool);
         w.Long(_holeCheckedVersion);
-        w.Long(TreeSpending);
+        w.String(Economy.ToJson());
+        Ledger.Write(w);
         w.Int(TreeCommandsRefused);
         w.Int(TreesPlanted);
         w.Bool(CourseRating is not null);
@@ -166,7 +168,8 @@ public sealed partial class World
         _nextGolferId = r.Int();
         _holesOpen = [.. r.List(r.Bool)];
         _holeCheckedVersion = r.Long();
-        TreeSpending = r.Long();
+        Economy = EconomyParams.Parse(r.String());
+        Ledger = Ledger.Read(r);
         TreeCommandsRefused = r.Int();
         TreesPlanted = r.Int();
         CourseRating = r.Bool() ? ReadRating(r) : null;
