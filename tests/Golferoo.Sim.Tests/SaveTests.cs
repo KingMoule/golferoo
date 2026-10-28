@@ -341,11 +341,13 @@ public class SaveTests
         Assert.Throws<InvalidDataException>(() => Load(bytes));
     }
 
-    [Fact]
-    public void Load_VersionTwo_SaysItIsAnOlderVersion()
+    [Theory]
+    [InlineData(2)]
+    [InlineData(3)] // C12 lot 4 : planification en cours dans le golfeur, champs de flux en attente et en cache dans le monde
+    public void Load_VersionTwoOrThree_SaysItIsAnOlderVersion(byte version)
     {
         var bytes = Save(Build(1, "proto", "start"));
-        bytes[4] = 2;
+        bytes[4] = version;
 
         var e = Assert.Throws<InvalidDataException>(() => Load(bytes));
         Assert.Contains("ancienne version", e.Message);

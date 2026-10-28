@@ -16,7 +16,8 @@ public class CourseTests
     // Lot 4 : les six sommes de coups ont changé, les trois du trou « blank-coude » (aucun coup joué) non. Le coup se planifie désormais pendant le geste, avec un budget de pas de simulation
     // par tick (World.PlanBudgetPerTick) : un golfeur dont la planification dépasse le geste attend qu'elle finisse avant de frapper, et la planification voit le vent du début du geste.
     // Les trajectoires s'écartent donc de celles d'avant, et la somme est prise à un tick où une planification peut être en cours (son état entre dans la somme).
-    // Contrôle : planifié d'un seul tenant au dernier tick du geste (comme avant), le cas proto-par4 / graine 1 redonne l'ancienne somme 8206224353995095296.
+    // Contrôle (vérifié) : sans PlanJob, coup planifié d'un seul tenant au dernier tick du geste comme avant, les six cas redonnent exactement leurs anciennes sommes. Avec une planification
+    // d'un tenant au dernier tick mais un PlanJob créé au début du geste, proto-par4 / graine 1 ne la redonne pas : au tick 2000 un geste est en cours et l'état du PlanJob entre dans la somme.
     [InlineData("proto-par4", 1UL, 11628230111699753088UL)]
     [InlineData("proto-par4", 2UL, 16057505216054300669UL)]
     [InlineData("proto-par4", 3UL, 6791233052755137976UL)]

@@ -49,8 +49,15 @@ const double fullCourseRetouchLimitMs = 16.0;
 if (args.Contains("--full-only"))
 {
     var only = MeasureFullCourse(Path.Combine(Path.GetDirectoryName(holePath)!, "..", "..", "tests", "Golferoo.Sim.Bench", "Courses", "dix-huit.json"));
-    Console.WriteLine($"tick moyen {only.TickMean:F3} ms, p99 {only.TickP99:F3} ms, pire {only.TickMax:F2} ms ; retouche médiane {only.Retouch.Median:F2} ms, pire {only.Retouch.Max:F2} ms ({only.CachedFields} champs) ; {only.Trees} arbres ; mise en place {only.WarmupTicks} ticks ; ligue {only.LeagueDays:F2} jours, {only.LeagueGroups} groupes");
-    return 0;
+    var onlyPassed = only.Passed(fullCourseTickMeanLimitMs, fullCourseTickP99LimitMs, fullCourseRetouchLimitMs, saveLimitMs, loadLimitMs, saveFileLimitBytes);
+    Console.WriteLine($"tick moyen {only.TickMean:F3} ms, p99 {only.TickP99:F3} ms, pire {only.TickMax:F2} ms ; retouche médiane {only.Retouch.Median:F2} ms, pire {only.Retouch.Max:F2} ms ({only.CachedFields} champs) ; sauvegarde {only.SaveMs:F1} ms, chargement {only.LoadMs:F1} ms, {only.SaveBytes / 1024.0:F0} Ko ({only.Swinging} gestes en cours) ; {only.Trees} arbres ; mise en place {only.WarmupTicks} ticks ; ligue {only.LeagueDays:F2} jours, {only.LeagueGroups} groupes");
+    WriteSummary(only, onlyPassed);
+    if (outPath is not null)
+    {
+        File.WriteAllText(outPath, JsonSerializer.Serialize(new { fullCourse = FullJson(only, onlyPassed) }, new JsonSerializerOptions { WriteIndented = true }));
+    }
+
+    return onlyPassed ? 0 : 1;
 }
 
 // Carte plate de 512 x 512 cellules, la même à tous les facteurs.
@@ -264,34 +271,14 @@ Console.WriteLine($"Planification par profil (dogleg, tee) : {string.Join(", ", 
 // ce que les 18 trous soient occupés, puis 20 000 ticks sont mesurés (un groupe qui finit est remplacé par un nouveau au départ).
 // Retouche de surface en pleine charge : pire tick de la peinture et des 40 ticks qui suivent (champs de flux refaits quelques-uns par tick).
 var full = MeasureFullCourse(Path.Combine(Path.GetDirectoryName(holePath)!, "..", "..", "tests", "Golferoo.Sim.Bench", "Courses", "dix-huit.json"));
-var fullPassed = full.TickMean < fullCourseTickMeanLimitMs && full.TickP99 < fullCourseTickP99LimitMs && full.Retouch.Median < fullCourseRetouchLimitMs;
+var fullPassed = full.Passed(fullCourseTickMeanLimitMs, fullCourseTickP99LimitMs, fullCourseRetouchLimitMs, saveLimitMs, loadLimitMs, saveFileLimitBytes);
 allPassed &= fullPassed;
-Console.WriteLine($"Parcours chargé (18 trous, {full.Groups} groupes, {full.Trees} arbres) : tick moyen {full.TickMean:F3} ms (limite {fullCourseTickMeanLimitMs}), p99 {full.TickP99:F3} ms (limite {fullCourseTickP99LimitMs}), pire {full.TickMax:F2} ms ; retouche {full.Retouch.Median:F2} ms médiane, {full.Retouch.Max:F2} ms pire ({full.CachedFields} champs en cache, limite {fullCourseRetouchLimitMs}) ; mise en place {full.WarmupTicks} ticks ; journée de ligue : {full.LeagueDays:F2} jour(s) de jeu pour {full.LeagueGroups} groupes");
+Console.WriteLine($"Parcours chargé (18 trous, {full.Groups} groupes, {full.Trees} arbres, sauvegarde {full.SaveMs:F1} ms / chargement {full.LoadMs:F1} ms / {full.SaveBytes / 1024.0:F0} Ko) : tick moyen {full.TickMean:F3} ms (limite {fullCourseTickMeanLimitMs}), p99 {full.TickP99:F3} ms (limite {fullCourseTickP99LimitMs}), pire {full.TickMax:F2} ms ; retouche {full.Retouch.Median:F2} ms médiane, {full.Retouch.Max:F2} ms pire ({full.CachedFields} champs en cache, limite {fullCourseRetouchLimitMs}) ; mise en place {full.WarmupTicks} ticks ; journée de ligue : {full.LeagueDays:F2} jour(s) de jeu pour {full.LeagueGroups} groupes");
 WriteSummary(full, fullPassed);
 
 var report = new
 {
-    fullCourse = new
-    {
-        holes = 18,
-        groups = full.Groups,
-        trees = full.Trees,
-        ticks = full.Ticks,
-        warmupTicks = full.WarmupTicks,
-        tickMeanMs = full.TickMean,
-        tickP99Ms = full.TickP99,
-        tickMaxMs = full.TickMax,
-        retouchMedianMs = full.Retouch.Median,
-        retouchMaxMs = full.Retouch.Max,
-        cachedFields = full.CachedFields,
-        leagueDays = full.LeagueDays,
-        leagueGroups = full.LeagueGroups,
-        limitTickMeanMs = fullCourseTickMeanLimitMs,
-        limitTickP99Ms = fullCourseTickP99LimitMs,
-        limitRetouchMs = fullCourseRetouchLimitMs,
-        passed = fullPassed,
-        checksum = full.Checksum,
-    },
+    fullCourse = FullJson(full, fullPassed),
     planProfiles = new { teeMedianMs = planProfiles.ToDictionary(p => p.Profile.ToString(), p => p.Ms), worstRatio = planProfileWorst, limit = planProfileRatioLimit, passed = planProfileWorst <= planProfileRatioLimit },
     playMap = new { doglegMedianMs = mapDogleg.Median, doglegLimitMs = playMapDoglegLimitMs, map512MedianMs = map512.Median, map512LimitMs = playMap512LimitMs, passed = mapDogleg.Median < playMapDoglegLimitMs && map512.Median < playMap512LimitMs },
     tutorial = new { holeCheckMedianMs = holeCheck.Median, stepMedianMs = tutorialStep.Median, limitMs = tutorialLimitMs, passed = holeCheck.Median < tutorialLimitMs && tutorialStep.Median < tutorialLimitMs },
@@ -341,6 +328,35 @@ if (outPath is not null)
 
 return allPassed ? 0 : 1;
 
+static object FullJson(FullCourseResult r, bool passed) => new
+{
+    holes = 18,
+    groups = r.Groups,
+    trees = r.Trees,
+    ticks = r.Ticks,
+    warmupTicks = r.WarmupTicks,
+    tickMeanMs = r.TickMean,
+    tickP99Ms = r.TickP99,
+    tickMaxMs = r.TickMax,
+    retouchMedianMs = r.Retouch.Median,
+    retouchMaxMs = r.Retouch.Max,
+    cachedFields = r.CachedFields,
+    leagueDays = r.LeagueDays,
+    leagueGroups = r.LeagueGroups,
+    saveMedianMs = r.SaveMs,
+    loadMedianMs = r.LoadMs,
+    saveFileBytes = r.SaveBytes,
+    swingingAtSave = r.Swinging,
+    limitTickMeanMs = 2.0,
+    limitTickP99Ms = 5.0,
+    limitRetouchMedianMs = 16.0,
+    limitSaveMs = 50.0,
+    limitLoadMs = 1000.0,
+    limitSaveFileBytes = 2 * 1024 * 1024,
+    passed,
+    checksum = r.Checksum,
+};
+
 static void WriteSummary(FullCourseResult r, bool passed)
 {
     var path = Environment.GetEnvironmentVariable("GITHUB_STEP_SUMMARY");
@@ -362,6 +378,8 @@ static void WriteSummary(FullCourseResult r, bool passed)
         | Tick 99e centile | {r.TickP99:F3} ms | 5 ms |
         | Pire tick | {r.TickMax:F2} ms | |
         | Retouche de surface, pire tick des 41 suivants (médiane / pire des 30) | {r.Retouch.Median:F2} / {r.Retouch.Max:F2} ms, {r.CachedFields} champs en cache | 16 ms |
+        | Sauvegarde ({r.Swinging} gestes en cours) : écriture / chargement | {r.SaveMs:F1} / {r.LoadMs:F1} ms | 50 / 1000 ms |
+        | Fichier de sauvegarde | {r.SaveBytes / 1024.0:F0} Ko | 2048 Ko |
         | Journée de ligue ({r.LeagueGroups} groupes) | {r.LeagueDays:F2} jour(s) de jeu | |
 
         """);
@@ -443,6 +461,17 @@ static FullCourseResult MeasureFullCourse(string coursePath)
         }
     }
 
+    // Sauvegarde en pleine charge (C12 lot 4) : 36 groupes, des coups en cours de planification ; écriture en mémoire, relecture, taille. Mêmes seuils que C11.
+    var swinging = world.Groups.SelectMany(g => g.Golfers).Count(g => g.State == GolferState.Swinging);
+    var saved = Array.Empty<byte>();
+    var save = Measure(11, 3, () =>
+    {
+        using var stream = new MemoryStream();
+        world.Save(stream);
+        saved = stream.ToArray();
+    });
+    var load = Measure(5, 1, () => World.Load(new MemoryStream(saved)));
+
     // Retouche de surface en pleine charge, sur un bout de fairway du trou 1 : le tick qui applique la peinture et les 40 suivants, pendant lesquels
     // les champs de flux en cache se refont quelques-uns par tick. Un échantillon = le pire de ces 41 ticks ; 30 retouches, une sur deux en bunker ; le critère porte sur la médiane (un pire tick isolé peut être la première carte de jeu d'un drapeau, sans rapport avec la retouche).
     // Les retouches se mesurent en milieu de journée : le changement de jour (nouveau drapeau, donc une carte de jeu à refaire) est un autre coût, une fois par jour.
@@ -490,7 +519,7 @@ static FullCourseResult MeasureFullCourse(string coursePath)
 
     var round = league.League.Rounds[0];
     var days = (round.EndTick - round.StartTick) / (double)Calendar.TicksPerDay;
-    return new FullCourseResult(groups, world.Trees.Trees.Count, measuredTicks, warmup, mean, p99, ticks[^1], retouch, cached, checksum, days, round.Pairs.Count);
+    return new FullCourseResult(groups, world.Trees.Trees.Count, measuredTicks, warmup, mean, p99, ticks[^1], retouch, cached, checksum, days, round.Pairs.Count, save.Median, load.Median, saved.Length, swinging);
 }
 
 static (int Trees, double Mean, double Median, double Max) MeasureTreeGrowth(TerrainGrid map)
@@ -867,4 +896,9 @@ static string FindHole()
 
 internal readonly record struct FullCourseResult(
     int Groups, int Trees, int Ticks, int WarmupTicks, double TickMean, double TickP99, double TickMax,
-    (double Mean, double P99, double Max, double Median) Retouch, int CachedFields, string Checksum, double LeagueDays, int LeagueGroups);
+    (double Mean, double P99, double Max, double Median) Retouch, int CachedFields, string Checksum, double LeagueDays, int LeagueGroups,
+    double SaveMs, double LoadMs, int SaveBytes, int Swinging)
+{
+    internal bool Passed(double meanLimit, double p99Limit, double retouchLimit, double saveLimit, double loadLimit, double bytesLimit) =>
+        TickMean < meanLimit && TickP99 < p99Limit && Retouch.Median < retouchLimit && SaveMs < saveLimit && LoadMs < loadLimit && SaveBytes < bytesLimit;
+}
