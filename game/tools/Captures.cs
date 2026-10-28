@@ -243,7 +243,7 @@ public partial class Captures : Node
                         await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
                     }
 
-                    GD.Print($"CLEARING20 {main.World.Trees.Count} arbres, tombés {main.TerrainView.Trees?.FallenCount}, chutes en cours {main.TerrainView.Trees?.FallingCount}, dépenses {main.World.TreeSpending}");
+                    GD.Print($"CLEARING20 {main.World.Trees.Count} arbres, tombés {main.TerrainView.Trees?.FallenCount}, chutes en cours {main.TerrainView.Trees?.FallingCount}, solde {Golferoo.Sim.Economy.Ledger.Dollars(main.World.Ledger.Balance)}");
                 }
             }
 
@@ -815,7 +815,7 @@ public partial class Captures : Node
             }
         }
 
-        GD.Print($"CLEARING centre=({centre.X:F0},{centre.Z:F0}) arbres {before} puis {world.Trees.Count}, refusées {world.TreeCommandsRefused}, dépenses {world.TreeSpending}");
+        GD.Print($"CLEARING centre=({centre.X:F0},{centre.Z:F0}) arbres {before} puis {world.Trees.Count}, refusées {world.TreeCommandsRefused}, solde {Golferoo.Sim.Economy.Ledger.Dollars(world.Ledger.Balance)}");
         return new Vector3((float)centre.X, (float)grid.Sample(centre.X, centre.Z) + 2f, (float)centre.Z);
     }
 

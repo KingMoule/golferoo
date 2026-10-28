@@ -13,7 +13,7 @@ namespace Golferoo.Game.Tools;
 /// R rase l'arbre sélectionné ; X rase la zone au rayon du pinceau autour du curseur (défrichage du sous-bois compris) ;
 /// K bascule « garder les remarquables » pour X ; Y change d'essence ; P plante un plant, M une motte, au curseur ;
 /// F fait tomber l'arbre sélectionné (debug) ; C dégage le tronc tombé sélectionné ; [ et ] changent le rayon.
-/// Ne fait que poster des commandes à <see cref="World"/> : aucune règle ici ; les coûts affichés viennent de <see cref="TreeCosts"/>.
+/// Ne fait que poster des commandes à <see cref="World"/> : aucune règle ici ; les coûts affichés viennent de <see cref="World.Economy"/>.
 /// </summary>
 public partial class TreeTool : Node3D
 {
@@ -89,16 +89,18 @@ public partial class TreeTool : Node3D
     public string Describe()
     {
         var radius = _main?.Brush.Radius ?? 0f;
+        var costs = _main?.World.Economy ?? Golferoo.Sim.Economy.EconomyParams.Facile;
+        static string Price(long cents) => Golferoo.Sim.Economy.Ledger.Dollars(cents);
         var text = $"Arbres : essence {TreeSpeciesTable.Get(Species).Name} (Y), rayon {radius:0} m ([ ]), garder les remarquables {(KeepRemarkable ? "oui" : "non")} (K)\n" +
-                   $"P pousse ({TreeCosts.Sapling}) | M motte ({TreeCosts.Mound}) : puis clic pour planter, le mode reste actif | X raser la zone ({TreeCosts.ClearPerSquareMeter}/m² de sous-bois) | clic : {ModeText()}\n";
+                   $"P pousse ({Price(costs.TreeSapling)}) | M motte ({Price(costs.TreeMound)}) : puis clic pour planter, le mode reste actif | X raser la zone ({Price(costs.TreeClearPerM2)}/m² de sous-bois) | clic : {ModeText()}\n";
         if (_main is not null && SelectedId >= 0 && _main.World.Trees.TryGet(SelectedId, out var t))
         {
             var spec = TreeSpeciesTable.Get(t.Species);
             text += $"Sélection : {spec.Name}, {t.AgeMonths / 12.0:F0} ans, {t.Height():F1} m{(t.Remarkable ? ", remarquable" : string.Empty)}, {StateName(t.State)}\n" +
                     t.State switch
                     {
-                        TreeState.Standing => $"R abattre ({TreeCosts.RazeCost(t)}) | F faire tomber (debug)",
-                        TreeState.Fallen => $"C dégager le tronc ({TreeCosts.ClearFallen})",
+                        TreeState.Standing => $"R abattre ({Price(costs.RazeCost(t))}) | F faire tomber (debug)",
+                        TreeState.Fallen => $"C dégager le tronc ({Price(costs.TreeClearFallen)})",
                         _ => "souche",
                     };
         }

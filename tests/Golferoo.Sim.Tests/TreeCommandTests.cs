@@ -1,3 +1,4 @@
+using Golferoo.Sim.Economy;
 using Golferoo.Sim.Shots;
 using Golferoo.Sim.Terrain;
 using Golferoo.Sim.Trees;
@@ -7,6 +8,11 @@ namespace Golferoo.Sim.Tests;
 /// <summary>Commandes d'arbres de C02 lot 4 : abattre, défricher, planter, faire tomber, dégager, coûts, déterminisme.</summary>
 public class TreeCommandTests
 {
+    private static EconomyParams E => EconomyParams.Facile;
+
+    /// <summary>Dépensé en travaux d'arbres ce mois-ci, en cents (C14 : grand livre, catégorie Arbres).</summary>
+    private static long Spent(World w) => -w.Ledger.Current(LedgerCategory.Trees);
+
     private static TerrainGrid Woods()
     {
         var t = PathingTests.Flat(40, 40, 4.0);
@@ -100,7 +106,7 @@ public class TreeCommandTests
         w.Step();
         Assert.Equal(0, w.Trees.Count);
         Assert.Equal(7, w.TreeCommandsRefused);
-        Assert.Equal(0, w.TreeSpending);
+        Assert.Equal(0, Spent(w));
 
         w.PlantTree(120, 120, TreeSpeciesId.Oak, TreePlantStage.Sapling);
         w.PlantTree(120.3, 120, TreeSpeciesId.Oak, TreePlantStage.Sapling); // dans le plancher d'espacement
@@ -172,7 +178,7 @@ public class TreeCommandTests
         Assert.Equal(TreeState.Stump, w.Trees.Trees[0].State);
         Assert.Equal(double.NegativeInfinity, w.Trees.MaxTopAt(40, 40));
         Assert.Equal(1, w.TreeCommandsRefused);
-        Assert.Equal(TreeCosts.ClearFallen, w.TreeSpending);
+        Assert.Equal(E.TreeClearFallen, Spent(w));
     }
 
     [Fact]
@@ -190,7 +196,7 @@ public class TreeCommandTests
         w.ClearFallen(c.Id); // même tick : accepté
         w.Step();
         Assert.Equal(2, w.TreeCommandsRefused);
-        Assert.Equal(TreeCosts.Raze + TreeCosts.ClearFallen, w.TreeSpending);
+        Assert.Equal(E.TreeRaze + E.TreeClearFallen, Spent(w));
     }
 
     [Fact]
@@ -203,13 +209,13 @@ public class TreeCommandTests
         w.FellTree(stump.Id, 0.0);
         w.ClearFallen(stump.Id);
         w.Step();
-        var before = w.TreeSpending;
+        var before = Spent(w);
         w.RazeArea(new Point2(40, 40), 5, keepRemarkable: false);
         w.Step();
-        Assert.Equal(before + TreeCosts.ClearFallen, w.TreeSpending);
+        Assert.Equal(before + E.TreeClearFallen, Spent(w));
         w.RazeArea(new Point2(100, 100), 5, keepRemarkable: false);
         w.Step();
-        Assert.Equal(before + TreeCosts.ClearFallen, w.TreeSpending);
+        Assert.Equal(before + E.TreeClearFallen, Spent(w));
         Assert.Equal(0, w.Trees.Count);
     }
 
@@ -248,10 +254,10 @@ public class TreeCommandTests
         w.FellTree(c.Id, 1.0);
         w.ClearFallen(c.Id);
         w.Step();
-        Assert.Equal(TreeCosts.Sapling + TreeCosts.Mound + TreeCosts.Raze + (TreeCosts.Raze * TreeCosts.RemarkableMultiplier) + TreeCosts.ClearFallen, w.TreeSpending);
+        Assert.Equal(E.TreeSapling + E.TreeMound + E.TreeRaze + (E.TreeRaze * E.TreeRemarkableMultiplier) + E.TreeClearFallen, Spent(w));
 
-        // Défrichage : 5 par m² de sous-bois converti.
-        var before = w.TreeSpending;
+        // Défrichage : au prix de Facile par m² de sous-bois converti.
+        var before = Spent(w);
         var trees = w.Terrain!.CellSize;
         var count = 0;
         for (var cz = 0; cz < w.Terrain.CellsZ; cz++)
@@ -269,7 +275,7 @@ public class TreeCommandTests
         w.RazeArea(new Point2(60, 60), 10, keepRemarkable: false);
         w.Step();
         Assert.True(count > 0);
-        Assert.Equal(before + (count * trees * trees * TreeCosts.ClearPerSquareMeter), (double)w.TreeSpending, 1e-9);
+        Assert.Equal(before + (count * trees * trees * E.TreeClearPerM2), (double)Spent(w), 1e-9);
     }
 
     [Fact]

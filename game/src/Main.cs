@@ -864,7 +864,7 @@ public partial class Main : Node3D
 
         if (_hud is not null)
         {
-            _hud.Text = $"{Engine.GetFramesPerSecond()} FPS | {Actors.VisibleGolfers} golfeurs | tick {World.Tick} | x{Speed}{(Paused ? " (pause)" : string.Empty)} | {DateText()} (F10 : mois suivant, T : outil arbres) | travaux arbres {World.TreeSpending}\n{WeatherText()} (F9 : ciel suivant) | {StimpText()} (H : état du gazon) | {RatingText()}{(_league is null ? string.Empty : $"\n{_league.ProText()} (J : ligue, O : votre pro)")}{(Time.GetTicksMsec() < _messageUntil ? "\n" + _message : string.Empty)}";
+            _hud.Text = $"{Engine.GetFramesPerSecond()} FPS | {Actors.VisibleGolfers} golfeurs | tick {World.Tick} | x{Speed}{(Paused ? " (pause)" : string.Empty)} | {DateText()} (F10 : mois suivant, T : outil arbres) | solde {Golferoo.Sim.Economy.Ledger.Dollars(World.Ledger.Balance)}\n{WeatherText()} (F9 : ciel suivant) | {StimpText()} (H : état du gazon) | {RatingText()}{(_league is null ? string.Empty : $"\n{_league.ProText()} (J : ligue, O : votre pro)")}{(Time.GetTicksMsec() < _messageUntil ? "\n" + _message : string.Empty)}";
         }
     }
 
