@@ -116,7 +116,7 @@ public partial class SmokeTest : Node
 
         world.PaintSurface(green, 11, Surface.Green);
         main.StepTicks(1);
-        if (!world.PlaceTee(tee) || !world.PlaceHole(green))
+        if (!world.PlaceTee(1, tee) || !world.PlaceHole(1, green))
         {
             failures.Add("tutoriel : pose du départ ou du trou refusée");
         }

@@ -30,3 +30,5 @@ Ajouter sans relire tout le fichier : `echo "- ..." >> docs/lecons.md`. `/amelio
 - C10 lot 2 (auditeur) : « test sans Godot si possible » est flou pour la caméra (types Godot) : écrire « fumée Godot » dans la spec.
 - C11 : journaux CI trop gros (JPEG base64 sur une ligne) pour les outils ; gh api …/logs refusé, get_job_logs ne rend que la queue. Écrire les lignes de preuve dans $GITHUB_STEP_SUMMARY.
 - C11 : la suite complète dure 8 à 10 min en session (tests de ligue jusqu'à 35 s par cas).
+- Suite complète et `dotnet format` dépassent les 120 s de l'outil Bash : les lancer en arrière-plan avec un délai long (C12 lot 1).
+- Un critère « somme inchangée » oblige l'auditeur à recalculer les sommes sur main : le codeur commite le petit test de relevé qui les a produites (C12 lot 1).

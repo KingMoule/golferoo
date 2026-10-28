@@ -1,0 +1,11 @@
+{
+  "name": "Trois trous (test)",
+  "tilesX": 70,
+  "tilesZ": 56,
+  "ground": "Rough",
+  "holes": [
+    { "file": "../../../data/holes/proto-par4.json", "x": 0, "z": 0, "rotation": 0, "number": 1 },
+    { "file": "../../../data/holes/dogleg-par4.json", "x": 0, "z": 18, "rotation": 0, "number": 2 },
+    { "file": "../../../data/holes/proto-par4.json", "x": 50, "z": 0, "rotation": 1, "number": 3 }
+  ]
+}

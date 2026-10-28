@@ -62,7 +62,7 @@ public sealed partial class World
         w.Int(_rainyDays);
         w.Int(_woodlandDraws);
         w.Int(_nextGolferId);
-        w.Bool(_holeOpen);
+        w.List(_holesOpen, w.Bool);
         w.Long(_holeCheckedVersion);
         w.Long(TreeSpending);
         w.Int(TreeCommandsRefused);
@@ -103,6 +103,7 @@ public sealed partial class World
         });
         w.List(_holeCommands, c =>
         {
+            w.Int(c.Hole);
             w.Bool(c.IsTee);
             w.Point(c.Point);
         });
@@ -143,7 +144,7 @@ public sealed partial class World
         _rainyDays = r.Int();
         _woodlandDraws = r.Int();
         _nextGolferId = r.Int();
-        _holeOpen = r.Bool();
+        _holesOpen = [.. r.List(r.Bool)];
         _holeCheckedVersion = r.Long();
         TreeSpending = r.Long();
         TreeCommandsRefused = r.Int();
@@ -167,9 +168,15 @@ public sealed partial class World
             _treeCommands.Enqueue(c);
         }
 
-        foreach (var c in r.List(() => (IsTee: r.Bool(), Point: r.Point())))
+        foreach (var c in r.List(() => (Hole: r.Int(), IsTee: r.Bool(), Point: r.Point())))
         {
             _holeCommands.Enqueue(c);
+        }
+
+        var holeCount = Terrain?.Course.Count ?? 1;
+        if (_holesOpen.Length != holeCount || _holeCommands.Any(c => c.Hole < 1 || c.Hole > holeCount))
+        {
+            throw new InvalidDataException("Sauvegarde incohérente : états ou commandes de trous hors du parcours.");
         }
 
         foreach (var s in r.List(() => new TurfSettings((GreenSpeed)r.Byte(), (FairwayFirmness)r.Byte(), (RoughLength)r.Byte())))

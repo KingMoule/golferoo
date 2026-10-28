@@ -50,9 +50,13 @@ public sealed partial class World
     {
         Seed = seed;
         Terrain = terrain;
+        if (terrain is not null)
+        {
+            _holesOpen = [.. terrain.Course.Holes.Select(_ => !terrain.Blank)];
+        }
+
         if (terrain is { Blank: true })
         {
-            _holeOpen = false;
             ArgumentOutOfRangeException.ThrowIfEqual(league, true, nameof(league));
         }
         _rng = new DeterministicRng(seed);
@@ -456,7 +460,7 @@ public sealed partial class World
             Terrain?.Turf.NextDay(Season, WeatherOn(day).Sky >= Sky.Rain, DayIndex);
             if (Terrain is not null && PinPicker.Pick(Terrain, Seed, DayIndex) is { } pin)
             {
-                Terrain.MovePin(pin);
+                Terrain.Course[1].MovePin(pin);
             }
 
             RefreshSoil();

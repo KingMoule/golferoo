@@ -8,31 +8,36 @@ namespace Golferoo.Sim;
 /// </summary>
 public sealed partial class World
 {
-    private readonly Queue<(bool IsTee, Point2 Point)> _holeCommands = new();
-    private bool _holeOpen = true;
+    private readonly Queue<(int Hole, bool IsTee, Point2 Point)> _holeCommands = new();
+    private bool[] _holesOpen = [true];
     private long _holeCheckedVersion = -1;
 
     /// <summary>
-    /// Vrai si des golfeurs peuvent jouer le trou : toujours, sauf sur une terre vierge tant que <see cref="HoleCheck"/> y trouve un manque.
+    /// Vrai si des golfeurs peuvent jouer le trou 1 : toujours, sauf sur une terre vierge tant que <see cref="HoleCheck"/> y trouve un manque.
     /// Se recalcule au début d'un tick, après une retouche ou une pose.
     /// </summary>
-    public bool HoleOpen => _holeOpen;
+    public bool HoleOpen => _holesOpen[0];
 
-    /// <summary>Met en file la pose du départ en <paramref name="point"/> ; refusée (faux) si ce n'est pas sur une cellule de départ.</summary>
-    public bool PlaceTee(Point2 point) => QueueHolePoint(true, point, Surface.Tee);
+    /// <summary>Vrai si le trou de ce numéro (1 à N) est ouvert aux golfeurs ; même règle que <see cref="HoleOpen"/>.</summary>
+    public bool IsHoleOpen(int number) => number >= 1 && number <= _holesOpen.Length
+        ? _holesOpen[number - 1]
+        : throw new ArgumentOutOfRangeException(nameof(number), number, $"Trou inexistant (1 à {_holesOpen.Length}).");
 
-    /// <summary>Met en file la pose du trou en <paramref name="point"/> ; refusée (faux) si ce n'est pas sur le green.</summary>
-    public bool PlaceHole(Point2 point) => QueueHolePoint(false, point, Surface.Green);
+    /// <summary>Met en file la pose du départ du trou <paramref name="hole"/> en <paramref name="point"/> ; refusée (faux) si ce n'est pas sur une cellule de départ ou si le trou n'existe pas.</summary>
+    public bool PlaceTee(int hole, Point2 point) => QueueHolePoint(hole, true, point, Surface.Tee);
 
-    private bool QueueHolePoint(bool isTee, Point2 point, Surface required)
+    /// <summary>Met en file la pose du drapeau du trou <paramref name="hole"/> en <paramref name="point"/> ; refusée (faux) si ce n'est pas sur le green ou si le trou n'existe pas.</summary>
+    public bool PlaceHole(int hole, Point2 point) => QueueHolePoint(hole, false, point, Surface.Green);
+
+    private bool QueueHolePoint(int hole, bool isTee, Point2 point, Surface required)
     {
         var terrain = RequireTerrain();
-        if (!double.IsFinite(point.X) || !double.IsFinite(point.Z) || terrain.SurfaceAt(point.X, point.Z) != required)
+        if (hole < 1 || hole > terrain.Course.Count || !double.IsFinite(point.X) || !double.IsFinite(point.Z) || terrain.SurfaceAt(point.X, point.Z) != required)
         {
             return false;
         }
 
-        _holeCommands.Enqueue((isTee, point));
+        _holeCommands.Enqueue((hole, isTee, point));
         return true;
     }
 
@@ -45,31 +50,31 @@ public sealed partial class World
 
         while (_holeCommands.Count > 0)
         {
-            var (isTee, point) = _holeCommands.Dequeue();
+            var (number, isTee, point) = _holeCommands.Dequeue();
             if (isTee && terrain.SurfaceAt(point.X, point.Z) == Surface.Tee)
             {
-                terrain.MoveTee(point);
+                terrain.Course[number].MoveTee(point);
                 _holeCheckedVersion = -1;
             }
             else if (!isTee && terrain.SurfaceAt(point.X, point.Z) == Surface.Green)
             {
-                terrain.MovePin(point);
+                terrain.Course[number].MovePin(point);
                 _holeCheckedVersion = -1;
             }
         }
 
         if (terrain.Blank && _holeCheckedVersion != terrain.Version)
         {
-            _holeOpen = HoleCheck.Check(terrain).Count == 0;
+            _holesOpen = [.. terrain.Course.Holes.Select(h => HoleCheck.Check(terrain, h).Count == 0)];
             _holeCheckedVersion = terrain.Version;
         }
     }
 
     private void MixHoleCommands(ref ulong hash)
     {
-        foreach (var (isTee, point) in _holeCommands)
+        foreach (var (hole, isTee, point) in _holeCommands)
         {
-            Mix(ref hash, isTee ? 1UL : 2UL);
+            Mix(ref hash, (isTee ? 1UL : 2UL) | ((ulong)(hole - 1) << 8));
             Mix(ref hash, (ulong)BitConverter.DoubleToInt64Bits(point.X));
             Mix(ref hash, (ulong)BitConverter.DoubleToInt64Bits(point.Z));
         }
