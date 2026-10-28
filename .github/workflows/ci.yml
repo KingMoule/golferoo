@@ -192,7 +192,7 @@ jobs:
           }
           if run_captures --rendering-method forward_plus --rendering-driver vulkan \
               && grep -q '^CAPTURES OK' captures.log && grep -q '^C11 .* OK$' captures.log && ! grep -E '^(ERROR:|SCRIPT ERROR)' captures.log; then
-            echo "Rendu : Forward+ via lavapipe" | tee -a "$GITHUB_STEP_SUMMARY"
+            echo "Rendu : Forward+ via lavapipe" | tee -a "$GITHUB_STEP_SUMMARY" rendu.txt
           else
             echo "::warning::Forward+ logiciel indisponible ou en erreur, repli sur Compatibility (llvmpipe)"
             mv captures.log captures-forwardplus.log 2>/dev/null || true
@@ -200,7 +200,7 @@ jobs:
             grep -q '^CAPTURES OK' captures.log || { echo "::error::CAPTURES OK absent"; exit 1; }
             grep -q '^C11 .* OK$' captures.log || { echo "::error::C11 OK absent"; exit 1; }
             if grep -E '^(ERROR:|SCRIPT ERROR)' captures.log; then echo "::error::erreurs Godot dans les captures"; exit 1; fi
-            echo "Rendu : Compatibility via llvmpipe" | tee -a "$GITHUB_STEP_SUMMARY"
+            echo "Rendu : Compatibility via llvmpipe" | tee -a "$GITHUB_STEP_SUMMARY" rendu.txt
           fi
 
       - name: Captures aux facteurs 3 et 4 (comparaison pour le rapport C01, le jeu est au facteur 2)
@@ -217,7 +217,8 @@ jobs:
       - name: Captures des chantiers en cours (en fin de journal, pour la relecture sans artefact)
         # Les lignes FULL des passes aux facteurs 3 et 4 pèsent plusieurs Mo : on remet celles des chantiers récents en dernier.
         run: |
-          grep '^Rendu' "$GITHUB_STEP_SUMMARY" || true
+          # Le résumé d'une étape ne se relit pas depuis une autre : la ligne « Rendu » est aussi gardée dans rendu.txt.
+          cat rendu.txt || true
           grep -E '^FULL capture-[0-9]+-c(1[3-9]|2[0-9])-' captures.log || true
 
       - uses: actions/upload-artifact@v4
