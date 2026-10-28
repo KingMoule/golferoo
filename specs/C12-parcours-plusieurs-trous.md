@@ -1,5 +1,5 @@
 # Un parcours de plusieurs trous, et la preuve du parcours chargé (A7, P1)
-Statut : validé
+Statut : livré
 Créé : 2026-10-28
 
 ## But
@@ -87,6 +87,17 @@ Guillaume a délégué le choix du chantier et le cadrage le 2026-10-27 et le 20
 ## Niveau de contrôle
 complet (lots 1, 2 et 4), léger (lots 3 et 5).
 
+## Écarts pris pendant la livraison
+- Lot 2 : règle d'attente plus stricte que la spec (un golfeur attend que le groupe devant soit à plus de 30 m au-delà de son point visé) : la règle littérale laissait tomber des balles à 0,1 m d'un autre groupe (critère 5). Coût : une journée de ligue sur un trou passe de 1,33 à environ 3 jours de jeu.
+- Lot 4 : parcours de banc propre (`tests/Golferoo.Sim.Bench/Courses/dix-huit.json`) au lieu de « Le neuf » posé deux fois (lots 3 et 4 en parallèle) ; le seuil de retouche porte sur la médiane de 30 retouches (le pire cas est la première carte de jeu d'un drapeau, coût unique) ; planification des coups étalée en pas de simulation (6 500 par tick), au plus 2 champs de flux refaits par tick ; six sommes de référence changées (le coup se planifie au début du geste).
+- Lot 5 : ajout d'un trou toujours accepté (un groupe parti garde sa carte), retrait refusé si le dernier trou est dans une carte en jeu ; note du parcours refaite, cartes de ligue gardées jusqu'à la nouvelle note.
+- Sauvegarde : format v4 (v1 à v3 refusées, « ancienne version »).
+
+## Constats ouverts
+- Une journée de ligue dure environ 13,4 jours de jeu sur 18 trous (12 groupes), alors que les journées sont espacées d'environ 10 jours ; à trancher (cadence de la ligue, départs, ou parties de 9 trous).
+- Un trou fermé fausse l'écart de handicap vers le bas (brut des trous joués contre la note de tous les trous) ; rare.
+- Retouches continues (pinceau tenu) : les derniers marcheurs peuvent attendre leur champ de flux tant que dure la retouche.
+
 ## Clôture
-- [ ] Critères vérifiés
-- [ ] Statut passé à « livré », ligne mise à jour dans docs/chantiers.md
+- [x] Critères vérifiés (CI verte sur chaque lot ; audits : lots 1, 2, 4 complets, 3 et 5 légers, constats corrigés ; P1 en CI : tick moyen 1,09 ms, p99 2,05 ms, retouche médiane 5,76 ms, sauvegarde 12,3 ms, chargement 38,5 ms, 269 Ko ; fumée `COURSE OK 9` et `NEWHOLE OK` ; captures `c12-parcours`, `c12-trou-3`, `c12-groupes` et mesure FPS sur « Le neuf » à faire par Guillaume)
+- [x] Statut passé à « livré », ligne mise à jour dans docs/chantiers.md
