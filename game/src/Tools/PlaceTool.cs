@@ -15,6 +15,7 @@ public partial class PlaceTool : Node
     private Main? _main;
     private Label? _label;
     private Control? _panel;
+    private int _refusedSeen;
     private bool _newHole;
     private Point2? _pendingTee;
 
@@ -116,6 +117,24 @@ public partial class PlaceTool : Node
         var world = _main!.World;
         _main.ShowMessage(world.AddHole(tee, point) ? $"Trou {grid.Course.Count + 1} ajouté (par {TerrainGrid.DeducedPar(tee, point)})." : Describe(world.NewHoleIssues(tee, point)));
         EndNewHole();
+    }
+
+    public override void _Process(double delta)
+    {
+        if (_main?.World is not { } world)
+        {
+            return;
+        }
+
+        if (world.HoleCommandsRefused != _refusedSeen)
+        {
+            if (world.HoleCommandsRefused > _refusedSeen)
+            {
+                _main.ShowMessage("Trou refusé à l'application : un groupe a pris ce trou dans sa partie, ou la place a changé.");
+            }
+
+            _refusedSeen = world.HoleCommandsRefused;
+        }
     }
 
     public void SetActive(bool active)

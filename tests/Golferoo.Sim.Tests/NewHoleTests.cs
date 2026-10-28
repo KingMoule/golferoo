@@ -151,6 +151,69 @@ public class NewHoleTests
     }
 
     [Fact]
+    public void RatingForAnotherHoleCount_IsIgnored()
+    {
+        var world = new World(1, CourseTests.ThreeHoles());
+        world.SetCourseRating(new Golferoo.Sim.Rating.CourseRating(4, 16, 80.0, 100.0));
+        world.Step();
+        Assert.Null(world.CourseRating);
+        world.SetCourseRating(new Golferoo.Sim.Rating.CourseRating(3, 12, 80.0, 100.0));
+        world.Step();
+        Assert.Equal(3, world.CourseRating!.Holes);
+    }
+
+    [Fact]
+    public void RefusedAtApplication_IsCounted()
+    {
+        var world = new World(1, CourseTests.ThreeHoles());
+        Assert.Equal(0, world.HoleCommandsRefused);
+        Assert.True(world.RemoveLastHole());
+        world.SpawnGroup(); // un groupe prend le trou 3 dans sa carte avant l'application
+        world.Step();
+        Assert.Equal(3, world.Terrain!.Course.Count);
+        Assert.Equal(1, world.HoleCommandsRefused);
+    }
+
+    [Fact]
+    public void LeagueCards_FinishedWithoutAValidRating_AreHeldThenReturnedWithTheirDifferential()
+    {
+        var seed = Enumerable.Range(1, 500).First(x => new Golferoo.Sim.League.LeagueSeason((ulong)x, Golferoo.Sim.League.LeagueSeason.GenerateMembers((ulong)x)).Divisions.Sum(d => d.Count) >= 23);
+        var world = new World((ulong)seed, HoleLoader.Load(TerrainTests.HolePath(), 2), league: true) { Climate = Golferoo.Sim.Weather.Climate.Calm };
+        world.SetCourseRating(Golferoo.Sim.Rating.CourseRater.Rate(world.Terrain!, 3, 15));
+        while (!world.Groups.Any(g => g.LeagueRound >= 0) && world.DayIndex < 20)
+        {
+            world.Step(Golferoo.Sim.Time.Calendar.TicksPerDay / 8);
+        }
+
+        var hole = world.Terrain!.Course[1];
+        Assert.True(world.AddHole(hole.Tee, hole.Hole));
+        while (!world.Groups.All(g => g.Finished) && world.DayIndex < 40)
+        {
+            world.Step(Golferoo.Sim.Time.Calendar.TicksPerDay / 8);
+        }
+
+        Assert.Null(world.CourseRating);
+        Assert.All(world.League!.Members, m => Assert.Empty(m.Cards));
+        Assert.False(world.League.Rounds[0].Closed);
+
+        using var stream = new MemoryStream();
+        world.Save(stream);
+        var loaded = World.Load(new MemoryStream(stream.ToArray()));
+        Assert.Equal(world.Checksum(), loaded.Checksum());
+
+        foreach (var w in new[] { world, loaded })
+        {
+            w.SetCourseRating(Golferoo.Sim.Rating.CourseRater.Rate(w.Terrain!, 3, 15));
+            w.Step();
+            Assert.True(w.League!.Rounds[0].Closed);
+            Assert.Contains(w.League.Members, m => m.Cards.Count > 0);
+            Assert.All(w.League.Members.SelectMany(m => m.Cards), c => Assert.NotNull(c.Differential));
+        }
+
+        Assert.Equal(world.Checksum(), loaded.Checksum());
+    }
+
+    [Fact]
     public void AddHole_StopsAtEighteenHoles()
     {
         var world = new World(1, CourseTests.ThreeHoles());

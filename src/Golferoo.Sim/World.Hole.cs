@@ -1,3 +1,5 @@
+using Golferoo.Sim.Rating;
+using Golferoo.Sim.Scoring;
 using Golferoo.Sim.Terrain;
 
 namespace Golferoo.Sim;
@@ -11,6 +13,55 @@ public sealed partial class World
     private readonly Queue<(int Hole, bool IsTee, Point2 Point)> _holeCommands = new();
     private readonly Queue<(bool Add, Point2 Tee, Point2 Pin)> _courseCommands = new();
     private bool[] _holesOpen = [true];
+    private bool _ratingStale;
+    private readonly List<(int Round, (int MemberId, ScoreCard Card)[] Cards, long Tick)> _heldCards = [];
+
+    /// <summary>Ajouts et retraits de trou refusés à l'application (un groupe a pris le trou, ou la place a changé depuis la mise en file) : le jeu le dit au joueur.</summary>
+    public int HoleCommandsRefused { get; private set; }
+
+    /// <summary>
+    /// Applique une note. Une note qui ne compte pas le nombre de trous du parcours est ignorée (calculée avant un ajout ou un retrait).
+    /// Une note valable après un changement de parcours rend à la ligue les cartes gardées en attente, avec leur écart.
+    /// </summary>
+    private void ApplyRating(CourseRating rating)
+    {
+        if (Terrain is { } terrain && rating.Holes != terrain.Course.Count)
+        {
+            return;
+        }
+
+        CourseRating = rating;
+        if (!_ratingStale)
+        {
+            return;
+        }
+
+        _ratingStale = false;
+        foreach (var (round, cards, tick) in _heldCards)
+        {
+            League!.GroupFinished(round, cards, rating, tick);
+        }
+
+        _heldCards.Clear();
+    }
+
+    private void MixHeldCards(ref ulong hash)
+    {
+        if (_ratingStale || HoleCommandsRefused > 0)
+        {
+            Mix(ref hash, (_ratingStale ? 5UL : 6UL) | ((ulong)HoleCommandsRefused << 8) | ((ulong)_heldCards.Count << 40));
+        }
+
+        foreach (var (round, cards, tick) in _heldCards)
+        {
+            Mix(ref hash, ((ulong)round << 32) ^ (ulong)tick);
+            foreach (var (id, card) in cards)
+            {
+                Mix(ref hash, (ulong)id);
+                Mix(ref hash, (ulong)card.Gross);
+            }
+        }
+    }
     private long _holeCheckedVersion = -1;
 
     /// <summary>
@@ -97,10 +148,12 @@ public sealed partial class World
             }
             else
             {
+                HoleCommandsRefused++;
                 continue;
             }
 
             _holeCheckedVersion = -1;
+            _ratingStale = League is not null;
             CourseRating = null; // la note d'un autre nombre de trous ne vaut plus ; le jeu la refait
         }
     }

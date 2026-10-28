@@ -113,6 +113,18 @@ public sealed partial class World
             w.Point(c.Tee);
             w.Point(c.Pin);
         });
+        w.Bool(_ratingStale);
+        w.Int(HoleCommandsRefused);
+        w.List(_heldCards, h =>
+        {
+            w.Int(h.Round);
+            w.Long(h.Tick);
+            w.List(h.Cards, c =>
+            {
+                w.Int(c.MemberId);
+                c.Card.Write(w);
+            });
+        });
         w.List(_turfCommands, s =>
         {
             w.Byte((byte)s.GreenSpeed);
@@ -182,6 +194,13 @@ public sealed partial class World
         foreach (var c in r.List(() => (Add: r.Bool(), Tee: r.Point(), Pin: r.Point())))
         {
             _courseCommands.Enqueue(c);
+        }
+
+        _ratingStale = r.Bool();
+        HoleCommandsRefused = r.Int();
+        foreach (var h in r.List(() => (Round: r.Int(), Tick: r.Long(), Cards: r.List(() => (MemberId: r.Int(), Card: Golferoo.Sim.Scoring.ScoreCard.Read(r))).ToArray())))
+        {
+            _heldCards.Add((h.Round, h.Cards, h.Tick));
         }
 
         var holeCount = Terrain?.Course.Count ?? 1;

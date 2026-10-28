@@ -342,6 +342,16 @@ public class SaveTests
     }
 
     [Fact]
+    public void Load_VersionTwo_SaysItIsAnOlderVersion()
+    {
+        var bytes = Save(Build(1, "proto", "start"));
+        bytes[4] = 2;
+
+        var e = Assert.Throws<InvalidDataException>(() => Load(bytes));
+        Assert.Contains("ancienne version", e.Message);
+    }
+
+    [Fact]
     public void Load_VersionOne_SaysItIsAnOlderVersion()
     {
         var bytes = Save(Build(1, "proto", "start"));

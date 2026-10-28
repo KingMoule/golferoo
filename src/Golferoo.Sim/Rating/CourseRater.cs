@@ -16,11 +16,12 @@ public static class CourseRater
     /// car le sol (<see cref="SoilGrid"/>) se recalcule à la lecture. Peut donc tourner sur un autre fil que le monde ; si le terrain
     /// est retouché pendant le calcul, la note peut être incohérente et le jeu doit la refaire.
     /// </summary>
-    public static CourseRating Rate(TerrainGrid terrain, ulong seed, int games = DefaultGames, Season season = Season.Summer, IReadOnlyList<Tree>? worldTrees = null)
+    public static CourseRating Rate(TerrainGrid terrain, ulong seed, int games = DefaultGames, Season season = Season.Summer, IReadOnlyList<Tree>? worldTrees = null, IReadOnlyList<CourseHole>? holes = null)
     {
         ArgumentNullException.ThrowIfNull(terrain);
         ArgumentOutOfRangeException.ThrowIfLessThan(games, 1);
-        var copy = Copy(terrain);
+        holes ??= SnapshotHoles(terrain);
+        var copy = Copy(terrain, holes);
         copy.Soil.Season = season;
         var trees = new TreeStand(copy.CellsX * copy.CellSize, copy.CellsZ * copy.CellSize, copy);
         if (worldTrees is null)
@@ -41,7 +42,7 @@ public static class CourseRater
         var resolver = new PhysicalShotResolver { Trees = trees, Season = season };
         var scratch = TotalStrokes(resolver, copy, seed, SkillLevels.Scratch, games);
         var bogey = TotalStrokes(resolver, copy, seed ^ 0x9E3779B97F4A7C15UL, SkillLevels.Bogey, games);
-        return new CourseRating(terrain.Course.Count, terrain.Course.Holes.Sum(h => h.Par), (double)scratch / games, (double)bogey / games);
+        return new CourseRating(holes.Count, holes.Sum(h => h.Par), (double)scratch / games, (double)bogey / games);
     }
 
     private static int TotalStrokes(PhysicalShotResolver resolver, TerrainGrid terrain, ulong seed, double skill, int games)
@@ -72,7 +73,10 @@ public static class CourseRater
         return total;
     }
 
-    private static TerrainGrid Copy(TerrainGrid source)
+    /// <summary>Copie des trous du parcours, à prendre sur le fil du monde avant de lancer <see cref="Rate"/> ailleurs (le parcours peut changer pendant le calcul).</summary>
+    public static CourseHole[] SnapshotHoles(TerrainGrid terrain) => [.. terrain.Course.Holes.Select(h => new CourseHole(h.Number, h.Tee, h.Green, h.Hole, h.Par))];
+
+    private static TerrainGrid Copy(TerrainGrid source, IReadOnlyList<CourseHole> holes)
     {
         var heights = new HeightField(source.CellsX, source.CellsZ, source.CellSize);
         for (var j = 0; j <= source.CellsZ; j++)
@@ -83,7 +87,7 @@ public static class CourseRater
             }
         }
 
-        var copy = new TerrainGrid(heights, source.Name, new Course(source.Course.Holes.Select(h => new CourseHole(h.Number, h.Tee, h.Green, h.Hole, h.Par))));
+        var copy = new TerrainGrid(heights, source.Name, new Course(holes));
         for (var cz = 0; cz < source.CellsZ; cz++)
         {
             for (var cx = 0; cx < source.CellsX; cx++)
