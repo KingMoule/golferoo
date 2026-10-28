@@ -4,6 +4,7 @@ Mis à jour : 2026-10-28
 C00 à C11 livrés. C11 (sauvegarde de partie) : spec #92, lots #93 (monde), #94 (ligue, pro, banc), #95 (jeu). Aucune PR ouverte.
 
 ## En cours
+- C12 cadré (`specs/C12-parcours-plusieurs-trous.md`) : parcours de N trous, « Le neuf » par défaut, banc P1 sur 18 trous ; 5 lots, ordre 1 → 2 → (3 ∥ 4) → 5.
 - C11 livré : `World.Save`/`World.Load` (`src/Golferoo.Sim/Save/`, `World.Save.cs`), tout l'état entre deux ticks, format binaire `GOLF` v1 compressé (somme de contrôle et empreinte du corps dans l'en-tête, lecture plafonnée à 64 Mo). Jeu : F5 sauve (`user://saves/rapide.golf`), F8 charge le plus récent qui se lit (rapide ou `auto.golf`), autosave à chaque jour de jeu, `-- --load <fichier>`, pas de sauvegarde pendant le tutoriel ni en mesure FPS. Banc : dogleg + ligue + 5 000 arbres, écriture 3,7 ms, chargement 3,4 ms, 61 Ko. À essayer en jeu (F5, quitter, relancer, F8) et captures `c11-avant`/`c11-apres` à juger [guillaume].
 - C10 livré : mesure de Guillaume (RTX 2080, 1080p) iso 680,2 FPS, rasante 369,8 ; lot 4 sauté. Captures `c10-libre-*` et `c10-horizon` à juger [guillaume].
 - C09 livré. Mineurs de l'audit à reprendre si Guillaume les remarque en jeu : fonceur moins pénalisé que le neutre (9 contre 12) ; dispersion de l'artiste en baisse de 6 % seulement ; légende de `c09-profils` ; bannière du champion sur la fiche ; erreurs de jugement des golfeurs (à reparler). Images dans le dossier partagé `c09/`.
@@ -26,4 +27,4 @@ Journal des commandes et rejeu (moitié de F4) avec les scénarios ; sauvegardes
 `apt-get update` puis `apt-get install dotnet-sdk-10.0` ; `dotnet test Golferoo.sln` dure 8 à 10 min. Godot ne se télécharge pas : la CI fait foi. `gh` en REST seulement (GraphQL bloqué : `gh pr create` échoue, outil MCP GitHub à la place). Journaux CI trop gros : lignes de preuve en fin de job et dans le résumé (`$GITHUB_STEP_SUMMARY`). Mesure de référence (RTX 2080, 1080p) : 632 FPS prototype, 322 FPS à 5 000 arbres.
 
 ## Prochaine étape
-Choisir le chantier suivant dans `docs/boucles-v1.md` et `docs/chantiers.md` (après les retours de Guillaume sur la sauvegarde en jeu).
+Livrer C12 lot par lot. **Après C12, pas de C13** : Guillaume veut une série de planification, la phase de prototypage touchant à sa fin (2026-10-28).
