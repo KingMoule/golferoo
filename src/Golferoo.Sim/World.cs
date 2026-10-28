@@ -36,6 +36,18 @@ public sealed partial class World
 
     private const int WaypointPoolSize = 16;
 
+    /// <summary>Un groupe part quand le précédent a quitté cette zone autour du départ du trou 1 (rayon, en mètres)…</summary>
+    public const double TeeZoneRadius = 20.0;
+
+    /// <summary>… et que ses balles sont à plus de cette distance du départ (en mètres), ou sur le green.</summary>
+    public const double DepartureGap = 150.0;
+
+    /// <summary>Portée supposée d'un coup, en mètres : le point visé est le drapeau, ou le point à cette distance sur la ligne du drapeau.</summary>
+    public const double AimReach = 260.0;
+
+    /// <summary>Un golfeur attend tant que le groupe devant n'est pas au moins à cette distance (mètres) au-delà du point visé.</summary>
+    public const double AimClearance = 30.0;
+
     private readonly DeterministicRng _rng;
     private readonly IShotResolver _resolver;
     private readonly List<Group> _groups = [];
@@ -43,7 +55,7 @@ public sealed partial class World
     private readonly List<Point2> _waypoints = [];
     private readonly List<Point2> _beautySources = [];
     private int _nextGolferId;
-    private Point2? _exitPoint;
+    private Point2?[] _exitPoints = [];
     private long _exitPointVersion = -1;
 
     public World(ulong seed, TerrainGrid? terrain = null, IShotResolver? resolver = null, bool league = false)
@@ -300,23 +312,23 @@ public sealed partial class World
     /// <summary>Golfeurs du mode charge.</summary>
     public IReadOnlyList<Golfer> Roamers => _roamers;
 
-    /// <summary>Point où les golfeurs sortent du green (près du green, hors green et hors bunker).</summary>
-    public Point2 ExitPoint
-    {
-        get
-        {
-            var terrain = RequireTerrain();
-            if (_exitPoint is null || _exitPointVersion != terrain.SurfaceVersion)
-            {
-                _exitPoint = ComputeExitPoint(terrain);
-                _exitPointVersion = terrain.SurfaceVersion;
-            }
+    /// <summary>Point où les golfeurs sortent du parcours : celui du dernier trou.</summary>
+    public Point2 ExitPoint => ExitPointOf(RequireTerrain().Course.Count);
 
-            return _exitPoint.Value;
+    /// <summary>Point où les golfeurs sortent du green du trou <paramref name="hole"/> (près du green, hors green et hors bunker).</summary>
+    public Point2 ExitPointOf(int hole)
+    {
+        var terrain = RequireTerrain();
+        if (_exitPoints.Length != terrain.Course.Count || _exitPointVersion != terrain.SurfaceVersion)
+        {
+            _exitPoints = new Point2?[terrain.Course.Count];
+            _exitPointVersion = terrain.SurfaceVersion;
         }
+
+        return _exitPoints[hole - 1] ??= ComputeExitPoint(terrain, terrain.Course[hole]);
     }
 
-    /// <summary>Ajoute une paire de golfeurs à l'entrée du tee. Elle joue quand la précédente a quitté le green.</summary>
+    /// <summary>Ajoute une paire de golfeurs à la file du départ du trou 1. Elle part quand la précédente a quitté la zone de départ et que ses balles sont loin (<see cref="DepartureGap"/>) ou sur le green.</summary>
     public Group SpawnGroup() => HoleOpen ? AddGroup(2, null, -1) : throw new InvalidOperationException("Le trou est fermé : il manque encore quelque chose (HoleCheck).");
 
     /// <summary>Partie d'entraînement : votre pro seul, hors ligue (sa carte ne compte pas pour son handicap). Exige la ligue.</summary>
@@ -332,7 +344,7 @@ public sealed partial class World
         for (var i = 0; i < count; i++)
         {
             var p = GridQueries.NearestWalkablePoint(terrain, new Point2(spawn.X, spawn.Z + ((i * 3.0) - 1.5)));
-            var golfer = new Golfer(_nextGolferId++, p, GolferState.Arriving) { Ball = terrain.Tee };
+            var golfer = new Golfer(_nextGolferId++, p, GolferState.Arriving) { Ball = terrain.Tee, Card = new ScoreCard([.. terrain.Course.Holes.Select(h => h.Par)]) };
             if (members is not null)
             {
                 golfer.MemberId = members[i].Id;
@@ -397,26 +409,52 @@ public sealed partial class World
         }
     }
 
-    /// <summary>Une paire de ligue a fini : la carte de chaque joueur (balle ramassée = 12 coups) revient à la ligue.</summary>
-    private void ReturnLeagueCards(TerrainGrid terrain, Group group)
+    /// <summary>Une paire de ligue a fini : la carte de chaque joueur (balle ramassée = 12 coups, trou sauté = 0) revient à la ligue.</summary>
+    private void ReturnLeagueCards(Group group) =>
+        League!.GroupFinished(group.LeagueRound, [.. group.Golfers.Select(g => (g.MemberId, g.Card!))], CourseRating, Tick);
+
+    /// <summary>Inscrit sur la carte de chaque golfeur du groupe le trou qui vient de finir (balle ramassée = 12 coups).</summary>
+    private static void RecordHole(Group group)
     {
-        var cards = new List<(int, ScoreCard)>(group.Golfers.Count);
         foreach (var g in group.Golfers)
         {
-            var card = new ScoreCard([terrain.Par]);
             if (g.PickedUp)
             {
-                card.PickUp(0);
+                g.Card!.PickUp(group.Hole - 1);
             }
             else
             {
-                card.Record(0, g.Strokes);
+                g.Card!.Record(group.Hole - 1, g.Strokes);
             }
+        }
+    }
 
-            cards.Add((g.MemberId, card));
+    /// <summary>Premier trou ouvert après <paramref name="hole"/> (les trous fermés sont sautés), 0 s'il n'y en a plus.</summary>
+    private int NextOpenHole(int hole)
+    {
+        for (var n = hole + 1; n <= _holesOpen.Length; n++)
+        {
+            if (_holesOpen[n - 1])
+            {
+                return n;
+            }
         }
 
-        League!.GroupFinished(group.LeagueRound, cards, CourseRating, Tick);
+        return 0;
+    }
+
+    /// <summary>Le groupe passe au trou <paramref name="next"/> : ses golfeurs marchent vers ce départ, coups remis à zéro.</summary>
+    private static void MoveToHole(Group group, CourseHole next)
+    {
+        group.Hole = next.Number;
+        foreach (var g in group.Golfers)
+        {
+            g.Strokes = 0;
+            g.Holed = false;
+            g.PickedUp = false;
+            g.Ball = next.Tee;
+            g.State = GolferState.ToNextTee;
+        }
     }
 
     public void Step()
@@ -587,6 +625,12 @@ public sealed partial class World
         foreach (var group in _groups)
         {
             Mix(ref hash, group.Started ? 1UL : 0UL);
+            if (group.Hole > 1 || !group.Released)
+            {
+                // Un trou seul, groupe parti : rien à ajouter, la somme reste celle d'avant le parcours.
+                Mix(ref hash, ((ulong)group.Hole << 1) | (group.Released ? 1UL : 0UL));
+            }
+
             foreach (var g in group.Golfers)
             {
                 MixGolfer(ref hash, g);
@@ -635,6 +679,13 @@ public sealed partial class World
         Mix(ref hash, (ulong)BitConverter.DoubleToInt64Bits(g.Position.Z));
         Mix(ref hash, (ulong)BitConverter.DoubleToInt64Bits(g.Ball.X));
         Mix(ref hash, (ulong)BitConverter.DoubleToInt64Bits(g.Ball.Z));
+        if (g.Card is { HoleCount: > 1 } card)
+        {
+            for (var h = 0; h < card.HoleCount; h++)
+            {
+                Mix(ref hash, (ulong)card.Strokes(h));
+            }
+        }
     }
 
     internal static void Mix(ref ulong hash, ulong value)
@@ -646,9 +697,9 @@ public sealed partial class World
         }
     }
 
-    private static Point2 ComputeExitPoint(TerrainGrid terrain)
+    private static Point2 ComputeExitPoint(TerrainGrid terrain, CourseHole hole)
     {
-        var want = new Point2(terrain.Green.X, terrain.Green.Z + 20.0);
+        var want = new Point2(hole.Green.X, hole.Green.Z + 20.0);
         var best = double.MaxValue;
         var found = false;
         var result = want;
@@ -714,12 +765,20 @@ public sealed partial class World
     private void UpdateGroup(TerrainGrid terrain, int index)
     {
         var group = _groups[index];
+        if (!group.Released && !TryRelease(terrain, index))
+        {
+            return;
+        }
+
+        var hole = terrain.Course[group.Hole];
+        var holedOut = false;
         foreach (var g in group.Golfers)
         {
             switch (g.State)
             {
                 case GolferState.Arriving:
                 case GolferState.WalkingToBall:
+                case GolferState.ToNextTee:
                     if (Walk(terrain, g, g.Ball))
                     {
                         g.State = GolferState.WaitingTurn;
@@ -727,13 +786,10 @@ public sealed partial class World
 
                     break;
                 case GolferState.Exiting:
-                    if (Walk(terrain, g, ExitPoint))
+                    if (Walk(terrain, g, ExitPointOf(group.Hole)))
                     {
                         g.State = GolferState.Done;
-                        if (group.LeagueRound >= 0 && group.Finished)
-                        {
-                            ReturnLeagueCards(terrain, group);
-                        }
+                        holedOut = group.Finished;
                     }
 
                     break;
@@ -741,7 +797,7 @@ public sealed partial class World
                 case GolferState.Putting:
                     if (--g.SwingTicks <= 0)
                     {
-                        Hit(terrain, g);
+                        Hit(terrain, g, hole.Hole);
                     }
 
                     break;
@@ -757,15 +813,23 @@ public sealed partial class World
             }
         }
 
-        // Un coup à la fois dans le groupe ; le plus loin du trou joue.
-        if (!group.Started)
+        if (holedOut)
         {
-            if (group.LeagueRound >= 0 ? Tick < group.ReleaseTick : index > 0 && !_groups[index - 1].Finished)
+            // Tout le groupe a fini le trou : il marche vers le prochain trou ouvert, ou la partie est finie.
+            RecordHole(group);
+            if (NextOpenHole(group.Hole) is > 0 and var next)
             {
-                return;
+                MoveToHole(group, terrain.Course[next]);
             }
+            else if (group.LeagueRound >= 0)
+            {
+                ReturnLeagueCards(group);
+            }
+
+            return;
         }
 
+        // Un coup à la fois dans le groupe ; le plus loin du trou joue.
         Golfer? shooter = null;
         var farthest = -1.0;
         foreach (var g in group.Golfers)
@@ -780,8 +844,8 @@ public sealed partial class World
                 continue;
             }
 
-            var dx = terrain.Hole.X - g.Ball.X;
-            var dz = terrain.Hole.Z - g.Ball.Z;
+            var dx = hole.Hole.X - g.Ball.X;
+            var dz = hole.Hole.Z - g.Ball.Z;
             var d2 = (dx * dx) + (dz * dz);
             if (d2 > farthest)
             {
@@ -790,17 +854,99 @@ public sealed partial class World
             }
         }
 
-        if (shooter is not null && shooter.State == GolferState.WaitingTurn)
+        if (shooter is not null && shooter.State == GolferState.WaitingTurn && !MustWait(index, hole, shooter))
         {
             group.Started = true;
             shooter.State = terrain.SurfaceAt(shooter.Ball.X, shooter.Ball.Z) == Surface.Green ? GolferState.Putting : GolferState.Swinging;
             shooter.SwingTicks = SwingTicksCount;
-            if (IsManualPro(shooter) && !Gimme(terrain, shooter))
+            if (IsManualPro(shooter) && !Gimme(terrain, hole.Hole, shooter))
             {
                 shooter.State = GolferState.AwaitingShot;
             }
         }
     }
+
+    /// <summary>
+    /// File de départ : le groupe part quand son heure de ligue est venue, que le trou 1 est ouvert et que le groupe précédent est parti,
+    /// a quitté la zone de départ et a ses balles à plus de <see cref="DepartureGap"/> du départ (ou sur le green).
+    /// </summary>
+    private bool TryRelease(TerrainGrid terrain, int index)
+    {
+        var group = _groups[index];
+        if ((group.LeagueRound >= 0 && Tick < group.ReleaseTick) || !HoleOpen || (index > 0 && !TeeCleared(terrain, _groups[index - 1])))
+        {
+            return false;
+        }
+
+        group.Released = true;
+        return true;
+    }
+
+    private static bool TeeCleared(TerrainGrid terrain, Group ahead)
+    {
+        if (!ahead.Released)
+        {
+            return false;
+        }
+
+        if (ahead.Hole > 1)
+        {
+            return true;
+        }
+
+        var tee = terrain.Course[1].Tee;
+        foreach (var g in ahead.Golfers)
+        {
+            if (g.State is GolferState.Exiting or GolferState.Done)
+            {
+                continue; // il a fini le trou : sa balle (ramassée, elle peut traîner près du départ) ne bloque plus le départ
+            }
+
+            if (Dist2(g.Position, tee) <= TeeZoneRadius * TeeZoneRadius
+                || (Dist2(g.Ball, tee) <= DepartureGap * DepartureGap && terrain.SurfaceAt(g.Ball.X, g.Ball.Z) != Surface.Green))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// Avant de jouer, le golfeur attend le groupe devant : tant qu'un golfeur d'un groupe d'indice plus petit, sur le même trou, n'est pas
+    /// au moins <see cref="AimClearance"/> au-delà du point visé (le drapeau, ou le point à <see cref="AimReach"/> sur sa ligne), il est plus
+    /// près du point visé que cela ou derrière lui. Un green à portée est donc libre quand le groupe devant a fini le trou. L'ordre des groupes
+    /// ne change jamais (un groupe ne dépasse pas celui qui le précède), donc deux groupes ne s'attendent jamais l'un l'autre.
+    /// </summary>
+    private bool MustWait(int index, CourseHole hole, Golfer shooter)
+    {
+        var group = _groups[index];
+        var dx = hole.Hole.X - shooter.Ball.X;
+        var dz = hole.Hole.Z - shooter.Ball.Z;
+        var aimDistance = Math.Max(Math.Sqrt((dx * dx) + (dz * dz)) - AimReach, 0.0);
+        var limit = aimDistance - AimClearance;
+        for (var i = 0; i < index; i++)
+        {
+            var ahead = _groups[i];
+            if (!ahead.Released || ahead.Hole != group.Hole)
+            {
+                continue;
+            }
+
+            foreach (var o in ahead.Golfers)
+            {
+                // Un golfeur parti n'est plus sur le parcours (le dernier trou le laisse au point de sortie).
+                if (o.State != GolferState.Done && Math.Sqrt(Dist2(o.Position, hole.Hole)) >= limit)
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    private static double Dist2(Point2 a, Point2 b) => ((a.X - b.X) * (a.X - b.X)) + ((a.Z - b.Z) * (a.Z - b.Z));
 
     private bool Walk(TerrainGrid terrain, Golfer g, Point2 target)
     {
@@ -825,15 +971,15 @@ public sealed partial class World
         return result == WalkResult.Arrived;
     }
 
-    private void Hit(TerrainGrid terrain, Golfer g)
+    private void Hit(TerrainGrid terrain, Golfer g, Point2 pin)
     {
         if (terrain.SurfaceAt(g.Ball.X, g.Ball.Z) is Surface.Fairway or Surface.Tee)
         {
             terrain.Turf.AddWear(terrain.CellXOf(g.Ball.X), terrain.CellZOf(g.Ball.Z), TurfGrid.DivotWear);
         }
 
-        var request = new ShotRequest(g.Ball, terrain.Hole, g.Strokes, g.Skill, g.Profile);
-        var result = g.PlannedShot is { } shot ? ExecuteProShot(terrain, g, shot) : _resolver.Resolve(request, terrain, _rng);
+        var request = new ShotRequest(g.Ball, pin, g.Strokes, g.Skill, g.Profile);
+        var result = g.PlannedShot is { } shot ? ExecuteProShot(terrain, g, shot, pin) : _resolver.Resolve(request, terrain, _rng);
         g.Pending = result;
         g.FlightPath = result.Trajectory;
         g.FlightIndex = 0;

@@ -5,7 +5,7 @@ using Golferoo.Sim.Trees;
 
 namespace Golferoo.Sim.Rating;
 
-/// <summary>Note un parcours en faisant jouer le trou à un golfeur scratch et à un golfeur bogey.</summary>
+/// <summary>Note un parcours en faisant jouer tous ses trous, dans l'ordre, à un golfeur scratch et à un golfeur bogey.</summary>
 public static class CourseRater
 {
     public const int DefaultGames = 50;
@@ -41,7 +41,7 @@ public static class CourseRater
         var resolver = new PhysicalShotResolver { Trees = trees, Season = season };
         var scratch = TotalStrokes(resolver, copy, seed, SkillLevels.Scratch, games);
         var bogey = TotalStrokes(resolver, copy, seed ^ 0x9E3779B97F4A7C15UL, SkillLevels.Bogey, games);
-        return new CourseRating(1, terrain.Par, (double)scratch / games, (double)bogey / games);
+        return new CourseRating(terrain.Course.Count, terrain.Course.Holes.Sum(h => h.Par), (double)scratch / games, (double)bogey / games);
     }
 
     private static int TotalStrokes(PhysicalShotResolver resolver, TerrainGrid terrain, ulong seed, double skill, int games)
@@ -50,20 +50,23 @@ public static class CourseRater
         for (var game = 0; game < games; game++)
         {
             var rng = new DeterministicRng(seed + ((ulong)game * 0x2545F4914F6CDD1DUL));
-            var ball = terrain.Tee;
-            var strokes = 0;
-            while (strokes < World.MaxStrokes)
+            foreach (var hole in terrain.Course.Holes)
             {
-                var r = resolver.Resolve(new ShotRequest(ball, terrain.Hole, strokes, skill), terrain, rng);
-                strokes += 1 + r.PenaltyStrokes;
-                ball = r.Ball;
-                if (r.Holed)
+                var ball = hole.Tee;
+                var strokes = 0;
+                while (strokes < World.MaxStrokes)
                 {
-                    break;
+                    var r = resolver.Resolve(new ShotRequest(ball, hole.Hole, strokes, skill), terrain, rng);
+                    strokes += 1 + r.PenaltyStrokes;
+                    ball = r.Ball;
+                    if (r.Holed)
+                    {
+                        break;
+                    }
                 }
-            }
 
-            total += Math.Min(strokes, World.MaxStrokes);
+                total += Math.Min(strokes, World.MaxStrokes);
+            }
         }
 
         return total;
@@ -80,7 +83,7 @@ public static class CourseRater
             }
         }
 
-        var copy = new TerrainGrid(heights, source.Name, source.Tee, source.Green, source.Hole) { Par = source.Par };
+        var copy = new TerrainGrid(heights, source.Name, new Course(source.Course.Holes.Select(h => new CourseHole(h.Number, h.Tee, h.Green, h.Hole, h.Par))));
         for (var cz = 0; cz < source.CellsZ; cz++)
         {
             for (var cx = 0; cx < source.CellsX; cx++)

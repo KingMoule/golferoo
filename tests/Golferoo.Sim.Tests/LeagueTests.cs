@@ -252,7 +252,7 @@ public class LeagueTests(ITestOutputHelper output)
     }
 
     [Fact]
-    public void FirstRound_With12Groups_FinishesInUnderThreeDays()
+    public void FirstRound_With12Groups_FinishesInUnderFiveDays()
     {
         var seed = Enumerable.Range(1, 500).First(x => new LeagueSeason((ulong)x, LeagueSeason.GenerateMembers((ulong)x)).Divisions.Sum(d => d.Count) >= 23);
         var world = new World((ulong)seed, HoleLoader.Load(TerrainTests.HolePath(), 2), league: true) { Climate = Climate.Calm };
@@ -264,7 +264,8 @@ public class LeagueTests(ITestOutputHelper output)
         var round = world.League.Rounds[0];
         output.WriteLine($"{round.Pairs.Count} groupes : {(round.EndTick - round.StartTick) / (double)Calendar.TicksPerDay:F2} jour(s) de jeu");
         Assert.True(round.Pairs.Count >= 11);
-        Assert.True(round.EndTick - round.StartTick < 3L * Calendar.TicksPerDay);
+        // C12 lot 2 : les groupes s'attendent (le groupe suivant ne joue pas son approche avant que celui de devant ait fini le trou), la journée dure donc environ 4 jours de jeu au lieu de 2 ; les journées sont à un mois d'écart.
+        Assert.True(round.EndTick - round.StartTick < 5L * Calendar.TicksPerDay);
     }
 
     [Fact]

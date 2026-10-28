@@ -84,9 +84,11 @@ public static class BallSimulator
     /// <param name="wind">Vent en vol, en m/s (horizontal) ; sans effet sur le roulement.</param>
     /// <param name="curve">Effet latéral : vitesse de rotation de la vitesse horizontale en vol, en rad/s (positif : draw, vers la gauche d'un droitier ; 0 : aucun).</param>
     /// <param name="backspin">Part de la vitesse horizontale perdue au premier rebond (0 : aucune).</param>
+    /// <param name="pin">Drapeau visé (défaut : celui du trou 1 du terrain).</param>
     /// <param name="expectation">Mode espérance (planification) : les couronnes ne tirent pas au hasard, elles cumulent leur probabilité d'arrêt ici ; les troncs agissent comme à l'exécution. Sans <paramref name="rng"/>.</param>
-    public static SimulationResult Run(TerrainGrid terrain, Point2 start, Vec3 velocity, bool rolling, double drag, bool recordPath, double startHeight = 0.0, TreeStand? trees = null, Season season = Season.Summer, DeterministicRng? rng = null, Vec3 wind = default, double curve = 0.0, double backspin = 0.0, TreeCollision.Expectation? expectation = null)
+    public static SimulationResult Run(TerrainGrid terrain, Point2 start, Vec3 velocity, bool rolling, double drag, bool recordPath, double startHeight = 0.0, TreeStand? trees = null, Season season = Season.Summer, DeterministicRng? rng = null, Vec3 wind = default, double curve = 0.0, double backspin = 0.0, TreeCollision.Expectation? expectation = null, Point2? pin = null)
     {
+        var hole = pin ?? terrain.Hole;
         if (trees is not null && rng is null && expectation is null)
         {
             throw new ArgumentNullException(nameof(rng), "Des arbres exigent le RNG du coup.");
@@ -112,7 +114,7 @@ public static class BallSimulator
         var gateCell = -1;
         var gateTop = double.NegativeInfinity;
         var closest = start;
-        var closestD2 = Dist2(x, z, terrain.Hole);
+        var closestD2 = Dist2(x, z, hole);
         var end = End.Rest;
         var maxSteps = (int)(MaxSeconds / Step);
         // Vent renforcé, décomposé une fois pour toutes selon l'axe horizontal du coup au départ (face ou dos, et travers).
@@ -212,7 +214,7 @@ public static class BallSimulator
                         break;
                     }
 
-                    if (Dist2(x, z, terrain.Hole) < holeR2 && Math.Sqrt((vx * vx) + (vz * vz)) < HoleMaxSpeed)
+                    if (Dist2(x, z, hole) < holeR2 && Math.Sqrt((vx * vx) + (vz * vz)) < HoleMaxSpeed)
                     {
                         end = End.Holed;
                         steps++;
@@ -301,7 +303,7 @@ public static class BallSimulator
                     break;
                 }
 
-                var d2 = Dist2(x, z, terrain.Hole);
+                var d2 = Dist2(x, z, hole);
                 if (d2 < closestD2)
                 {
                     closestD2 = d2;
@@ -334,11 +336,11 @@ public static class BallSimulator
             }
         }
 
-        var shot = Finish(terrain, start, x, z, end, path);
+        var shot = Finish(terrain, start, x, z, end, path, hole);
         return new SimulationResult(shot, maxHeight, firstLanding, landed, steps * Step, closest);
     }
 
-    private static ShotResult Finish(TerrainGrid terrain, Point2 start, double x, double z, End end, List<Vec3>? path)
+    private static ShotResult Finish(TerrainGrid terrain, Point2 start, double x, double z, End end, List<Vec3>? path, Point2 hole)
     {
         Point2 ball;
         var penalty = 0;
@@ -347,7 +349,7 @@ public static class BallSimulator
         switch (end)
         {
             case End.Holed:
-                ball = terrain.Hole;
+                ball = hole;
                 holed = true;
                 outcome = ShotOutcome.Holed;
                 break;
@@ -362,9 +364,9 @@ public static class BallSimulator
                 outcome = ShotOutcome.OutOfBounds;
                 break;
             default:
-                if (Dist2(x, z, terrain.Hole) < HoleRadius * HoleRadius)
+                if (Dist2(x, z, hole) < HoleRadius * HoleRadius)
                 {
-                    ball = terrain.Hole;
+                    ball = hole;
                     holed = true;
                     outcome = ShotOutcome.Holed;
                     break;
@@ -381,7 +383,7 @@ public static class BallSimulator
                 else
                 {
                     // Flaque (« casual water ») : dégagement sans pénalité au sec, pas plus près du trou.
-                    ball = terrain.Puddles.Relief(new Point2(x, z), terrain.Hole);
+                    ball = terrain.Puddles.Relief(new Point2(x, z), hole);
                     outcome = OutcomeOf(terrain.SurfaceAt(ball.X, ball.Z));
                 }
 
