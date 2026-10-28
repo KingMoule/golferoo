@@ -17,7 +17,7 @@ public sealed record EconomyParams
 
     public required long OverdraftInterestBasisPoints { get; init; }
 
-    /// <summary>Découvert permis au-delà de <see cref="OverdraftFreeHoles"/> trous ouverts (le solde ne descend pas sous son opposé).</summary>
+    /// <summary>Découvert permis à partir de <see cref="OverdraftFreeHoles"/> trous ouverts (le solde ne descend pas sous son opposé).</summary>
     public required long OverdraftLimit { get; init; }
 
     public required long OverdraftFreeHoles { get; init; }

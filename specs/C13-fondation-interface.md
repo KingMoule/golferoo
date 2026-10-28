@@ -40,7 +40,7 @@ Ce qui prouve la réussite : une fumée Godot prend chaque outil et ouvre chaque
 ## Conception
 **Code** : un dossier `game/src/Ui/`, sans règle de jeu (comme `Tools/`). La sim ne change pas ; aucun nouvel état de partie.
 - `UiTheme` : palette et tailles de `docs/design-interface.md` en constantes, et le `Theme` Godot construit en code (styles de `PanelContainer`, `Button`, `Label`, `ProgressBar`, `TooltipPanel`…). Appliqué à une racine unique : un `CanvasLayer` `Ui` qui porte un `Control` plein écran `UiRoot` ; tous les éléments d'interface en descendent, pour que le thème s'hérite.
-- `game/shaders/ui_glass.gdshader` : flou de l'écran derrière un panneau (lecture de `hint_screen_texture` à mip réduit), teinte et opacité de la palette. Un seul `BackBufferCopy` par image pour toute l'interface.
+- `game/shaders/ui_glass.gdshader` : flou de l'écran derrière un panneau (lecture de `hint_screen_texture` à mip réduit), teinte et opacité de la palette. Une seule copie automatique de l'écran par image : tout le verre vit sur le calque `Ui`.
 - Composants : `UiPanel` (titre, icône ronde, croix, contenu), `UiPill`, `UiToolButton` (silhouette ; états repos, survol, choisi, grisé), `UiThumb` (vignette, pastille de prix), `UiTooltip` (titre, description, lignes de coût), `UiGauge`, `UiTable`.
 - `BottomBar` (deux étages) ; `ToolDrawer` (tiroir à onglets au-dessus de la barre, curseur de taille du pinceau) ; `PanelStack` (pile alignée de droite à gauche au-dessus de la barre ; Échap ferme le dernier ouvert) ; `Birdie`.
 - `UiIds` : les identifiants stables en constantes (`Tool.Terrain`, `Thumb.Fairway`, `Panel.League`…), portés par le `Name` des nœuds (sans point : `ToolTerrain`) ; `UiRoot.Find(id)` les retrouve. Le tutoriel et la fumée s'en servent.

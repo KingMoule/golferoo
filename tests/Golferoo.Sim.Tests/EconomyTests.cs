@@ -211,21 +211,19 @@ public class EconomyTests
     }
 
     /// <summary>Parcours de quatre trous ouverts, sans argent : la limite de découvert s'applique.</summary>
-    private static World FourHolesBroke(EconomyParams e)
+    private static World ThreeHolesBroke(EconomyParams e)
     {
         var world = new World(1, CourseTests.ThreeHoles(), economy: e);
-        var t = world.Terrain!;
-        Assert.True(world.AddHole(t.Course[2].Tee, t.Course[2].Hole));
         world.Step();
-        Assert.Equal(4, world.OpenHoles);
+        Assert.Equal(3, world.OpenHoles);
         return world;
     }
 
     [Fact]
-    public void BeyondThreeOpenHoles_ACommandBelowTheLimit_IsRefusedWhole()
+    public void FromThreeOpenHoles_ACommandBelowTheLimit_IsRefusedWhole()
     {
         // Rough à 400 $ le m² : une petite peinture coûte plus de 100 000 $.
-        var world = FourHolesBroke(With(("startingMoney", 0), ("paintRoughPerM2", 40_000), ("treeRaze", 20_000_000)));
+        var world = ThreeHolesBroke(With(("startingMoney", 0), ("paintRoughPerM2", 40_000), ("treeRaze", 20_000_000)));
         var t = world.Terrain!;
         var balance = world.Ledger.Balance;
         var refused = new List<(LedgerCategory, long)>();
@@ -256,11 +254,12 @@ public class EconomyTests
     }
 
     [Fact]
-    public void UpToThreeOpenHoles_TheOverdraftHasNoLimit()
+    public void UnderThreeOpenHoles_TheOverdraftHasNoLimit()
     {
         var world = new World(1, CourseTests.ThreeHoles(), economy: With(("startingMoney", 0), ("paintRoughPerM2", 40_000)));
+        Assert.True(world.RemoveLastHole());
         world.Step();
-        Assert.Equal(3, world.OpenHoles);
+        Assert.Equal(2, world.OpenHoles);
 
         world.PaintSurface(world.Terrain!.Course[1].Tee, 30, Surface.Rough);
         world.Step();

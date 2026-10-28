@@ -5,7 +5,7 @@ namespace Golferoo.Sim;
 
 /// <summary>
 /// Économie (C14) : la caisse débite chaque commande au moment où elle s'applique, d'après ce qui change réellement, et clôt chaque mois
-/// (entretien des trous ouverts, intérêts du découvert). Au-delà de <see cref="EconomyParams.OverdraftFreeHoles"/> trous ouverts, une commande
+/// (entretien des trous ouverts, intérêts du découvert). À partir de <see cref="EconomyParams.OverdraftFreeHoles"/> trous ouverts, une commande
 /// qui ferait passer le solde sous la limite de découvert est refusée entière.
 /// </summary>
 public sealed partial class World
@@ -19,8 +19,8 @@ public sealed partial class World
     /// <summary>Trous ouverts aux golfeurs (aucun sans terrain).</summary>
     public int OpenHoles => Terrain is null ? 0 : _holesOpen.Count(open => open);
 
-    /// <summary>Solde minimal permis à un achat : aucun jusqu'à <see cref="EconomyParams.OverdraftFreeHoles"/> trous ouverts, puis l'opposé de la limite.</summary>
-    private long? OverdraftFloor => OpenHoles > Economy.OverdraftFreeHoles ? -Economy.OverdraftLimit : null;
+    /// <summary>Solde minimal permis à un achat : aucun sous <see cref="EconomyParams.OverdraftFreeHoles"/> trous ouverts, puis l'opposé de la limite.</summary>
+    private long? OverdraftFloor => OpenHoles >= Economy.OverdraftFreeHoles ? -Economy.OverdraftLimit : null;
 
     private bool TrySpend(LedgerCategory category, long cost) => Ledger.TrySpend(category, cost, OverdraftFloor);
 

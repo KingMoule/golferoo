@@ -5,59 +5,40 @@ using Golferoo.Sim.Terrain;
 namespace Golferoo.Game.Tools;
 
 /// <summary>
-/// Outil de pose (V pour l'activer, B ou T l'éteignent) : un clic sur une cellule de départ y pose le départ, un clic sur le green y pose le trou.
+/// Outil de pose, pris depuis le tiroir Trous de la barre du bas (V reste active sans être affichée) : un clic sur une cellule de départ
+/// y pose le départ du trou que montre la caméra (<see cref="Main.CameraHole"/>), un clic sur son green y pose le trou.
 /// Ne fait que poster <see cref="World.PlaceTee"/> et <see cref="World.PlaceHole"/> : la sim refuse et valide.
-/// Deux boutons, actifs avec l'outil : « Nouveau trou » (N : un clic sur un départ, puis un clic sur un green, poste <see cref="World.AddHole"/>)
-/// et « Retirer le dernier trou » (Suppr : <see cref="World.RemoveLastHole"/>).
+/// « Nouveau trou » (un clic sur un départ, puis un clic sur un green, poste <see cref="World.AddHole"/>)
+/// et « Supprimer » (<see cref="World.RemoveLastHole"/>) sont des boutons du tiroir ; N et Suppr restent.
 /// </summary>
 public partial class PlaceTool : Node
 {
     private Main? _main;
-    private Label? _label;
-    private Control? _panel;
     private int _refusedSeen;
     private bool _newHole;
     private Point2? _pendingTee;
 
-    private const string PoseText = "Pose : clic sur le départ (Tee) pour le poser, clic sur le green pour poser le trou";
-
     public bool Active { get; private set; }
 
-    public void Init(Main main)
-    {
-        _main = main;
-        var layer = new CanvasLayer { Name = "PlaceToolLayer" };
-        var panel = new PanelContainer { Name = "PlacePanel", MouseFilter = Control.MouseFilterEnum.Ignore, Visible = false };
-        panel.AnchorLeft = 1f;
-        panel.AnchorRight = 1f;
-        panel.OffsetLeft = -330f;
-        panel.OffsetRight = -8f;
-        panel.OffsetTop = 8f;
-        _label = new Label { MouseFilter = Control.MouseFilterEnum.Ignore, Text = PoseText, AutowrapMode = TextServer.AutowrapMode.WordSmart };
-        _panel = panel;
-        var column = new VBoxContainer { MouseFilter = Control.MouseFilterEnum.Ignore };
-        column.AddChild(_label);
-        column.AddChild(NewButton("NewHoleButton", "Nouveau trou (N)", BeginNewHole));
-        column.AddChild(NewButton("RemoveHoleButton", "Retirer le dernier trou (Suppr)", RemoveLastHole));
-        panel.AddChild(column);
-        layer.AddChild(panel);
-        AddChild(layer);
-    }
+    /// <summary>Vrai entre « Nouveau trou » et la pose de son drapeau.</summary>
+    public bool NewHole => _newHole;
 
-    private static Button NewButton(string name, string text, Action pressed)
-    {
-        var button = new Button { Name = name, Text = text, FocusMode = Control.FocusModeEnum.None };
-        button.Pressed += pressed;
-        return button;
-    }
+    /// <summary>Ce que fera le prochain clic, pour le tiroir.</summary>
+    public string Status => !_newHole
+        ? $"Trou {_main?.CameraHole ?? 1} : clic sur un départ pour le poser, sur le green pour placer le drapeau."
+        : _pendingTee is null ? "Nouveau trou : clic sur une cellule de départ." : "Nouveau trou : clic sur le green où poser le drapeau.";
+
+    public void Init(Main main) => _main = main;
 
     /// <summary>Premier temps de « Nouveau trou » : le prochain clic doit tomber sur une cellule de départ.</summary>
     public void BeginNewHole()
     {
         _newHole = true;
         _pendingTee = null;
-        _label!.Text = "Nouveau trou : clic sur une cellule de départ (Tee)";
     }
+
+    /// <summary>Revient à la pose du départ et du drapeau du trou montré.</summary>
+    public void BeginPose() => EndNewHole();
 
     /// <summary>Met en file le retrait du dernier trou ; dit pourquoi si la sim refuse.</summary>
     public void RemoveLastHole()
@@ -72,10 +53,6 @@ public partial class PlaceTool : Node
     {
         _newHole = false;
         _pendingTee = null;
-        if (_label is not null)
-        {
-            _label.Text = PoseText;
-        }
     }
 
     private static string Describe(IReadOnlyList<HoleIssue> issues) => issues.Count == 0
@@ -104,7 +81,6 @@ public partial class PlaceTool : Node
             }
 
             _pendingTee = point;
-            _label!.Text = "Nouveau trou : clic sur le green où poser le drapeau";
             return;
         }
 
@@ -144,8 +120,6 @@ public partial class PlaceTool : Node
         {
             EndNewHole();
         }
-
-        _panel?.SetVisible(active);
     }
 
     /// <summary>Gère une touche ; vrai pour V seulement (B et T éteignent l'outil sans consommer la touche).</summary>
@@ -181,8 +155,8 @@ public partial class PlaceTool : Node
         return false;
     }
 
-    /// <summary>Clic gauche : vrai s'il a été consommé par l'outil.</summary>
-    public bool HandleClick()
+    /// <summary>Clic gauche à la position d'écran <paramref name="mouse"/> : vrai s'il a été consommé par l'outil.</summary>
+    public bool HandleClick(Vector2 mouse)
     {
         if (!Active || _main is null)
         {
@@ -196,7 +170,6 @@ public partial class PlaceTool : Node
         }
 
         var grid = _main.World.Terrain!;
-        var mouse = GetViewport().GetMousePosition();
         if (Brush.TryPick(grid, camera.ProjectRayOrigin(mouse), camera.ProjectRayNormal(mouse), camera.Far, out var hit))
         {
             var point = new Point2(hit.X, hit.Z);
@@ -209,11 +182,12 @@ public partial class PlaceTool : Node
             switch (grid.SurfaceAt(point.X, point.Z))
             {
                 case Surface.Tee:
-                    _main.World.PlaceTee(1, point);
+                    _main.World.PlaceTee(_main.CameraHole, point);
                     break;
                 case Surface.Green:
-                    _main.World.PlaceHole(1, point);
+                    _main.World.PlaceHole(_main.CameraHole, point);
                     break;
+
                 default:
                     break;
             }
