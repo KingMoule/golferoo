@@ -120,12 +120,123 @@ public class SaveTests
         Assert.Null(loaded.Terrain);
     }
 
-    [Fact]
-    public void Save_WithALeague_IsNotSupportedYet()
+    /// <summary>Monde avec ligue arrêté au moment demandé : journée en cours, finale en cours, saison ajustée, ou après une partie d'entraînement du pro.</summary>
+    private static World LeagueWorld(ulong seed, string map, string scenario)
     {
-        var world = new World(1, Hole("proto"), league: true);
+        var terrain = Hole(map);
+        var world = new World(seed, terrain, league: true) { ManualPro = scenario == "training" };
+        world.SetCourseRating(CourseRater.Rate(terrain, seed, 15));
+        var league = world.League!;
+        if (scenario == "training")
+        {
+            var group = world.StartProRound();
+            for (var i = 0; i < 60_000 && !group.Finished; i++)
+            {
+                if (world.AwaitingPro is { } pro)
+                {
+                    world.PlayProShot(ProShotFor(terrain, pro.Ball));
+                }
 
-        Assert.Throws<NotSupportedException>(() => world.Save(new MemoryStream()));
+                world.Step();
+            }
+
+            Assert.True(group.Finished);
+            Assert.True(world.Pro!.Experience(ProSkill.Putting) > 0);
+        }
+        else
+        {
+            Func<bool> reached = scenario switch
+            {
+                "round" => () => league.Rounds[0].Cards.Count > 0 && !league.Rounds[0].Closed,
+                "final" => () => league.Final.Cards.Count > 0 && !league.Final.Closed,
+                _ => () => league.Adjusted,
+            };
+            for (var i = 0; i < 40_000 && !reached(); i++)
+            {
+                world.Step(100);
+            }
+
+            Assert.True(reached(), "scénario non atteint");
+        }
+
+        league.Members[3].Opinion = 17; // hors Checksum : seul AssertSameLeague le voit
+        return world;
+    }
+
+    private static ProShot ProShotFor(TerrainGrid t, Point2 ball)
+    {
+        if (t.SurfaceAt(ball.X, ball.Z) == Surface.Green)
+        {
+            return new ProShot(Clubs.Putter, t.Hole, ShotShape.Straight, 1.0);
+        }
+
+        var d = Math.Sqrt(Math.Pow(t.Hole.X - ball.X, 2) + Math.Pow(t.Hole.Z - ball.Z, 2));
+        var club = Clubs.Full.LastOrDefault(c => c.TargetRange >= d) ?? Clubs.Driver;
+        return new ProShot(club, t.Hole, ShotShape.Straight, Math.Min(1.0, Math.Sqrt(d / club.TargetRange)));
+    }
+
+    /// <summary>L'état de ligue que ni <c>League.MixInto</c> ni <c>MixPro</c> ne couvrent : cartes et points des journées, classement, champion de la saison, avis des membres.</summary>
+    private static void AssertSameLeague(World a, World b)
+    {
+        var (x, y) = (a.League!, b.League!);
+        Assert.Equal(x.Members.Select(m => m.Opinion), y.Members.Select(m => m.Opinion));
+        Assert.Equal(x.FinalRanking, y.FinalRanking);
+        Assert.Equal(x.Champion, y.Champion);
+        foreach (var (r, q) in x.Rounds.Append(x.Final).Zip(y.Rounds.Append(y.Final)))
+        {
+            Assert.Equal(r.Format, q.Format);
+            Assert.Equal(r.NominalDay, q.NominalDay);
+            Assert.Equal(r.Points, q.Points);
+            Assert.Equal(r.Cards.Keys, q.Cards.Keys);
+            foreach (var id in r.Cards.Keys)
+            {
+                var (c, d) = (r.Cards[id], q.Cards[id]);
+                Assert.Equal(Enumerable.Range(0, c.HoleCount).Select(h => (c.Par(h), c.Strokes(h))), Enumerable.Range(0, d.HoleCount).Select(h => (d.Par(h), d.Strokes(h))));
+            }
+        }
+    }
+
+    [Theory]
+    [InlineData(1UL, "proto", "round")]
+    [InlineData(2UL, "dogleg", "round")]
+    [InlineData(3UL, "proto", "final")]
+    [InlineData(2UL, "proto", "adjusted")]
+    [InlineData(3UL, "proto", "training")]
+    public void LeagueWorld_ReloadedAndAdvanced_HasTheSameChecksum(ulong seed, string map, string scenario)
+    {
+        var original = LeagueWorld(seed, map, scenario);
+        var bytes = Save(original);
+
+        var loaded = Load(bytes);
+        Assert.Equal(bytes, Save(loaded));
+        Assert.Equal(original.Checksum(), loaded.Checksum());
+        AssertSameLeague(original, loaded);
+        Assert.Equal(original.ManualPro, loaded.ManualPro);
+        original.Step(2000);
+        loaded.Step(2000);
+
+        Assert.Equal(original.Checksum(), loaded.Checksum());
+        AssertSameLeague(original, loaded);
+    }
+
+    [Fact]
+    public void AdjustedLeague_ReloadedThenIntoTheNextSeason_KeepsTheOpinions()
+    {
+        var original = LeagueWorld(4, "proto", "adjusted");
+        var loaded = Load(Save(original));
+
+        foreach (var w in new[] { original, loaded })
+        {
+            for (var i = 0; i < 200 && w.League!.Year == 0; i++)
+            {
+                w.Step(Calendar.TicksPerDay);
+            }
+
+            Assert.Equal(1, w.League!.Year);
+        }
+
+        Assert.Equal(original.Checksum(), loaded.Checksum());
+        AssertSameLeague(original, loaded);
     }
 
     /// <summary>Fichier forgé : l'en-tête (magique, version, somme de contrôle) de <paramref name="original"/>, puis ce corps compressé avec cette empreinte.</summary>

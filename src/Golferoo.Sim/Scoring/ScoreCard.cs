@@ -1,3 +1,5 @@
+using Golferoo.Sim.Save;
+
 namespace Golferoo.Sim.Scoring;
 
 /// <summary>
@@ -19,6 +21,37 @@ public sealed class ScoreCard
 
         _pars = [.. pars];
         _strokes = new int[_pars.Length];
+    }
+
+    internal void Write(SaveWriter w)
+    {
+        w.Int(_pars.Length);
+        foreach (var p in _pars)
+        {
+            w.Int(p);
+        }
+
+        foreach (var s in _strokes)
+        {
+            w.Int(s);
+        }
+    }
+
+    internal static ScoreCard Read(SaveReader r)
+    {
+        var n = r.Int();
+        if (n < 1 || n > r.Remaining / (2 * sizeof(int)))
+        {
+            throw new InvalidDataException("Carte de score impossible dans la sauvegarde.");
+        }
+
+        var card = new ScoreCard(Enumerable.Range(0, n).Select(_ => r.Int()).ToArray());
+        for (var i = 0; i < n; i++)
+        {
+            card._strokes[i] = r.Int();
+        }
+
+        return card;
     }
 
     public int HoleCount => _pars.Length;
