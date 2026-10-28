@@ -100,48 +100,115 @@ public partial class SmokeTest : Node
         Main.TutorialMode = false;
     }
 
+    /// <summary>
+    /// C13 critères 7 et 8 : le tutoriel se fait en entier aux boutons. À chaque tour, le bouton mis en évidence existe dans <c>UiRoot</c> et
+    /// se voit ; s'il n'est pas encore pris, on le presse, sinon on fait le clic de l'étape sur le terrain (par les commandes que ce clic
+    /// poste, avec l'état de l'outil que les boutons ont choisi). Aucun texte de la bulle ne cite une touche.
+    /// </summary>
     private List<string> CheckTutorial()
     {
         var failures = new List<string>();
         var main = _tutorial!;
         var world = main.World;
+        var grid = world.Terrain!;
+        var tutorial = main.Tutorial;
         var tee = new Point2(28, 244);
         var green = new Point2(268, 56);
-        if (world.HoleOpen || main.Tutorial is null || main.Tutorial.Phase != Golferoo.Game.Tutorial.TutorialPanel.Mode.Welcome)
+        if (world.HoleOpen || tutorial is null || tutorial.Phase != Golferoo.Game.Tutorial.TutorialPanel.Mode.Welcome)
         {
             failures.Add("tutoriel : terre vierge ouverte ou bulle absente");
             return failures;
         }
 
-        foreach (var p in world.Terrain!.IsolatedTrees)
+        var texts = new List<string> { tutorial.Text };
+        Press(main, UiIds.Tutorial.Start, failures);
+        var highlighted = new HashSet<string>();
+        for (var turn = 0; turn < 200 && Golferoo.Sim.Tutorial.TutorialSteps.Current(world) is var step && step != Golferoo.Sim.Tutorial.TutorialStep.Done; turn++)
         {
-            world.RazeTree(world.Trees.Trees.First(t => t.X == p.X && t.Z == p.Z).Id);
+            tutorial._Process(0);
+            texts.Add(tutorial.Text);
+            if (tutorial.Highlighted is not { } id || main.Ui.Find(id) is not BaseButton { Visible: true } button || !button.IsVisibleInTree())
+            {
+                failures.Add($"tutoriel, étape {step} : bouton mis en évidence « {tutorial.Highlighted} » absent de UiRoot ou caché");
+                break;
+            }
+
+            highlighted.Add(id);
+            if (!button.ButtonPressed)
+            {
+                Press(main, id, failures);
+            }
+            else if (!TutorialClick(main, step, tee, green))
+            {
+                failures.Add($"tutoriel, étape {step} : rien à cliquer avec « {id} » pris");
+                break;
+            }
+
+            main.StepTicks(2);
         }
 
-        world.PlantTree(64, 208, TreeSpeciesId.Oak, TreePlantStage.Sapling);
-        world.PaintSurface(tee, 6, Surface.Tee);
-        foreach (var x in new[] { 100.0, 160.0, 220.0 })
+        tutorial._Process(0);
+        texts.Add(tutorial.Text);
+        if (!world.HoleOpen || tutorial.Phase != Golferoo.Game.Tutorial.TutorialPanel.Mode.Finished || tutorial.Highlighted != UiIds.Tutorial.Golfers)
         {
-            world.PaintSurface(new Point2(x, 236), 10, Surface.Fairway);
+            failures.Add($"tutoriel : pas fini aux boutons (trou ouvert {world.HoleOpen}, phase {tutorial.Phase}, étape {Golferoo.Sim.Tutorial.TutorialSteps.Current(world)})");
         }
 
-        world.PaintSurface(green, 11, Surface.Green);
-        main.StepTicks(1);
-        if (!world.PlaceTee(1, tee) || !world.PlaceHole(1, green))
+        if (main.Ui.Find(UiIds.Tutorial.Ring) is not { Visible: true })
         {
-            failures.Add("tutoriel : pose du départ ou du trou refusée");
+            failures.Add("tutoriel : l'anneau jaune ne se voit pas");
         }
 
-        main.StepTicks(2);
-        if (!world.HoleOpen)
+        Press(main, UiIds.Tutorial.Golfers, failures);
+        if (world.Groups.Count == 0 || tutorial.Phase != Golferoo.Game.Tutorial.TutorialPanel.Mode.Off)
         {
-            failures.Add("tutoriel : le trou n'est pas valide après la construction");
+            failures.Add("tutoriel : « Lancer des golfeurs » ne lance personne ou laisse la bulle");
         }
 
-        main.SpawnGroup();
         main.StepTicks(20);
-        GD.Print($"SMOKE tutoriel : trou valide, étape {Golferoo.Sim.Tutorial.TutorialSteps.Current(world)}");
+        CheckNoKeys(main, failures, texts);
+        GD.Print($"SMOKE tutoriel : fini aux boutons, {highlighted.Count} boutons mis en évidence ({string.Join(", ", highlighted)}), {failures.Count} échec");
         return failures;
+    }
+
+    /// <summary>Le clic sur le terrain de l'étape <paramref name="step"/>, l'outil déjà choisi aux boutons ; faux si l'outil n'est pas dans le bon état.</summary>
+    private static bool TutorialClick(Main main, Golferoo.Sim.Tutorial.TutorialStep step, Point2 tee, Point2 green)
+    {
+        var world = main.World;
+        var brush = main.Brush;
+        var size = (Godot.Range)main.Ui.Find(UiIds.Drawer.BrushSize)!;
+        void Paint(double radius, params Point2[] points)
+        {
+            size.Value = radius;
+            foreach (var p in points)
+            {
+                world.PaintSurface(p, brush.Radius, brush.PaintedSurface);
+            }
+        }
+
+        switch (step)
+        {
+            case Golferoo.Sim.Tutorial.TutorialStep.ClearTrees when main.TreeTool.Mode == TreeTool.ClickMode.Select:
+                var isolated = world.Terrain!.IsolatedTrees;
+                var corridor = world.Trees.Trees.Where(t => t.State == TreeState.Standing && isolated.Any(p => p.X == t.X && p.Z == t.Z)).Select(t => (int?)t.Id).FirstOrDefault();
+                return corridor is { } id && main.TreeTool.Select(id);
+            case Golferoo.Sim.Tutorial.TutorialStep.PlantSapling when main.TreeTool.Mode == TreeTool.ClickMode.Sapling:
+                main.TreeTool.PlantAt(new Point2(64, 208), TreePlantStage.Sapling);
+                return true;
+            case Golferoo.Sim.Tutorial.TutorialStep.PaintTee when brush.PaintedSurface == Surface.Tee:
+                Paint(6, tee);
+                return true;
+            case Golferoo.Sim.Tutorial.TutorialStep.PaintFairway when brush.PaintedSurface == Surface.Fairway:
+                Paint(10, new Point2(100, 236), new Point2(160, 236), new Point2(220, 236));
+                return true;
+            case Golferoo.Sim.Tutorial.TutorialStep.PaintGreen when brush.PaintedSurface == Surface.Green:
+                Paint(11, green);
+                return true;
+            case Golferoo.Sim.Tutorial.TutorialStep.PlaceTeeAndHole when main.PlaceTool.Active && !main.PlaceTool.NewHole:
+                return world.PlaceTee(main.CameraHole, tee) && world.PlaceHole(main.CameraHole, green);
+            default:
+                return false;
+        }
     }
 
     /// <summary>C11 lot 3 : F5 et F8 dans l'InputMap ; sauve, recharge par la scène (un nouveau Main part du monde chargé), même somme de contrôle.</summary>
@@ -745,7 +812,7 @@ public partial class SmokeTest : Node
         {
             ("barre", main.Ui.Find(UiIds.Tool.Buildings)),
             ("tiroir", main.Ui.Find(UiIds.Drawer.Status)?.GetParentControl()),
-            ("ligue", main.League?.GetNodeOrNull<Control>("LeaguePanel")),
+            ("ligue", main.Ui.Find(UiIds.Panel.League)),
         };
         foreach (var (name, control) in targets)
         {
@@ -788,9 +855,11 @@ public partial class SmokeTest : Node
     }
 
     /// <summary>Émet le signal <c>Pressed</c> du bouton d'identifiant <paramref name="id"/>, comme un clic ; faux s'il manque.</summary>
-    private bool Press(string id, List<string> failures)
+    private bool Press(string id, List<string> failures) => Press(_main!, id, failures);
+
+    private static bool Press(Main main, string id, List<string> failures)
     {
-        if (_main!.Ui.Find(id) is not BaseButton button || button.Disabled)
+        if (main.Ui.Find(id) is not BaseButton button || button.Disabled)
         {
             failures.Add($"barre : bouton {id} absent ou grisé");
             return false;
@@ -924,11 +993,6 @@ public partial class SmokeTest : Node
         Expect(main.Camera.Mode == CameraMode.Free, "Caméra libre");
         Press(UiIds.Round.Camera, failures);
         Expect(main.Camera.Mode == CameraMode.Iso, "retour à la vue iso");
-        Press(UiIds.Round.League, failures);
-        Press(UiIds.Round.Pro, failures);
-        Expect(main.League?.IsOpen == true && main.ProPanel?.IsOpen == true, "Ligue et Votre pro ne s'ouvrent pas");
-        Press(UiIds.Round.League, failures);
-        Press(UiIds.Round.Pro, failures);
         foreach (var id in new[] { UiIds.Tool.Buildings, UiIds.Tool.Amenities, UiIds.Round.Finances })
         {
             Expect(ui.Find(id) is BaseButton { Disabled: true }, $"{id} devrait être grisé");
@@ -937,6 +1001,79 @@ public partial class SmokeTest : Node
         main.Bar.Select(ToolFamily.None, toggle: false);
         Expect(!brush.Active && !trees.Active && !place.Active && !ui.Find(UiIds.Drawer.Root)!.Visible, "rien de pris : le tiroir reste ouvert");
         GD.Print($"SMOKE barre : outils, vignettes, actions, vitesses, caméra par leurs boutons ({failures.Count} échec)");
+        CheckPanels(failures);
+        CheckNoKeys(main, failures, []);
+    }
+
+    /// <summary>
+    /// C13 critère 6 : Gazon, Ligue et Votre pro s'ouvrent par leur bouton et s'empilent de droite à gauche sans se fermer ; Échap ferme le
+    /// dernier ouvert, puis le précédent ; la croix ferme le sien, même au milieu de la pile.
+    /// </summary>
+    private void CheckPanels(List<string> failures)
+    {
+        var main = _main!;
+        var stack = main.Panels;
+        void Expect(bool ok, string what)
+        {
+            if (!ok)
+            {
+                failures.Add($"panneaux : {what}");
+            }
+        }
+
+        UiPanel Panel(string id) => (UiPanel)main.Ui.Find(id)!;
+        bool Open(params string[] ids) => stack.Opened.Select(p => p.Name.ToString()).SequenceEqual(ids) && ids.All(id => Panel(id).IsVisibleInTree());
+
+        Expect(stack.Opened.Count == 0, "la pile n'est pas vide au départ");
+        Press(UiIds.Tool.Turf, failures);
+        Press(UiIds.Round.League, failures);
+        Press(UiIds.Round.Pro, failures);
+        Expect(Open(UiIds.Panel.Turf, UiIds.Panel.League, UiIds.Panel.Pro) && main.Turf.IsOpen && main.League?.IsOpen == true && main.ProPanel?.IsOpen == true, "les trois ne s'empilent pas");
+        Expect(Panel(UiIds.Panel.Pro).GetIndex() < Panel(UiIds.Panel.League).GetIndex() && Panel(UiIds.Panel.League).GetIndex() < Panel(UiIds.Panel.Turf).GetIndex(), "le dernier ouvert n'est pas à gauche des autres");
+        PushKey(Key.Escape);
+        Expect(Open(UiIds.Panel.Turf, UiIds.Panel.League), "Échap ne ferme pas Votre pro, le dernier ouvert");
+        PushKey(Key.Escape);
+        Expect(Open(UiIds.Panel.Turf), "un second Échap ne ferme pas la Ligue");
+        Press(UiIds.Round.League, failures);
+        Press(UiIds.Round.Pro, failures);
+        Panel(UiIds.Panel.League).CloseButton.EmitSignal(BaseButton.SignalName.Pressed);
+        Expect(Open(UiIds.Panel.Turf, UiIds.Panel.Pro), "la croix de la Ligue ne ferme pas la sienne seule");
+        Panel(UiIds.Panel.Turf).CloseButton.EmitSignal(BaseButton.SignalName.Pressed);
+        PushKey(Key.Escape);
+        Expect(stack.Opened.Count == 0 && !main.Turf.IsOpen && main.ProPanel?.IsOpen != true, "la croix du Gazon puis Échap ne vident pas la pile");
+        GD.Print($"SMOKE panneaux : trois empilés, Échap et croix ({failures.Count} échec)");
+    }
+
+    /// <summary>C13 critère 7 : aucun libellé, info-bulle ou texte de l'interface (et du tutoriel, <paramref name="extra"/>) ne cite une touche.</summary>
+    private static void CheckNoKeys(Main main, List<string> failures, IEnumerable<string> extra)
+    {
+        var texts = new List<string>(extra);
+        foreach (var node in main.Ui.FindChildren("*", "", recursive: true, owned: false))
+        {
+            if (node is Control control)
+            {
+                texts.Add(control.TooltipText);
+            }
+
+            texts.Add(node switch
+            {
+                Label label => label.Text,
+                Button button => button.Text,
+                RichTextLabel rich => rich.Text,
+                _ => "",
+            });
+        }
+
+        foreach (var text in texts.Where(t => t.Length > 0).Distinct())
+        {
+            if (text.Contains("(T", StringComparison.Ordinal) || text.Contains("[b]F1", StringComparison.Ordinal) || text.Contains("touche", StringComparison.OrdinalIgnoreCase)
+                || System.Text.RegularExpressions.Regex.IsMatch(text, @"\[b\](\\?.|F\d+)\[/b\]"))
+            {
+                failures.Add($"texte qui cite une touche : « {text} »");
+            }
+        }
+
+        GD.Print($"SMOKE touches : {texts.Count} textes sans touche citée");
     }
 
     /// <summary>C13 critère 5 : un carré de fairway et l'arbre planté dessus ; un trait de bulldozer au même point les efface.</summary>
@@ -1334,9 +1471,9 @@ public partial class SmokeTest : Node
         brush.SetActive(true);
         brush.SelectSurface(Surface.Bunker);
         brush.ChangeRadius(4f);
-        if (!brush.Describe().Contains("Bunker") || !brush.Describe().Contains("10"))
+        if (brush.PaintedSurface != Surface.Bunker || Math.Abs(brush.Radius - 10f) > 0.01f)
         {
-            failures.Add($"panneau du pinceau inattendu : {brush.Describe()}");
+            failures.Add($"pinceau inattendu : {brush.PaintedSurface}, rayon {brush.Radius}");
         }
 
         if (!Brush.TryPick(grid, new Vector3((float)center.X, 200f, (float)center.Z), Vector3.Down, 400f, out var hit)

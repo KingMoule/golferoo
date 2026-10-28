@@ -97,5 +97,23 @@ public static class UiIds
         public const string Turf = "PanelTurf";
         public const string League = "PanelLeague";
         public const string Pro = "PanelPro";
+        public const string LeagueCard = "PanelLeagueCard";
+
+        /// <summary>La visée du pro, hors de la pile : elle suit le tour du pro.</summary>
+        public const string Aim = "PanelAim";
+    }
+
+    /// <summary>La bulle de votre pro (tutoriel), ses boutons et l'anneau qui entoure le bouton attendu.</summary>
+    public static class Tutorial
+    {
+        public const string Bubble = "TutorialBubble";
+        public const string Text = "TutorialText";
+        public const string Yes = "TutorialYes";
+        public const string Later = "TutorialLater";
+        public const string Start = "TutorialStart";
+        public const string Skip = "TutorialSkip";
+        public const string Golfers = "TutorialGolfers";
+        public const string Close = "TutorialClose";
+        public const string Ring = "TutorialRing";
     }
 }

@@ -22,11 +22,6 @@ public partial class BottomBar : Control
     private const double OpenHour = 7.0;
     private const double DayHours = 12.0;
 
-    private static readonly int[] Speeds = [1, 2, 4, 8, 16];
-    private static readonly string[] MonthNames = ["janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août", "septembre", "octobre", "novembre", "décembre"];
-    private static readonly string[] SeasonNames = ["Printemps", "Été", "Automne", "Hiver"];
-    private static readonly string[] SkyNames = ["soleil", "nuages", "pluie", "forte pluie"];
-
     private readonly Dictionary<ToolFamily, UiToolButton> _families = [];
     private readonly Dictionary<int, Button> _speeds = [];
     private Main _main = null!;
@@ -143,9 +138,9 @@ public partial class BottomBar : Control
         var date = world.Date;
         var hours = OpenHour + (Math.Clamp(date.DayFraction, 0.0, 1.0) * DayHours);
         SetText(_clockTime, $"{(int)hours:00}:{(int)((hours - Math.Floor(hours)) * 60):00}");
-        SetText(_clockDate, $"{date.Day} {MonthNames[date.Month - 1]}, an {date.Year}");
+        SetText(_clockDate, $"{date.Day} {UiNames.Months[date.Month - 1]}, an {date.Year}");
         _clockFill.Size = new Vector2(Mathf.Max(18f, _clockFill.GetParentControl().Size.X * (float)date.DayFraction), UiTheme.PillHeight);
-        _weather.SetText($"{Capitalized(SkyNames[(int)world.Weather.Sky])} · — °C · {SeasonNames[(int)date.Season]} · demain : {SkyNames[(int)world.Forecast(1)]}");
+        _weather.SetText($"{UiNames.Capitalized(UiNames.Skies[(int)world.Weather.Sky])} · — °C · {UiNames.Capitalized(UiNames.Seasons[(int)date.Season])} · demain : {UiNames.Skies[(int)world.Forecast(1)]}");
         _members.SetText(world.League is { } league ? league.Members.Count.ToString(System.Globalization.CultureInfo.InvariantCulture) : "—");
     }
 
@@ -156,8 +151,6 @@ public partial class BottomBar : Control
             label.Text = text;
         }
     }
-
-    private static string Capitalized(string text) => char.ToUpperInvariant(text[0]) + text[1..];
 
     /// <summary>Fond de verre pleine largeur d'un étage, filet clair en haut.</summary>
     private static PanelContainer Tier(string name, Color tint, float top, float height, Control content)
@@ -237,7 +230,7 @@ public partial class BottomBar : Control
         _pause = PillButton(UiIds.Hud.Pause, "", "Pause", () => _main.Paused = !_main.Paused);
         _pause.Icon = UiTheme.Icon("pause");
         buttons.AddChild(_pause);
-        foreach (var s in Speeds)
+        foreach (var s in Main.Speeds)
         {
             var button = PillButton(UiIds.Hud.Speed(s), $"×{s}", $"Vitesse ×{s}", () => _main.SetSpeed(s));
             _speeds[s] = button;

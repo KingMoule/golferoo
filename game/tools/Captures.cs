@@ -39,7 +39,7 @@ public partial class Captures : Node
     private const int ProfileViewCount = 3;
     private const int FreeViewCount = 4;
     private const int SaveViewCount = 2;
-    private const int CourseViewCount = 4;
+    private const int CourseViewCount = 5;
     private const int GalleryViewCount = 1;
 
     /// <summary>Lisière sud de la forêt du coude, la balle de <c>ForestExitTests.Edge</c> (tuile 18,5 / 26,5 de 8 m).</summary>
@@ -388,13 +388,13 @@ public partial class Captures : Node
         main.Camera.SetView(45f, 120f, new Vector3((float)world.Terrain!.Green.X, 0f, (float)world.Terrain.Green.Z));
         main.League!.Toggle();
         await Frames(SettleFrames);
-        CheckWidth(main.League.GetNode<Control>("LeaguePanel"), 352f);
+        CheckWidth(main.Ui.Find(UiIds.Panel.League)!, LeaguePanel.Width);
         Save("league-panel");
 
         // C09 : la fiche d'un membre porte son style (celle du pro n'en a pas), sans élargir la carte.
         main.League.ShowCard(league.Members.First(m => !m.IsPro));
         await Frames(SettleFrames);
-        CheckWidth(main.League.GetNode<Control>("LeagueCard"), 332f);
+        CheckWidth(main.Ui.Find(UiIds.Panel.LeagueCard)!, LeaguePanel.CardWidth);
         Save("league-card-member");
         main.League.ShowCard(league.Members.First(m => m.IsPro));
         await Frames(SettleFrames);
@@ -771,6 +771,21 @@ public partial class Captures : Node
         Save("c13-interface");
         tip.QueueFree();
         main.Bar.Select(ToolFamily.None, toggle: false);
+
+        // C13 lot 3 : trois panneaux ouverts par leurs boutons, empilés de droite à gauche au-dessus de la barre.
+        foreach (var id in new[] { UiIds.Tool.Turf, UiIds.Round.League, UiIds.Round.Pro })
+        {
+            ((BaseButton)main.Ui.Find(id)!).EmitSignal(BaseButton.SignalName.Pressed);
+        }
+
+        await Frames(SettleFrames);
+        GD.Print($"PANNEAUX ouverts={string.Join(",", main.Panels.Opened.Select(p => p.Name))}");
+        Save("c13-panneaux");
+        foreach (var panel in main.Panels.Opened.ToList())
+        {
+            main.Panels.Close(panel);
+        }
+
         window.ContentScaleSize = oldSize;
         window.ContentScaleMode = oldMode;
     }
