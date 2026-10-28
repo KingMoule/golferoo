@@ -1,5 +1,5 @@
 # Sauvegarde de partie (F4, R7)
-Statut : validé
+Statut : livré
 Créé : 2026-10-27
 
 ## But
@@ -71,5 +71,5 @@ Guillaume a délégué le cadrage le 2026-10-27 (« je te fais confiance pour le
 complet (sauvegardes, `docs/workflow.md`).
 
 ## Clôture
-- [ ] Critères vérifiés
-- [ ] Statut passé à « livré », ligne mise à jour dans docs/chantiers.md
+- [x] Critères vérifiés (CI verte sur chaque lot ; SaveTests et oublis simulés tués ; banc dogleg + ligue + 5 000 arbres : écriture 3,7 ms, chargement 3,4 ms, 61 Ko ; fumée `SAVE OK` à somme égale ; sérialisation sur le fil principal 1,5 à 4 ms au facteur du jeu ; captures `c11-avant` et `c11-apres` à juger par Guillaume)
+- [x] Statut passé à « livré », ligne mise à jour dans docs/chantiers.md
