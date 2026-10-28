@@ -107,30 +107,28 @@ public class GolferTests
     }
 
     [Fact]
-    public void SecondGroup_WaitsUntilFirstHasLeftTheGreen()
+    public void SecondGroup_WaitsInTheQueueUntilTheFirstHasLeftTheTee_ThenNeverFinishesBeforeIt()
     {
         var world = NewWorld(5);
         var first = world.SpawnGroup();
         var second = world.SpawnGroup();
 
-        var checkedOnce = false;
-        for (var i = 0; i < 20 * 3600 && !first.Finished; i++)
-        {
-            world.Step();
-            if (!first.Finished)
-            {
-                Assert.False(second.Started);
-                Assert.All(second.Golfers, g => Assert.Equal(0, g.Strokes));
-                checkedOnce = true;
-            }
-        }
-
-        Assert.True(checkedOnce);
+        var queued = false;
         for (var i = 0; i < 20 * 3600 && !second.Finished; i++)
         {
             world.Step();
+            if (!second.Released)
+            {
+                Assert.False(second.Started);
+                Assert.All(second.Golfers, g => Assert.Equal(0, g.Strokes));
+                queued = true;
+            }
+
+            // The group behind never passes the one in front: it cannot hole out before it.
+            Assert.True(!second.Finished || first.Finished);
         }
 
+        Assert.True(queued);
         Assert.True(second.Finished);
     }
 

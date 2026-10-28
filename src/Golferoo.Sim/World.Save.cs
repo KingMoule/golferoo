@@ -179,6 +179,11 @@ public sealed partial class World
             throw new InvalidDataException("Sauvegarde incohérente : états ou commandes de trous hors du parcours.");
         }
 
+        if (_groups.Any(g => g.Hole < 1 || g.Hole > holeCount || g.Golfers.Any(o => o.Card is null || o.Card.HoleCount != holeCount)))
+        {
+            throw new InvalidDataException("Sauvegarde incohérente : trou ou carte de score d'un groupe hors du parcours.");
+        }
+
         foreach (var s in r.List(() => new TurfSettings((GreenSpeed)r.Byte(), (FairwayFirmness)r.Byte(), (RoughLength)r.Byte())))
         {
             _turfCommands.Enqueue(s);

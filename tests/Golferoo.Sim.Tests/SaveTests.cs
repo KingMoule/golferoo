@@ -354,6 +354,93 @@ public class SaveTests
         Assert.Equal(original.Checksum(), loaded.Checksum());
     }
 
+    /// <summary>C12 lot 2 : cinq groupes, le premier en route vers le départ du trou 2, les derniers encore dans la file.</summary>
+    private static World MidPlayThreeHoles(ulong seed)
+    {
+        var world = new World(seed, CourseTests.ThreeHoles());
+        for (var i = 0; i < 5; i++)
+        {
+            world.SpawnGroup();
+        }
+
+        for (var i = 0; i < 60_000 && !world.Groups.SelectMany(g => g.Golfers).Any(g => g.State == GolferState.ToNextTee); i++)
+        {
+            world.Step();
+        }
+
+        Assert.Contains(world.Groups, g => g.Hole == 2);
+        Assert.Contains(world.Groups, g => !g.Released);
+        return world;
+    }
+
+    [Theory]
+    [InlineData(1UL)]
+    [InlineData(2UL)]
+    public void MidPlay_HoleCardsAndQueue_ReloadedAndAdvanced_HaveTheSameChecksum(ulong seed)
+    {
+        var original = MidPlayThreeHoles(seed);
+        var bytes = Save(original);
+
+        var loaded = Load(bytes);
+        Assert.Equal(original.Checksum(), loaded.Checksum());
+        Assert.Equal(original.Groups.Select(g => (g.Hole, g.Released)), loaded.Groups.Select(g => (g.Hole, g.Released)));
+        Assert.Equal(original.Groups[0].Golfers[0].Card!.Gross, loaded.Groups[0].Golfers[0].Card!.Gross);
+        Assert.Equal(bytes, Save(loaded));
+        original.Step(3000);
+        loaded.Step(3000);
+
+        Assert.Equal(original.Checksum(), loaded.Checksum());
+    }
+
+    [Fact]
+    public void NewState_EntersTheChecksum()
+    {
+        var a = MidPlayThreeHoles(1);
+        var b = Load(Save(a));
+        var before = b.Checksum();
+        b.Groups[0].Hole = 3;
+        Assert.NotEqual(before, b.Checksum());
+        b.Groups[0].Hole = 2;
+        b.Groups[0].Golfers[0].Card!.Record(2, 4);
+        Assert.NotEqual(before, b.Checksum());
+        b.Groups[0].Golfers[0].Card!.PickUp(2);
+        b.Groups[^1].Released = true;
+        Assert.NotEqual(before, b.Checksum());
+    }
+
+    [Theory]
+    [InlineData("hole")]
+    [InlineData("card")]
+    public void Load_GroupHoleOrCardOutsideTheCourse_Throws(string what)
+    {
+        var world = new World(1, CourseTests.ThreeHoles());
+        var group = world.SpawnGroup();
+        world.Step(10);
+        var bytes = Save(world);
+        var raw = Unpack(bytes);
+        byte[] pattern;
+        int offset;
+        if (what == "hole")
+        {
+            // Group: id, league round (-1), release tick, started, hole, released.
+            pattern = [.. BitConverter.GetBytes(group.Id), .. BitConverter.GetBytes(-1), .. BitConverter.GetBytes(0L), (byte)(group.Started ? 1 : 0), .. BitConverter.GetBytes(group.Hole)];
+            offset = pattern.Length - 4;
+        }
+        else
+        {
+            // Score card: hole count then pars (three holes of par four) ; claim nine holes.
+            pattern = [.. BitConverter.GetBytes(3), .. BitConverter.GetBytes(4), .. BitConverter.GetBytes(4), .. BitConverter.GetBytes(4)];
+            offset = 0;
+        }
+
+        var index = raw.AsSpan().IndexOf(pattern);
+        Assert.True(index >= 0, "motif introuvable dans le corps");
+        raw[index + offset] = (byte)(what == "hole" ? 9 : 2);
+        var forged = Pack(bytes, raw, Golferoo.Sim.Save.SaveFormat.Hash(raw));
+
+        Assert.Throws<InvalidDataException>(() => Load(forged));
+    }
+
     [Fact]
     public void Load_HoleCommandOutsideTheCourse_Throws()
     {
