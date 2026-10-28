@@ -1,5 +1,5 @@
 # Fondation d'interface (F7, P3)
-Statut : proposé
+Statut : validé
 Créé : 2026-10-28
 
 ## But
