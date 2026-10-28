@@ -64,7 +64,7 @@ public partial class PlaceTool : Node
         EndNewHole();
         _main!.ShowMessage(_main.World.RemoveLastHole()
             ? "Dernier trou retiré."
-            : "Impossible de retirer le dernier trou : il en faut au moins un, et aucun groupe ne doit être en jeu.");
+            : "Impossible de retirer le dernier trou : il en faut au moins un, et aucun groupe en jeu ne doit l'avoir dans sa partie.");
     }
 
     private void EndNewHole()
@@ -78,7 +78,7 @@ public partial class PlaceTool : Node
     }
 
     private static string Describe(IReadOnlyList<HoleIssue> issues) => issues.Count == 0
-        ? "Impossible d'ajouter un trou : 18 trous au plus, et aucun groupe ne doit être en jeu."
+        ? "Impossible d'ajouter un trou : 18 trous au plus."
         : "Ce trou ne convient pas : " + string.Join(", ", issues.Select(i => i switch
         {
             HoleIssue.TeeTooSmall => "départ trop petit",

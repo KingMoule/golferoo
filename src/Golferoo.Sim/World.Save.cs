@@ -190,7 +190,7 @@ public sealed partial class World
             throw new InvalidDataException("Sauvegarde incohérente : états ou commandes de trous hors du parcours.");
         }
 
-        if (_groups.Any(g => g.Golfers.Any(o => o.Card is null) || (!g.Finished && (g.Hole < 1 || g.Hole > holeCount || g.Golfers.Any(o => o.Card!.HoleCount != holeCount)))))
+        if (_groups.Any(g => g.Golfers.Any(o => o.Card is null) || (!g.Finished && (g.Hole < 1 || g.Hole > holeCount || g.Golfers.Any(o => o.Card!.HoleCount < g.Hole || o.Card.HoleCount > holeCount)))))
         {
             throw new InvalidDataException("Sauvegarde incohérente : trou ou carte de score d'un groupe hors du parcours.");
         }

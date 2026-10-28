@@ -33,12 +33,12 @@ public sealed partial class World
     /// <summary>
     /// Met en file l'ajout d'un trou en fin de parcours : départ en <paramref name="tee"/> (cellule de départ), drapeau en <paramref name="pin"/> (green),
     /// numéro suivant, par d'après la distance (<see cref="TerrainGrid.DeducedPar"/>). Refusé (faux) si le parcours a déjà 18 trous, si les cellules ne conviennent pas,
-    /// si <see cref="HoleCheck"/> local y trouve un manque, ou si un groupe n'a pas fini de jouer (sa carte a un nombre de trous fixe).
+    /// ou si <see cref="HoleCheck"/> local y trouve un manque. Jamais refusé à cause des groupes : un groupe déjà parti garde sa carte de N trous et finit après son dernier trou prévu, les groupes lancés ensuite jouent N+1. Invalide <see cref="CourseRating"/>.
     /// </summary>
     public bool AddHole(Point2 tee, Point2 pin)
     {
         var terrain = RequireTerrain();
-        if (ProjectedHoleCount(terrain) >= Course.MaxHoles || !CourseEditable || !double.IsFinite(tee.X) || !double.IsFinite(tee.Z) || !double.IsFinite(pin.X) || !double.IsFinite(pin.Z))
+        if (ProjectedHoleCount(terrain) >= Course.MaxHoles || !double.IsFinite(tee.X) || !double.IsFinite(tee.Z) || !double.IsFinite(pin.X) || !double.IsFinite(pin.Z))
         {
             return false;
         }
@@ -58,10 +58,11 @@ public sealed partial class World
     private static List<HoleIssue> NewHoleIssues(TerrainGrid terrain, Point2 tee, Point2 pin) =>
         HoleCheck.Check(terrain, new CourseHole(terrain.Course.Count + 1, tee, pin, pin, TerrainGrid.DeducedPar(tee, pin)), true);
 
-    /// <summary>Met en file le retrait du dernier trou. Refusé (faux) s'il ne reste qu'un trou ou si un groupe n'a pas fini de jouer.</summary>
+    /// <summary>Met en file le retrait du dernier trou. Refusé (faux) s'il ne reste qu'un trou ou si un groupe non fini a ce trou dans sa carte (il le joue, y marche ou y jouera). Invalide <see cref="CourseRating"/>.</summary>
     public bool RemoveLastHole()
     {
-        if (ProjectedHoleCount(RequireTerrain()) <= 1 || !CourseEditable)
+        var count = ProjectedHoleCount(RequireTerrain());
+        if (count <= 1 || LastHoleInUse(count))
         {
             return false;
         }
@@ -70,11 +71,8 @@ public sealed partial class World
         return true;
     }
 
-    /// <summary>
-    /// Règle simple : on n'ajoute ni ne retire de trou tant qu'un groupe n'a pas fini sa partie (la carte de score de chaque golfeur est fixée
-    /// au nombre de trous du départ). Les groupes finis gardent leur carte d'alors.
-    /// </summary>
-    private bool CourseEditable => _groups.All(g => g.Finished);
+    /// <summary>Un groupe non fini a le trou <paramref name="last"/> (le dernier) dans sa carte de score.</summary>
+    private bool LastHoleInUse(int last) => _groups.Any(g => !g.Finished && g.Golfers.Any(o => o.Card!.HoleCount >= last));
 
     private int ProjectedHoleCount(TerrainGrid terrain) => terrain.Course.Count + _courseCommands.Sum(c => c.Add ? 1 : -1);
 
@@ -83,17 +81,12 @@ public sealed partial class World
         while (_courseCommands.Count > 0)
         {
             var (add, tee, pin) = _courseCommands.Dequeue();
-            if (!CourseEditable)
-            {
-                continue;
-            }
-
             if (add && terrain.Course.Count < Course.MaxHoles && NewHoleIssues(terrain, tee, pin).Count == 0)
             {
                 terrain.Course.Add(new CourseHole(terrain.Course.Count + 1, tee, pin, pin, TerrainGrid.DeducedPar(tee, pin)));
                 _holesOpen = [.. _holesOpen, true];
             }
-            else if (!add && terrain.Course.Count > 1)
+            else if (!add && terrain.Course.Count > 1 && !LastHoleInUse(terrain.Course.Count))
             {
                 terrain.Course.RemoveLast();
                 _holesOpen = _holesOpen[..^1];
@@ -108,6 +101,7 @@ public sealed partial class World
             }
 
             _holeCheckedVersion = -1;
+            CourseRating = null; // la note d'un autre nombre de trous ne vaut plus ; le jeu la refait
         }
     }
 

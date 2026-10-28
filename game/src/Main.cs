@@ -56,6 +56,7 @@ public partial class Main : Node3D
     private int _day;
     private bool _turfOverlay;
     private RatingJob? _ratingJob;
+    private int _ratedHoles;
     private LeaguePanel? _league;
     private (long Version, string Text) _stimp = (-1, string.Empty);
     private string _message = string.Empty;
@@ -290,6 +291,7 @@ public partial class Main : Node3D
         if (!FpsBench.Active && !grid.Blank)
         {
             // Pas en mesure FPS : avec 5 000 arbres la note prend ~30 s de cœur et fausse la mesure du rendu.
+            _ratedHoles = grid.Course.Count;
             _ratingJob = new RatingJob(grid, World.Trees, World.Seed, World.Season, World.SetCourseRating, dirty: World.CourseRating is null);
         }
 
@@ -386,6 +388,12 @@ public partial class Main : Node3D
         if (steps >= MaxTicksPerFrame)
         {
             _accumulator = 0;
+        }
+
+        if (World.Terrain is { } rated && rated.Course.Count != _ratedHoles)
+        {
+            _ratedHoles = rated.Course.Count; // trou ajouté ou retiré : la sim a invalidé la note, on la refait
+            _ratingJob?.Touch();
         }
 
         _ratingJob?.Process(delta, World.Season);

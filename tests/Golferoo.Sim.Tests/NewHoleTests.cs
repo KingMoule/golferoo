@@ -87,11 +87,67 @@ public class NewHoleTests
         Assert.False(world.AddHole(world.Terrain!.Course[1].Tee, pin));
         Assert.False(world.AddHole(new Point2(double.NaN, 0), pin));
         world.SpawnGroup();
-        Assert.False(world.AddHole(tee, pin));
+        Assert.False(world.RemoveLastHole()); // le groupe a le trou 3 dans sa carte
+        PlayOut(world);
+        Assert.True(world.RemoveLastHole());
+        Assert.True(world.RemoveLastHole());
+        Assert.False(world.RemoveLastHole()); // il resterait un seul trou, mais deux retraits sont déjà en file : 3 - 2 = 1
+    }
+
+    [Fact]
+    public void GroupInPlay_KeepsItsThreeHoleCard_AndLaterGroupsPlayFour()
+    {
+        var world = new World(5, CourseTests.ThreeHoles());
+        var first = world.SpawnGroup();
+        world.Step(200);
+        var (tee, pin) = FourthHole(world.Terrain!);
+        Assert.True(world.AddHole(tee, pin));
+        world.Step();
+        Assert.Equal(4, world.Terrain!.Course.Count);
+        var second = world.SpawnGroup();
+        PlayOut(world);
+
+        Assert.All(first.Golfers, g =>
+        {
+            Assert.Equal(3, g.Card!.HoleCount);
+            Assert.True(g.Card.IsComplete);
+        });
+        Assert.All(second.Golfers, g =>
+        {
+            Assert.Equal(4, g.Card!.HoleCount);
+            Assert.True(g.Card.IsComplete);
+        });
+        Assert.Equal(3, first.Hole);
+    }
+
+    [Fact]
+    public void RemoveLastHole_RefusedWhileAnUnfinishedGroupHasItInItsCard()
+    {
+        var world = WithFourthHole(2);
+        world.SpawnGroup();
         Assert.False(world.RemoveLastHole());
         PlayOut(world);
+        Assert.True(world.RemoveLastHole());
+    }
+
+    [Fact]
+    public void AddAndRemove_InvalidateTheCourseRating_UntilItIsRecomputed()
+    {
+        var world = new World(1, CourseTests.ThreeHoles());
+        world.SetCourseRating(new Golferoo.Sim.Rating.CourseRating(3, 12, 80.0, 100.0));
+        world.Step();
+        Assert.Equal(3, world.CourseRating!.Holes);
+        var (tee, pin) = FourthHole(world.Terrain!);
         Assert.True(world.AddHole(tee, pin));
-        Assert.False(world.RemoveLastHole() && world.RemoveLastHole() && world.RemoveLastHole() && world.RemoveLastHole());
+        world.Step();
+        Assert.Null(world.CourseRating);
+
+        world.SetCourseRating(Golferoo.Sim.Rating.CourseRater.Rate(world.Terrain!, 1));
+        world.Step();
+        Assert.Equal(4, world.CourseRating!.Holes);
+        Assert.True(world.RemoveLastHole());
+        world.Step();
+        Assert.Null(world.CourseRating);
     }
 
     [Fact]
