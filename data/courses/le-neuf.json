@@ -1,0 +1,17 @@
+{
+  "name": "Le neuf",
+  "tilesX": 150,
+  "tilesZ": 100,
+  "ground": "Rough",
+  "holes": [
+    { "file": "../holes/proto-par4.json", "x": 2, "z": 4, "rotation": 0, "number": 1 },
+    { "file": "../holes/court-par3.json", "x": 50, "z": 4, "rotation": 0, "number": 2 },
+    { "file": "../holes/long-par5.json", "x": 74, "z": 1, "rotation": 0, "number": 3 },
+    { "file": "../holes/dogleg-par4.json", "x": 96, "z": 14, "rotation": 2, "number": 4 },
+    { "file": "../holes/proto-par4.json", "x": 49, "z": 36, "rotation": 2, "number": 5 },
+    { "file": "../holes/eau-par3.json", "x": 19, "z": 36, "rotation": 2, "number": 6 },
+    { "file": "../holes/dogleg-par4.json", "x": 18, "z": 46, "rotation": 1, "number": 7 },
+    { "file": "../holes/long-par5.json", "x": 52, "z": 69, "rotation": 0, "number": 8 },
+    { "file": "../holes/proto-par4.json", "x": 112, "z": 36, "rotation": 3, "number": 9 }
+  ]
+}

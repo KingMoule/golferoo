@@ -17,6 +17,7 @@ public static class ProceduralMeshes
     public const int GolferBudget = 300;
     public const int BallBudget = 80;
     public const int FlagBudget = 60;
+    public const int TeeMarkerBudget = 40;
     public const int TreeBudget = 400;
     public const int TreeVariants = 4;
 
@@ -96,6 +97,17 @@ public static class ProceduralMeshes
         var w = 0.1f;
         b.Raw(cloth, new Vector3(0.03f, top, 0.001f), new Vector3(0.03f, bottom, 0.001f), new Vector3(0.03f + w, bottom, 0.001f), Colors.White);
         b.Raw(cloth, new Vector3(0.03f, top, 0.001f), new Vector3(0.03f + w, bottom, 0.001f), new Vector3(0.03f + w, top, 0.001f), Colors.White);
+        return b.Build();
+    });
+
+    /// <summary>Repère de départ : deux bornes bleues à 1,8 m l'une de l'autre, centrées sur l'origine.</summary>
+    public static ArrayMesh TeeMarker() => Get("TeeMarker", () =>
+    {
+        var b = new Builder();
+        var s = b.Surface(new StandardMaterial3D { VertexColorUseAsAlbedo = true, Roughness = 0.7f });
+        var blue = new Color(0.15f, 0.35f, 0.85f);
+        b.Box(s, new Vector3(-0.9f, 0.2f, 0), new Vector3(0.35f, 0.4f, 0.35f), blue);
+        b.Box(s, new Vector3(0.9f, 0.2f, 0), new Vector3(0.35f, 0.4f, 0.35f), blue);
         return b.Build();
     });
 

@@ -53,6 +53,9 @@ public sealed partial class World
         }
     }
 
+    /// <summary>Le trou en cours du groupe de ce golfeur (le trou 1 si le golfeur ne joue pas).</summary>
+    public CourseHole HoleOf(Golfer golfer) => RequireTerrain().Course[_groups.FirstOrDefault(g => g.Golfers.Contains(golfer))?.Hole ?? 1];
+
     /// <summary>Vrai tant qu'un coup du pro attend son tick : le mode visée ne doit pas se rouvrir entre-temps.</summary>
     public bool ProShotPending => _proShots.Count > 0;
 
