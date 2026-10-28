@@ -1,30 +1,30 @@
 # Plan de l'alpha jouable
 
-Mis à jour : 2026-10-28. Chantier R04. Guillaume a demandé (2026-10-28) l'analyse de ce qui manque pour une **version alpha jouable et fonctionnelle**, découpée en chantiers ordonnés, avec les décisions raisonnables prises par la session et une courte liste de décisions qui lui reviennent. Le plan suppose **C12 livré** (`specs/C12-parcours-plusieurs-trous.md` : parcours de N trous, « Le neuf » par défaut, banc P1 sur 18 trous, nouveau trou en jeu). Rien n'est codé ; aucun chantier n'est lancé.
+Mis à jour : 2026-10-28. Chantier R04. Guillaume a demandé (2026-10-28) l'analyse de ce qui manque pour une **version alpha jouable et fonctionnelle**, découpée en chantiers ordonnés, avec les décisions raisonnables prises par la session et une courte liste de décisions qui lui reviennent. C12 est livré (`specs/C12-parcours-plusieurs-trous.md` : parcours de N trous, « Le neuf » par défaut, P1 tenue au banc sur 18 trous, nouveau trou en jeu). **Guillaume a tranché les six décisions le 2026-10-28** (dernière section) ; le plan en tient compte. Rien n'est codé ; aucun chantier n'est lancé.
 
 Les coûts sont en **lots** (un lot ≈ une PR d'agent), comme dans `docs/boucles-v1.md`.
 
 ## En bref
 - Après C12, Golferoo est un **bac à sable de simulation** solide : terrain, arbres vivants, météo et saisons, gazon, golfeurs stratèges, ligue, pro jouable, caméra, sauvegarde, parcours de plusieurs trous. Il lui manque ce qui en fait un **jeu** : un but, de l'argent, des golfeurs qui viennent seuls, leurs réactions, et une interface qu'on utilise sans connaître les touches.
 - Le cœur de l'original est la boucle courte **construire un trou, regarder les golfeurs le jouer, lire leurs réactions, corriger** (`docs/pistes-features.md`). Aujourd'hui, on construit et on regarde ; on ne lit aucune réaction et rien ne récompense une correction. L'alpha ferme cette boucle.
-- **Dix chantiers, C13 à C22, environ 29 lots**, en quatre vagues. Le chemin critique est C12 → C15 (arrivée des golfeurs) → C16 (humeur et adhésion) → C17 (bâtiments) → C19 (tutoriel v2) → C22 (préparation). L'interface (C13), l'économie (C14) et les finitions (C21) avancent en parallèle dès la fin de C12.
-- Six décisions attendent Guillaume (dernière section). Le plan avance sans elles avec les recommandations, sauf la distribution, qui n'intervient qu'à la fin.
+- **Douze chantiers, C13 à C24, environ 34 lots**, en quatre vagues. Le chemin critique est C15 (arrivée des golfeurs) → C16 (humeur et adhésion) → C17 (bâtiments) → C19 (tutoriel v2) → C22 (préparation). L'interface (C13), l'économie (C14), les finitions (C21) et les golfeurs animés (C23) avancent en parallèle dès le départ.
+- Décisions de Guillaume (2026-10-28) : alpha pour lui seul, carrière en difficulté facile, propriété générée, golfeurs animés à partir de ses fichiers Blender, son minimal, distribution par `.zip`.
 
 ## Ce qu'on appelle l'alpha
-**Définition (décidée par la session, à confirmer, décision 1).** Un joueur qui n'a jamais vu le projet :
-1. lance l'exécutable Windows, choisit « Nouvelle partie » dans un menu ;
-2. arrive sur une propriété boisée avec un pavillon et de l'argent ;
+**Définition.** Guillaume (seul testeur de l'alpha, décision 1) joue comme un joueur qui ne connaîtrait pas le code :
+1. lance l'exécutable Windows, choisit « Nouvelle partie » en difficulté **facile** ;
+2. arrive sur une **propriété générée** et boisée, avec un pavillon et de l'argent ;
 3. construit ses premiers trous **à la souris**, avec le coût affiché ;
-4. voit des golfeurs arriver seuls, payer, jouer, montrer ce qu'ils pensent, et pour certains devenir membres ;
+4. voit des golfeurs **animés** arriver seuls, payer, jouer, montrer ce qu'ils pensent, et pour certains devenir membres ;
 5. corrige son parcours d'après leurs réactions, pose quelques bâtiments, gère le gazon, suit la ligue et joue son pro ;
 6. sauvegarde, quitte, reprend ;
 7. tient **deux heures** et une **première année de jeu** sans plantage, avec une raison de continuer (objectifs du club) et une façon de perdre (faillite).
 
-**Ce que l'alpha n'est pas** : complète, équilibrée finement, traduite, belle de près, ni publique. Elle sert à savoir si la boucle est amusante.
+**Ce que l'alpha n'est pas** : complète, équilibrée finement, traduite, belle de près, ni publique. Elle sert à savoir si la boucle est amusante, et d'abord si l'économie tient.
 
 **Critère de sortie de l'alpha** (vérifiable) :
 - une partie headless de deux années de jeu à ×16, avec arrivées, achats et constructions scriptés, tourne en CI sans exception, avec une somme de contrôle stable et une trésorerie qui reste dans une bande attendue (C22) ;
-- Guillaume, puis trois à cinq testeurs, jouent une séance de deux heures en partant du menu, sans console ni touche à connaître ;
+- Guillaume joue une séance de deux heures en partant du menu, sans console ni touche à connaître ;
 - toutes les fonctions jouables sont accessibles à la souris ; les touches restent des raccourcis.
 
 ## État après C12 : ce qui existe
@@ -56,10 +56,12 @@ Les coûts sont en **lots** (un lot ≈ une PR d'agent), comme dans `docs/boucle
 | M7 | **Une partie** : pas de menu, pas de nouvelle partie, de propriété de départ, d'objectif ni de fin ; le jeu démarre sur un trou chargé par défaut | on ne « commence » pas une partie | C18 |
 | M8 | **Tutoriel** : il s'arrête au premier trou valide, avant les golfeurs, l'argent et les réactions | il n'enseigne pas la boucle | C19 |
 | M9 | **Son** : aucun | un jeu muet paraît cassé (décision 5) | C20 |
+| M12 | **Golfeurs** : silhouettes procédurales en `MultiMesh`, sans animation | la boucle se lit sur les golfeurs : marche, swing, réaction (décision 4) | C23 |
+| M13 | **Propriété** : on part de « Le neuf » ou d'un trou fixe | une carrière part d'un terrain vierge, différent à chaque partie (décision 3) | C24 |
 | M10 | **Finitions reportées** : dispersion des coups, bordures en escalier, eau en escalier, drapeau qui scintille, mineurs de l'audit C09, banc du changement de jour qui frôle 5 ms | défauts que les testeurs remarqueront tout de suite | C21 |
 | M11 | **Sortie** : pas de numéro de version visible, pas de journal de plantage, pas de rapport de bogue, pas de politique de compatibilité des sauvegardes, pas de test de partie longue | on ne peut ni diagnostiquer ni rassurer un testeur | C22 |
 
-**Volontairement hors de l'alpha** (gardés pour la bêta) : tournois avec cut (B18), départs multiples (B1), swing contrôlable (B17), personnages animés (P2, décision 4), besoins des golfeurs (faim, soif, fatigue), personnel géré, immobilier et célébrités, VIP, histoires, landmarks et décors coupés (C1 à C6), évaluation SGA complète, journal des commandes et rejeu, sauvegardes nommées multiples au-delà de trois emplacements, Mac, Linux et Steam Deck, traduction anglaise. Chacun s'appuie sur ce que l'alpha construit (pavillon, humeur, argent, interface) et aucun n'est nécessaire pour juger la boucle.
+**Volontairement hors de l'alpha** (gardés pour la bêta) : tournois avec cut (B18), départs multiples (B1), swing contrôlable (B17), besoins des golfeurs (faim, soif, fatigue), personnel géré, immobilier et célébrités, VIP, histoires, landmarks et décors coupés (C1 à C6), évaluation SGA complète, journal des commandes et rejeu, sauvegardes nommées multiples au-delà de trois emplacements, Mac, Linux et Steam Deck, traduction anglaise, difficultés au-delà de « facile », testeurs extérieurs. Chacun s'appuie sur ce que l'alpha construit (pavillon, humeur, argent, interface) et aucun n'est nécessaire pour juger la boucle.
 
 ## Les chantiers
 Chaque chantier sera cadré par le skill `cadrer` au moment de le lancer ; les lots ci-dessous sont des estimations. Les règles du dépôt tiennent : tout nouvel état de la sim entre dans `Checksum` et `Save` avec un cas `SaveTests` ; la sim ne connaît pas Godot.
@@ -86,48 +88,69 @@ Le chantier qui ferme la boucle. **Humeur** de −10 à +10 par golfeur. Environ
 - Dépend de : C15. L'**opinion fixe** des membres de C06 devient l'humeur cumulée : point de migration à traiter au lot 2.
 
 ### C17. Bâtiments et aménagements — ≈ 3 lots
-Outil de **pose** avec emprise, rotation d'un quart de tour, coût, vente à moitié prix. Pour l'alpha, quatre bâtiments à partir des modèles existants : **pavillon** (déjà posé, améliorable d'un niveau), **snack-bar** et **pro shop** (les golfeurs y passent avant le premier départ et au virage selon leur profil, et paient), **hangar d'entretien** (abrite les tondeuses de C05, D2 Q3). Aménagements simples : bancs, poubelles, chemins. Sans besoins de faim ni de soif (décision 3) : un service visité donne un bonus d'humeur et un revenu.
+Outil de **pose** avec emprise, rotation d'un quart de tour, coût, vente à moitié prix. Pour l'alpha, quatre bâtiments à partir des modèles existants : **pavillon** (déjà posé, améliorable d'un niveau), **snack-bar** et **pro shop** (les golfeurs y passent avant le premier départ et au virage selon leur profil, et paient), **hangar d'entretien** (abrite les tondeuses de C05, D2 Q3). Aménagements simples : bancs, poubelles, chemins. Sans besoins de faim ni de soif (hors alpha) : un service visité donne un bonus d'humeur et un revenu.
 - Lots : 1. bâtiments génériques et pose dans la sim, invalidation des champs de flux limitée aux blocs touchés (règle de C12 lot 4) ; 2. visites et ventes ; 3. outil de pose dans le dock et rendu.
 - Dépend de : C15 (modèle de bâtiment), C14 (coûts), C13 (dock).
 
 ### C18. Une partie du début à la fin — ≈ 3 lots
-**Menu titre** : nouvelle partie, continuer, charger, options, quitter. **Nouvelle partie** : une **propriété de départ faite à la main** (décision 2), boisée, avec le pavillon posé et 100 000 $ (original), assez grande pour 9 trous ; « Le neuf » reste accessible comme parcours de démonstration. **Menu pause** (Échap). **Options** : résolution, plein écran, échelle d'interface, volume (C20), pause automatique sur les messages importants. **Trois emplacements de sauvegarde** plus l'autosave, avec date et aperçu. **Objectifs du club** (décision 2) : une liste d'étapes à cocher qui donne une direction (ouvrir 3, 6 puis 9 trous ; 10 membres ; un membre Gold ; finir l'année en positif ; faire monter son pro d'une division) avec un petit déblocage à chaque étape (bâtiments, argent). **Fin de partie** par faillite : trésorerie sous un seuil pendant six mois de jeu de suite (l'original attend trois années, trop long pour une séance). **Bilan de fin d'année**.
-- Lots : 1. menus, nouvelle partie, propriété de départ, emplacements ; 2. objectifs, déblocages, faillite, bilan annuel (sim : tests de déclenchement) ; 3. options et pause automatique.
-- Dépend de : C13, C14 ; objectifs de membres après C16.
+**Menu titre** : nouvelle partie, continuer, charger, options, quitter. **Nouvelle partie** : une **propriété générée** par C24 à partir d'une graine affichée, avec le pavillon posé ; « Le neuf » reste accessible comme parcours de démonstration. **Difficulté** (décision 2) : un jeu de paramètres en données (argent de départ, coûts, exigence des golfeurs, vitesse de baisse de l'humeur, seuil de faillite) ; seul **« Facile »** est proposé dans l'alpha (argent de départ généreux, golfeurs indulgents), les autres niveaux viendront quand l'économie sera réglée. **Menu pause** (Échap). **Options** : résolution, plein écran, échelle d'interface, volume (C20), pause automatique sur les messages importants. **Trois emplacements de sauvegarde** plus l'autosave, avec date et aperçu. **Objectifs du club** : une liste d'étapes à cocher qui donne une direction (ouvrir 3, 6 puis 9 trous ; 10 membres ; un membre Gold ; finir l'année en positif ; faire monter son pro d'une division) avec un petit déblocage à chaque étape (bâtiments, argent). **Fin de partie** par faillite : trésorerie sous un seuil pendant six mois de jeu de suite (l'original attend trois années, trop long pour une séance). **Bilan de fin d'année**.
+- Lots : 1. menus, nouvelle partie, difficulté, emplacements ; 2. objectifs, déblocages, faillite, bilan annuel (sim : tests de déclenchement) ; 3. options et pause automatique.
+- Dépend de : C13, C14, C24 ; objectifs de membres après C16.
 
 ### C19. Tutoriel v2 et conseiller — ≈ 2 lots
 Le tutoriel de C07 continue après le premier trou : **ouvrir le trou**, voir arriver la première paire, toucher le premier green fee, **lire une pensée** et corriger le trou qu'elle désigne, poser un snack-bar. Ensuite, la première année, **votre pro conseille** (bulles courtes déclenchées par l'état : premier abandon, trésorerie basse, trou jamais joué, gazon usé).
 - Lots : 1. étapes de la suite du tutoriel, sur les identifiants stables de C13 ; 2. conseils de la première année.
 - Dépend de : C16, C17, C18. **Le dernier chantier de contenu**, parce qu'il décrit l'interface finale.
 
-### C20. Son minimal — ≈ 2 lots (décision 5)
+### C20. Son minimal — ≈ 2 lots (décision 5, retenu)
 Une banque de sons **libres de droits** (CC0) : frappe selon le club, balle dans le trou, dans l'eau, contre un arbre, ambiance (oiseaux, vent, pluie selon la météo), clics d'interface, caisse au green fee ; une ou deux musiques libres pour le menu et le jeu, réglables. Bus audio et volumes dans les options.
 - Dépend de : C13 (options). Parallèle à tout le reste.
 
 ### C21. Finitions reportées — ≈ 3 lots
-Le reste à faire relevé dans `docs/handoff.md` : dispersion des coups (C08), lissage des bordures de fairway, green et bunker, eau en escalier, scintillement du drapeau, mineurs de l'audit C09 (fonceur moins pénalisé que le neutre, dispersion de l'artiste, bannière du champion, légende de `c09-profils`), marge du banc du changement de jour (5 ms en CI), tampons des champs de flux pour les grands parcours s'ils ne sont pas réglés par C12.
+Le reste à faire relevé dans `docs/handoff.md` : dispersion des coups (C08), lissage des bordures de fairway, green et bunker, eau en escalier, scintillement du drapeau, mineurs de l'audit C09 (fonceur moins pénalisé que le neutre, dispersion de l'artiste, bannière du champion, légende de `c09-profils`), marge du banc du changement de jour (5 ms en CI), et les deux constats ouverts de C12 : journée de ligue de 13,4 jours sur 18 trous, handicap faussé par un trou fermé.
 - Lots : 1. rendu (bordures, eau, drapeau) ; 2. jeu (dispersion, profils) ; 3. performance (banc, champs de flux).
 - Dépend de : C12. **Démarre dès la fin de C12**, en parallèle de C13 et C14, sur des fichiers disjoints par lot.
 
 ### C22. Préparation de l'alpha — ≈ 2 lots
-**Version** visible au menu et dans les sauvegardes (`0.1.0-alpha.N`). **Journal** dans `user://logs` et rapport de bogue en une touche (capture, sauvegarde, journal, dans un `.zip`). **Compatibilité des sauvegardes** : à partir de la première alpha distribuée, chaque version lit la précédente (une migration par changement de format). **Partie longue headless** en CI : deux années de jeu à ×16 avec `StubShotResolver`, arrivées, constructions et achats scriptés ; elle vérifie l'absence d'exception, la somme de contrôle au rechargement et une trésorerie dans une bande. C'est aussi le premier outil d'**équilibrage** (coûts, green fees, arrivées). **Liste de vérification** de la séance de test et notes de version. Distribution selon la décision 6.
+**Version** visible au menu et dans les sauvegardes (`0.1.0-alpha.N`). **Journal** dans `user://logs` et rapport de bogue en une touche (capture, sauvegarde et journal dans un dossier daté, à glisser dans le fil). **Compatibilité des sauvegardes** : à partir de la première alpha distribuée, chaque version lit la précédente (une migration par changement de format). **Partie longue headless** en CI : deux années de jeu à ×16 avec `StubShotResolver`, arrivées, constructions et achats scriptés ; elle vérifie l'absence d'exception, la somme de contrôle au rechargement et une trésorerie dans une bande. C'est aussi le premier outil d'**équilibrage** (coûts, green fees, arrivées). **Liste de vérification** de la séance de test et notes de version. Distribution : le `.zip` de l'artefact de CI `golferoo-windows` (décision 6), avec le numéro de version dans son nom.
 - Dépend de : tout le reste ; le test de partie longue peut commencer dès C14 et grossir avec chaque chantier.
+
+### C23. Golfeurs animés (preuve P2) — ≈ 3 lots (décision 4)
+Point de départ : **les fichiers Blender de Guillaume** (un golfeur qui marche et qui frappe). Le jeu en demande pour l'alpha :
+| Animation | Source | Usage |
+|---|---|---|
+| marche | Guillaume | tous les déplacements |
+| swing complet | Guillaume | drive, bois, fers ; le chip en version raccourcie (vitesse et amplitude) |
+| putt | à faire | sur le green |
+| attente | à faire | file au pavillon, attente du groupe devant, partenaire qui regarde |
+| joie, déception | à faire | réactions de C16 (bon putt, balle dans l'eau) |
+
+Les trois manquantes viennent soit de Guillaume, soit d'un pack CC0 (Quaternius, Universal Animation Library, déjà repéré dans `docs/assets-3d.md`) reciblé sur son squelette par script `bpy`.
+**Le risque technique** (R2) : les golfeurs sont aujourd'hui un `MultiMesh`, qui ne sait pas animer un squelette. Deux voies, départagées par la mesure du lot 1 : un `Skeleton3D` et un `AnimationTree` par golfeur visible (simple, coûteux au-delà de quelques centaines), ou des **animations cuites en texture** lues par le shader d'un `MultiMesh` (plus de travail, coût quasi nul). Critère P2 : 200 golfeurs animés à l'écran au-dessus de 60 FPS sur la RTX 2080 en 1080p, mesuré par Guillaume.
+- Lots : 1. filière `bpy` (import, échelle, normalisation, export `.glb`), golfeur animé en jeu sur la marche et le swing, banc de 200 golfeurs ; 2. putt, attente et réactions, déclenchement par l'état du golfeur dans `ActorLayer` ; 3. variété (teintes de tenue par profil, tailles), et repli si la mesure le demande.
+- Dépend de : rien dans la sim ; réactions branchées sur C16 au lot 2. **Démarre dès qu'on a les fichiers.**
+
+### C24. Génération de la propriété — ≈ 3 lots (décision 3)
+Une propriété **générée à partir d'une graine** : relief doux (bruit à plusieurs octaves, une ou deux collines, un creux), un cours d'eau ou un étang, boisements d'âges variés par `WoodlandGenerator` (existant), quelques arbres remarquables, une clairière pour le pavillon près d'un bord, et une surface jouable assez grande pour 9 trous (de l'ordre de 1 200 × 800 m, comme « Le neuf »). Un seul thème (Parkland) dans l'alpha. **Garanties testées** : même graine, même carte ; le pavillon est accessible ; au moins N couloirs de 400 m tiennent sans eau ni pente excessive ; pas de flaque permanente au pavillon.
+- Lots : 1. relief, eau et clairière (sim, tests de garanties sur 100 graines) ; 2. boisement et arbres remarquables, budget d'arbres tenu (5 000 au banc) ; 3. aperçu de la graine dans l'écran de nouvelle partie (avec C18), captures `c24-*` sur trois graines.
+- Dépend de : C12. Parallèle à C13 et C14 ; C18 s'appuie dessus.
 
 ## Ordre et vagues
 | Vague | Chantiers | Lots | Pourquoi ensemble |
 |---|---|---|---|
-| 1 (dès C12 livré) | **C13** interface ∥ **C14** économie (lots 1 et 2) ∥ **C21** finitions | ≈ 9 | trois zones disjointes : `game/src` (UI), sim (`Economy/`), rendu et réglages de jeu |
-| 2 | **C15** pavillon et arrivées, puis **C16** humeur et adhésion ; C14 lot 3 (écran des finances) | ≈ 8 | le chemin critique ; l'interface est prête pour la fiche et les bulles |
+| 1 (maintenant) | **C13** interface ∥ **C14** économie (lots 1 et 2) ∥ **C21** finitions ∥ **C23** golfeurs animés (lot 1, dès les fichiers reçus) | ≈ 12 | quatre zones disjointes : UI, sim (`Economy/`), réglages de jeu, filière d'assets et `ActorLayer` |
+| 2 | **C15** pavillon et arrivées, puis **C16** humeur et adhésion ; C14 lot 3 ; **C24** génération ; C23 lots 2 et 3 | ≈ 13 | le chemin critique ; la génération et les animations à côté |
 | 3 | **C17** bâtiments ∥ **C18** partie complète ∥ **C20** son | ≈ 8 | bâtiments dans la sim et le dock, menus et objectifs côté jeu, son à part |
 | 4 | **C19** tutoriel v2, puis **C22** préparation | ≈ 4 | décrivent et vérifient le jeu fini |
-| | **Total** | **≈ 29** | |
+| | **Total** | **≈ 34** | (C22 allégé d'un demi-lot : un seul testeur) |
 
-Le chemin critique est **C12 → C15 → C16 → C17 → C19 → C22**, soit environ 17 lots en série. Au rythme de C09 à C11 (un chantier de 3 à 5 lots par jour ou deux), c'est de l'ordre de **deux à trois semaines**, sans compter les séances de jeu de Guillaume, qui sont le vrai goulot (estimation).
+Le chemin critique est **C15 → C16 → C17 → C19 → C22**, soit environ 14 lots en série. Au rythme de C09 à C11 (un chantier de 3 à 5 lots par jour ou deux), c'est de l'ordre de **deux à trois semaines**, sans compter les séances de jeu de Guillaume, qui sont le vrai goulot (estimation).
 
 **Jalons de jeu pour Guillaume**, pour juger tôt plutôt qu'à la fin :
 - fin de la vague 1 : tout se fait à la souris, tout coûte quelque chose ;
+- fin de C23 lot 1 : un golfeur animé marche et frappe en jeu ;
 - fin de C16 : **la boucle est fermée**, première vraie séance de jeu (sans menu ni bâtiments) ; c'est le moment de dire si c'est amusant ;
-- fin de la vague 3 : partie complète depuis le menu ;
+- fin de la vague 3 : carrière complète depuis le menu, sur une propriété générée, en facile ;
 - C22 : alpha.
 
 ## Décisions prises par la session
@@ -141,7 +164,7 @@ Guillaume a délégué les choix de cadrage (2026-10-27 et 2026-10-28). Celles-c
 7. **Français seulement** pour l'alpha ; les textes sont rangés en données (`data/text/`) pour la traduction plus tard (risque R4).
 8. **Windows seulement**, par l'export de CI qui existe. Mac, Linux et Steam Deck en bêta (R6).
 9. **Sauvegardes** : aucune migration avant la première alpha distribuée ; ensuite, chaque version lit la précédente. Les formats de C12 à C21 cassent librement.
-10. **Pas de nouvelle preuve technique** : P1 est faite par C12 ; P3 devient C13 ; P2 attend la décision 4.
+10. **Les preuves deviennent des chantiers** : P1 est faite par C12 ; P3 devient C13 ; P2 devient C23.
 
 ## Risques
 | Risque | Où | Parade |
@@ -151,17 +174,16 @@ Guillaume a délégué les choix de cadrage (2026-10-27 et 2026-10-28). Celles-c
 | R3, volume d'interface | tous | C13 d'abord ; tout écran passe par ses composants ; capture en CI par écran |
 | R4, textes des pensées et des conseils | C16, C19 | une centaine de phrases courtes en données, rédigées par lot et relues par Guillaume |
 | Le tutoriel décrit une interface qui bouge encore | C19 | placé en dernière vague, sur des identifiants stables |
-| Les silhouettes procédurales des golfeurs déçoivent de près | caméra libre | décision 4 ; la vue iso par défaut les rend lisibles |
+| R2 : des golfeurs animés trop coûteux en nombre | C23 | mesure à 200 golfeurs au lot 1 ; repli par animations cuites en texture dans un `MultiMesh` |
+| Une graine produit une propriété injouable | C24 | garanties testées sur 100 graines ; la graine reste affichée pour la rejouer |
 
-## Décisions pour Guillaume
-Le plan avance avec la recommandation (en gras) tant qu'il ne tranche pas autrement.
-
-1. **Public et ambition de l'alpha.** **Toi, puis trois à cinq testeurs proches, une séance de deux heures et une première année de jeu** ; ou toi seul ; ou un public plus large (demande plus de finition et la décision 6).
-2. **Structure d'une partie.** **Carrière ouverte avec des objectifs du club et une faillite** ; ou bac à sable sans but (moins de travail, pas de tension) ; ou scénarios (refusés le 2026-10-24 pour l'instant).
-3. **Propriété de départ.** **Une propriété faite à la main** (un lot, contrôle du rendu) ; ou génération procédurale à partir d'une graine (un chantier de 3 à 4 lots de plus, rejouabilité).
-4. **Golfeurs animés (P2).** **Garder les silhouettes procédurales pour l'alpha** et faire P2 en début de bêta ; ou faire P2 avant l'alpha (2 à 3 lots, risque R2, et le jeu en sera plus vivant à l'écran).
-5. **Son.** **Un son minimal libre de droits (C20)** ; ou une alpha muette (C20 en bêta).
-6. **Distribution aux testeurs** (à trancher avant C22 seulement). **Un `.zip` de l'artefact de CI envoyé à la main** ; ou une page itch.io restreinte (mises à jour plus simples) ; ou un playtest Steam (100 $ de frais Steamworks, plus de mise en place).
+## Décisions de Guillaume (2026-10-28)
+1. **Public** : Guillaume seul pour l'instant. Pas de rapport de bogue partageable ni de notes pour des tiers ; la séance de deux heures est la sienne.
+2. **Partie** : carrière, avec une difficulté **facile** pour commencer, pour tester les boucles d'économie. Les paramètres de difficulté sont en données (C18) ; les autres niveaux attendent que l'économie soit réglée.
+3. **Propriété** : **générée** (chantier C24, environ 3 lots en plus).
+4. **Golfeurs animés avant l'alpha**, à partir de ses fichiers Blender d'un golfeur qui marche et qui frappe (chantier C23). On commence par ces deux animations ; le putt, l'attente et deux réactions s'ajoutent au lot 2.
+5. **Son** : recommandation retenue, son minimal libre de droits (C20).
+6. **Distribution** : le `.zip` de l'artefact de CI.
 
 ## Suite
-Quand Guillaume a tranché, ce document est mis à jour et fusionné, les chantiers C13 à C22 entrent dans `docs/chantiers.md` au statut « proposé », et C13, C14 et C21 se cadrent dès que C12 est livré.
+Les chantiers C13 à C24 entrent dans `docs/chantiers.md` au statut « proposé ». La vague 1 (C13, C14, C21, puis C23 dès réception des fichiers Blender) se cadre au signal de Guillaume.
