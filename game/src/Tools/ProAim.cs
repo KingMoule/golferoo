@@ -1,5 +1,6 @@
 using Godot;
 using Golferoo.Sim;
+using Golferoo.Sim.Golfers;
 using Golferoo.Sim.Pro;
 using Golferoo.Sim.Shots;
 using Golferoo.Sim.Terrain;
@@ -125,7 +126,7 @@ public partial class ProAim : Node3D
         var pro = _main.World.ProShotPending ? null : _main.World.AwaitingPro;
         if (pro is not null && !Active)
         {
-            Begin(pro.Ball);
+            Begin(pro);
         }
         else if (pro is null && Active)
         {
@@ -209,12 +210,13 @@ public partial class ProAim : Node3D
     }
 
     /// <summary>Le pro attend : pause, club et cible par défaut (le trou, avec le club dont la portée le couvre), caméra derrière lui.</summary>
-    private void Begin(Point2 ball)
+    private void Begin(Golfer pro)
     {
+        var ball = pro.Ball;
         Active = true;
         _main!.Paused = true;
         var terrain = _main.World.Terrain!;
-        Target = terrain.Hole;
+        Target = _main.World.HoleOf(pro).Hole;
         var d = Dist(ball, Target);
         Club = terrain.SurfaceAt(ball.X, ball.Z) == Surface.Green
             ? Clubs.Putter

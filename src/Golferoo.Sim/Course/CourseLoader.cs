@@ -27,8 +27,11 @@ public static class CourseLoader
         return Parse(json, Path.GetDirectoryName(Path.GetFullPath(path))!, factor);
     }
 
-    /// <summary>Parcours ou trou seul selon la présence de la liste <c>holes</c> ; <paramref name="baseDir"/> sert aux chemins des trous.</summary>
-    public static TerrainGrid Parse(string json, string baseDir, int factor)
+    /// <summary>
+    /// Parcours ou trou seul selon la présence de la liste <c>holes</c> ; <paramref name="baseDir"/> sert aux chemins des trous,
+    /// sauf si <paramref name="readHole"/> lit le JSON d'un trou d'après son chemin relatif (jeu exporté : res://).
+    /// </summary>
+    public static TerrainGrid Parse(string json, string baseDir, int factor, Func<string, string>? readHole = null)
     {
         CourseFile file;
         try
@@ -40,7 +43,7 @@ public static class CourseLoader
             throw new HoleDataException($"JSON invalide : {e.Message}", e);
         }
 
-        return file.Holes is null ? HoleLoader.Parse(json, factor) : Build(file, baseDir, factor);
+        return file.Holes is null ? HoleLoader.Parse(json, factor) : Build(file, baseDir, factor, readHole);
     }
 
     private static readonly JsonSerializerOptions JsonOptions = new()
@@ -55,7 +58,7 @@ public static class CourseLoader
 
     private static bool IsFree(Surface s) => s is Surface.Rough or Surface.Trees;
 
-    private static TerrainGrid Build(CourseFile file, string baseDir, int factor)
+    private static TerrainGrid Build(CourseFile file, string baseDir, int factor, Func<string, string>? readHole)
     {
         if (file.TilesX < 1 || file.TilesZ < 1)
         {
@@ -110,7 +113,7 @@ public static class CourseLoader
             TerrainGrid source;
             try
             {
-                source = HoleLoader.Load(Path.Combine(baseDir, entry.File), factor);
+                source = readHole is null ? HoleLoader.Load(Path.Combine(baseDir, entry.File), factor) : HoleLoader.Parse(readHole(entry.File), factor);
             }
             catch (HoleDataException e)
             {

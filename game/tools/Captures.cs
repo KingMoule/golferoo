@@ -1,4 +1,5 @@
 using Godot;
+using Golferoo.Game.Cameras;
 using Golferoo.Game.Rendering;
 using Golferoo.Sim;
 using Golferoo.Sim.Golfers;
@@ -37,6 +38,7 @@ public partial class Captures : Node
     private const int ProfileViewCount = 3;
     private const int FreeViewCount = 4;
     private const int SaveViewCount = 2;
+    private const int CourseViewCount = 3;
 
     /// <summary>Lisière sud de la forêt du coude, la balle de <c>ForestExitTests.Edge</c> (tuile 18,5 / 26,5 de 8 m).</summary>
     private static readonly Point2 ForestEdge = new(18.5 * 8, 26.5 * 8);
@@ -89,6 +91,9 @@ public partial class Captures : Node
     private async Task<int> Run()
     {
         Main.OfferTutorial = false;
+
+        // Les vues d'avant C12 sont réglées sur le dogleg (lisière, approche) : elles gardent ce trou seul ; « Le neuf » vient à la fin.
+        Main.CourseOverride = "data/holes/dogleg-par4.json";
         _outDir = Main.CommandLineOption("--out") ?? "captures";
         _thumbs = OS.GetCmdlineUserArgs().Contains("--thumbs");
         _full = OS.GetCmdlineUserArgs().Contains("--full");
@@ -299,7 +304,8 @@ public partial class Captures : Node
         }
 
         await SaveViews(await FreeViews(await TutorialViews(await ProfileViews(await AimView(await LeagueViews(main))))));
-        if (_failures == 0 && _index == expected + LeagueViewCount + TutorialViewCount + ProfileViewCount + FreeViewCount + SaveViewCount)
+        await CourseViews();
+        if (_failures == 0 && _index == expected + LeagueViewCount + TutorialViewCount + ProfileViewCount + FreeViewCount + SaveViewCount + CourseViewCount)
         {
             GD.Print($"CAPTURES OK {_index} images");
             return 0;
@@ -665,6 +671,65 @@ public partial class Captures : Node
             GD.PrintErr($"CAPTURES FAIL {panel.Name} trop large : {panel.Size.X} px au lieu de {width}");
             _failures++;
         }
+    }
+
+    /// <summary>
+    /// C12 lot 3, sur « Le neuf » (le parcours par défaut) : <c>c12-parcours</c> (vue d'ensemble libre, de haut), <c>c12-trou-3</c> (le par 5 de bout en bout)
+    /// et <c>c12-groupes</c> (cinq groupes lâchés d'affilée, cadrés ensemble).
+    /// </summary>
+    private async Task CourseViews()
+    {
+        foreach (var old in GetChildren().OfType<Main>())
+        {
+            old.QueueFree();
+        }
+
+        await Frames(2);
+        Main.CourseOverride = null;
+        var main = GD.Load<PackedScene>("res://Main.tscn").Instantiate<Main>();
+        AddChild(main);
+        main.Paused = true;
+        main.World.ManualPro = false;
+        main.SunDayFraction = 0.5;
+        main.Brush.SetProcess(false);
+        main.TerrainView.Trees?.SetFocus(TreeLayer.CursorSlot, null, 0f);
+        var grid = main.World.Terrain!;
+        var center = new Vector3((float)(grid.CellsX * grid.CellSize) / 2f, 0f, (float)(grid.CellsZ * grid.CellSize) / 2f);
+        GD.Print($"C12 parcours trous={grid.Course.Count} par={grid.Course.Holes.Sum(h => h.Par)} carte={grid.CellsX * grid.CellSize:F0}x{grid.CellsZ * grid.CellSize:F0} m");
+
+        main.Camera.SetFreeView(0f, 80f, 600f, center);
+        await Frames(SettleFrames);
+        Save("c12-parcours");
+
+        var hole3 = grid.Course[3];
+        var mid = new Vector3((float)(hole3.Tee.X + hole3.Green.X) / 2f, 0f, (float)(hole3.Tee.Z + hole3.Green.Z) / 2f);
+        main.Camera.SetMode(CameraMode.Iso, instant: true);
+        main.Camera.SetView(45f, 300f, mid);
+        await Frames(SettleFrames);
+        Save("c12-trou-3");
+
+        for (var i = 0; i < 5; i++)
+        {
+            main.SpawnGroup();
+        }
+
+        main.StepTicks(3000);
+        var golfers = main.World.Snapshot().Golfers;
+        var holes = string.Join(",", main.World.Groups.Select(g => g.Hole));
+        GD.Print($"C12 groupes={main.World.Groups.Count} trous={holes} golfeurs={golfers.Count}");
+        var placed = golfers.Where(g => g.State != GolferState.Roaming).ToList();
+        if (placed.Count == 0)
+        {
+            placed = [.. golfers];
+        }
+
+        var (minX, maxX) = (placed.Min(g => g.Position.X), placed.Max(g => g.Position.X));
+        var (minZ, maxZ) = (placed.Min(g => g.Position.Z), placed.Max(g => g.Position.Z));
+        var focus = new Vector3((float)(minX + maxX) / 2f, 0f, (float)(minZ + maxZ) / 2f);
+        var span = (float)Math.Max(maxX - minX, maxZ - minZ);
+        main.Camera.SetView(45f, Math.Clamp(span * 0.8f, 120f, 400f), focus);
+        await Frames(SettleFrames);
+        Save("c12-groupes");
     }
 
     private async Task Frames(int count)

@@ -17,8 +17,11 @@ namespace Golferoo.Game;
 /// </summary>
 public partial class Main : Node3D
 {
-    /// <summary>Trou joué : le dogleg de C08 ; la mesure FPS garde le trou du prototype pour rester comparable.</summary>
-    public static string HoleFile => TutorialMode ? "data/holes/blank-coude.json" : FpsBench.Active ? "data/holes/proto-par4.json" : "data/holes/dogleg-par4.json";
+    /// <summary>Parcours joué : « Le neuf » (C12), ou celui d'`--course fichier` ; le tutoriel et la mesure FPS gardent leur trou.</summary>
+    public static string HoleFile => TutorialMode ? "data/holes/blank-coude.json" : FpsBench.Active ? "data/holes/proto-par4.json" : CourseOverride ?? CommandLineOption("--course") ?? "data/courses/le-neuf.json";
+
+    /// <summary>Parcours imposé par le code (captures de trou seul) ; sans valeur, le parcours par défaut s'applique.</summary>
+    public static string? CourseOverride { get; set; }
 
     private static bool? _tutorialOverride;
 
@@ -46,6 +49,8 @@ public partial class Main : Node3D
     private int _speedIndex;
     private bool _loadMode;
     private Label? _hud;
+    private Label? _holeLabel;
+    private int _cameraHole = 1;
     private DirectionalLight3D? _sun;
     private int _month;
     private int _day;
@@ -170,6 +175,25 @@ public partial class Main : Node3D
         return System.IO.File.ReadAllText(HoleSource);
     }
 
+    /// <summary>Charge le parcours (ou le trou seul) de <see cref="HoleFile"/> ; à l'export, les trous du parcours se lisent aussi dans res://.</summary>
+    public static TerrainGrid LoadTerrain(int factor)
+    {
+        var json = ReadHoleJson();
+        if (!HoleSource.StartsWith("res://", StringComparison.Ordinal))
+        {
+            return CourseLoader.Parse(json, System.IO.Path.GetDirectoryName(HoleSource)!, factor);
+        }
+
+        var dir = HoleSource[..HoleSource.LastIndexOf('/')];
+        return CourseLoader.Parse(json, dir, factor, relative =>
+        {
+            var path = (dir + "/" + relative).SimplifyPath();
+            using var file = Godot.FileAccess.Open(path, Godot.FileAccess.ModeFlags.Read)
+                ?? throw new HoleDataException($"Lecture impossible de '{path}'.");
+            return file.GetAsText();
+        });
+    }
+
     /// <summary>Temps cumulé passé dans World.Step (ms) et nombre de ticks, pour le mode mesure.</summary>
     public double TickMsTotal { get; private set; }
 
@@ -202,7 +226,7 @@ public partial class Main : Node3D
         }
         else
         {
-            grid = HoleLoader.Parse(ReadHoleJson(), Factor);
+            grid = LoadTerrain(Factor);
             GD.Print($"HOLE source={HoleSource}");
             World = new World(seed: 1, grid, league: !grid.Blank);
             if (FpsBench.Active)
@@ -247,6 +271,20 @@ public partial class Main : Node3D
         Camera.SetBounds(new Rect2(0, 0, width, depth));
         AddChild(Camera);
         Camera.SetView(45f, 150f, new Vector3(width / 2f, 0f, depth / 2f));
+        if (grid.Course.Count > 1)
+        {
+            CameraGoToHole(1);
+        }
+
+        _holeLabel = new Label { Name = "HoleLabel", Visible = false, HorizontalAlignment = HorizontalAlignment.Center, MouseFilter = Control.MouseFilterEnum.Ignore };
+        _holeLabel.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.TopWide);
+        _holeLabel.OffsetTop = 8f;
+        _holeLabel.AddThemeFontSizeOverride("font_size", 22);
+        _holeLabel.AddThemeColorOverride("font_outline_color", new Color(0.05f, 0.1f, 0.3f));
+        _holeLabel.AddThemeConstantOverride("outline_size", 6);
+        var holeLayer = new CanvasLayer { Name = "HoleLabelLayer" };
+        holeLayer.AddChild(_holeLabel);
+        AddChild(holeLayer);
 
         World.TerrainEdited += OnTerrainEdited;
         if (!FpsBench.Active && !grid.Blank)
@@ -608,6 +646,14 @@ public partial class Main : Node3D
         {
             CameraHome();
         }
+        else if (@event.IsActionPressed("cam_next_hole"))
+        {
+            CameraStepHole(1);
+        }
+        else if (@event.IsActionPressed("cam_prev_hole"))
+        {
+            CameraStepHole(-1);
+        }
         else if (@event.IsActionPressed("camera_toggle_mode"))
         {
             Camera.ToggleMode();
@@ -616,16 +662,46 @@ public partial class Main : Node3D
 
     private float TerrainHeight(float x, float z) => World.Terrain is { } terrain ? (float)terrain.Sample(x, z) : 0f;
 
-    /// <summary>Centre la caméra sur le départ du trou et arrête le suivi (touche Début).</summary>
-    public void CameraHome()
+    /// <summary>Centre la caméra sur le départ du trou 1 et arrête le suivi (touche Début).</summary>
+    public void CameraHome() => CameraGoToHole(1);
+
+    /// <summary>Centre la caméra sur le départ du trou de ce numéro (le premier si le numéro est hors parcours) et arrête le suivi.</summary>
+    public void CameraGoToHole(int number)
     {
         if (World.Terrain is not { } terrain)
         {
             return;
         }
 
-        var tee = terrain.Tee;
+        _cameraHole = number >= 1 && number <= terrain.Course.Count ? number : 1;
+        var tee = terrain.Course[_cameraHole].Tee;
         Camera.CenterOn(new Vector3((float)tee.X, 0f, (float)tee.Z));
+    }
+
+    /// <summary>Trou suivant (<paramref name="step"/> = 1) ou précédent (-1), en bouclant (Page suivante, Page précédente).</summary>
+    public void CameraStepHole(int step)
+    {
+        var count = World.Terrain?.Course.Count ?? 1;
+        CameraGoToHole(((_cameraHole - 1 + step + count) % count) + 1);
+    }
+
+    /// <summary>Numéro du trou en cours du groupe suivi par la caméra, ou null si aucun groupe n'est suivi.</summary>
+    public int? FollowedHole()
+    {
+        if (Camera.FollowedId is not { } id)
+        {
+            return null;
+        }
+
+        foreach (var g in _current.Golfers)
+        {
+            if (g.Id == id)
+            {
+                return World.Groups.FirstOrDefault(group => group.Id == g.GroupId)?.Hole;
+            }
+        }
+
+        return null;
     }
 
     /// <summary>Suit le golfeur suivant sur le parcours, par id croissant (touche Tab).</summary>
@@ -765,6 +841,19 @@ public partial class Main : Node3D
 
     private void UpdateHud(double delta)
     {
+        if (_holeLabel is not null)
+        {
+            if (FollowedHole() is { } n && World.Terrain is { } t && n <= t.Course.Count)
+            {
+                _holeLabel.Text = $"Trou {n}, par {t.Course[n].Par}";
+                _holeLabel.Visible = true;
+            }
+            else
+            {
+                _holeLabel.Visible = false;
+            }
+        }
+
         if (_hud is not null)
         {
             _hud.Text = $"{Engine.GetFramesPerSecond()} FPS | {Actors.VisibleGolfers} golfeurs | tick {World.Tick} | x{Speed}{(Paused ? " (pause)" : string.Empty)} | {DateText()} (F10 : mois suivant, T : outil arbres) | travaux arbres {World.TreeSpending}\n{WeatherText()} (F9 : ciel suivant) | {StimpText()} (H : état du gazon) | {RatingText()}{(_league is null ? string.Empty : $"\n{_league.ProText()} (J : ligue, O : votre pro)")}{(Time.GetTicksMsec() < _messageUntil ? "\n" + _message : string.Empty)}";
