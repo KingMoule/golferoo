@@ -4,6 +4,7 @@ using Golferoo.Game.Cameras;
 using Golferoo.Game.Rendering;
 using Golferoo.Game.Tools;
 using Golferoo.Game.Tutorial;
+using Golferoo.Game.Ui;
 using Golferoo.Sim;
 using Golferoo.Sim.Rating;
 using Golferoo.Sim.Terrain;
@@ -49,7 +50,9 @@ public partial class Main : Node3D
     private int _speedIndex;
     private bool _loadMode;
     private Label? _hud;
-    private Label? _holeLabel;
+    private UiPill? _holePill;
+    private UiPill? _messagePill;
+    private double _hudSince = double.MaxValue;
     private int _cameraHole = 1;
     private DirectionalLight3D? _sun;
     private int _month;
@@ -106,8 +109,23 @@ public partial class Main : Node3D
 
     public TreeTool TreeTool { get; private set; } = null!;
 
-    /// <summary>Panneau de la ligue (touche J).</summary>
+    /// <summary>Racine de l'interface (calque « Ui ») : barre, tiroir, pastilles.</summary>
+    public UiRoot Ui { get; private set; } = null!;
+
+    /// <summary>La barre du bas, d'où part tout outil.</summary>
+    public BottomBar Bar { get; private set; } = null!;
+
+    /// <summary>Panneau des consignes d'entretien (bouton Gazon).</summary>
+    public TurfPanel Turf { get; private set; } = null!;
+
+    /// <summary>Panneau de la ligue (bouton Ligue, touche J).</summary>
     public LeaguePanel? League => _league;
+
+    /// <summary>Surcouche d'état du gazon (bouton Vues, touche H).</summary>
+    public bool TurfOverlay => _turfOverlay;
+
+    /// <summary>Numéro du trou que montre la caméra (trou précédent et suivant) : celui que l'outil de pose modifie.</summary>
+    public int CameraHole => _cameraHole;
 
     public int Factor { get; private set; } = DefaultFactor;
 
@@ -277,16 +295,6 @@ public partial class Main : Node3D
             CameraGoToHole(1);
         }
 
-        _holeLabel = new Label { Name = "HoleLabel", Visible = false, HorizontalAlignment = HorizontalAlignment.Center, MouseFilter = Control.MouseFilterEnum.Ignore };
-        _holeLabel.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.TopWide);
-        _holeLabel.OffsetTop = 8f;
-        _holeLabel.AddThemeFontSizeOverride("font_size", 22);
-        _holeLabel.AddThemeColorOverride("font_outline_color", new Color(0.05f, 0.1f, 0.3f));
-        _holeLabel.AddThemeConstantOverride("outline_size", 6);
-        var holeLayer = new CanvasLayer { Name = "HoleLabelLayer" };
-        holeLayer.AddChild(_holeLabel);
-        AddChild(holeLayer);
-
         World.TerrainEdited += OnTerrainEdited;
         if (!FpsBench.Active && !grid.Blank)
         {
@@ -304,9 +312,9 @@ public partial class Main : Node3D
         AddChild(TreeTool);
         TreeTool.Init(this);
 
-        var turfPanel = new TurfPanel { Name = "TurfPanelLayer" };
-        AddChild(turfPanel);
-        turfPanel.Init(this);
+        Turf = new TurfPanel { Name = "TurfPanelLayer" };
+        AddChild(Turf);
+        Turf.Init(this);
 
         if (World.League is not null)
         {
@@ -321,8 +329,11 @@ public partial class Main : Node3D
         PlaceTool = new PlaceTool { Name = "PlaceTool" };
         AddChild(PlaceTool);
         PlaceTool.Init(this);
+        BuildUi();
 
+        // Débogage (FPS, tick, golfeurs) : caché au lancement, F12 le montre.
         _hud = GetNode<Label>("TickLabel");
+        _hud.Visible = false;
         _sun = GetNode<DirectionalLight3D>("Sun");
         _sun.DirectionalShadowMode = DirectionalLight3D.ShadowMode.Parallel4Splits;
         _sun.DirectionalShadowMaxDistance = 400f;
@@ -422,7 +433,7 @@ public partial class Main : Node3D
                 break;
             case InputEventMouseButton { Pressed: true, ButtonIndex: MouseButton.Left } click when ProAim.HandleClick(click.Position):
                 break;
-            case InputEventMouseButton { Pressed: true, ButtonIndex: MouseButton.Left } when PlaceTool.HandleClick():
+            case InputEventMouseButton { Pressed: true, ButtonIndex: MouseButton.Left } click when PlaceTool.HandleClick(click.Position):
                 break;
             case InputEventMouseButton when Brush.Active || TreeTool.Active:
                 // Le pinceau garde les clics : la caméra ne reçoit plus que la molette et le clic du milieu.
@@ -520,8 +531,10 @@ public partial class Main : Node3D
                 Paused = !Paused;
                 break;
             case Key.H:
-                _turfOverlay = !_turfOverlay;
-                TerrainView.SetTurfOverlay(_turfOverlay);
+                ToggleTurfOverlay();
+                break;
+            case Key.F12:
+                ToggleDebug();
                 break;
             case Key.G:
                 SpawnGroup();
@@ -567,6 +580,54 @@ public partial class Main : Node3D
     {
         _message = text;
         _messageUntil = Time.GetTicksMsec() + 3000;
+        _messagePill?.SetText(text);
+        _messagePill?.SetVisible(true);
+    }
+
+    /// <summary>Vitesse ×<paramref name="speed"/> (1, 2, 4, 8 ou 16) ; elle relance le jeu s'il était en pause.</summary>
+    public void SetSpeed(int speed)
+    {
+        _speedIndex = Math.Max(0, Array.IndexOf(Speeds, speed));
+        Paused = false;
+    }
+
+    public void ToggleTurfOverlay()
+    {
+        _turfOverlay = !_turfOverlay;
+        TerrainView.SetTurfOverlay(_turfOverlay);
+    }
+
+    /// <summary>F12 : montre ou cache le libellé de débogage (FPS, tick, golfeurs), à jour dès qu'il paraît.</summary>
+    public void ToggleDebug()
+    {
+        _hud!.Visible = !_hud.Visible;
+        RefreshHud();
+    }
+
+    /// <summary>Calque d'interface : barre du bas et tiroir, pastille du trou suivi et des messages, en haut au centre.</summary>
+    private void BuildUi()
+    {
+        Ui = UiTheme.CreateRoot(this);
+        var thumbnails = new ThumbnailRenderer { Name = "Thumbnails" };
+        AddChild(thumbnails);
+        Bar = BottomBar.Create(this, Ui, thumbnails);
+
+        var top = new VBoxContainer { Name = "TopCenter", MouseFilter = Control.MouseFilterEnum.Ignore };
+        top.AddThemeConstantOverride("separation", 8);
+        top.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.CenterTop);
+        top.GrowHorizontal = Control.GrowDirection.Both;
+        top.OffsetTop = 12f;
+        _holePill = UiPill.Create(UiIds.Hud.Hole, "", "flag", UiTheme.Flag);
+        _holePill.Label.ThemeTypeVariation = "UiName";
+        _holePill.Label.AddThemeFontSizeOverride("font_size", 18);
+        _holePill.Visible = false;
+        _holePill.MouseFilter = Control.MouseFilterEnum.Ignore;
+        top.AddChild(_holePill);
+        _messagePill = UiPill.Create(UiIds.Hud.Message, "", "information", UiTheme.Sky);
+        _messagePill.Visible = false;
+        _messagePill.MouseFilter = Control.MouseFilterEnum.Ignore;
+        top.AddChild(_messagePill);
+        Ui.AddChild(top);
     }
 
     /// <summary>F5 : écrit l'emplacement rapide. Rend faux (et le dit à l'écran) si la sauvegarde n'a pas eu lieu.</summary>
@@ -847,26 +908,39 @@ public partial class Main : Node3D
         TerrainView.RefreshTurf();
     }
 
+    /// <summary>Pastilles du haut et libellé de débogage, à 4 Hz au plus (<see cref="RefreshHud"/> force la mise à jour).</summary>
     private void UpdateHud(double delta)
     {
-        if (_holeLabel is not null)
+        _hudSince += delta;
+        if (_hudSince >= 0.25)
+        {
+            RefreshHud();
+        }
+    }
+
+    public void RefreshHud()
+    {
+        _hudSince = 0;
+        if (_holePill is not null)
         {
             if (FollowedHole() is { } n && World.Terrain is { } t && n <= t.Course.Count)
             {
-                _holeLabel.Text = $"Trou {n}, par {t.Course[n].Par}";
-                _holeLabel.Visible = true;
+                _holePill.SetText($"Trou {n}, par {t.Course[n].Par}");
+                _holePill.Visible = true;
             }
             else
             {
-                _holeLabel.Visible = false;
+                _holePill.Visible = false;
             }
         }
 
-        if (_hud is not null)
+        _messagePill?.SetVisible(Time.GetTicksMsec() < _messageUntil);
+        if (_hud is { Visible: true })
         {
-            _hud.Text = $"{Engine.GetFramesPerSecond()} FPS | {Actors.VisibleGolfers} golfeurs | tick {World.Tick} | x{Speed}{(Paused ? " (pause)" : string.Empty)} | {DateText()} (F10 : mois suivant, T : outil arbres) | travaux arbres {World.TreeSpending}\n{WeatherText()} (F9 : ciel suivant) | {StimpText()} (H : état du gazon) | {RatingText()}{(_league is null ? string.Empty : $"\n{_league.ProText()} (J : ligue, O : votre pro)")}{(Time.GetTicksMsec() < _messageUntil ? "\n" + _message : string.Empty)}";
+            _hud.Text = $"{Engine.GetFramesPerSecond()} FPS | {Actors.VisibleGolfers} golfeurs | tick {World.Tick} | x{Speed}{(Paused ? " (pause)" : string.Empty)} | {DateText()} | travaux arbres {World.TreeSpending}\n{WeatherText()} | {StimpText()} | {RatingText()}{(_league is null ? string.Empty : $"\n{_league.ProText()}")}{(Time.GetTicksMsec() < _messageUntil ? "\n" + _message : string.Empty)}";
         }
     }
+
 
     /// <summary>Vitesse des greens, recalculée seulement quand la hauteur ou les consignes changent.</summary>
     private string StimpText()
