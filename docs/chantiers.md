@@ -25,7 +25,7 @@
 | C20 | Son minimal | proposé | à cadrer | | `docs/plan-alpha.md` |
 | C21 | Finitions reportées | proposé | à cadrer | | `docs/plan-alpha.md` |
 | C22 | Préparation de l'alpha | proposé | à cadrer | | `docs/plan-alpha.md` |
-| C23 | Golfeurs animés (P2) | proposé | complet (sim), léger (rendu) | | `specs/C23-golfeurs-animes.md` |
+| C23 | Golfeurs animés (P2) | validé | complet (sim), léger (rendu) | | `specs/C23-golfeurs-animes.md` |
 | C24 | Génération de la propriété | proposé | à cadrer | | `docs/plan-alpha.md` |
 | R04 | Plan de l'alpha jouable | livré | aucun | #99 | `docs/plan-alpha.md` : ce qui manque après C12, chantiers C13 à C24 (≈ 34 lots en quatre vagues) ; décisions de Guillaume le 2026-10-28 : alpha pour lui seul, carrière en facile, propriété générée, golfeurs animés depuis ses fichiers Blender, son minimal, `.zip` |
 | R03 | Pistes de features et de boucles de jeu | livré | aucun | #16 | `docs/pistes-features.md` (tri de Guillaume : A, C et 4 pistes B) `docs/boucles-de-jeu.md` (analyse des 13 boucles D) et `docs/boucles-v1.md` (les 5 boucles recommandées en détail, ≈ 27 lots dont 10 de fondations) |

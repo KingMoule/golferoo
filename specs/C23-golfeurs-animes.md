@@ -1,5 +1,5 @@
 # Golfeurs animés (P2)
-Statut : proposé
+Statut : validé
 Créé : 2026-10-28
 
 ## But
@@ -10,7 +10,7 @@ Ce qui prouve la réussite : en jeu, les golfeurs proches marchent et frappent a
 ## Source
 Dossier du projet, `c23/` : `golfer_polo_v4.blend`, `golfer_polo_v4.glb` (sans squelette) et `golfer_polo_v4_rigged.glb`. Ce dernier : un maillage d'environ 2 100 triangles en quatre parties, un squelette de 21 os (`root`, `hips`, `spine`, `chest`, bras, mains, `club`, `neck`, `head`, jambes, pieds) et une seule animation, `golf_swing_2s`. **Pas de marche** : elle viendra de Guillaume plus tard, avec le putt, l'attente et les réactions.
 
-## Décisions de Guillaume (cadrage du 2026-10-28)
+## Décisions de Guillaume (cadrage du 2026-10-28, spec validée le même jour)
 1. Marche provisoire **générée par un script Blender** sur son squelette ; remplacée par la sienne dès qu'elle arrive, sans toucher au code.
 2. Cible : **144 FPS jusqu'à 100 golfeurs animés à l'écran, 60 FPS à 200** (RTX 2080, 1080p), mesurée par Guillaume.
 3. Golfeurs animés jusqu'à environ **150 m** de la caméra ; au-delà, les silhouettes actuelles.
