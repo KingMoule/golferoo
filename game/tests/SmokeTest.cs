@@ -425,6 +425,75 @@ public partial class SmokeTest : Node
         GD.Print($"COURSE OK {grid.Course.Count} ticks={world.Tick} scores={string.Join("/", group.Golfers.Select(g => g.Card!.Gross))}");
     }
 
+    /// <summary>
+    /// C12 lot 5 : sur un parcours de trois trous, un quatrième trou s'ajoute (drapeau, repère et numéro apparaissent), une paire le joue,
+    /// puis il se retire (les trois nœuds disparaissent). Écrit <c>NEWHOLE OK</c>.
+    /// </summary>
+    private void CheckNewHole(List<string> failures)
+    {
+        const string dir = "res://data/courses";
+        var grid = CourseLoader.Parse(ReadText($"{dir}/trois-trous.json"), dir, _main!.Factor, relative => ReadText((dir + "/" + relative).SimplifyPath()));
+        var world = new World(11, grid);
+        var layer = new ActorLayer { Name = "NewHoleActors" };
+        AddChild(layer);
+        layer.Build(grid);
+        var snapshot = world.Snapshot();
+        var names = new[] { "Flag4", "TeeMarker4", "HoleNumber4" };
+
+        var hole = grid.Course[2];
+        if (!world.AddHole(hole.Tee, hole.Hole))
+        {
+            failures.Add($"nouveau trou : refusé ({string.Join(",", world.NewHoleIssues(hole.Tee, hole.Hole))})");
+            layer.QueueFree();
+            return;
+        }
+
+        world.Step();
+        layer.Update(world.Snapshot(snapshot), snapshot, 1f, false);
+        if (grid.Course.Count != 4 || grid.Course[4].Par != TerrainGrid.DeducedPar(hole.Tee, hole.Hole) || names.Any(n => layer.GetNodeOrNull(n) is null))
+        {
+            failures.Add($"nouveau trou : {grid.Course.Count} trous, nœuds {string.Join(",", names.Select(n => layer.GetNodeOrNull(n) is null ? "absent" : "ok"))}");
+        }
+
+        var group = world.SpawnGroup();
+        var seen = new HashSet<int>();
+        for (var i = 0; i < 120_000 && !group.Finished; i++)
+        {
+            world.Step();
+            seen.Add(group.Hole);
+        }
+
+        if (!group.Finished || !seen.Contains(4) || group.Golfers.Any(g => g.Card is not { HoleCount: 4, IsComplete: true }))
+        {
+            failures.Add($"nouveau trou : la paire n'a pas joué le trou 4 (trous vus {string.Join(",", seen)}, tick {world.Tick})");
+        }
+
+        if (!world.RemoveLastHole())
+        {
+            failures.Add("nouveau trou : retrait refusé après la partie");
+        }
+
+        world.Step();
+        layer.Update(world.Snapshot(snapshot), snapshot, 1f, false);
+        if (grid.Course.Count != 3 || names.Any(n => layer.GetNodeOrNull(n) is not null))
+        {
+            failures.Add($"nouveau trou : après retrait, {grid.Course.Count} trous, nœuds {string.Join(",", names.Select(n => layer.GetNodeOrNull(n) is null ? "absent" : "reste"))}");
+        }
+
+        layer.QueueFree();
+        if (!failures.Any(f => f.StartsWith("nouveau trou", StringComparison.Ordinal)))
+        {
+            GD.Print($"NEWHOLE OK holes={grid.Course.Count} ticks={world.Tick}");
+        }
+    }
+
+    private static string ReadText(string path)
+    {
+        using var file = Godot.FileAccess.Open(path, Godot.FileAccess.ModeFlags.Read)
+            ?? throw new HoleDataException($"Lecture impossible de '{path}'.");
+        return file.GetAsText();
+    }
+
     private List<string> Check()
     {
         var failures = new List<string>();
@@ -478,6 +547,7 @@ public partial class SmokeTest : Node
         }
 
         CheckCourse(failures);
+        CheckNewHole(failures);
         CheckCamera(failures);
         CheckBrush(failures);
         CheckAssets(failures);

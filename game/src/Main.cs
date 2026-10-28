@@ -555,7 +555,7 @@ public partial class Main : Node3D
     /// <summary>La terre vierge du tutoriel : ni sauvegarde ni sauvegarde automatique.</summary>
     private bool InTutorial => World.Terrain!.Blank;
 
-    private void ShowMessage(string text)
+    internal void ShowMessage(string text)
     {
         _message = text;
         _messageUntil = Time.GetTicksMsec() + 3000;
