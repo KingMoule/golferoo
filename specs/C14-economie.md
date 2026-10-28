@@ -1,5 +1,5 @@
 # Économie (B8 partiel)
-Statut : proposé
+Statut : validé
 Créé : 2026-10-28
 
 ## But
