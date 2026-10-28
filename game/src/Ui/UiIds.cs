@@ -2,10 +2,12 @@ namespace Golferoo.Game.Ui;
 
 /// <summary>
 /// Identifiants stables des éléments d'interface, portés par leur <c>Name</c> (sans point) et retrouvés par <see cref="UiRoot.Find"/>.
+/// Uniques dans tout l'arbre (<see cref="UiRoot.Find"/> rend le premier trouvé) : les vignettes et actions sont préfixées par leur tiroir.
 /// Le tutoriel et la fumée les ciblent : on n'en renomme pas un sans eux.
 /// </summary>
 public static class UiIds
 {
+    /// <summary>Boutons d'outil de l'étage haut de la barre.</summary>
     public static class Tool
     {
         public const string Terrain = "ToolTerrain";
@@ -19,16 +21,75 @@ public static class UiIds
         public const string Bulldozer = "ToolBulldozer";
     }
 
+    /// <summary>Boutons ronds à droite de l'étage haut.</summary>
+    public static class Round
+    {
+        public const string League = "RoundLeague";
+        public const string Pro = "RoundPro";
+        public const string Finances = "RoundFinances";
+        public const string Birdie = "RoundBirdie";
+        public const string Camera = "RoundCamera";
+    }
+
+    /// <summary>Pastilles et commandes de l'étage bas, éléments fixes de l'écran.</summary>
+    public static class Hud
+    {
+        public const string Bar = "BottomBar";
+        public const string Crest = "ClubCrest";
+        public const string Pause = "HudPause";
+        public const string Clock = "HudClock";
+        public const string Weather = "HudWeather";
+        public const string Club = "HudClub";
+        public const string Members = "HudMembers";
+        public const string Money = "HudMoney";
+        public const string Mood = "HudMood";
+        public const string Hole = "HudHole";
+        public const string Message = "HudMessage";
+
+        /// <summary>Bouton de vitesse ×<paramref name="speed"/> (1, 2, 4, 8 ou 16).</summary>
+        public static string Speed(int speed) => $"HudSpeed{speed}";
+    }
+
+    /// <summary>Le tiroir d'outils et ses onglets.</summary>
+    public static class Drawer
+    {
+        public const string Root = "ToolDrawer";
+        public const string BrushSize = "DrawerBrushSize";
+        public const string Status = "DrawerStatus";
+        public const string TabTerrain = "TabTerrain";
+        public const string TabRelief = "TabRelief";
+        public const string TabTrees = "TabTrees";
+        public const string TabHoles = "TabHoles";
+    }
+
     public static class Thumb
     {
-        public const string Tee = "ThumbTee";
-        public const string Green = "ThumbGreen";
-        public const string Fairway = "ThumbFairway";
-        public const string Rough = "ThumbRough";
-        public const string Bunker = "ThumbBunker";
-        public const string Water = "ThumbWater";
-        public const string Wood = "ThumbWood";
-        public const string Path = "ThumbPath";
+        public const string Tee = "ThumbTerrainTee";
+        public const string Green = "ThumbTerrainGreen";
+        public const string Fairway = "ThumbTerrainFairway";
+        public const string Rough = "ThumbTerrainRough";
+        public const string Bunker = "ThumbTerrainBunker";
+        public const string Water = "ThumbTerrainWater";
+        public const string Wood = "ThumbTerrainWood";
+        public const string Path = "ThumbTerrainPath";
+
+        /// <summary>Vignette d'essence du tiroir Arbres (<paramref name="species"/> et <paramref name="stage"/> : noms des énumérations de la sim).</summary>
+        public static string Tree(string species, string stage) => $"ThumbTrees{species}{stage}";
+    }
+
+    /// <summary>Boutons d'action des tiroirs.</summary>
+    public static class Action
+    {
+        public const string TreeSelect = "ActionTreesSelect";
+        public const string TreeRaze = "ActionTreesRaze";
+        public const string TreeRazeArea = "ActionTreesRazeArea";
+        public const string TreeKeepRemarkable = "ActionTreesKeepRemarkable";
+        public const string TreeClearFallen = "ActionTreesClearFallen";
+        public const string HolePose = "ActionHolesPose";
+        public const string HoleNew = "ActionHolesNew";
+        public const string HoleRemove = "ActionHolesRemove";
+        public const string HolePrevious = "ActionHolesPrevious";
+        public const string HoleNext = "ActionHolesNext";
     }
 
     public static class Panel

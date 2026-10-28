@@ -191,9 +191,13 @@ public static class UiTheme
         t.SetStylebox("normal", "UiRoundButton", Box(new Color(0f, 0f, 0f, 0.3f), 999, new Color("F3ECD8", 0.25f), 1));
         t.SetStylebox("hover", "UiRoundButton", Box(new Color(0f, 0f, 0f, 0.45f), 999, new Color("F3ECD8", 0.45f), 1));
         t.SetStylebox("pressed", "UiRoundButton", Box(Flag, 999, Ink, 2));
+        t.SetStylebox("hover_pressed", "UiRoundButton", Box(Flag, 999, Ink, 2));
+        t.SetStylebox("disabled", "UiRoundButton", Box(new Color(0f, 0f, 0f, 0.2f), 999, new Color("F3ECD8", 0.12f), 1));
         t.SetColor("icon_normal_color", "UiRoundButton", Cream);
         t.SetColor("icon_hover_color", "UiRoundButton", Cream);
         t.SetColor("icon_pressed_color", "UiRoundButton", Ink);
+        t.SetColor("icon_hover_pressed_color", "UiRoundButton", Ink);
+        t.SetColor("icon_disabled_color", "UiRoundButton", new Color(Cream, 0.35f));
 
         // Vignette : fond sombre, anneau jaune et lueur quand elle est choisie.
         t.SetTypeVariation("UiThumb", "Button");
@@ -219,6 +223,30 @@ public static class UiTheme
         t.SetColor("font_color", "TooltipLabel", Cream);
         t.SetFont("font", "TooltipLabel", Nunito);
         t.SetFontSize("font_size", "TooltipLabel", 14);
+
+        // Bouton nu dans une pastille (vitesses, pause) : texte crème, choisi en jaune drapeau.
+        t.SetTypeVariation("UiPillButton", "Button");
+        t.SetFontSize("font_size", "UiPillButton", CaptionSize + 1);
+        t.SetStylebox("normal", "UiPillButton", Padded(Box(Colors.Transparent, 999), 7, 2));
+        t.SetStylebox("hover", "UiPillButton", Padded(Box(new Color("F3ECD8", 0.14f), 999), 7, 2));
+        t.SetStylebox("pressed", "UiPillButton", Padded(Box(Flag, 999), 7, 2));
+        t.SetStylebox("hover_pressed", "UiPillButton", Padded(Box(Flag, 999), 7, 2));
+        t.SetColor("icon_normal_color", "UiPillButton", CreamIcon);
+        t.SetColor("icon_pressed_color", "UiPillButton", Ink);
+        t.SetColor("icon_hover_pressed_color", "UiPillButton", Ink);
+        t.SetConstant("icon_max_width", "UiPillButton", 16);
+
+        // Curseur (taille du pinceau) : rail sombre, partie remplie en jaune drapeau, poignée crème cernée d'encre.
+        var rail = Box(new Color(0f, 0f, 0f, 0.35f), 999);
+        rail.ContentMarginTop = rail.ContentMarginBottom = 4f;
+        t.SetStylebox("slider", "HSlider", rail);
+        var filled = Box(Flag, 999);
+        filled.ContentMarginTop = filled.ContentMarginBottom = 4f;
+        t.SetStylebox("grabber_area", "HSlider", filled);
+        t.SetStylebox("grabber_area_highlight", "HSlider", filled);
+        var grabber = GD.Load<Texture2D>("res://assets/ui/grabber.svg");
+        t.SetIcon("grabber", "HSlider", grabber);
+        t.SetIcon("grabber_highlight", "HSlider", grabber);
 
         // Jauge.
         t.SetStylebox("background", "ProgressBar", Box(new Color(0f, 0f, 0f, 0.35f), 999));

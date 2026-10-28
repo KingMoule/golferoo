@@ -1,6 +1,7 @@
 using Godot;
 using Golferoo.Game.Cameras;
 using Golferoo.Game.Rendering;
+using Golferoo.Game.Ui;
 using Golferoo.Sim;
 using Golferoo.Sim.Golfers;
 using Golferoo.Sim.Rating;
@@ -38,7 +39,7 @@ public partial class Captures : Node
     private const int ProfileViewCount = 3;
     private const int FreeViewCount = 4;
     private const int SaveViewCount = 2;
-    private const int CourseViewCount = 5;
+    private const int CourseViewCount = 6;
     private const int GalleryViewCount = 1;
 
     /// <summary>Lisière sud de la forêt du coude, la balle de <c>ForestExitTests.Edge</c> (tuile 18,5 / 26,5 de 8 m).</summary>
@@ -100,6 +101,12 @@ public partial class Captures : Node
         _full = OS.GetCmdlineUserArgs().Contains("--full");
         _prefix = Main.CommandLineOption("--prefix") ?? "";
         System.IO.Directory.CreateDirectory(_outDir);
+        if (Main.CommandLineOption("--only") == "course")
+        {
+            // Mise au point d'un écran de « Le neuf » (c12, c13) sans attendre les vues d'avant : `-- --only course`.
+            await CourseViews();
+            return _failures == 0 ? 0 : 1;
+        }
 
         var main = GD.Load<PackedScene>("res://Main.tscn").Instantiate<Main>();
         AddChild(main);
@@ -738,6 +745,7 @@ public partial class Captures : Node
         await CloseUp(main, "c23-marche", g => g.State is GolferState.WalkingToBall or GolferState.ToNextTee or GolferState.Exiting, _ => true);
         await CloseUp(main, "c23-swing", g => g.State == GolferState.Swinging, rig => rig.Clip == GolferModel.Swing && Math.Abs(rig.Time - SwingTopSeconds) < 0.03);
         main.Actors.Range = ActorLayer.AnimatedRange;
+        await InterfaceView(main, placed[0].Id);
     }
 
     /// <summary>Sommet du swing de golf_swing_2s (image 23 sur 61 à 30 images/s).</summary>
@@ -766,6 +774,40 @@ public partial class Captures : Node
         GD.PrintErr($"CAPTURES FAIL {name} : aucun golfeur trouvé");
         _failures++;
     }
+
+    /// <summary>
+    /// C13 lot 2 : l'écran de jeu de « Le neuf » comme la maquette v2, en 1920×1080 mis à l'échelle de la fenêtre : barre du bas, écusson,
+    /// tiroir Terrain ouvert sur le Fairway avec son info-bulle, pastille du trou suivi en haut au centre.
+    /// </summary>
+    private async Task InterfaceView(Main main, int golfer)
+    {
+        var window = GetTree().Root;
+        var (oldSize, oldMode) = (window.ContentScaleSize, window.ContentScaleMode);
+        window.ContentScaleSize = UiGallery.Reference;
+        window.ContentScaleMode = Window.ContentScaleModeEnum.CanvasItems;
+        main.Camera.SetView(45f, 140f, main.Camera.Target);
+        main.Camera.Follow(golfer);
+        main.Bar.Select(ToolFamily.Terrain, toggle: false);
+        main.Brush.SelectSurface(Surface.Fairway);
+        main.Bar.Sync();
+        main.RefreshHud();
+        await Frames(SettleFrames);
+
+        // L'info-bulle du survol, montrée sans souris au-dessus du tiroir, droit sur la vignette (comme UiGallery).
+        var thumb = (UiThumb)main.Ui.Find(UiIds.Thumb.Fairway)!;
+        var tip = UiTooltip.Framed(UiTooltip.Create("Fairway", thumb.Description, thumb.Costs));
+        main.Ui.AddChild(tip);
+        await Frames(1);
+        var rect = thumb.GetGlobalRect();
+        tip.Position = new Vector2(rect.GetCenter().X - (tip.Size.X / 2f), main.Bar.Drawer.GetGlobalRect().Position.Y - tip.Size.Y - 10f);
+        await Frames(SettleFrames);
+        Save("c13-interface");
+        tip.QueueFree();
+        main.Bar.Select(ToolFamily.None, toggle: false);
+        window.ContentScaleSize = oldSize;
+        window.ContentScaleMode = oldMode;
+    }
+
 
     /// <summary>C13 lot 1 : l'écran témoin des composants d'interface (<c>res://tools/UiGallery.tscn</c>), seul à l'écran.</summary>
     private async Task GalleryView()

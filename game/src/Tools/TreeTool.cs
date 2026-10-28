@@ -7,12 +7,10 @@ using Tree = Golferoo.Sim.Trees.Tree;
 namespace Golferoo.Game.Tools;
 
 /// <summary>
-/// Outil « arbres » (T pour l'activer ; il éteint le pinceau, et B éteint cet outil). Touches, libres de conflit avec
-/// <see cref="Brush"/> (B, F1 à F9, [ et ]) et <see cref="Main"/> (1 à 5, Espace, G, L, F10, Q, E) :
-/// clic gauche sélectionne l'arbre sous le curseur (essence, âge, hauteur, remarquable) ;
-/// R rase l'arbre sélectionné ; X rase la zone au rayon du pinceau autour du curseur (défrichage du sous-bois compris) ;
-/// K bascule « garder les remarquables » pour X ; Y change d'essence ; P plante un plant, M une motte, au curseur ;
-/// F fait tomber l'arbre sélectionné (debug) ; C dégage le tronc tombé sélectionné ; [ et ] changent le rayon.
+/// Outil « arbres », pris depuis le tiroir Arbres de la barre du bas. Le clic gauche sur le terrain (un clic que l'interface n'a pas pris)
+/// fait ce que dit <see cref="Mode"/> : sélectionner l'arbre sous le curseur, planter un plant ou une motte de <see cref="Species"/>,
+/// ou raser la zone au rayon du pinceau (sous-bois compris, remarquables épargnés si <see cref="KeepRemarkable"/>).
+/// Les touches d'avant (T, R, X, K, Y, P, M, F, C, [ et ]) restent actives sans être affichées ; F (faire tomber, debug) n'a pas de bouton.
 /// Ne fait que poster des commandes à <see cref="World"/> : aucune règle ici ; les coûts affichés viennent de <see cref="TreeCosts"/>.
 /// </summary>
 public partial class TreeTool : Node3D
@@ -20,19 +18,18 @@ public partial class TreeTool : Node3D
     private const int RingSegments = 48;
 
     private Main? _main;
-    private Label? _label;
     private MeshInstance3D? _ring;
     private ImmediateMesh? _ringMesh;
     private StandardMaterial3D? _ringMaterial;
     private Vector3? _hit;
-    private bool _leftWasDown;
 
-    /// <summary>Ce que fait un clic gauche : sélectionner un arbre, ou planter (le mode reste jusqu'à une autre touche d'action).</summary>
+    /// <summary>Ce que fait un clic gauche : sélectionner un arbre, planter, ou raser la zone (le mode reste jusqu'au choix d'un autre).</summary>
     public enum ClickMode
     {
         Select,
         Sapling,
         Mound,
+        RazeArea,
     }
 
     private const string GhostFolder = "res://assets/trees/";
@@ -70,41 +67,20 @@ public partial class TreeTool : Node3D
         };
         _ring = new MeshInstance3D { Name = "Ring", Mesh = _ringMesh, MaterialOverride = _ringMaterial, Visible = false, CastShadow = GeometryInstance3D.ShadowCastingSetting.Off };
         AddChild(_ring);
-
-        var layer = new CanvasLayer { Name = "TreePanelLayer" };
-        var panel = new PanelContainer { Name = "TreePanel", MouseFilter = Control.MouseFilterEnum.Ignore, Visible = false };
-        panel.AnchorLeft = 1f;
-        panel.AnchorRight = 1f;
-        panel.OffsetLeft = -380f;
-        panel.OffsetRight = -8f;
-        panel.OffsetTop = 8f;
-        _label = new Label { MouseFilter = Control.MouseFilterEnum.Ignore };
-        panel.AddChild(_label);
-        layer.AddChild(panel);
-        AddChild(layer);
-        Refresh();
     }
 
-    /// <summary>Texte du panneau : outil, essence, option, arbre sélectionné et coûts.</summary>
+    /// <summary>Modèle 3D du plant (<c>_01</c>) ou de la motte (<c>_03</c>, l'allure d'un jeune arbre) d'une essence : fantôme et vignette.</summary>
+    public static string ModelPath(TreeSpeciesId species, TreePlantStage stage) =>
+        $"{GhostFolder}{GhostPrefixes[(int)species]}_sapling_{(stage == TreePlantStage.Mound ? "03" : "01")}.glb";
+
+    /// <summary>Ce que fait le clic et l'arbre sélectionné, sans touche.</summary>
     public string Describe()
     {
-        var radius = _main?.Brush.Radius ?? 0f;
-        var text = $"Arbres : essence {TreeSpeciesTable.Get(Species).Name} (Y), rayon {radius:0} m ([ ]), garder les remarquables {(KeepRemarkable ? "oui" : "non")} (K)\n" +
-                   $"P pousse ({TreeCosts.Sapling}) | M motte ({TreeCosts.Mound}) : puis clic pour planter, le mode reste actif | X raser la zone ({TreeCosts.ClearPerSquareMeter}/m² de sous-bois) | clic : {ModeText()}\n";
+        var text = $"Clic : {ModeText()}.";
         if (_main is not null && SelectedId >= 0 && _main.World.Trees.TryGet(SelectedId, out var t))
         {
             var spec = TreeSpeciesTable.Get(t.Species);
-            text += $"Sélection : {spec.Name}, {t.AgeMonths / 12.0:F0} ans, {t.Height():F1} m{(t.Remarkable ? ", remarquable" : string.Empty)}, {StateName(t.State)}\n" +
-                    t.State switch
-                    {
-                        TreeState.Standing => $"R abattre ({TreeCosts.RazeCost(t)}) | F faire tomber (debug)",
-                        TreeState.Fallen => $"C dégager le tronc ({TreeCosts.ClearFallen})",
-                        _ => "souche",
-                    };
-        }
-        else
-        {
-            text += "Aucune sélection";
+            text += $" Sélection : {spec.Name}, {t.AgeMonths / 12.0:F0} ans, {t.Height():F1} m{(t.Remarkable ? ", remarquable" : string.Empty)}, {StateName(t.State)}.";
         }
 
         return text;
@@ -112,9 +88,10 @@ public partial class TreeTool : Node3D
 
     private string ModeText() => Mode switch
     {
-        ClickMode.Sapling => "planter une pousse (R, X, F ou C pour sélectionner de nouveau)",
-        ClickMode.Mound => "planter une motte (R, X, F ou C pour sélectionner de nouveau)",
-        _ => "sélectionner",
+        ClickMode.Sapling => $"planter un plant ({TreeSpeciesTable.Get(Species).Name})",
+        ClickMode.Mound => $"planter une motte ({TreeSpeciesTable.Get(Species).Name})",
+        ClickMode.RazeArea => KeepRemarkable ? "raser la zone, remarquables gardés" : "raser la zone",
+        _ => "sélectionner un arbre",
     };
 
     public void SetActive(bool active)
@@ -125,9 +102,18 @@ public partial class TreeTool : Node3D
             Mode = ClickMode.Select;
             SelectedId = -1;
         }
-
-        Refresh();
     }
+
+    public void SetMode(ClickMode mode) => Mode = mode;
+
+    /// <summary>Choisit l'essence et le stade à planter : le clic suivant plante.</summary>
+    public void SetPlanting(TreeSpeciesId species, TreePlantStage stage)
+    {
+        Species = species;
+        Mode = stage == TreePlantStage.Mound ? ClickMode.Mound : ClickMode.Sapling;
+    }
+
+    public void SetKeepRemarkable(bool keep) => KeepRemarkable = keep;
 
     /// <summary>Gère une touche ; vrai si elle appartient à l'outil.</summary>
     public bool HandleKey(Key key)
@@ -157,41 +143,32 @@ public partial class TreeTool : Node3D
             case Key.X:
                 Mode = ClickMode.Select;
                 RazeAreaAtCursor();
-                Refresh();
                 return true;
             case Key.K:
                 KeepRemarkable = !KeepRemarkable;
-                Refresh();
                 return true;
             case Key.Y:
                 Species = (TreeSpeciesId)(((int)Species + 1) % TreeSpeciesTable.Count);
-                Refresh();
                 return true;
             case Key.P:
                 Mode = ClickMode.Sapling;
-                Refresh();
                 return true;
             case Key.M:
                 Mode = ClickMode.Mound;
-                Refresh();
                 return true;
             case Key.F:
                 Mode = ClickMode.Select;
                 FellSelected();
-                Refresh();
                 return true;
             case Key.C:
                 Mode = ClickMode.Select;
                 ClearSelected();
-                Refresh();
                 return true;
             case Key.Bracketleft:
                 _main!.Brush.ChangeRadius(-Brush.RadiusStep);
-                Refresh();
                 return true;
             case Key.Bracketright:
                 _main!.Brush.ChangeRadius(Brush.RadiusStep);
-                Refresh();
                 return true;
             default:
                 return false;
@@ -203,7 +180,6 @@ public partial class TreeTool : Node3D
     {
         var found = _main!.World.Trees.TryGet(id, out _);
         SelectedId = found ? id : -1;
-        Refresh();
         return found;
     }
 
@@ -216,7 +192,6 @@ public partial class TreeTool : Node3D
 
         _main.World.RazeTree(SelectedId);
         SelectedId = -1;
-        Refresh();
         return true;
     }
 
@@ -312,6 +287,39 @@ public partial class TreeTool : Node3D
         return (p - (origin + (dir * s))).Length();
     }
 
+    /// <summary>Un clic gauche que l'interface n'a pas pris : l'action du mode, au point visé.</summary>
+    public override void _UnhandledInput(InputEvent @event)
+    {
+        if (Active && @event is InputEventMouseButton { Pressed: true, ButtonIndex: MouseButton.Left } click)
+        {
+            ClickAt(click.Position);
+        }
+    }
+
+    /// <summary>L'action du mode au point du terrain sous la position d'écran <paramref name="screen"/>.</summary>
+    public void ClickAt(Vector2 screen)
+    {
+        var camera = _main!.Camera.View;
+        if (camera is null || !camera.IsInsideTree() || !_main.Brush.PickAt(screen, out var hit))
+        {
+            return;
+        }
+
+        var point = new Point2(hit.X, hit.Z);
+        switch (Mode)
+        {
+            case ClickMode.Select:
+                SelectedId = PickTree(_main.World.Trees, _main.World.Terrain!, camera.ProjectRayOrigin(screen), camera.ProjectRayNormal(screen), hit);
+                break;
+            case ClickMode.RazeArea:
+                RazeAreaAt(point);
+                break;
+            default:
+                PlantAt(point, Mode == ClickMode.Mound ? TreePlantStage.Mound : TreePlantStage.Sapling);
+                break;
+        }
+    }
+
     public override void _Process(double delta)
     {
         if (_main is null || _ring is null)
@@ -319,33 +327,7 @@ public partial class TreeTool : Node3D
             return;
         }
 
-        _hit = null;
-        var left = Active && Input.IsMouseButtonPressed(MouseButton.Left);
-        var camera = _main.Camera.View;
-        if (Active && camera is not null && camera.IsInsideTree())
-        {
-            var mouse = GetViewport().GetMousePosition();
-            var origin = camera.ProjectRayOrigin(mouse);
-            var normal = camera.ProjectRayNormal(mouse);
-            if (Brush.TryPick(_main.World.Terrain!, origin, normal, camera.Far, out var hit))
-            {
-                _hit = hit;
-                if (left && !_leftWasDown)
-                {
-                    if (Mode == ClickMode.Select)
-                    {
-                        SelectedId = PickTree(_main.World.Trees, _main.World.Terrain!, origin, normal, hit);
-                        Refresh();
-                    }
-                    else
-                    {
-                        PlantAt(new Point2(hit.X, hit.Z), Mode == ClickMode.Mound ? TreePlantStage.Mound : TreePlantStage.Sapling);
-                    }
-                }
-            }
-        }
-
-        _leftWasDown = left;
+        _hit = Active && _main.Brush.PickAt(_main.Brush.Cursor, out var hit) ? hit : null;
         Draw();
         DrawGhost();
     }
@@ -354,7 +336,7 @@ public partial class TreeTool : Node3D
     private void DrawGhost()
     {
         var stage = Mode == ClickMode.Mound ? TreePlantStage.Mound : TreePlantStage.Sapling;
-        if (!Active || Mode == ClickMode.Select || _hit is not { } h)
+        if (!Active || Mode is ClickMode.Select or ClickMode.RazeArea || _hit is not { } h)
         {
             _ghost?.SetVisible(false);
             return;
@@ -363,9 +345,7 @@ public partial class TreeTool : Node3D
         if (_ghost is null || _ghostSpecies != Species || _ghostStage != stage)
         {
             _ghost?.QueueFree();
-            // La motte a l'allure d'un jeune arbre (modèle _02) ; la pousse, du plus petit plant (_01).
-            var path = $"{GhostFolder}{GhostPrefixes[(int)Species]}_sapling_{(stage == TreePlantStage.Mound ? "03" : "01")}.glb";
-            _ghost = GD.Load<PackedScene>(path)?.Instantiate<Node3D>();
+            _ghost = GD.Load<PackedScene>(ModelPath(Species, stage))?.Instantiate<Node3D>();
             _ghostSpecies = Species;
             _ghostStage = stage;
             if (_ghost is null)
@@ -442,13 +422,4 @@ public partial class TreeTool : Node3D
         TreeState.Fallen => "tombé",
         _ => "souche",
     };
-
-    private void Refresh()
-    {
-        if (_label is not null)
-        {
-            _label.Text = Describe();
-            _label.GetParent<Control>().Visible = Active;
-        }
-    }
 }
