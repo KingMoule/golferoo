@@ -3,6 +3,7 @@ using Godot;
 using Golferoo.Game.Cameras;
 using Golferoo.Game.Rendering;
 using Golferoo.Game.Tools;
+using Golferoo.Game.Ui;
 using Golferoo.Sim;
 using Golferoo.Sim.Terrain;
 using Golferoo.Sim.Trees;
@@ -684,7 +685,76 @@ public partial class SmokeTest : Node
         }
 
         CheckProAim(failures);
+        CheckUi(failures);
         return failures;
+    }
+
+    /// <summary>
+    /// C13 lot 1 (critère 1) : la racine « Ui » porte <see cref="UiTheme.Theme"/> ; chaque composant s'y construit ; le style de panneau
+    /// et la police d'un bouton viennent du thème (palette et polices du design) ; <see cref="UiRoot.Find"/> retrouve un identifiant ; la croix ferme.
+    /// </summary>
+    private void CheckUi(List<string> failures)
+    {
+        var root = UiTheme.CreateRoot(this);
+        var layer = root.GetParent<CanvasLayer>();
+        if (layer.Name != "Ui" || root.Name != "UiRoot" || root.Theme != UiTheme.Theme)
+        {
+            failures.Add($"racine d'interface : calque {layer.Name}, racine {root.Name}, thème du design {root.Theme == UiTheme.Theme}");
+        }
+
+        var panel = UiPanel.Create(UiIds.Panel.Pro, "Votre pro", "figurine", 320f);
+        var tool = UiToolButton.Create(UiIds.Tool.Terrain, "toolBrush", "Terrain", "Peindre les surfaces.", ("Coût", "—"));
+        var thumb = UiThumb.Create(UiIds.Thumb.Fairway, "Fairway", Colors.DarkGreen, Colors.LightGreen, Colors.Black);
+        panel.Content.AddChild(UiGauge.Create("Gauge", "Puissance", 0.6, "60"));
+        panel.Content.AddChild(UiTable.Create("Table", ["Membre", "Points"], [["Votre pro", "35"]]));
+        panel.Content.AddChild(UiPill.Create("Pill", "—", "coin"));
+        panel.Content.AddChild(tool);
+        panel.Content.AddChild(thumb);
+        root.AddChild(panel);
+        var closed = false;
+        panel.Closed += () => closed = true;
+
+        var style = panel.GetThemeStylebox("panel") as StyleBoxFlat;
+        if (style is null || style != UiTheme.Theme.GetStylebox("panel", "UiPanel") || style.BgColor != UiTheme.Glass || style.CornerRadiusTopLeft != UiTheme.GlassRadius)
+        {
+            failures.Add($"le style du panneau ne vient pas du thème (fond {style?.BgColor}, coin {style?.CornerRadiusTopLeft})");
+        }
+
+        foreach (var (button, kind) in new[] { (tool, "outil"), (panel.CloseButton, "croix") })
+        {
+            if (button.GetThemeFont("font") is not FontFile font || font != UiTheme.Fredoka || !font.GetFontName().Contains("Fredoka"))
+            {
+                failures.Add($"la police du bouton ({kind}) ne vient pas du thème : {button.GetThemeFont("font")?.GetFontName()}");
+            }
+        }
+
+        if (panel.Title.GetThemeFont("font") != UiTheme.Fredoka || panel.Title.GetThemeFontSize("font_size") != UiTheme.TitleSize
+            || panel.GetThemeFont("font") is not FontFile body || !body.GetFontName().Contains("Nunito"))
+        {
+            failures.Add("titre en Fredoka et texte en Nunito attendus");
+        }
+
+        if (root.Find(UiIds.Tool.Terrain) != tool || root.Find(UiIds.Thumb.Fairway) != thumb || root.Find("Absent") is not null)
+        {
+            failures.Add("UiRoot.Find ne retrouve pas les identifiants");
+        }
+
+        if (tool._MakeCustomTooltip(tool.TooltipText) is not UiTooltip tip || tip.GetChildCount() != 3)
+        {
+            failures.Add("l'info-bulle du bouton d'outil n'a pas titre, phrase et coût");
+        }
+        else
+        {
+            tip.Free();
+        }
+
+        panel.CloseButton.EmitSignal(BaseButton.SignalName.Pressed);
+        if (!closed)
+        {
+            failures.Add("la croix du panneau n'émet pas Closed");
+        }
+
+        layer.QueueFree();
     }
 
     /// <summary>C08 : le pro attend son coup, le mode visée s'ouvre en pause avec une trajectoire prévue, et « Jouer » envoie le coup.</summary>
