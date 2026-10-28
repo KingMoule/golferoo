@@ -1,3 +1,5 @@
+using Golferoo.Sim.Save;
+
 namespace Golferoo.Sim;
 
 /// <summary>
@@ -16,6 +18,21 @@ public sealed class DeterministicRng
         _s2 = SplitMix64(ref sm);
         _s3 = SplitMix64(ref sm);
     }
+
+    private DeterministicRng(SaveReader r)
+    {
+        (_s0, _s1, _s2, _s3) = (r.ULong(), r.ULong(), r.ULong(), r.ULong());
+    }
+
+    internal void Write(SaveWriter w)
+    {
+        w.ULong(_s0);
+        w.ULong(_s1);
+        w.ULong(_s2);
+        w.ULong(_s3);
+    }
+
+    internal static DeterministicRng Read(SaveReader r) => new(r);
 
     public ulong NextUInt64()
     {

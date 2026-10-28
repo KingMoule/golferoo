@@ -1,3 +1,4 @@
+using Golferoo.Sim.Save;
 using Golferoo.Sim.Shots;
 using Golferoo.Sim.Terrain;
 
@@ -93,4 +94,64 @@ public sealed class Golfer
 
     /// <summary>Mode charge : indice du point de passage visé.</summary>
     internal int WaypointIndex { get; set; }
+
+    /// <summary>Tout l'état du golfeur. Le résultat en attente partage sa trajectoire avec <see cref="FlightPath"/> : elle n'est écrite qu'une fois.</summary>
+    internal void Write(SaveWriter w)
+    {
+        w.Int(Id);
+        w.Int(MemberId);
+        w.Point(Position);
+        w.Byte((byte)State);
+        w.Int(Strokes);
+        w.Point(Ball);
+        w.Double(Skill);
+        w.Byte((byte)Profile);
+        w.Bool(Holed);
+        w.Bool(PickedUp);
+        w.Point(Pending.Ball);
+        w.Bool(Pending.Holed);
+        w.Int(Pending.PenaltyStrokes);
+        w.Byte((byte)Pending.Outcome);
+        w.Bool(FlightPath is not null);
+        if (FlightPath is not null)
+        {
+            w.List(FlightPath, w.Vec);
+        }
+
+        w.Int(FlightIndex);
+        w.Int(SwingTicks);
+        w.Bool(PlannedShot is not null);
+        if (PlannedShot is { } shot)
+        {
+            w.ProShot(shot);
+        }
+
+        w.Bool(InLeague);
+        w.Int(WaypointIndex);
+    }
+
+    internal static Golfer Read(SaveReader r)
+    {
+        var golfer = new Golfer(r.Int(), default, default)
+        {
+            MemberId = r.Int(),
+            Position = r.Point(),
+            State = (GolferState)r.Byte(),
+            Strokes = r.Int(),
+            Ball = r.Point(),
+            Skill = r.Double(),
+            Profile = (Archetype)r.Byte(),
+            Holed = r.Bool(),
+            PickedUp = r.Bool(),
+        };
+        var pending = (Ball: r.Point(), Holed: r.Bool(), Penalty: r.Int(), Outcome: (ShotOutcome)r.Byte());
+        golfer.FlightPath = r.Bool() ? r.List(r.Vec) : null;
+        golfer.Pending = new ShotResult(pending.Ball, pending.Holed, pending.Penalty, pending.Outcome, golfer.FlightPath);
+        golfer.FlightIndex = r.Int();
+        golfer.SwingTicks = r.Int();
+        golfer.PlannedShot = r.Bool() ? r.ProShot() : null;
+        golfer.InLeague = r.Bool();
+        golfer.WaypointIndex = r.Int();
+        return golfer;
+    }
 }
