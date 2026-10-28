@@ -173,6 +173,12 @@ public sealed partial class World
             _holeCommands.Enqueue(c);
         }
 
+        var holeCount = Terrain?.Course.Count ?? 1;
+        if (_holesOpen.Length != holeCount || _holeCommands.Any(c => c.Hole < 1 || c.Hole > holeCount))
+        {
+            throw new InvalidDataException("Sauvegarde incohérente : états ou commandes de trous hors du parcours.");
+        }
+
         foreach (var s in r.List(() => new TurfSettings((GreenSpeed)r.Byte(), (FairwayFirmness)r.Byte(), (RoughLength)r.Byte())))
         {
             _turfCommands.Enqueue(s);

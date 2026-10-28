@@ -50,6 +50,9 @@ public static class CourseLoader
         AllowTrailingCommas = true,
     };
 
+    /// <summary>Même plafond que la lecture de <c>HeightField</c> : une carte plus grande ne se sauverait pas.</summary>
+    private const int MaxCells = 4096;
+
     private static bool IsFree(Surface s) => s is Surface.Rough or Surface.Trees;
 
     private static TerrainGrid Build(CourseFile file, string baseDir, int factor)
@@ -57,6 +60,11 @@ public static class CourseLoader
         if (file.TilesX < 1 || file.TilesZ < 1)
         {
             throw new HoleDataException($"Dimensions invalides : tilesX={file.TilesX}, tilesZ={file.TilesZ} (au moins 1 chacune).");
+        }
+
+        if (file.TilesX * (long)factor > MaxCells || file.TilesZ * (long)factor > MaxCells)
+        {
+            throw new HoleDataException($"Carte trop grande : {file.TilesX} × {file.TilesZ} tuiles au facteur {factor} (au plus {MaxCells} cellules par côté).");
         }
 
         var ground = Enum.GetNames<Surface>().FirstOrDefault(n => string.Equals(n, file.Ground ?? "Rough", StringComparison.OrdinalIgnoreCase));

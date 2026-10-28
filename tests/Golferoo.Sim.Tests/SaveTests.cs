@@ -355,6 +355,31 @@ public class SaveTests
     }
 
     [Fact]
+    public void Load_HoleCommandOutsideTheCourse_Throws()
+    {
+        var terrain = CourseTests.ThreeHoles();
+        var world = new World(1, terrain);
+        var at = terrain.Course[3].Tee;
+        Assert.True(world.PlaceTee(3, at));
+        var bytes = Save(world);
+        var body = new MemoryStream();
+        using (var gzip = new GZipStream(new MemoryStream(bytes, 28, bytes.Length - 28), CompressionMode.Decompress))
+        {
+            gzip.CopyTo(body);
+        }
+
+        var raw = body.ToArray();
+        var pattern = BitConverter.GetBytes(3).Append((byte)1).Concat(BitConverter.GetBytes(at.X)).Concat(BitConverter.GetBytes(at.Z)).ToArray();
+        var index = raw.AsSpan().IndexOf(pattern);
+        Assert.True(index >= 0, "commande de trou introuvable dans le corps");
+        raw[index] = 7;
+        var forged = Pack(bytes, raw, Golferoo.Sim.Save.SaveFormat.Hash(raw));
+
+        var e = Assert.Throws<InvalidDataException>(() => Load(forged));
+        Assert.Contains("incohérente", e.Message);
+    }
+
+    [Fact]
     public void BlankTerrain_ReloadedAfterOpening_KeepsItsHoleState()
     {
         var blank = HoleLoader.Load(Path.Combine(Path.GetDirectoryName(TerrainTests.HolePath())!, "blank-coude.json"), 2);

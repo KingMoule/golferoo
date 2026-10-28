@@ -132,6 +132,16 @@ public class CourseTests
         Assert.Equal(2, terrain.Course.Count);
     }
 
+    [Theory]
+    [InlineData(100000)]
+    [InlineData(30000)]
+    [InlineData(4097)]
+    public void HugeMapIsRefusedBeforeAllocating(int tiles)
+    {
+        var json = CourseJson(tiles, tiles, (1, 0, 0, 0));
+        Assert.Throws<HoleDataException>(() => CourseLoader.Parse(json, HoleDir(), 2));
+    }
+
     private static string CourseJson(int tilesX, int tilesZ, params (int Number, int X, int Z, int Rotation)[] holes)
     {
         var entries = holes.Select(h => $$"""{ "file": "{{(h.Number == 1 ? "proto-par4" : "dogleg-par4")}}.json", "x": {{h.X}}, "z": {{h.Z}}, "rotation": {{h.Rotation}}, "number": {{h.Number}} }""");
