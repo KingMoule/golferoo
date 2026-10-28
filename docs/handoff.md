@@ -20,7 +20,7 @@ Journal des commandes et rejeu (moitié de F4) avec les scénarios ; sauvegardes
 - Agents du dépôt non chargés en session cloud de projet : déléguer à un agent général qui lit `.claude/agents/<rôle>.md`. Deux codeurs en parallèle : un worktree chacun.
 
 ## Décisions récentes
-- Sauvegarde (session, par délégation) : binaire plutôt que JSON (exactitude des doubles, taille) ; à n'importe quel tick ; F5/F8. Tout nouvel état de la sim entre dans `Checksum` et dans `Save`, avec un cas `SaveTests` qui échoue si on l'oublie ; à monter dans `CLAUDE.md` si Guillaume l'accepte.
+- Sauvegarde (session, par délégation) : binaire plutôt que JSON (exactitude des doubles, taille) ; à n'importe quel tick ; F5/F8. La règle « tout nouvel état entre dans Checksum et Save » est dans `CLAUDE.md` (accord de Guillaume le 2026-10-28).
 
 ## Environnement cloud
 `apt-get update` puis `apt-get install dotnet-sdk-10.0` ; `dotnet test Golferoo.sln` dure 8 à 10 min. Godot ne se télécharge pas : la CI fait foi. `gh` en REST seulement (GraphQL bloqué : `gh pr create` échoue, outil MCP GitHub à la place). Journaux CI trop gros : lignes de preuve en fin de job et dans le résumé (`$GITHUB_STEP_SUMMARY`). Mesure de référence (RTX 2080, 1080p) : 632 FPS prototype, 322 FPS à 5 000 arbres.
