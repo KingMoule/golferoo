@@ -193,4 +193,32 @@ public class GolferTests
     {
         Assert.Throws<InvalidOperationException>(() => new World(1).SpawnGroup());
     }
+
+    /// <summary>C23, critère 4 : chaque geste dure exactement la durée jusqu'à l'impact du swing animé (<see cref="World.SwingTicksCount"/>), puis la balle part.</summary>
+    [Fact]
+    public void Swing_LastsUntilImpact()
+    {
+        var world = new World(5, HoleLoader.Load(TerrainTests.HolePath(), 2), new NeverHoleResolver());
+        var group = world.SpawnGroup();
+        var runs = new Dictionary<int, int>();
+        var swings = 0;
+        for (var ticks = 0; swings < 6 && ticks < 20 * 600; ticks++)
+        {
+            world.Step();
+            foreach (var g in group.Golfers)
+            {
+                if (g.State is GolferState.Swinging or GolferState.Putting)
+                {
+                    runs[g.Id] = runs.GetValueOrDefault(g.Id) + 1;
+                }
+                else if (runs.Remove(g.Id, out var run))
+                {
+                    Assert.Equal(World.SwingTicksCount, run);
+                    swings++;
+                }
+            }
+        }
+
+        Assert.Equal(6, swings);
+    }
 }

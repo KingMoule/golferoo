@@ -38,7 +38,7 @@ public partial class Captures : Node
     private const int ProfileViewCount = 3;
     private const int FreeViewCount = 4;
     private const int SaveViewCount = 2;
-    private const int CourseViewCount = 3;
+    private const int CourseViewCount = 5;
     private const int GalleryViewCount = 1;
 
     /// <summary>Lisière sud de la forêt du coude, la balle de <c>ForestExitTests.Edge</c> (tuile 18,5 / 26,5 de 8 m).</summary>
@@ -732,6 +732,39 @@ public partial class Captures : Node
         main.Camera.SetView(45f, Math.Clamp(span * 0.8f, 120f, 400f), focus);
         await Frames(SettleFrames);
         Save("c12-groupes");
+
+        // C23 : de près, un golfeur qui marche, puis un golfeur au sommet de son swing (le modèle de Guillaume).
+        main.Actors.Range = float.PositiveInfinity;
+        await CloseUp(main, "c23-marche", g => g.State is GolferState.WalkingToBall or GolferState.ToNextTee or GolferState.Exiting, _ => true);
+        await CloseUp(main, "c23-swing", g => g.State == GolferState.Swinging, rig => rig.Clip == GolferModel.Swing && Math.Abs(rig.Time - SwingTopSeconds) < 0.03);
+        main.Actors.Range = ActorLayer.AnimatedRange;
+    }
+
+    /// <summary>Sommet du swing de golf_swing_2s (image 23 sur 61 à 30 images/s).</summary>
+    private const double SwingTopSeconds = 22.0 / 30.0;
+
+    /// <summary>Avance tick par tick jusqu'à un golfeur animé qui remplit les deux conditions, puis le cadre de près en vue libre.</summary>
+    private async Task CloseUp(Main main, string name, Func<GolferView, bool> state, Func<GolferRig, bool> pose)
+    {
+        for (var i = 0; i < 20 * 600; i++)
+        {
+            foreach (var g in main.World.Snapshot().Golfers.Where(state))
+            {
+                if (main.Actors.RigOf(g.Id) is { } rig && pose(rig) && main.Actors.PositionOf(g.Id) is { } at)
+                {
+                    GD.Print($"C23 {name} golfeur={g.Id} etat={g.State} clip={rig.Clip} t={rig.Time:F2} tick={main.World.Tick}");
+                    main.Camera.SetFreeView(rig.Rotation.Y * 180f / MathF.PI, 10f, 10f, at + new Vector3(0f, 1.8f, 0f));
+                    await Frames(SettleFrames);
+                    Save(name);
+                    return;
+                }
+            }
+
+            main.StepTicks(1);
+        }
+
+        GD.PrintErr($"CAPTURES FAIL {name} : aucun golfeur trouvé");
+        _failures++;
     }
 
     /// <summary>C13 lot 1 : l'écran témoin des composants d'interface (<c>res://tools/UiGallery.tscn</c>), seul à l'écran.</summary>

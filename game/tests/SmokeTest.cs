@@ -5,6 +5,7 @@ using Golferoo.Game.Rendering;
 using Golferoo.Game.Tools;
 using Golferoo.Game.Ui;
 using Golferoo.Sim;
+using Golferoo.Sim.Golfers;
 using Golferoo.Sim.Terrain;
 using Golferoo.Sim.Trees;
 
@@ -427,6 +428,141 @@ public partial class SmokeTest : Node
     }
 
     /// <summary>
+    /// C23 lot 1 : le golfeur animé. Le .glb et la sim placent l'impact au même tick ; sur « trois trous », un golfeur suivi de près joue le clip
+    /// de son état, l'image d'impact tombe au tick où la balle part (un tick d'écart au plus), la marche avance d'un cycle par cycle de distance
+    /// (10 % près), la bascule à 150 m ne déplace pas le golfeur et le pool ne dépasse jamais sa borne. Écrit <c>GOLFERS OK</c>.
+    /// </summary>
+    private void CheckGolfers(List<string> failures)
+    {
+        if (GolferModel.Load() is not { } model)
+        {
+            failures.Add($"golfeurs : {GolferModel.ScenePath} absent");
+            return;
+        }
+
+        string[] clips = [GolferModel.Walk, GolferModel.Idle, GolferModel.Swing, GolferModel.Chip, GolferModel.Putt];
+        var impactTicks = (int)Math.Round(model.Impact(GolferModel.Swing) * World.TicksPerSecond);
+        if (model.Bones != 21 || clips.Any(c => !model.Has(c)) || model.WalkCycle <= 0 || impactTicks != World.SwingTicksCount)
+        {
+            failures.Add($"golfeurs : {model.Bones} os, clips {string.Join(",", clips.Where(model.Has))}, cycle {model.WalkCycle} m, impact à {impactTicks} ticks (sim : {World.SwingTicksCount})");
+            return;
+        }
+
+        var before = failures.Count;
+        const string dir = "res://data/courses";
+        var grid = CourseLoader.Parse(ReadText($"{dir}/trois-trous.json"), dir, _main!.Factor, relative => ReadText((dir + "/" + relative).SimplifyPath()));
+        var world = new World(11, grid);
+        var layer = new ActorLayer { Name = "GolferActors" };
+        AddChild(layer);
+        layer.Build(grid);
+        var id = world.SpawnGroup().Golfers[0].Id;
+        var (prev, cur) = (world.Snapshot(), world.Snapshot());
+        var mismatches = new List<string>();
+        long? impactTick = null, departTick = null;
+        double walked = 0, cycles = 0;
+        GolferView last = default;
+        var lastClip = string.Empty;
+        var lastTime = 0.0;
+        for (var i = 0; i < 20 * 600 && (departTick is null || cycles < 3); i++)
+        {
+            (prev, cur) = (cur, prev);
+            world.Step();
+            world.Snapshot(cur);
+            var view = cur.Golfers.First(g => g.Id == id);
+            layer.Viewer = new Vector3((float)view.Position.X, 2f, (float)view.Position.Z);
+            layer.Update(cur, prev, 1f, true);
+            if (layer.RigOf(id) is not { } rig)
+            {
+                failures.Add($"golfeurs : le golfeur suivi n'est pas animé au tick {cur.Tick}");
+                break;
+            }
+
+            var expected = view.State switch
+            {
+                GolferState.Arriving or GolferState.WalkingToBall or GolferState.Exiting or GolferState.ToNextTee => GolferModel.Walk,
+                GolferState.Swinging => rig.Clip == GolferModel.Chip ? GolferModel.Chip : GolferModel.Swing,
+                GolferState.Putting => GolferModel.Putt,
+                GolferState.BallInFlight => rig.Clip,
+                _ => GolferModel.Idle,
+            };
+            if (rig.Clip != expected && mismatches.Count < 5)
+            {
+                mismatches.Add($"{view.State}:{rig.Clip}@{cur.Tick}");
+            }
+
+            if (impactTick is null && rig.Clip is GolferModel.Swing or GolferModel.Chip && rig.Time >= model.Impact(rig.Clip) - 1e-6)
+            {
+                impactTick = cur.Tick;
+            }
+
+            if (departTick is null && view.State == GolferState.BallInFlight)
+            {
+                departTick = cur.Tick;
+            }
+
+            if (rig.Clip == GolferModel.Walk && lastClip == GolferModel.Walk)
+            {
+                var length = model.Length(GolferModel.Walk);
+                cycles += ((rig.Time - lastTime + length) % length) / length;
+                walked += new Vector2((float)(view.Position.X - last.Position.X), (float)(view.Position.Z - last.Position.Z)).Length();
+            }
+
+            (last, lastClip, lastTime) = (view, rig.Clip, rig.Time);
+        }
+
+        var ratio = cycles > 0 ? walked / (cycles * model.WalkCycle * ProceduralMeshes.GolferScale) : 0.0;
+        if (mismatches.Count > 0)
+        {
+            failures.Add($"golfeurs : clip qui ne suit pas l'état ({string.Join(", ", mismatches)})");
+        }
+
+        if (impactTick is null || departTick is null || Math.Abs(impactTick.Value - departTick.Value) > 1)
+        {
+            failures.Add($"golfeurs : impact joué au tick {impactTick}, balle partie au tick {departTick}");
+        }
+
+        if (cycles < 1 || Math.Abs(ratio - 1.0) > 0.1)
+        {
+            failures.Add($"golfeurs : {walked:F1} m pour {cycles:F2} cycles de marche (rapport {ratio:F2} au cycle du modèle)");
+        }
+
+        // Bascule : à 149 m le golfeur est animé, à 151 m une silhouette du MultiMesh, au même endroit.
+        var at = cur.Golfers.First(g => g.Id == id).Position;
+        layer.Viewer = new Vector3((float)at.X + 149f, 0f, (float)at.Z);
+        layer.Update(cur, cur, 1f, true);
+        var animated = layer.RigOf(id) is not null;
+        var near = layer.PositionOf(id);
+        layer.Viewer = new Vector3((float)at.X + 151f, 0f, (float)at.Z);
+        layer.Update(cur, cur, 1f, true);
+        var far = layer.PositionOf(id);
+        // Le rendu factice du mode headless ne garde pas les instances du MultiMesh : on compte les silhouettes de la couche.
+        var silhouette = layer.RigOf(id) is null && layer.VisibleGolfers - layer.AnimatedGolfers == cur.Golfers.Count;
+        if (!animated || !silhouette || near is null || far is null || near.Value.DistanceTo(far.Value) > 1e-3f)
+        {
+            failures.Add($"golfeurs : bascule à 150 m (animé à 149 m : {animated}, silhouette à 151 m : {silhouette}, positions {near} puis {far})");
+        }
+
+        // Pool : 50 golfeurs de trop, tous près ; puis un mode charge plus petit rend les rigs en trop.
+        layer.Range = float.PositiveInfinity;
+        world.SetLoadMode(ActorLayer.PoolSize + 50);
+        layer.Update(world.Snapshot(cur), cur, 1f, true);
+        var full = (layer.AnimatedGolfers, layer.RigCount);
+        world.SetLoadMode(10);
+        layer.Update(world.Snapshot(cur), cur, 1f, true);
+        if (full != (ActorLayer.PoolSize, ActorLayer.PoolSize) || layer.RigCount > ActorLayer.PoolSize || layer.AnimatedGolfers != cur.Golfers.Count)
+        {
+            failures.Add($"golfeurs : pool {full.AnimatedGolfers} animés / {full.RigCount} rigs pour {ActorLayer.PoolSize + 50} golfeurs, puis {layer.AnimatedGolfers} pour {cur.Golfers.Count}");
+        }
+
+        if (failures.Count == before)
+        {
+            GD.Print($"GOLFERS OK impact={impactTick} depart={departTick} marche={walked:F1} m / {cycles:F2} cycles (rapport {ratio:F2}) pool={full.RigCount}");
+        }
+
+        layer.QueueFree();
+    }
+
+    /// <summary>
     /// C12 lot 5 : sur un parcours de trois trous, un quatrième trou s'ajoute (drapeau, repère et numéro apparaissent), une paire le joue,
     /// puis il se retire (les trois nœuds disparaissent). Écrit <c>NEWHOLE OK</c>.
     /// </summary>
@@ -549,6 +685,7 @@ public partial class SmokeTest : Node
 
         CheckCourse(failures);
         CheckNewHole(failures);
+        CheckGolfers(failures);
         CheckCamera(failures);
         CheckBrush(failures);
         CheckAssets(failures);
@@ -945,6 +1082,7 @@ public partial class SmokeTest : Node
         ["vehicles"] = 800,
         ["buildings"] = 3000,
         ["structures"] = 600,
+        ["golfers"] = 2500, // le golfeur animé de C23 (tools/blender/golfer_anim.py)
         ["ui"] = 0, // polices et icônes de l'interface (C13) : aucun modèle 3D admis.
     };
 
