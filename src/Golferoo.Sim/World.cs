@@ -410,8 +410,18 @@ public sealed partial class World
     }
 
     /// <summary>Une paire de ligue a fini : la carte de chaque joueur (balle ramassée = 12 coups, trou sauté = 0) revient à la ligue.</summary>
-    private void ReturnLeagueCards(Group group) =>
-        League!.GroupFinished(group.LeagueRound, [.. group.Golfers.Select(g => (g.MemberId, g.Card!))], CourseRating, Tick);
+    private void ReturnLeagueCards(Group group)
+    {
+        var cards = group.Golfers.Select(g => (g.MemberId, g.Card!)).ToArray();
+        if (_ratingStale)
+        {
+            _heldCards.Add((group.LeagueRound, cards, Tick)); // la note d'un autre nombre de trous ne servirait pas : on attend la bonne
+        }
+        else
+        {
+            League!.GroupFinished(group.LeagueRound, cards, CourseRating, Tick);
+        }
+    }
 
     /// <summary>Inscrit sur la carte de chaque golfeur du groupe le trou qui vient de finir (balle ramassée = 12 coups).</summary>
     private static void RecordHole(Group group)
@@ -429,10 +439,11 @@ public sealed partial class World
         }
     }
 
-    /// <summary>Premier trou ouvert après <paramref name="hole"/> (les trous fermés sont sautés), 0 s'il n'y en a plus.</summary>
-    private int NextOpenHole(int hole)
+    /// <summary>Premier trou ouvert après celui du groupe, jusqu'au dernier de sa carte (les trous fermés sont sautés), 0 s'il n'y en a plus.</summary>
+    private int NextOpenHole(Group group)
     {
-        for (var n = hole + 1; n <= _holesOpen.Length; n++)
+        var last = Math.Min(_holesOpen.Length, group.Golfers[0].Card!.HoleCount); // sa carte fixe son dernier trou
+        for (var n = group.Hole + 1; n <= last; n++)
         {
             if (_holesOpen[n - 1])
             {
@@ -468,7 +479,7 @@ public sealed partial class World
         ApplyProShots();
         while (_ratingCommands.Count > 0)
         {
-            CourseRating = _ratingCommands.Dequeue();
+            ApplyRating(_ratingCommands.Dequeue());
         }
 
         if (Terrain is not null)
@@ -585,6 +596,7 @@ public sealed partial class World
         MixPendingEdits(ref hash);
         MixTreeCommands(ref hash);
         MixHoleCommands(ref hash);
+        MixHeldCards(ref hash);
         foreach (var c in _turfCommands)
         {
             Mix(ref hash, (byte)c.GreenSpeed | ((ulong)(byte)c.FairwayFirmness << 8) | ((ulong)(byte)c.RoughLength << 16));
@@ -817,7 +829,7 @@ public sealed partial class World
         {
             // Tout le groupe a fini le trou : il marche vers le prochain trou ouvert, ou la partie est finie.
             RecordHole(group);
-            if (NextOpenHole(group.Hole) is > 0 and var next)
+            if (NextOpenHole(group) is > 0 and var next)
             {
                 MoveToHole(group, terrain.Course[next]);
             }

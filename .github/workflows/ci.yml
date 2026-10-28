@@ -119,6 +119,8 @@ jobs:
           grep -q '^HOLE source=res://data/courses/' smoke.log || { echo "::error::le JSON du parcours n'est pas lu depuis res://"; exit 1; }
           grep -qE '^COURSE OK 9 ' smoke.log || { echo "::error::la ligne COURSE OK 9 est absente"; exit 1; }
           grep '^COURSE OK' smoke.log >> "$GITHUB_STEP_SUMMARY"
+          grep -qE '^NEWHOLE OK holes=3 ' smoke.log || { echo "::error::la ligne NEWHOLE OK est absente"; exit 1; }
+          grep '^NEWHOLE OK' smoke.log >> "$GITHUB_STEP_SUMMARY"
           grep -qE '^SAVE OK checksum=([0-9a-f]{16}) apres=\1 serialisation=[0-9.]+ ms$' smoke.log || { echo "::error::la ligne SAVE OK (mêmes sommes avant et après) est absente"; exit 1; }
           grep '^SAVE OK' smoke.log >> "$GITHUB_STEP_SUMMARY"
           grep -q '^SMOKE OK' smoke.log || { echo "::error::la ligne SMOKE OK est absente"; exit 1; }

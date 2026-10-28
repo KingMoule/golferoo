@@ -290,6 +290,39 @@ public class SaveTests
         }
     }
 
+    /// <summary>C12 lot 5 : un ajout de trou en file, puis un trou joué et retiré, se sauvent et se relisent à l'identique.</summary>
+    [Fact]
+    public void NewHoleCommands_QueuedThenPlayedAndRemoved_ReloadWithTheSameChecksum()
+    {
+        var world = new World(3, CourseTests.ThreeHoles());
+        Assert.True(world.AddHole(world.Terrain!.Course[2].Tee, world.Terrain.Course[2].Hole));
+        var queued = Load(Save(world));
+        Assert.Equal(world.Checksum(), queued.Checksum());
+        world.Step();
+        queued.Step();
+        Assert.Equal(4, queued.Terrain!.Course.Count);
+        Assert.Equal(world.Checksum(), queued.Checksum());
+
+        world.SpawnGroup();
+        for (var i = 0; i < 120_000 && !world.Groups.All(g => g.Finished); i++)
+        {
+            world.Step();
+        }
+
+        Assert.True(world.RemoveLastHole());
+        var removing = Load(Save(world));
+        Assert.Equal(world.Checksum(), removing.Checksum());
+        world.Step();
+        removing.Step();
+        var after = Load(Save(world));
+        Assert.Equal(3, after.Terrain!.Course.Count);
+        Assert.Equal(world.Checksum(), after.Checksum());
+        Assert.Equal(world.Checksum(), removing.Checksum());
+        after.Step(1000);
+        world.Step(1000);
+        Assert.Equal(world.Checksum(), after.Checksum());
+    }
+
     [Fact]
     public void Load_WrongMagic_Throws()
     {
@@ -306,6 +339,16 @@ public class SaveTests
         bytes[4] = 9;
 
         Assert.Throws<InvalidDataException>(() => Load(bytes));
+    }
+
+    [Fact]
+    public void Load_VersionTwo_SaysItIsAnOlderVersion()
+    {
+        var bytes = Save(Build(1, "proto", "start"));
+        bytes[4] = 2;
+
+        var e = Assert.Throws<InvalidDataException>(() => Load(bytes));
+        Assert.Contains("ancienne version", e.Message);
     }
 
     [Fact]

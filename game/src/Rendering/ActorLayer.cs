@@ -18,6 +18,7 @@ public partial class ActorLayer : Node3D
     private MultiMesh? _balls;
     private TerrainGrid? _grid;
     private readonly List<(Node3D Flag, Point2 At)> _flags = [];
+    private readonly List<Node> _holeNodes = [];
 
     private static readonly Basis GolferBasis = Basis.Identity.Scaled(Vector3.One * ProceduralMeshes.GolferScale);
 
@@ -57,12 +58,19 @@ public partial class ActorLayer : Node3D
     /// <summary>Un drapeau, un repère de départ et le numéro pour chaque trou du parcours.</summary>
     private void BuildHoles(TerrainGrid grid)
     {
+        foreach (var node in _holeNodes)
+        {
+            RemoveChild(node); // tout de suite : le nom (Flag4) doit être libre pour le nœud suivant
+            node.QueueFree();
+        }
+
+        _holeNodes.Clear();
         _flags.Clear();
         foreach (var hole in grid.Course.Holes)
         {
             var flag = new Node3D { Name = $"Flag{hole.Number}" };
             flag.AddChild(new MeshInstance3D { Name = "FlagMesh", Mesh = ProceduralMeshes.Flag() });
-            AddChild(flag);
+            AddHoleNode(flag);
             _flags.Add((flag, default));
             PlaceFlag(grid, hole);
             if (grid.Blank)
@@ -72,8 +80,8 @@ public partial class ActorLayer : Node3D
 
             var y = (float)grid.Sample(hole.Tee.X, hole.Tee.Z);
             var tee = new Vector3((float)hole.Tee.X, y, (float)hole.Tee.Z);
-            AddChild(new MeshInstance3D { Name = $"TeeMarker{hole.Number}", Mesh = ProceduralMeshes.TeeMarker(), Position = tee });
-            AddChild(new Label3D
+            AddHoleNode(new MeshInstance3D { Name = $"TeeMarker{hole.Number}", Mesh = ProceduralMeshes.TeeMarker(), Position = tee });
+            AddHoleNode(new Label3D
             {
                 Name = $"HoleNumber{hole.Number}",
                 Text = hole.Number.ToString(System.Globalization.CultureInfo.InvariantCulture),
@@ -87,6 +95,12 @@ public partial class ActorLayer : Node3D
                 Position = tee + new Vector3(0f, 7f, 0f),
             });
         }
+    }
+
+    private void AddHoleNode(Node node)
+    {
+        AddChild(node);
+        _holeNodes.Add(node);
     }
 
     /// <summary>Pose le drapeau d'un trou sur son drapeau du jour (il change de place chaque jour).</summary>
@@ -115,6 +129,11 @@ public partial class ActorLayer : Node3D
         if (_golfers is null || _balls is null || _grid is null)
         {
             return;
+        }
+
+        if (_grid.Course.Count != _flags.Count)
+        {
+            BuildHoles(_grid); // trou ajouté ou retiré en jeu
         }
 
         foreach (var hole in _grid.Course.Holes)

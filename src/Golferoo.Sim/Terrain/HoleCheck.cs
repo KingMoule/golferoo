@@ -27,20 +27,33 @@ public static class HoleCheck
     public static List<HoleIssue> Check(TerrainGrid terrain) => Check(terrain, terrain.Course[1]);
 
     /// <summary>Vérifie un trou du parcours. Les surfaces (surface de départ, de fairway, de green) se comptent sur toute la carte.</summary>
-    public static List<HoleIssue> Check(TerrainGrid terrain, CourseHole hole)
+    public static List<HoleIssue> Check(TerrainGrid terrain, CourseHole hole) => Check(terrain, hole, false);
+
+    /// <summary>Rayon autour du départ et du drapeau, et largeur du couloir de fairway, d'une vérification locale (mètres).</summary>
+    public const double TeeReach = 30.0;
+    public const double GreenReach = 40.0;
+    public const double FairwayReach = 60.0;
+
+    /// <summary>
+    /// Comme <see cref="Check(TerrainGrid, CourseHole)"/> ; avec <paramref name="local"/>, les surfaces ne comptent que près de ce trou
+    /// (départ à <see cref="TeeReach"/> m, green à <see cref="GreenReach"/> m du drapeau, fairway à <see cref="FairwayReach"/> m du segment départ-drapeau),
+    /// pour qu'un nouveau trou ne soit pas validé par les surfaces des autres.
+    /// </summary>
+    public static List<HoleIssue> Check(TerrainGrid terrain, CourseHole hole, bool local)
     {
         var issues = new List<HoleIssue>();
-        if (Area(terrain, Surface.Tee) < MinTeeArea)
+        double Surf(Surface s, Point2 a, Point2 b, double reach) => local ? AreaNear(terrain, s, a, b, reach) : Area(terrain, s);
+        if (Surf(Surface.Tee, hole.Tee, hole.Tee, TeeReach) < MinTeeArea)
         {
             issues.Add(HoleIssue.TeeTooSmall);
         }
 
-        if (Area(terrain, Surface.Fairway) < MinFairwayArea)
+        if (Surf(Surface.Fairway, hole.Tee, hole.Hole, FairwayReach) < MinFairwayArea)
         {
             issues.Add(HoleIssue.FairwayTooShort);
         }
 
-        if (Area(terrain, Surface.Green) < MinGreenArea)
+        if (Surf(Surface.Green, hole.Hole, hole.Hole, GreenReach) < MinGreenArea)
         {
             issues.Add(HoleIssue.GreenTooSmall);
         }
@@ -84,6 +97,34 @@ public static class HoleCheck
             if (s == surface)
             {
                 n++;
+            }
+        }
+
+        return n * terrain.CellSize * terrain.CellSize;
+    }
+
+    /// <summary>Surface des cellules de <paramref name="surface"/> dont le centre est à au plus <paramref name="reach"/> m du segment a-b, en mètres carrés.</summary>
+    public static double AreaNear(TerrainGrid terrain, Surface surface, Point2 a, Point2 b, double reach)
+    {
+        var (dx, dz) = (b.X - a.X, b.Z - a.Z);
+        var len2 = (dx * dx) + (dz * dz);
+        var n = 0;
+        for (var cz = 0; cz < terrain.CellsZ; cz++)
+        {
+            for (var cx = 0; cx < terrain.CellsX; cx++)
+            {
+                if (terrain.Surfaces[(cz * terrain.CellsX) + cx] != surface)
+                {
+                    continue;
+                }
+
+                var c = terrain.CellCenter(cx, cz);
+                var t = len2 == 0.0 ? 0.0 : Math.Clamp((((c.X - a.X) * dx) + ((c.Z - a.Z) * dz)) / len2, 0.0, 1.0);
+                var (px, pz) = (c.X - (a.X + (t * dx)), c.Z - (a.Z + (t * dz)));
+                if ((px * px) + (pz * pz) <= reach * reach)
+                {
+                    n++;
+                }
             }
         }
 
