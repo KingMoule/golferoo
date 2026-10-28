@@ -28,3 +28,5 @@ Ajouter sans relire tout le fichier : `echo "- ..." >> docs/lecons.md`. `/amelio
 - C10 lot 1 (codeur) : en conteneur cloud, `apt-get update` avant `apt-get install dotnet-sdk-10.0` ; `dotnet test Golferoo.sln` dure environ 13 min, à lancer en arrière-plan.
 - C10 lot 2 (codeur) : attendre `dotnet test` par `until pgrep -f "dotnet test"` boucle sans fin (pgrep se reconnaît) ; utiliser `wait` ou lire le journal.
 - C10 lot 2 (auditeur) : « test sans Godot si possible » est flou pour la caméra (types Godot) : écrire « fumée Godot » dans la spec.
+- C11 : journaux CI trop gros (JPEG base64 sur une ligne) pour les outils ; gh api …/logs refusé, get_job_logs ne rend que la queue. Écrire les lignes de preuve dans $GITHUB_STEP_SUMMARY.
+- C11 : la suite complète dure 8 à 10 min en session (tests de ligue jusqu'à 35 s par cas).
