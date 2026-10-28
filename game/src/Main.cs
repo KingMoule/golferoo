@@ -53,6 +53,12 @@ public partial class Main : Node3D
     private RatingJob? _ratingJob;
     private LeaguePanel? _league;
     private (long Version, string Text) _stimp = (-1, string.Empty);
+    private string _message = string.Empty;
+    private ulong _messageUntil;
+
+    /// <summary>Monde chargé (F8, `--load`) que le prochain <see cref="_Ready"/> reprend au lieu d'en créer un neuf.</summary>
+    private static World? _pendingWorld;
+    private static bool _loadOptionDone;
 
     /// <summary>Moment de la journée imposé au soleil (captures) ; sans valeur, il suit le calendrier.</summary>
     public double? SunDayFraction { get; set; }
@@ -174,12 +180,29 @@ public partial class Main : Node3D
             Factor = Math.Clamp(factor, HoleLoader.MinFactor, HoleLoader.MaxFactor);
         }
 
-        var grid = HoleLoader.Parse(ReadHoleJson(), Factor);
-        GD.Print($"HOLE source={HoleSource}");
-        World = new World(seed: 1, grid, league: !grid.Blank);
-        if (FpsBench.Active)
+        if (_pendingWorld is null && !_loadOptionDone && CommandLineOption("--load") is { } file)
         {
-            FpsBench.FillTrees(World.Trees, grid);
+            _loadOptionDone = true;
+            TryLoad(file);
+        }
+
+        var loaded = _pendingWorld;
+        _pendingWorld = null;
+        TerrainGrid grid;
+        if (loaded is not null)
+        {
+            World = loaded;
+            grid = loaded.Terrain!;
+        }
+        else
+        {
+            grid = HoleLoader.Parse(ReadHoleJson(), Factor);
+            GD.Print($"HOLE source={HoleSource}");
+            World = new World(seed: 1, grid, league: !grid.Blank);
+            if (FpsBench.Active)
+            {
+                FpsBench.FillTrees(World.Trees, grid);
+            }
         }
 
         var environment = new WorldEnvironment
@@ -223,7 +246,7 @@ public partial class Main : Node3D
         if (!FpsBench.Active && !grid.Blank)
         {
             // Pas en mesure FPS : avec 5 000 arbres la note prend ~30 s de cœur et fausse la mesure du rendu.
-            _ratingJob = new RatingJob(grid, World.Trees, World.Seed, World.Season, World.SetCourseRating);
+            _ratingJob = new RatingJob(grid, World.Trees, World.Seed, World.Season, World.SetCourseRating, dirty: World.CourseRating is null);
         }
 
         Brush = new Brush { Name = "Brush" };
@@ -283,7 +306,7 @@ public partial class Main : Node3D
         {
             Tutorial = new TutorialPanel { Name = "TutorialPanelLayer" };
             AddChild(Tutorial);
-            Tutorial.Init(this, TutorialMode ? TutorialPanel.Mode.Welcome : OfferTutorial && OS.GetCmdlineUserArgs().Length == 0 ? TutorialPanel.Mode.Offer : TutorialPanel.Mode.Off);
+            Tutorial.Init(this, TutorialMode ? TutorialPanel.Mode.Welcome : loaded is null && OfferTutorial && OS.GetCmdlineUserArgs().Length == 0 ? TutorialPanel.Mode.Offer : TutorialPanel.Mode.Off);
         }
 
         if (OS.GetCmdlineUserArgs().Contains("--pro") && World.League is not null)
@@ -460,9 +483,100 @@ public partial class Main : Node3D
                 World.CycleSky();
                 break;
             default:
+                HandleSaveAction(@event);
                 HandleCameraAction(@event);
                 break;
         }
+    }
+
+    private void HandleSaveAction(InputEvent @event)
+    {
+        if (@event.IsActionPressed("game_quicksave"))
+        {
+            QuickSave();
+        }
+        else if (@event.IsActionPressed("game_quickload"))
+        {
+            QuickLoad();
+        }
+    }
+
+    /// <summary>La terre vierge du tutoriel : ni sauvegarde ni sauvegarde automatique.</summary>
+    private bool InTutorial => World.Terrain!.Blank;
+
+    private void ShowMessage(string text)
+    {
+        _message = text;
+        _messageUntil = Time.GetTicksMsec() + 3000;
+    }
+
+    /// <summary>F5 : écrit l'emplacement rapide. Rend faux (et le dit à l'écran) si la sauvegarde n'a pas eu lieu.</summary>
+    public bool QuickSave()
+    {
+        if (InTutorial)
+        {
+            ShowMessage("Sauvegarde indisponible pendant le tutoriel");
+            return false;
+        }
+
+        try
+        {
+            SaveSlots.Write(SaveSlots.QuickPath, SaveSlots.Serialize(World, out var ms));
+            GD.Print($"SAVE rapide serialisation={ms:F2} ms tick={World.Tick}");
+            ShowMessage("Partie sauvegardée");
+            return true;
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            ShowMessage($"Sauvegarde impossible : {e.Message}");
+            return false;
+        }
+    }
+
+    /// <summary>F8 : recharge le plus récent des deux emplacements par la scène ; en cas d'erreur le jeu continue.</summary>
+    public void QuickLoad()
+    {
+        if (SaveSlots.Latest() is not { } path)
+        {
+            ShowMessage("Aucune sauvegarde à charger");
+        }
+        else if (TryLoad(path) is { } error)
+        {
+            ShowMessage(error);
+        }
+        else
+        {
+            GetTree().ReloadCurrentScene();
+        }
+    }
+
+    /// <summary>Lit une sauvegarde et la garde pour le prochain <see cref="_Ready"/> ; rend le message d'erreur, ou null si tout va bien.</summary>
+    public static string? TryLoad(string path)
+    {
+        try
+        {
+            _pendingWorld = SaveSlots.Read(path);
+            GD.Print($"LOAD {path} tick={_pendingWorld.Tick}");
+            return null;
+        }
+        catch (Exception e) when (e is InvalidDataException or IOException or UnauthorizedAccessException)
+        {
+            GD.PrintErr($"Chargement de {path} : {e.Message}");
+            return $"Chargement impossible : {e.Message}";
+        }
+    }
+
+    /// <summary>Sauvegarde automatique au changement de jour : octets en mémoire ici, écriture du fichier en fond.</summary>
+    private void AutoSave()
+    {
+        if (FpsBench.Active || InTutorial)
+        {
+            return;
+        }
+
+        var bytes = SaveSlots.Serialize(World, out var ms);
+        GD.Print($"SAVE auto serialisation={ms:F2} ms octets={bytes.Length} jour={World.DayIndex}");
+        SaveSlots.WriteInBackground(SaveSlots.AutoPath, bytes);
     }
 
     private void HandleCameraAction(InputEvent @event)
@@ -528,6 +642,7 @@ public partial class Main : Node3D
     private void OnDayChanged()
     {
         _day = World.DayIndex;
+        AutoSave();
         _league?.OnDayChanged();
         var newMonth = World.Date.Month != _month;
         _month = World.Date.Month;
@@ -637,7 +752,7 @@ public partial class Main : Node3D
     {
         if (_hud is not null)
         {
-            _hud.Text = $"{Engine.GetFramesPerSecond()} FPS | {Actors.VisibleGolfers} golfeurs | tick {World.Tick} | x{Speed}{(Paused ? " (pause)" : string.Empty)} | {DateText()} (F10 : mois suivant, T : outil arbres) | travaux arbres {World.TreeSpending}\n{WeatherText()} (F9 : ciel suivant) | {StimpText()} (H : état du gazon) | {RatingText()}{(_league is null ? string.Empty : $"\n{_league.ProText()} (J : ligue, O : votre pro)")}";
+            _hud.Text = $"{Engine.GetFramesPerSecond()} FPS | {Actors.VisibleGolfers} golfeurs | tick {World.Tick} | x{Speed}{(Paused ? " (pause)" : string.Empty)} | {DateText()} (F10 : mois suivant, T : outil arbres) | travaux arbres {World.TreeSpending}\n{WeatherText()} (F9 : ciel suivant) | {StimpText()} (H : état du gazon) | {RatingText()}{(_league is null ? string.Empty : $"\n{_league.ProText()} (J : ligue, O : votre pro)")}{(Time.GetTicksMsec() < _messageUntil ? "\n" + _message : string.Empty)}";
         }
     }
 

@@ -25,13 +25,14 @@ public sealed class RatingJob
     private Season _season;
     private Task<CourseRating>? _task;
 
-    public RatingJob(TerrainGrid terrain, TreeStand stand, ulong seed, Season season, Action<CourseRating> apply)
+    public RatingJob(TerrainGrid terrain, TreeStand stand, ulong seed, Season season, Action<CourseRating> apply, bool dirty = true)
     {
         _terrain = terrain;
         _stand = stand;
         _seed = seed;
         _season = season;
         _apply = apply;
+        _dirty = dirty;
     }
 
     /// <summary>Le terrain vient d'être retouché : la note est périmée.</summary>

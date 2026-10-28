@@ -36,6 +36,7 @@ public partial class Captures : Node
     private const int TutorialViewCount = 3;
     private const int ProfileViewCount = 3;
     private const int FreeViewCount = 4;
+    private const int SaveViewCount = 2;
 
     /// <summary>Lisière sud de la forêt du coude, la balle de <c>ForestExitTests.Edge</c> (tuile 18,5 / 26,5 de 8 m).</summary>
     private static readonly Point2 ForestEdge = new(18.5 * 8, 26.5 * 8);
@@ -297,8 +298,8 @@ public partial class Captures : Node
             }
         }
 
-        await FreeViews(await TutorialViews(await ProfileViews(await AimView(await LeagueViews(main)))));
-        if (_failures == 0 && _index == expected + LeagueViewCount + TutorialViewCount + ProfileViewCount + FreeViewCount)
+        await SaveViews(await FreeViews(await TutorialViews(await ProfileViews(await AimView(await LeagueViews(main))))));
+        if (_failures == 0 && _index == expected + LeagueViewCount + TutorialViewCount + ProfileViewCount + FreeViewCount + SaveViewCount)
         {
             GD.Print($"CAPTURES OK {_index} images");
             return 0;
@@ -571,7 +572,7 @@ public partial class Captures : Node
     }
 
     /// <summary>C10 lot 2 : caméra libre sur le dogleg, du départ vers le green, à environ 60°, 30° et 8° au-dessus de l'horizon.</summary>
-    private async Task FreeViews(Main previous)
+    private async Task<Main> FreeViews(Main previous)
     {
         previous.QueueFree();
         await Frames(2);
@@ -604,6 +605,55 @@ public partial class Captures : Node
         main.Camera.SetFreeView(Mathf.RadToDeg(Mathf.Atan2(-1f, 0f)), 5f, 40f, edge);
         await Frames(SettleFrames);
         Save("c10-horizon");
+        return main;
+    }
+
+    /// <summary>C11 lot 3 : la même vue avant la sauvegarde et après le rechargement par la scène, au même tick ; sommes de contrôle égales.</summary>
+    private async Task SaveViews(Main previous)
+    {
+        var main = await NewSaveView(previous);
+        main.StepTicks(WarmupTicks);
+        var (tick, sum) = (main.World.Tick, main.World.Checksum());
+        await Frames(SettleFrames);
+        Save("c11-avant");
+        if (!main.QuickSave() || Main.TryLoad(SaveSlots.QuickPath) is not null)
+        {
+            GD.PrintErr("CAPTURES FAIL c11 : sauvegarde ou lecture en échec");
+            _failures++;
+            return;
+        }
+
+        main = await NewSaveView(main);
+        var same = main.World.Tick == tick && main.World.Checksum() == sum;
+        GD.Print($"C11 tick={tick}/{main.World.Tick} checksum={sum:x16}/{main.World.Checksum():x16} {(same ? "OK" : "FAIL")}");
+        if (!same)
+        {
+            _failures++;
+        }
+
+        await Frames(SettleFrames);
+        Save("c11-apres");
+    }
+
+    private async Task<Main> NewSaveView(Main previous)
+    {
+        previous.QueueFree();
+        await Frames(2);
+        var main = GD.Load<PackedScene>("res://Main.tscn").Instantiate<Main>();
+        AddChild(main);
+        main.Paused = true;
+        main.World.ManualPro = false;
+        if (main.World.Tick == 0)
+        {
+            main.SpawnGroup();
+        }
+
+        main.SunDayFraction = 0.5;
+        main.Brush.SetProcess(false);
+        main.TerrainView.Trees?.SetFocus(TreeLayer.CursorSlot, null, 0f);
+        var grid = main.World.Terrain!;
+        main.Camera.SetView(45f, 150f, new Vector3((float)(grid.CellsX * grid.CellSize) / 2f, 0f, (float)(grid.CellsZ * grid.CellSize) / 2f));
+        return main;
     }
 
     /// <summary>Un panneau plus large que ses ancres (<paramref name="width"/> px) déborde : la capture échoue.</summary>

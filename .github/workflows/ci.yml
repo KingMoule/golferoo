@@ -117,6 +117,7 @@ jobs:
           set -o pipefail
           timeout 120 "$GODOT" --headless --path game res://tests/Smoke.tscn 2>&1 | tee smoke.log
           grep -q '^HOLE source=res://data/holes/' smoke.log || { echo "::error::le JSON du trou n'est pas lu depuis res://"; exit 1; }
+          grep -qE '^SAVE OK checksum=([0-9a-f]{16}) apres=\1$' smoke.log || { echo "::error::la ligne SAVE OK (mêmes sommes avant et après) est absente"; exit 1; }
           grep -q '^SMOKE OK' smoke.log || { echo "::error::la ligne SMOKE OK est absente"; exit 1; }
           if grep -E '^(ERROR:|SCRIPT ERROR)' smoke.log; then echo "::error::erreurs Godot dans la fumée"; exit 1; fi
 
@@ -185,13 +186,14 @@ jobs:
             return "${PIPESTATUS[0]}"
           }
           if run_captures --rendering-method forward_plus --rendering-driver vulkan \
-              && grep -q '^CAPTURES OK' captures.log && ! grep -E '^(ERROR:|SCRIPT ERROR)' captures.log; then
+              && grep -q '^CAPTURES OK' captures.log && grep -q '^C11 .* OK$' captures.log && ! grep -E '^(ERROR:|SCRIPT ERROR)' captures.log; then
             echo "Rendu : Forward+ via lavapipe" | tee -a "$GITHUB_STEP_SUMMARY"
           else
             echo "::warning::Forward+ logiciel indisponible ou en erreur, repli sur Compatibility (llvmpipe)"
             mv captures.log captures-forwardplus.log 2>/dev/null || true
             run_captures --rendering-method gl_compatibility --rendering-driver opengl3 || { echo "::error::captures en échec"; exit 1; }
             grep -q '^CAPTURES OK' captures.log || { echo "::error::CAPTURES OK absent"; exit 1; }
+            grep -q '^C11 .* OK$' captures.log || { echo "::error::C11 OK absent"; exit 1; }
             if grep -E '^(ERROR:|SCRIPT ERROR)' captures.log; then echo "::error::erreurs Godot dans les captures"; exit 1; fi
             echo "Rendu : Compatibility via llvmpipe" | tee -a "$GITHUB_STEP_SUMMARY"
           fi
