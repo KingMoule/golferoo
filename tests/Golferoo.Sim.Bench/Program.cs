@@ -30,6 +30,9 @@ const double windFlightRatioLimit = 1.05;
 const double windPlanRatioLimit = 1.2;
 const double dayChangeLimitMs = 5.0;
 const double leagueDayLimitMs = 5.0;
+const double saveLimitMs = 50.0;
+const double loadLimitMs = 1000.0;
+const double saveFileLimitBytes = 2.0 * 1024 * 1024;
 const double puddleFloodLimitMs = 20.0;
 const double shotPreviewLimitMs = 2.0;
 const double tutorialLimitMs = 1.0;
@@ -187,6 +190,11 @@ allPassed &= dayChange.Median < dayChangeLimitMs;
 var leagueDay = MeasureLeagueDay(holePath);
 allPassed &= leagueDay.Median < leagueDayLimitMs;
 
+// Sauvegarde (C11 lot 2) du cas réel du jeu : dogleg, ligue en cours de journée, 5 000 arbres. Écriture en mémoire, relecture et taille du fichier.
+var save = MeasureSave(holePath);
+allPassed &= save.Save.Median < saveLimitMs && save.Load.Median < loadLimitMs && save.Bytes < saveFileLimitBytes;
+Console.WriteLine($"Sauvegarde ({save.Trees} arbres, ligue) : écriture {save.Save.Median:F1} ms (limite {saveLimitMs}), chargement {save.Load.Median:F1} ms (limite {loadLimitMs}), fichier {save.Bytes / 1024.0:F0} Ko (limite {saveFileLimitBytes / 1024:F0})");
+
 // Cuvettes des flaques (C04 lot 4) : remplissage depuis les bords sur 320 x 320 cellules (102 400) après une retouche du relief,
 // médiane de 11 passes. Critère sur un relief de collines et de creux comme en peint le pinceau ; le bruit pur à chaque coin
 // (pire cas, des creux partout) est donné pour information. Au sec, rien n'est calculé.
@@ -249,6 +257,7 @@ var report = new
     courseRating = new { games = CourseRater.DefaultGames, medianMs = rateMs[rateMs.Length / 2], maxMs = rateMs[^1] },
     benchmark = "c04-lot4",
     puddleFlood = new { cells = 320 * 320, medianMs = flood.Median, maxMs = flood.Max, noiseMedianMs = floodNoise.Median, limitMs = puddleFloodLimitMs, passed = flood.Median < puddleFloodLimitMs },
+    save = new { trees = save.Trees, saveMedianMs = save.Save.Median, loadMedianMs = save.Load.Median, fileBytes = save.Bytes, saveLimitMs, loadLimitMs, fileLimitBytes = saveFileLimitBytes, passed = save.Save.Median < saveLimitMs && save.Load.Median < loadLimitMs && save.Bytes < saveFileLimitBytes },
     leagueDayChange = new { groups = leagueDay.Groups, medianMs = leagueDay.Median, maxMs = leagueDay.Max, limitMs = leagueDayLimitMs, passed = leagueDay.Median < leagueDayLimitMs },
     dayChange = new { trees = dayChange.Trees, medianMs = dayChange.Median, maxMs = dayChange.Max, fallen = dayChange.Fallen, limitMs = dayChangeLimitMs, passed = dayChange.Median < dayChangeLimitMs },
     wind = new
@@ -488,6 +497,34 @@ static (int Groups, double Median, double Max) MeasureLeagueDay(string holePath)
 
     samples.Sort();
     return (world.League.Rounds[0].Pairs.Count, samples[samples.Count / 2], samples[^1]);
+}
+
+static (int Trees, (double Mean, double P99, double Max, double Median) Save, (double Mean, double P99, double Max, double Median) Load, int Bytes) MeasureSave(string holePath)
+{
+    // Le cas réel du jeu : le dogleg (facteur 2), la ligue, et le boisement complété à 5 000 arbres en grille comme FpsBench.FillTrees.
+    const int treeCount = 5_000;
+    var dogleg = HoleLoader.Load(Path.Combine(Path.GetDirectoryName(holePath)!, "dogleg-par4.json"), 2);
+    var world = new World(seed: 41, dogleg, league: true) { Climate = Climate.Calm };
+    var width = dogleg.CellsX * dogleg.CellSize;
+    var depth = dogleg.CellsZ * dogleg.CellSize;
+    var missing = treeCount - world.Trees.Count;
+    var step = Math.Sqrt(width * depth / missing);
+    var cols = Math.Max(1, (int)(width / step));
+    for (var i = 0; i < missing; i++)
+    {
+        world.Trees.Add(((i % cols) + 0.5) * width / cols, Math.Min(((i / cols) + 0.5) * step, depth - 0.5), (TreeSpeciesId)(i % 3), 40 * 12);
+    }
+
+    world.Step((world.League!.Rounds[0].NominalDay * Calendar.TicksPerDay) + 3_000);
+    var bytes = Array.Empty<byte>();
+    var save = Measure(11, 3, () =>
+    {
+        using var stream = new MemoryStream();
+        world.Save(stream);
+        bytes = stream.ToArray();
+    });
+    var load = Measure(5, 1, () => World.Load(new MemoryStream(bytes)));
+    return (world.Trees.Trees.Count, save, load, bytes.Length);
 }
 
 static (int Trees, double Median, double Max, int Fallen) MeasureDayChange()

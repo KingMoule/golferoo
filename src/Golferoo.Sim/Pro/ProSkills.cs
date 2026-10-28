@@ -1,4 +1,5 @@
 using Golferoo.Sim.Golfers;
+using Golferoo.Sim.Save;
 using Golferoo.Sim.Shots;
 using Golferoo.Sim.Terrain;
 
@@ -174,6 +175,36 @@ public sealed class ProSkills
             _trainingThisYear[(int)skill]++;
             _xp[(int)skill]++;
         }
+    }
+
+    internal void Write(SaveWriter w)
+    {
+        w.Int(_trainingYear);
+        foreach (var v in _xp)
+        {
+            w.Int(v);
+        }
+
+        foreach (var v in _trainingThisYear)
+        {
+            w.Int(v);
+        }
+    }
+
+    internal static ProSkills Read(SaveReader r)
+    {
+        var skills = new ProSkills { _trainingYear = r.Int() };
+        for (var i = 0; i < Count; i++)
+        {
+            skills._xp[i] = r.Int();
+        }
+
+        for (var i = 0; i < Count; i++)
+        {
+            skills._trainingThisYear[i] = r.Int();
+        }
+
+        return skills;
     }
 
     internal ulong Hash()

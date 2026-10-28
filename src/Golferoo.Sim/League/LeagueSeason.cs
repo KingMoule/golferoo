@@ -1,5 +1,6 @@
 using Golferoo.Sim.Golfers;
 using Golferoo.Sim.Rating;
+using Golferoo.Sim.Save;
 using Golferoo.Sim.Scoring;
 using Golferoo.Sim.Time;
 
@@ -382,6 +383,77 @@ public sealed class LeagueSeason
 
                 return (category * 1000) + card.Gross;
         }
+    }
+
+    internal void Write(SaveWriter w)
+    {
+        w.Int(Year);
+        w.Int(_next);
+        w.Int(_due);
+        w.Bool(_adjusted);
+        foreach (var m in Members)
+        {
+            m.Write(w);
+        }
+
+        w.List(Divisions, d => w.List(d, m => w.Int(m.Id)));
+        foreach (var round in Rounds.Append(Final))
+        {
+            round.Write(w);
+        }
+
+        w.List(FinalRanking, ids => w.List(ids, w.Int));
+        w.List(_finalists, f => w.List(f, m => w.Int(m.Id)));
+        w.Bool(Champion is not null);
+        WriteChampion(w, Champion ?? default);
+        w.List(Champions, c => WriteChampion(w, c));
+        w.List(Events, e =>
+        {
+            w.Int(e.Year);
+            w.Byte((byte)e.Type);
+            w.Int(e.MemberId);
+            w.Int(e.Division);
+        });
+    }
+
+    private static void WriteChampion(SaveWriter w, LeagueChampion c)
+    {
+        w.Int(c.Year);
+        w.Int(c.MemberId);
+        w.Int(c.Gross);
+    }
+
+    private static LeagueChampion ReadChampion(SaveReader r) => new(r.Int(), r.Int(), r.Int());
+
+    /// <summary>Saison relue : les membres sont ceux de la graine, l'état qui change (année, journées, divisions, classements) vient du fichier.</summary>
+    internal static LeagueSeason Read(SaveReader r, ulong seed)
+    {
+        var season = new LeagueSeason(seed, GenerateMembers(seed));
+        season.Year = r.Int();
+        season._next = r.Int();
+        season._due = r.Int();
+        season._adjusted = r.Bool();
+        foreach (var m in season.Members)
+        {
+            m.ReadState(r);
+        }
+
+        List<Member> Group(List<int> ids) => [.. ids.Select(id => season._byId[id])];
+        season.Divisions = [.. r.List(() => (IReadOnlyList<Member>)Group(r.List(r.Int)))];
+        (season.Rounds, season.Final) = season.NewRounds(season.Year);
+        foreach (var round in season.Rounds.Append(season.Final))
+        {
+            round.ReadState(r);
+        }
+
+        season.FinalRanking = [.. r.List(() => (IReadOnlyList<int>)r.List(r.Int))];
+        season._finalists = [.. r.List(() => Group(r.List(r.Int)))];
+        var hasChampion = r.Bool();
+        var champion = ReadChampion(r);
+        season.Champion = hasChampion ? champion : null;
+        season.Champions.AddRange(r.List(() => ReadChampion(r)));
+        season.Events.AddRange(r.List(() => new LeagueEvent(r.Int(), (LeagueEventType)r.Byte(), r.Int(), r.Int())));
+        return season;
     }
 
     internal void MixInto(ref ulong hash)

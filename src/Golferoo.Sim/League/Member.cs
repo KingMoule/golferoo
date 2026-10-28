@@ -1,5 +1,6 @@
 using Golferoo.Sim.Golfers;
 using Golferoo.Sim.Rating;
+using Golferoo.Sim.Save;
 
 namespace Golferoo.Sim.League;
 
@@ -40,6 +41,32 @@ public sealed class Member
     public IReadOnlyList<LeagueCard> Cards => _cards;
 
     public double SeasonPoints { get; internal set; }
+
+    internal void Write(SaveWriter w)
+    {
+        w.Int(Opinion);
+        w.Double(SeasonPoints);
+        w.List(_cards, c =>
+        {
+            w.Int(c.Round);
+            w.Int(c.Gross);
+            w.Bool(c.Differential is not null);
+            w.Double(c.Differential ?? 0.0);
+        });
+    }
+
+    /// <summary>Relit l'état changeant ; nom, handicap et style se retrouvent par <see cref="LeagueSeason.GenerateMembers"/>.</summary>
+    internal void ReadState(SaveReader r)
+    {
+        Opinion = r.Int();
+        SeasonPoints = r.Double();
+        _cards.Clear();
+        _cards.AddRange(r.List(() =>
+        {
+            var (round, gross, has, differential) = (r.Int(), r.Int(), r.Bool(), r.Double());
+            return new LeagueCard(round, gross, has ? differential : null);
+        }));
+    }
 
     internal void AddCard(LeagueCard card) => _cards.Add(card);
 

@@ -30,7 +30,7 @@ Ce qui prouve la réussite : une partie sauvegardée à n'importe quel tick, rec
 
 **Lot 1 : le monde sans la ligue** (`World*.cs`, `Terrain/`, `Turf/`, `Trees/`, `Golfers/`, `DeterministicRng.cs`)
 - `HeightField` (coins), `TerrainGrid` (surfaces, départ, trou, par, `Blank`, nom), `TurfGrid` (hauteurs, usure, consignes), `TreeStand` (arbres et prochain identifiant ; l'index spatial se reconstruit par `Add`), `DeterministicRng` (ses quatre mots), golfeurs et groupes (y compris trajectoire de vol, coup prévu, départ différé), mode charge et points de passage, champs privés de `World` (décalage de jours, ciel imposé, jours de pluie, tirages de boisement, identifiant suivant) et les six files de commandes.
-- `Save` lève `NotSupportedException` si le monde a une ligue : la ligue vient au lot 2.
+- La ligue et le pro se sauvent au lot 2.
 - Tests (`tests/Golferoo.Sim.Tests/SaveTests.cs`) : critères 1 à 4.
 
 **Lot 2 : ligue et pro** (`League/`, `Pro/`, `World.Pro.cs`)

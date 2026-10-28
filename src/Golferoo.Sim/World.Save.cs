@@ -1,5 +1,7 @@
 using Golferoo.Sim.Golfers;
+using Golferoo.Sim.League;
 using Golferoo.Sim.Pathing;
+using Golferoo.Sim.Pro;
 using Golferoo.Sim.Rating;
 using Golferoo.Sim.Save;
 using Golferoo.Sim.Shots;
@@ -16,14 +18,9 @@ namespace Golferoo.Sim;
 /// </summary>
 public sealed partial class World
 {
-    /// <summary>Écrit le monde (en-tête, somme de contrôle, corps compressé). Le monde avec ligue ne se sauve pas encore (lot 2).</summary>
+    /// <summary>Écrit le monde (en-tête, somme de contrôle, corps compressé).</summary>
     public void Save(Stream output)
     {
-        if (League is not null)
-        {
-            throw new NotSupportedException("La sauvegarde d'un monde avec ligue n'est pas encore écrite.");
-        }
-
         var body = new SaveWriter();
         Write(body);
         SaveFormat.Write(output, Checksum(), body);
@@ -117,6 +114,10 @@ public sealed partial class World
         });
         w.List(_ratingCommands, c => WriteRating(w, c));
         w.List(_proShots, w.ProShot);
+        w.Bool(League is not null);
+        League?.Write(w);
+        Pro?.Write(w);
+        w.Bool(_manualPro);
     }
 
     private static void WriteRating(SaveWriter w, CourseRating r)
@@ -184,6 +185,19 @@ public sealed partial class World
         foreach (var s in r.List(r.ProShot))
         {
             _proShots.Enqueue(s);
+        }
+
+        if (r.Bool())
+        {
+            League = LeagueSeason.Read(r, Seed);
+            Pro = ProSkills.Read(r);
+            _proMemberId = League.Members.First(m => m.IsPro).Id;
+        }
+
+        _manualPro = r.Bool();
+        if (_manualPro && League is null)
+        {
+            throw new InvalidDataException("Pro joué à la main sans ligue.");
         }
 
         _resolver = resolver ?? (Terrain is null ? new StubShotResolver() : new PhysicalShotResolver());

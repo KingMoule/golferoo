@@ -1,3 +1,4 @@
+using Golferoo.Sim.Save;
 using Golferoo.Sim.Scoring;
 
 namespace Golferoo.Sim.League;
@@ -48,6 +49,46 @@ public sealed class LeagueRound
     public Dictionary<int, double> Points { get; } = [];
 
     internal int Pending { get; set; }
+
+    internal void Write(SaveWriter w)
+    {
+        w.Int(StartDay);
+        w.Long(StartTick);
+        w.Long(EndTick);
+        w.Int(Pending);
+        w.List(Pairs, p => w.List(p, w.Int));
+        w.List(Cards, c =>
+        {
+            w.Int(c.Key);
+            c.Value.Write(w);
+        });
+        w.List(Points, p =>
+        {
+            w.Int(p.Key);
+            w.Double(p.Value);
+        });
+    }
+
+    /// <summary>Relit l'état changeant ; numéro, format et jour prévu viennent de la construction.</summary>
+    internal void ReadState(SaveReader r)
+    {
+        StartDay = r.Int();
+        StartTick = r.Long();
+        EndTick = r.Long();
+        Pending = r.Int();
+        Pairs = [.. r.List(() => r.List(r.Int).ToArray())];
+        Cards.Clear();
+        foreach (var (id, card) in r.List(() => (r.Int(), ScoreCard.Read(r))))
+        {
+            Cards[id] = card;
+        }
+
+        Points.Clear();
+        foreach (var (id, points) in r.List(() => (r.Int(), r.Double())))
+        {
+            Points[id] = points;
+        }
+    }
 }
 
 /// <summary>Champion du club d'une saison : vainqueur de la finale de la division 1, avec son brut.</summary>
