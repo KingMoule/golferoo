@@ -39,6 +39,7 @@ public partial class Captures : Node
     private const int FreeViewCount = 4;
     private const int SaveViewCount = 2;
     private const int CourseViewCount = 3;
+    private const int GalleryViewCount = 1;
 
     /// <summary>Lisière sud de la forêt du coude, la balle de <c>ForestExitTests.Edge</c> (tuile 18,5 / 26,5 de 8 m).</summary>
     private static readonly Point2 ForestEdge = new(18.5 * 8, 26.5 * 8);
@@ -305,7 +306,8 @@ public partial class Captures : Node
 
         await SaveViews(await FreeViews(await TutorialViews(await ProfileViews(await AimView(await LeagueViews(main))))));
         await CourseViews();
-        if (_failures == 0 && _index == expected + LeagueViewCount + TutorialViewCount + ProfileViewCount + FreeViewCount + SaveViewCount + CourseViewCount)
+        await GalleryView();
+        if (_failures == 0 && _index == expected + LeagueViewCount + TutorialViewCount + ProfileViewCount + FreeViewCount + SaveViewCount + CourseViewCount + GalleryViewCount)
         {
             GD.Print($"CAPTURES OK {_index} images");
             return 0;
@@ -730,6 +732,22 @@ public partial class Captures : Node
         main.Camera.SetView(45f, Math.Clamp(span * 0.8f, 120f, 400f), focus);
         await Frames(SettleFrames);
         Save("c12-groupes");
+    }
+
+    /// <summary>C13 lot 1 : l'écran témoin des composants d'interface (<c>res://tools/UiGallery.tscn</c>), seul à l'écran.</summary>
+    private async Task GalleryView()
+    {
+        foreach (var old in GetChildren().OfType<Main>())
+        {
+            old.QueueFree();
+        }
+
+        var gallery = GD.Load<PackedScene>("res://tools/UiGallery.tscn").Instantiate<UiGallery>();
+        AddChild(gallery);
+        await Frames(SettleFrames);
+        Save("c13-composants");
+        gallery.QueueFree();
+        await Frames(1);
     }
 
     private async Task Frames(int count)

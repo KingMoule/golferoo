@@ -34,3 +34,4 @@ Ajouter sans relire tout le fichier : `echo "- ..." >> docs/lecons.md`. `/amelio
 - Un critère « somme inchangée » oblige l'auditeur à recalculer les sommes sur main : le codeur commite le petit test de relevé qui les a produites (C12 lot 1).
 - Deux lots parallèles (C12 lots 3 et 4) se gênent sur les données partagées : le lot qui mesure se fabrique ses propres données plutôt que d'attendre celles de l'autre.
 - Les agents de dépôt butent sur la limite d'API en lot long (C12 lot 4) : reprise par SendMessage sans perte, prévoir des lots plus courts pour le banc.
+- 2026-10-28 (C13 lot 1) : `gh api …/jobs/<id>/logs` redirige vers un domaine blob refusé par le proxy du conteneur ; lire les captures avec l'outil MCP `get_job_logs` (tail_lines court) grâce à l'étape CI qui remet les lignes FULL des chantiers récents en fin de journal.
