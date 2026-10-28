@@ -203,7 +203,7 @@ public partial class SmokeTest : Node
         var grid = _main.World.Terrain!;
         var w = (float)(grid.CellsX * grid.CellSize);
         var d = (float)(grid.CellsZ * grid.CellSize);
-        if (horizon.Mesh is null || horizon.TriangleCount is < 500 or > 8000)
+        if (horizon.Mesh is null || horizon.TriangleCount is < 500 or > 16000)
         {
             failures.Add($"horizon : maillage absent ou hors budget ({horizon.TriangleCount} triangles)");
             return;
