@@ -27,9 +27,10 @@ public sealed class PlayMap
     private readonly float[] _dist;
     private readonly int[] _parent;
 
-    private PlayMap(TerrainGrid terrain, float[] dist, int[] parent, int holeCell, long terrainVersion, TreeStand? trees, long treesVersion)
+    private PlayMap(TerrainGrid terrain, float[] dist, int[] parent, float[] costs, int holeCell, long terrainVersion, TreeStand? trees, long treesVersion)
     {
         _terrain = terrain;
+        Costs = costs;
         _dist = dist;
         _parent = parent;
         HoleCell = holeCell;
@@ -41,20 +42,27 @@ public sealed class PlayMap
     /// <summary>Cellule du drapeau (ligne par ligne).</summary>
     public int HoleCell { get; }
 
-    public long TerrainVersion { get; }
+    /// <summary>Coût de chaque cellule à la construction : deux cartes du même drapeau aux mêmes coûts sont la même carte, quelles que soient les versions.</summary>
+    internal float[] Costs { get; }
+
+    public long TerrainVersion { get; internal set; }
 
     public TreeStand? Trees { get; }
 
-    public long TreesVersion { get; }
+    public long TreesVersion { get; internal set; }
 
     public bool IsOf(TerrainGrid terrain) => ReferenceEquals(_terrain, terrain);
 
     public static PlayMap Build(TerrainGrid terrain, TreeStand? trees, Point2 hole)
     {
         ArgumentNullException.ThrowIfNull(terrain);
+        return Build(terrain, trees, hole, CellCosts(terrain, trees));
+    }
+
+    internal static PlayMap Build(TerrainGrid terrain, TreeStand? trees, Point2 hole, float[] cost)
+    {
         var nx = terrain.CellsX;
         var nz = terrain.CellsZ;
-        var cost = CellCosts(terrain, trees);
         var dist = new float[nx * nz];
         Array.Fill(dist, float.PositiveInfinity);
         var parent = new int[dist.Length];
@@ -98,7 +106,7 @@ public sealed class PlayMap
             }
         }
 
-        return new PlayMap(terrain, dist, parent, start, terrain.SurfaceVersion, trees, trees?.Version ?? 0);
+        return new PlayMap(terrain, dist, parent, cost, start, terrain.SurfaceVersion, trees, trees?.Version ?? 0);
     }
 
     /// <summary>
@@ -152,7 +160,7 @@ public sealed class PlayMap
         return hole;
     }
 
-    private static float[] CellCosts(TerrainGrid terrain, TreeStand? trees)
+    internal static float[] CellCosts(TerrainGrid terrain, TreeStand? trees)
     {
         var nx = terrain.CellsX;
         var cost = new float[nx * terrain.CellsZ];

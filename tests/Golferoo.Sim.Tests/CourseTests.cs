@@ -13,12 +13,17 @@ public class CourseTests
 
     // Sommes relevées avant le chantier (commit d'origine de la spec), 2 000 ticks, charge de 6 golfeurs, un groupe si le trou est ouvert.
     [Theory]
-    [InlineData("proto-par4", 1UL, 8206224353995095296UL)]
-    [InlineData("proto-par4", 2UL, 8353398665245728412UL)]
-    [InlineData("proto-par4", 3UL, 10020928249145357218UL)]
-    [InlineData("dogleg-par4", 1UL, 14179027860915272810UL)]
-    [InlineData("dogleg-par4", 2UL, 5314165583219432122UL)]
-    [InlineData("dogleg-par4", 3UL, 13273112585390800610UL)]
+    // Lot 4 : les six sommes de coups ont changé, les trois du trou « blank-coude » (aucun coup joué) non. Le coup se planifie désormais pendant le geste, avec un budget de pas de simulation
+    // par tick (World.PlanBudgetPerTick) : un golfeur dont la planification dépasse le geste attend qu'elle finisse avant de frapper, et la planification voit le vent du début du geste.
+    // Les trajectoires s'écartent donc de celles d'avant, et la somme est prise à un tick où une planification peut être en cours (son état entre dans la somme).
+    // Contrôle (vérifié) : sans PlanJob, coup planifié d'un seul tenant au dernier tick du geste comme avant, les six cas redonnent exactement leurs anciennes sommes. Avec une planification
+    // d'un tenant au dernier tick mais un PlanJob créé au début du geste, proto-par4 / graine 1 ne la redonne pas : au tick 2000 un geste est en cours et l'état du PlanJob entre dans la somme.
+    [InlineData("proto-par4", 1UL, 11628230111699753088UL)]
+    [InlineData("proto-par4", 2UL, 16057505216054300669UL)]
+    [InlineData("proto-par4", 3UL, 6791233052755137976UL)]
+    [InlineData("dogleg-par4", 1UL, 3477997319521934705UL)]
+    [InlineData("dogleg-par4", 2UL, 7063386584096495762UL)]
+    [InlineData("dogleg-par4", 3UL, 4096734374109878651UL)]
     [InlineData("blank-coude", 1UL, 6977119086498316254UL)]
     [InlineData("blank-coude", 2UL, 6838184519777748364UL)]
     [InlineData("blank-coude", 3UL, 4217163305829179422UL)]

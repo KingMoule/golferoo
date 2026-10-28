@@ -341,11 +341,13 @@ public class SaveTests
         Assert.Throws<InvalidDataException>(() => Load(bytes));
     }
 
-    [Fact]
-    public void Load_VersionTwo_SaysItIsAnOlderVersion()
+    [Theory]
+    [InlineData(2)]
+    [InlineData(3)] // C12 lot 4 : planification en cours dans le golfeur, champs de flux en attente et en cache dans le monde
+    public void Load_VersionTwoOrThree_SaysItIsAnOlderVersion(byte version)
     {
         var bytes = Save(Build(1, "proto", "start"));
-        bytes[4] = 2;
+        bytes[4] = version;
 
         var e = Assert.Throws<InvalidDataException>(() => Load(bytes));
         Assert.Contains("ancienne version", e.Message);
@@ -431,6 +433,42 @@ public class SaveTests
         Assert.Equal(bytes, Save(loaded));
         original.Step(3000);
         loaded.Step(3000);
+
+        Assert.Equal(original.Checksum(), loaded.Checksum());
+    }
+
+    /// <summary>C12 lot 4 : un golfeur au milieu de la planification de son coup (candidats déjà évalués), et des champs de flux qui attendent après une retouche.</summary>
+    [Theory]
+    [InlineData("plan")]
+    [InlineData("flow")]
+    public void MidPlanOrMidRetouch_ReloadedAndAdvanced_HasTheSameChecksum(string scenario)
+    {
+        var original = new World(4, Hole("dogleg"));
+        original.SetLoadMode(40);
+        original.SpawnGroup();
+        if (scenario == "plan")
+        {
+            for (var i = 0; i < 6000 && !original.Groups[0].Golfers.Any(g => g.Plan is { IsDone: false, Stage: > 0 } or { IsDone: false, Cursor: > 20 }); i++)
+            {
+                original.Step();
+            }
+
+            Assert.Contains(original.Groups[0].Golfers, g => g.Plan is { IsDone: false });
+        }
+        else
+        {
+            original.Step(300);
+            original.PaintSurface(new Point2(150, 70), 12, Surface.Bunker);
+            original.Step();
+            Assert.NotEmpty(original.Flow!.Pending);
+        }
+
+        var bytes = Save(original);
+        var loaded = Load(bytes);
+        Assert.Equal(original.Checksum(), loaded.Checksum());
+        Assert.Equal(bytes, Save(loaded));
+        original.Step(600);
+        loaded.Step(600);
 
         Assert.Equal(original.Checksum(), loaded.Checksum());
     }

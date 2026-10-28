@@ -10,7 +10,7 @@ namespace Golferoo.Sim.Save;
 /// </summary>
 internal static class SaveFormat
 {
-    internal const int Version = 3;
+    internal const int Version = 4;
 
     /// <summary>Plafond du corps, compressé comme décompressé, à la lecture.</summary>
     internal const int MaxBodyBytes = 64 * 1024 * 1024;

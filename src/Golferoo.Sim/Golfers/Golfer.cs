@@ -93,6 +93,9 @@ public sealed class Golfer
     /// <summary>Ticks restants du geste en cours.</summary>
     internal int SwingTicks { get; set; }
 
+    /// <summary>Planification du coup en cours, étalée sur les ticks du geste (C12 lot 4) ; nulle pour un putt, un coup du joueur ou quand le geste est fini.</summary>
+    internal PlanJob? Plan { get; set; }
+
     /// <summary>Coup choisi par le joueur (votre pro), joué au prochain geste.</summary>
     internal Pro.ProShot? PlannedShot { get; set; }
 
@@ -133,6 +136,8 @@ public sealed class Golfer
             w.ProShot(shot);
         }
 
+        w.Bool(Plan is not null);
+        Plan?.Write(w);
         w.Bool(InLeague);
         w.Int(WaypointIndex);
         w.Bool(Card is not null);
@@ -159,6 +164,7 @@ public sealed class Golfer
         golfer.FlightIndex = r.Int();
         golfer.SwingTicks = r.Int();
         golfer.PlannedShot = r.Bool() ? r.ProShot() : null;
+        golfer.Plan = r.Bool() ? PlanJob.Read(r) : null;
         golfer.InLeague = r.Bool();
         golfer.WaypointIndex = r.Int();
         golfer.Card = r.Bool() ? ScoreCard.Read(r) : null;
