@@ -1,3 +1,4 @@
+using System.Globalization;
 using Godot;
 using Golferoo.Game.Cameras;
 using Golferoo.Game.Rendering;
@@ -144,6 +145,7 @@ public partial class SmokeTest : Node
         }
 
         var before = _main!.World.Checksum();
+        SaveSlots.Serialize(_main.World, out var ms);
         string? error = null;
         if (!_main.QuickSave() || (error = Main.TryLoad(SaveSlots.QuickPath)) is not null)
         {
@@ -161,7 +163,7 @@ public partial class SmokeTest : Node
             return;
         }
 
-        GD.Print($"SAVE OK checksum={before:x16} apres={after:x16}");
+        GD.Print($"SAVE OK checksum={before:x16} apres={after:x16} serialisation={ms.ToString("F2", CultureInfo.InvariantCulture)} ms");
     }
 
     /// <summary>C10 lot 1 : touches de caméra dans l'InputMap, Début centre sur le départ, Tab lance le suivi (vérifié par <see cref="CheckFollow"/>).</summary>

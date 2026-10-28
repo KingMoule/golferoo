@@ -117,7 +117,8 @@ jobs:
           set -o pipefail
           timeout 120 "$GODOT" --headless --path game res://tests/Smoke.tscn 2>&1 | tee smoke.log
           grep -q '^HOLE source=res://data/holes/' smoke.log || { echo "::error::le JSON du trou n'est pas lu depuis res://"; exit 1; }
-          grep -qE '^SAVE OK checksum=([0-9a-f]{16}) apres=\1$' smoke.log || { echo "::error::la ligne SAVE OK (mêmes sommes avant et après) est absente"; exit 1; }
+          grep -qE '^SAVE OK checksum=([0-9a-f]{16}) apres=\1 serialisation=[0-9.]+ ms$' smoke.log || { echo "::error::la ligne SAVE OK (mêmes sommes avant et après) est absente"; exit 1; }
+          grep '^SAVE OK' smoke.log >> "$GITHUB_STEP_SUMMARY"
           grep -q '^SMOKE OK' smoke.log || { echo "::error::la ligne SMOKE OK est absente"; exit 1; }
           if grep -E '^(ERROR:|SCRIPT ERROR)' smoke.log; then echo "::error::erreurs Godot dans la fumée"; exit 1; fi
 
@@ -197,6 +198,7 @@ jobs:
             if grep -E '^(ERROR:|SCRIPT ERROR)' captures.log; then echo "::error::erreurs Godot dans les captures"; exit 1; fi
             echo "Rendu : Compatibility via llvmpipe" | tee -a "$GITHUB_STEP_SUMMARY"
           fi
+          grep -E '^(C11 |SAVE )' captures.log | tail -n 8 >> "$GITHUB_STEP_SUMMARY"
 
       - name: Captures aux facteurs 3 et 4 (comparaison pour le rapport C01, le jeu est au facteur 2)
         run: |

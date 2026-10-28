@@ -55,9 +55,9 @@ public static class SaveSlots
         return true;
     }
 
-    /// <summary>Le plus récent des deux emplacements, ou null s'il n'y en a pas.</summary>
-    public static string? Latest() =>
-        new[] { QuickPath, AutoPath }.Where(System.IO.File.Exists).OrderByDescending(System.IO.File.GetLastWriteTimeUtc).FirstOrDefault();
+    /// <summary>Les emplacements existants, le plus récent d'abord.</summary>
+    public static IEnumerable<string> ByRecency() =>
+        new[] { QuickPath, AutoPath }.Where(System.IO.File.Exists).OrderByDescending(System.IO.File.GetLastWriteTimeUtc);
 
     public static World Read(string path)
     {

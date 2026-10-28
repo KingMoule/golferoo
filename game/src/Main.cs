@@ -59,6 +59,8 @@ public partial class Main : Node3D
     /// <summary>Monde chargé (F8, `--load`) que le prochain <see cref="_Ready"/> reprend au lieu d'en créer un neuf.</summary>
     private static World? _pendingWorld;
     private static bool _loadOptionDone;
+    private static string? _carryMessage;
+    private static (int Speed, bool Paused)? _carryPlay;
 
     /// <summary>Moment de la journée imposé au soleil (captures) ; sans valeur, il suit le calendrier.</summary>
     public double? SunDayFraction { get; set; }
@@ -183,7 +185,7 @@ public partial class Main : Node3D
         if (_pendingWorld is null && !_loadOptionDone && CommandLineOption("--load") is { } file)
         {
             _loadOptionDone = true;
-            TryLoad(file);
+            _carryMessage = TryLoad(file);
         }
 
         var loaded = _pendingWorld;
@@ -193,6 +195,10 @@ public partial class Main : Node3D
         {
             World = loaded;
             grid = loaded.Terrain!;
+            if (_carryPlay is { } play)
+            {
+                (_speedIndex, Paused) = play;
+            }
         }
         else
         {
@@ -306,7 +312,14 @@ public partial class Main : Node3D
         {
             Tutorial = new TutorialPanel { Name = "TutorialPanelLayer" };
             AddChild(Tutorial);
-            Tutorial.Init(this, TutorialMode ? TutorialPanel.Mode.Welcome : loaded is null && OfferTutorial && OS.GetCmdlineUserArgs().Length == 0 ? TutorialPanel.Mode.Offer : TutorialPanel.Mode.Off);
+            Tutorial.Init(this, loaded is null && TutorialMode ? TutorialPanel.Mode.Welcome : loaded is null && OfferTutorial && OS.GetCmdlineUserArgs().Length == 0 ? TutorialPanel.Mode.Offer : TutorialPanel.Mode.Off);
+        }
+
+        _carryPlay = null;
+        if (_carryMessage is not null)
+        {
+            ShowMessage(_carryMessage);
+            _carryMessage = null;
         }
 
         if (OS.GetCmdlineUserArgs().Contains("--pro") && World.League is not null)
@@ -536,18 +549,19 @@ public partial class Main : Node3D
     /// <summary>F8 : recharge le plus récent des deux emplacements par la scène ; en cas d'erreur le jeu continue.</summary>
     public void QuickLoad()
     {
-        if (SaveSlots.Latest() is not { } path)
+        string? error = null;
+        foreach (var path in SaveSlots.ByRecency())
         {
-            ShowMessage("Aucune sauvegarde à charger");
+            // Le plus récent est illisible : on essaie l'autre avant de renoncer.
+            if ((error = TryLoad(path)) is null)
+            {
+                _carryPlay = (_speedIndex, Paused);
+                GetTree().ReloadCurrentScene();
+                return;
+            }
         }
-        else if (TryLoad(path) is { } error)
-        {
-            ShowMessage(error);
-        }
-        else
-        {
-            GetTree().ReloadCurrentScene();
-        }
+
+        ShowMessage(error ?? "Aucune sauvegarde à charger");
     }
 
     /// <summary>Lit une sauvegarde et la garde pour le prochain <see cref="_Ready"/> ; rend le message d'erreur, ou null si tout va bien.</summary>
@@ -557,6 +571,7 @@ public partial class Main : Node3D
         {
             _pendingWorld = SaveSlots.Read(path);
             GD.Print($"LOAD {path} tick={_pendingWorld.Tick}");
+            _carryMessage = "Partie chargée";
             return null;
         }
         catch (Exception e) when (e is InvalidDataException or IOException or UnauthorizedAccessException)
