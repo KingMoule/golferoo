@@ -65,15 +65,15 @@ public partial class ProAim : Node3D
 
         var layer = new CanvasLayer { Name = "ProAimLayer" };
         _panel = new PanelContainer { Name = "ProAimPanel", Visible = false };
-        // En bas à droite : le panneau des consignes de tonte occupe le bas à gauche.
+        // En bas à droite, au-dessus de la barre : le panneau des consignes de tonte occupe le bas à gauche.
         _panel.AnchorLeft = 1f;
         _panel.AnchorRight = 1f;
         _panel.AnchorTop = 1f;
         _panel.AnchorBottom = 1f;
         _panel.OffsetLeft = -620f;
         _panel.OffsetRight = -8f;
-        _panel.OffsetTop = -190f;
-        _panel.OffsetBottom = -8f;
+        _panel.OffsetTop = -190f - Ui.BottomBar.Height;
+        _panel.OffsetBottom = -8f - Ui.BottomBar.Height;
         _panel.GrowVertical = Control.GrowDirection.Begin;
         var box = new VBoxContainer();
         _label = new Label();
@@ -103,7 +103,7 @@ public partial class ProAim : Node3D
         _force = new HSlider { MinValue = 10, MaxValue = 100, Step = 1, Value = 100, CustomMinimumSize = new Vector2(260, 0) };
         _force.ValueChanged += _ => _dirty = true;
         forceRow.AddChild(_force);
-        var play = new Button { Text = "Jouer (Entrée)" };
+        var play = new Button { Text = "Jouer" };
         play.Pressed += Play;
         forceRow.AddChild(play);
         box.AddChild(forceRow);

@@ -28,6 +28,9 @@ public partial class SmokeTest : Node
     {
         // La proposition du tutoriel n'a rien à faire dans la fumée.
         Main.OfferTutorial = false;
+
+        // Sans écran, la fenêtre ferait 64 px : l'interface couvrirait tout. Taille du projet, pour que les clics simulés tombent où il faut.
+        GetTree().Root.Size = new Vector2I(1280, 720);
         var scene = GD.Load<PackedScene>("res://Main.tscn");
         _main = scene.Instantiate<Main>();
         AddChild(_main);
@@ -36,6 +39,13 @@ public partial class SmokeTest : Node
     public override void _Process(double delta)
     {
         _frames++;
+        if (_frames == FramesToRun - 5)
+        {
+            // C13 : tiroir Terrain et ligue ouverts quelques images avant les clics simulés, pour que leur mise en page soit faite.
+            _main!.Bar.Select(ToolFamily.Terrain);
+            _main.League?.Toggle();
+        }
+
         if (_frames < FramesToRun)
         {
             return;
@@ -349,12 +359,14 @@ public partial class SmokeTest : Node
             failures.Add($"suivi : cible à {distance:F2} m du golfeur {id}");
         }
 
-        // C12 : le cartouche « Trou n, par p » s'affiche tant qu'un groupe est suivi.
-        var cartouche = _main.GetNodeOrNull<Label>("HoleLabelLayer/HoleLabel");
-        if (cartouche is null || !cartouche.Visible || !cartouche.Text.StartsWith("Trou ", StringComparison.Ordinal) || !cartouche.Text.Contains(", par "))
+        // C12, C13 : la pastille « Trou n, par p », en haut au centre, s'affiche tant qu'un groupe est suivi.
+        _main.RefreshHud();
+        var cartouche = (_main.Ui.Find(UiIds.Hud.Hole) as UiPill)?.Label;
+        if (cartouche is null || !_main.Ui.Find(UiIds.Hud.Hole)!.Visible || !cartouche.Text.StartsWith("Trou ", StringComparison.Ordinal) || !cartouche.Text.Contains(", par "))
         {
-            failures.Add($"cartouche de trou absent ou muet : « {cartouche?.Text} »");
+            failures.Add($"pastille de trou absente ou muette : « {cartouche?.Text} »");
         }
+
     }
 
     /// <summary>
@@ -504,9 +516,14 @@ public partial class SmokeTest : Node
             return failures;
         }
 
+        CheckClicksStayOnUi(failures);
         if (_main.GetNodeOrNull<Label>("TickLabel") is not { } hud)
         {
             failures.Add("TickLabel absent de Main.tscn");
+        }
+        else if (hud.Visible || !PushKey(Key.F12) || !hud.Visible)
+        {
+            failures.Add($"débogage : caché au lancement et montré par F12 attendu (visible {hud.Visible})");
         }
         else if (!hud.Text.Contains("km/h") || !hud.Text.Contains("prévision :"))
         {
@@ -686,7 +703,287 @@ public partial class SmokeTest : Node
 
         CheckProAim(failures);
         CheckUi(failures);
+        CheckBar(failures);
+        if (_main.GetNodeOrNull<Label>("TickLabel") is { Visible: true } && PushKey(Key.F12) && _main.GetNode<Label>("TickLabel").Visible)
+        {
+            failures.Add("débogage : F12 ne cache pas le libellé");
+        }
+
         return failures;
+    }
+
+    /// <summary>Pousse une touche (appui puis relâché) dans la fenêtre, comme le clavier ; rend vrai pour s'enchaîner dans une condition.</summary>
+    private bool PushKey(Key key)
+    {
+        foreach (var pressed in new[] { true, false })
+        {
+            GetViewport().PushInput(new InputEventKey { Keycode = key, PhysicalKeycode = key, Pressed = pressed });
+        }
+
+        return true;
+    }
+
+    /// <summary>Pousse un clic gauche (appui seul, ou relâché seul) à la position d'écran <paramref name="at"/>.</summary>
+    private void PushClick(Vector2 at, bool pressed)
+    {
+        GetViewport().PushInput(new InputEventMouseMotion { Position = at, GlobalPosition = at });
+        GetViewport().PushInput(new InputEventMouseButton { ButtonIndex = MouseButton.Left, Pressed = pressed, Position = at, GlobalPosition = at, ButtonMask = pressed ? MouseButtonMask.Left : 0 });
+    }
+
+    /// <summary>
+    /// C13 critère 4 : pinceau actif sur le fairway, un clic gauche sur la barre, sur le tiroir ou sur le panneau de la ligue ne peint aucune cellule ;
+    /// le même clic plus haut sur le terrain, lui, peint (témoin).
+    /// </summary>
+    private void CheckClicksStayOnUi(List<string> failures)
+    {
+        var main = _main!;
+        var grid = main.World.Terrain!;
+        var brush = main.Brush;
+        main.Bar.Select(ToolFamily.Terrain, toggle: false);
+        brush.SelectSurface(Surface.Fairway);
+        var targets = new List<(string Name, Control? Control)>
+        {
+            ("barre", main.Ui.Find(UiIds.Tool.Buildings)),
+            ("tiroir", main.Ui.Find(UiIds.Drawer.Status)?.GetParentControl()),
+            ("ligue", main.League?.GetNodeOrNull<Control>("LeaguePanel")),
+        };
+        foreach (var (name, control) in targets)
+        {
+            if (control is not { Visible: true })
+            {
+                failures.Add($"clic sur l'interface : cible « {name} » absente ou cachée");
+                continue;
+            }
+
+            var at = control.GetGlobalRect().GetCenter();
+            var version = (grid.SurfaceVersion, grid.HeightVersion);
+            PushClick(at, pressed: true);
+            var painted = brush.PickAt(at, out var hit) && brush.Apply(hit);
+            main.StepTicks(1);
+            PushClick(at, pressed: false);
+            if (painted || (grid.SurfaceVersion, grid.HeightVersion) != version)
+            {
+                failures.Add($"clic sur l'interface ({name}, {at}) : le pinceau a peint le terrain");
+            }
+        }
+
+        // Témoin : la caméra centrée sur le milieu de la carte, un clic juste au-dessus du centre de l'écran (loin de la barre et du tiroir).
+        var followed = main.Camera.FollowedId;
+        var center = new Vector3((float)(grid.CellsX * grid.CellSize) / 2f, 0f, (float)(grid.CellsZ * grid.CellSize) / 2f);
+        main.Camera.CenterOn(center);
+        var middle = main.Camera.View!.UnprojectPosition(center with { Y = (float)grid.Sample(center.X, center.Z) }) - new Vector2(0f, 80f);
+        main.Camera.Follow(followed);
+        var before = grid.SurfaceVersion;
+        PushClick(middle, pressed: true);
+        var applied = brush.PickAt(middle, out var ground) && brush.Apply(ground);
+        main.StepTicks(1);
+        PushClick(middle, pressed: false);
+        if (!applied || grid.SurfaceVersion == before)
+        {
+            failures.Add($"témoin : un clic sur le terrain ({middle}) ne peint pas (posé {applied}, sol {brush.PickAt(middle, out _)}, sous la souris {GetViewport().GuiGetHoveredControl()?.GetPath()}, attente {main.World.PendingEdits}/{main.World.PendingTreeCommands})");
+        }
+
+        main.League?.Toggle();
+        main.Bar.Select(ToolFamily.None, toggle: false);
+    }
+
+    /// <summary>Émet le signal <c>Pressed</c> du bouton d'identifiant <paramref name="id"/>, comme un clic ; faux s'il manque.</summary>
+    private bool Press(string id, List<string> failures)
+    {
+        if (_main!.Ui.Find(id) is not BaseButton button || button.Disabled)
+        {
+            failures.Add($"barre : bouton {id} absent ou grisé");
+            return false;
+        }
+
+        button.EmitSignal(BaseButton.SignalName.Pressed);
+        return true;
+    }
+
+    /// <summary>
+    /// C13 critères 1, 3 et 5 : barre, tiroir et pastille du trou sont sous la racine thémée ; chaque outil se prend par le signal <c>Pressed</c>
+    /// de son bouton (aucun événement clavier) et l'état de l'outil suit ; le bulldozer rend au rough un carré de fairway et rase son arbre.
+    /// </summary>
+    private void CheckBar(List<string> failures)
+    {
+        var main = _main!;
+        var ui = main.Ui;
+        var brush = main.Brush;
+        var trees = main.TreeTool;
+        var place = main.PlaceTool;
+        var world = main.World;
+        void Expect(bool ok, string what)
+        {
+            if (!ok)
+            {
+                failures.Add($"barre : {what}");
+            }
+        }
+
+        Expect(ui.Theme == UiTheme.Theme && ui.GetParent<CanvasLayer>().Name == "Ui", "racine d'interface sans thème ou hors du calque Ui");
+        foreach (var id in new[] { UiIds.Hud.Bar, UiIds.Drawer.Root, UiIds.Hud.Hole, UiIds.Hud.Message, UiIds.Hud.Crest })
+        {
+            Expect(ui.Find(id) is { } c && ui.IsAncestorOf(c), $"{id} absent de UiRoot");
+        }
+
+        Expect(ui.Find(UiIds.Drawer.Root)?.GetThemeStylebox("panel") == UiTheme.Theme.GetStylebox("panel", "UiPanel"), "le tiroir n'a pas le verre du thème");
+        Expect(ui.Find(UiIds.Hud.Hole)?.GetThemeStylebox("panel") == UiTheme.Theme.GetStylebox("panel", "UiPill"), "la pastille du trou n'a pas le style du thème");
+        Expect(ui.Find(UiIds.Tool.Terrain)?.GetThemeFont("font") == UiTheme.Fredoka && ui.Find(UiIds.Action.HoleNew)?.GetThemeFont("font") == UiTheme.Fredoka, "les boutons de la barre et du tiroir ne sont pas en Fredoka");
+
+        // Terrain : chaque surface.
+        Press(UiIds.Tool.Terrain, failures);
+        Expect(brush.Active && !brush.ReliefMode && !brush.BulldozerMode && main.Bar.Current == ToolFamily.Terrain && ui.Find(UiIds.Drawer.Root)!.Visible, "Terrain ne prend pas le pinceau de surface ou n'ouvre pas le tiroir");
+        (string Id, Surface Surface)[] surfaces =
+        [
+            (UiIds.Thumb.Tee, Surface.Tee), (UiIds.Thumb.Green, Surface.Green), (UiIds.Thumb.Fairway, Surface.Fairway), (UiIds.Thumb.Rough, Surface.Rough),
+            (UiIds.Thumb.Bunker, Surface.Bunker), (UiIds.Thumb.Water, Surface.Water), (UiIds.Thumb.Wood, Surface.Trees), (UiIds.Thumb.Path, Surface.Path),
+        ];
+        foreach (var (id, surface) in surfaces)
+        {
+            Press(id, failures);
+            Expect(brush.Active && brush.PaintedSurface == surface && ((UiThumb)ui.Find(id)!).Chosen, $"{id} ne choisit pas {surface}");
+        }
+
+        // Relief, puis les arbres : chaque essence (plant, motte) et chaque action.
+        Press(UiIds.Tool.Relief, failures);
+        Expect(brush.Active && brush.ReliefMode, "Relief ne prend pas le relief");
+        Press(UiIds.Tool.Trees, failures);
+        Expect(trees.Active && !brush.Active, "Arbres ne prend pas l'outil arbres");
+        foreach (var species in Enum.GetValues<TreeSpeciesId>())
+        {
+            foreach (var stage in new[] { TreePlantStage.Sapling, TreePlantStage.Mound })
+            {
+                Press(UiIds.Thumb.Tree(species.ToString(), stage.ToString()), failures);
+                Expect(trees.Species == species && trees.Mode == (stage == TreePlantStage.Mound ? TreeTool.ClickMode.Mound : TreeTool.ClickMode.Sapling), $"vignette {species} {stage}");
+            }
+        }
+
+        Press(UiIds.Action.TreeRazeArea, failures);
+        Expect(trees.Mode == TreeTool.ClickMode.RazeArea, "Raser une zone");
+        Press(UiIds.Action.TreeSelect, failures);
+        Expect(trees.Mode == TreeTool.ClickMode.Select, "Sélectionner");
+        var keep = trees.KeepRemarkable;
+        Press(UiIds.Action.TreeKeepRemarkable, failures);
+        Expect(trees.KeepRemarkable == !keep, "Garder les remarquables");
+        Press(UiIds.Action.TreeKeepRemarkable, failures);
+        var standing = world.Trees.Trees.Where(t => t.State == TreeState.Standing).Take(2).ToList();
+        if (standing.Count == 2)
+        {
+            trees.Select(standing[0].Id);
+            var queued = world.PendingTreeCommands;
+            Press(UiIds.Action.TreeRaze, failures);
+            Expect(world.PendingTreeCommands == queued + 1 && trees.SelectedId == -1, "Raser n'abat pas l'arbre sélectionné");
+            trees.Select(standing[1].Id);
+            trees.FellSelected();
+            main.StepTicks(1);
+            Press(UiIds.Action.TreeClearFallen, failures);
+            Expect(world.PendingTreeCommands == 1, "Dégager le tronc ne dégage pas le tronc tombé");
+            main.StepTicks(1);
+        }
+        else
+        {
+            failures.Add("barre : moins de deux arbres debout pour les actions d'arbres");
+        }
+
+        // Trous : pose, nouveau trou, supprimer, précédent et suivant ; la caméra reprend ensuite son golfeur.
+        var followed = main.Camera.FollowedId;
+        Press(UiIds.Tool.Holes, failures);
+        Expect(place.Active && !trees.Active && !brush.Active, "Trous ne prend pas l'outil de pose");
+        Press(UiIds.Action.HoleNew, failures);
+        Expect(place.NewHole, "Nouveau trou");
+        Press(UiIds.Action.HolePose, failures);
+        Expect(!place.NewHole, "Poser départ et trou");
+        Press(UiIds.Action.HoleNext, failures);
+        Expect(main.CameraHole == 2, $"Trou suivant : trou {main.CameraHole}");
+        Press(UiIds.Action.HolePrevious, failures);
+        Expect(main.CameraHole == 1, $"Trou précédent : trou {main.CameraHole}");
+        Press(UiIds.Action.HoleRemove, failures);
+        Expect(ui.Find(UiIds.Hud.Message) is UiPill { Visible: true } message && message.Label.Text.Contains("trou"), "Supprimer ne dit rien");
+        main.Camera.Follow(followed);
+
+        CheckBulldozer(failures);
+
+        // Entretien, vitesses et pause, caméra libre, panneaux.
+        Press(UiIds.Tool.Views, failures);
+        Expect(main.TurfOverlay, "Vues ne montre pas l'état du gazon");
+        Press(UiIds.Tool.Views, failures);
+        Press(UiIds.Tool.Turf, failures);
+        Expect(main.Turf.IsOpen, "Gazon n'ouvre pas les consignes");
+        Press(UiIds.Tool.Turf, failures);
+        foreach (var speed in new[] { 1, 2, 4, 8, 16 })
+        {
+            Press(UiIds.Hud.Speed(speed), failures);
+            Expect(main.Speed == speed && !main.Paused, $"vitesse ×{speed}");
+        }
+
+        Press(UiIds.Hud.Pause, failures);
+        Expect(main.Paused, "Pause");
+        Press(UiIds.Hud.Speed(1), failures);
+        Expect(!main.Paused && main.Speed == 1, "reprise à ×1");
+        Press(UiIds.Round.Camera, failures);
+        Expect(main.Camera.Mode == CameraMode.Free, "Caméra libre");
+        Press(UiIds.Round.Camera, failures);
+        Expect(main.Camera.Mode == CameraMode.Iso, "retour à la vue iso");
+        Press(UiIds.Round.League, failures);
+        Press(UiIds.Round.Pro, failures);
+        Expect(main.League?.IsOpen == true && main.ProPanel?.IsOpen == true, "Ligue et Votre pro ne s'ouvrent pas");
+        Press(UiIds.Round.League, failures);
+        Press(UiIds.Round.Pro, failures);
+        foreach (var id in new[] { UiIds.Tool.Buildings, UiIds.Tool.Amenities, UiIds.Round.Finances })
+        {
+            Expect(ui.Find(id) is BaseButton { Disabled: true }, $"{id} devrait être grisé");
+        }
+
+        main.Bar.Select(ToolFamily.None, toggle: false);
+        Expect(!brush.Active && !trees.Active && !place.Active && !ui.Find(UiIds.Drawer.Root)!.Visible, "rien de pris : le tiroir reste ouvert");
+        GD.Print($"SMOKE barre : outils, vignettes, actions, vitesses, caméra par leurs boutons ({failures.Count} échec)");
+    }
+
+    /// <summary>C13 critère 5 : un carré de fairway et l'arbre planté dessus ; un trait de bulldozer au même point les efface.</summary>
+    private void CheckBulldozer(List<string> failures)
+    {
+        var main = _main!;
+        var world = main.World;
+        var grid = world.Terrain!;
+        if (FreeSpot(world, grid) is not { } p)
+        {
+            failures.Add("bulldozer : aucun emplacement libre");
+            return;
+        }
+
+        world.PaintSurface(p, 8, Surface.Fairway);
+        main.StepTicks(1);
+        world.PlantTree(p.X, p.Z, TreeSpeciesId.Oak, TreePlantStage.Mound);
+        main.StepTicks(1);
+        var tree = world.Trees.Trees[^1];
+        if (grid.SurfaceAt(p.X, p.Z) != Surface.Fairway || Math.Abs(tree.X - p.X) > 0.01 || Math.Abs(tree.Z - p.Z) > 0.01)
+        {
+            failures.Add("bulldozer : le fairway ou l'arbre de départ n'est pas posé");
+            return;
+        }
+
+        var followed = main.Camera.FollowedId;
+        main.Camera.CenterOn(new Vector3((float)p.X, 0f, (float)p.Z));
+        Press(UiIds.Tool.Bulldozer, failures);
+        var brush = main.Brush;
+        if (!brush.Active || !brush.BulldozerMode)
+        {
+            failures.Add("bulldozer : le bouton ne prend pas le bulldozer");
+        }
+
+        brush.SetRadius(6f);
+        var at = main.Camera.View!.UnprojectPosition(new Vector3((float)p.X, (float)grid.Sample(p.X, p.Z), (float)p.Z));
+        PushClick(at, pressed: true);
+        var posted = brush.PickAt(at, out var hit) && brush.Apply(hit);
+        main.StepTicks(1);
+        PushClick(at, pressed: false);
+        var cleared = grid.SurfaceAt(p.X, p.Z) == Surface.Rough && !world.Trees.TryGet(tree.Id, out _);
+        if (!posted || !cleared)
+        {
+            failures.Add($"bulldozer : trait posé {posted} au point visé {hit} (écran {at}), surface {grid.SurfaceAt(p.X, p.Z)}, arbre présent {world.Trees.TryGet(tree.Id, out _)}");
+        }
+
+        main.Camera.Follow(followed);
     }
 
     /// <summary>

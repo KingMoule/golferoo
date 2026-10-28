@@ -3,15 +3,23 @@ using Golferoo.Sim.Turf;
 
 namespace Golferoo.Game.Tools;
 
-/// <summary>Les trois consignes d'entretien : trois listes, chacune émet <see cref="Golferoo.Sim.World.SetTurfSettings"/>.</summary>
+/// <summary>Les trois consignes d'entretien : trois listes, chacune émet <see cref="Golferoo.Sim.World.SetTurfSettings"/>. Ouvert par le bouton Gazon de la barre.</summary>
 public partial class TurfPanel : CanvasLayer
 {
     private readonly OptionButton[] _lists = new OptionButton[3];
+    private PanelContainer _panel = null!;
 
-    /// <summary>Construit le panneau (en bas à gauche) ; l'ordre des choix suit celui des énumérations de <see cref="TurfSettings"/>.</summary>
+    public bool IsOpen => _panel.Visible;
+
+    public void Toggle() => _panel.Visible = !_panel.Visible;
+
+    /// <summary>Construit le panneau, fermé, en bas à gauche au-dessus de la barre ; l'ordre des choix suit celui des énumérations de <see cref="TurfSettings"/>.</summary>
     public void Init(Main main)
     {
-        var panel = new PanelContainer { Name = "TurfPanel", AnchorTop = 1f, AnchorBottom = 1f, OffsetLeft = 8f, OffsetTop = -48f, OffsetBottom = -8f };
+        const float bottom = -Ui.BottomBar.Height - 12f;
+        var panel = new PanelContainer { Name = "TurfPanel", Visible = false, AnchorTop = 1f, AnchorBottom = 1f, OffsetLeft = 8f, OffsetTop = bottom - 40f, OffsetBottom = bottom };
+        _panel = panel;
+
         var row = new HBoxContainer();
         string[][] choices =
         [

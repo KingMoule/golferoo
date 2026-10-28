@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="208" height="248" viewBox="0 0 104 124">
+  <!-- Écusson du club (C13, d'après la maquette v2) : bouclier cerné d'encre, pelouse, drapeau, deux clubs croisés et la balle. -->
+  <path d="M52 4 L96 18 V60 C96 90 76 110 52 120 C28 110 8 90 8 60 V18 Z" fill="#2f6a3c" stroke="#1d2a24" stroke-width="5" stroke-linejoin="round"/>
+  <path d="M52 14 L86 25 V60 C86 84 70 100 52 108 C34 100 18 84 18 60 V25 Z" fill="#4f9a57"/>
+  <path d="M18 74 C34 66 70 66 86 74 C84 90 70 102 52 108 C34 102 20 90 18 74 Z" fill="#8fcf6a"/>
+  <path d="M30 54 L72 90 M74 54 L32 90" stroke="#1d2a24" stroke-width="7" stroke-linecap="round"/>
+  <path d="M30 54 L72 90 M74 54 L32 90" stroke="#e8dcc0" stroke-width="3.5" stroke-linecap="round"/>
+  <path d="M70 87 L80 88 L79 94 L68 92 Z M34 87 L24 88 L25 94 L36 92 Z" fill="#e8dcc0" stroke="#1d2a24" stroke-width="2.5" stroke-linejoin="round"/>
+  <path d="M54 76 V30" stroke="#1d2a24" stroke-width="7" stroke-linecap="round"/>
+  <path d="M54 76 V30" stroke="#FFF8E6" stroke-width="3.5" stroke-linecap="round"/>
+  <path d="M54 30 l22 8 -22 8 z" fill="#F4C542" stroke="#1d2a24" stroke-width="3" stroke-linejoin="round"/>
+  <circle cx="52" cy="80" r="6" fill="#FFF8E6" stroke="#1d2a24" stroke-width="2.5"/>
+</svg>
