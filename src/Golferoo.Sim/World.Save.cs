@@ -62,7 +62,7 @@ public sealed partial class World
         w.Int(_rainyDays);
         w.Int(_woodlandDraws);
         w.Int(_nextGolferId);
-        w.Bool(_holeOpen);
+        w.List(_holesOpen, w.Bool);
         w.Long(_holeCheckedVersion);
         w.Long(TreeSpending);
         w.Int(TreeCommandsRefused);
@@ -103,8 +103,27 @@ public sealed partial class World
         });
         w.List(_holeCommands, c =>
         {
+            w.Int(c.Hole);
             w.Bool(c.IsTee);
             w.Point(c.Point);
+        });
+        w.List(_courseCommands, c =>
+        {
+            w.Bool(c.Add);
+            w.Point(c.Tee);
+            w.Point(c.Pin);
+        });
+        w.Bool(_ratingStale);
+        w.Int(HoleCommandsRefused);
+        w.List(_heldCards, h =>
+        {
+            w.Int(h.Round);
+            w.Long(h.Tick);
+            w.List(h.Cards, c =>
+            {
+                w.Int(c.MemberId);
+                c.Card.Write(w);
+            });
         });
         w.List(_turfCommands, s =>
         {
@@ -117,6 +136,8 @@ public sealed partial class World
         w.Bool(League is not null);
         League?.Write(w);
         Pro?.Write(w);
+        w.List(Flow?.Pending ?? [], w.Int);
+        w.List(Flow?.CachedKeys ?? [], w.Int);
         w.Bool(_manualPro);
     }
 
@@ -143,7 +164,7 @@ public sealed partial class World
         _rainyDays = r.Int();
         _woodlandDraws = r.Int();
         _nextGolferId = r.Int();
-        _holeOpen = r.Bool();
+        _holesOpen = [.. r.List(r.Bool)];
         _holeCheckedVersion = r.Long();
         TreeSpending = r.Long();
         TreeCommandsRefused = r.Int();
@@ -167,9 +188,32 @@ public sealed partial class World
             _treeCommands.Enqueue(c);
         }
 
-        foreach (var c in r.List(() => (IsTee: r.Bool(), Point: r.Point())))
+        foreach (var c in r.List(() => (Hole: r.Int(), IsTee: r.Bool(), Point: r.Point())))
         {
             _holeCommands.Enqueue(c);
+        }
+
+        foreach (var c in r.List(() => (Add: r.Bool(), Tee: r.Point(), Pin: r.Point())))
+        {
+            _courseCommands.Enqueue(c);
+        }
+
+        _ratingStale = r.Bool();
+        HoleCommandsRefused = r.Int();
+        foreach (var h in r.List(() => (Round: r.Int(), Tick: r.Long(), Cards: r.List(() => (MemberId: r.Int(), Card: Golferoo.Sim.Scoring.ScoreCard.Read(r))).ToArray())))
+        {
+            _heldCards.Add((h.Round, h.Cards, h.Tick));
+        }
+
+        var holeCount = Terrain?.Course.Count ?? 1;
+        if (_holesOpen.Length != holeCount || _holeCommands.Any(c => c.Hole < 1 || c.Hole > holeCount))
+        {
+            throw new InvalidDataException("Sauvegarde incohérente : états ou commandes de trous hors du parcours.");
+        }
+
+        if (_groups.Any(g => g.Golfers.Any(o => o.Card is null) || (!g.Finished && (g.Hole < 1 || g.Hole > holeCount || g.Golfers.Any(o => o.Card!.HoleCount < g.Hole || o.Card.HoleCount > holeCount)))))
+        {
+            throw new InvalidDataException("Sauvegarde incohérente : trou ou carte de score d'un groupe hors du parcours.");
         }
 
         foreach (var s in r.List(() => new TurfSettings((GreenSpeed)r.Byte(), (FairwayFirmness)r.Byte(), (RoughLength)r.Byte())))
@@ -194,6 +238,8 @@ public sealed partial class World
             _proMemberId = League.Members.First(m => m.IsPro).Id;
         }
 
+        var pendingFlow = r.List(r.Int);
+        var cachedFlow = r.List(r.Int);
         _manualPro = r.Bool();
         if (_manualPro && League is null)
         {
@@ -203,7 +249,7 @@ public sealed partial class World
         _resolver = resolver ?? (Terrain is null ? new StubShotResolver() : new PhysicalShotResolver());
         if (Terrain is not null)
         {
-            Flow = new FlowFieldCache(Terrain);
+            Flow = new FlowFieldCache(Terrain, pending: pendingFlow, cached: cachedFlow);
             Terrain.Soil.Season = Season;
             RefreshSoil();
             if (_resolver is PhysicalShotResolver physical)
@@ -211,6 +257,7 @@ public sealed partial class World
                 physical.Trees = Trees;
                 physical.Season = Season;
                 physical.BeautySources = _beautySources;
+                physical.MapCapacity = MapCapacityFor(Terrain);
             }
         }
     }

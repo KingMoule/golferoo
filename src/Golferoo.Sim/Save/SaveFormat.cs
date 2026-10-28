@@ -10,7 +10,7 @@ namespace Golferoo.Sim.Save;
 /// </summary>
 internal static class SaveFormat
 {
-    internal const int Version = 1;
+    internal const int Version = 4;
 
     /// <summary>Plafond du corps, compressé comme décompressé, à la lecture.</summary>
     internal const int MaxBodyBytes = 64 * 1024 * 1024;
@@ -58,6 +58,11 @@ internal static class SaveFormat
             }
 
             var version = header.ReadInt32();
+            if (version < Version && version > 0)
+            {
+                throw new InvalidDataException($"Sauvegarde d'une ancienne version (v{version}) : le format actuel est v{Version} et les anciennes ne se relisent plus.");
+            }
+
             if (version != Version)
             {
                 throw new InvalidDataException($"Version de sauvegarde inconnue : {version} (attendue : {Version}).");

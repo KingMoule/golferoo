@@ -6,7 +6,7 @@ using Golferoo.Sim.Terrain;
 namespace Golferoo.Game.Rendering;
 
 /// <summary>
-/// Golfeurs, balles et drapeau (maillages de <see cref="ProceduralMeshes"/>). Les golfeurs et les balles sont interpolés
+/// Golfeurs, balles, et par trou : drapeau, repère de départ et numéro (maillages de <see cref="ProceduralMeshes"/>). Les golfeurs et les balles sont interpolés
 /// entre l'instantané précédent et le courant.
 /// </summary>
 public partial class ActorLayer : Node3D
@@ -17,8 +17,8 @@ public partial class ActorLayer : Node3D
     private MultiMesh? _golfers;
     private MultiMesh? _balls;
     private TerrainGrid? _grid;
-    private Node3D? _flag;
-    private Point2 _flagAt;
+    private readonly List<(Node3D Flag, Point2 At)> _flags = [];
+    private readonly List<Node> _holeNodes = [];
 
     private static readonly Basis GolferBasis = Basis.Identity.Scaled(Vector3.One * ProceduralMeshes.GolferScale);
 
@@ -36,7 +36,7 @@ public partial class ActorLayer : Node3D
         _balls = NewMultiMesh(ProceduralMeshes.Ball());
         AddMulti("Golfers", _golfers);
         AddMulti("Balls", _balls);
-        BuildFlag(grid);
+        BuildHoles(grid);
     }
 
     private static MultiMesh NewMultiMesh(Mesh mesh) => new()
@@ -55,28 +55,71 @@ public partial class ActorLayer : Node3D
         CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
     });
 
-    private void BuildFlag(TerrainGrid grid)
+    /// <summary>Un drapeau, un repère de départ et le numéro pour chaque trou du parcours.</summary>
+    private void BuildHoles(TerrainGrid grid)
     {
-        _flag = new Node3D { Name = "Flag" };
-        _flag.AddChild(new MeshInstance3D { Name = "FlagMesh", Mesh = ProceduralMeshes.Flag() });
-        AddChild(_flag);
-        PlaceFlag(grid);
+        foreach (var node in _holeNodes)
+        {
+            RemoveChild(node); // tout de suite : le nom (Flag4) doit être libre pour le nœud suivant
+            node.QueueFree();
+        }
+
+        _holeNodes.Clear();
+        _flags.Clear();
+        foreach (var hole in grid.Course.Holes)
+        {
+            var flag = new Node3D { Name = $"Flag{hole.Number}" };
+            flag.AddChild(new MeshInstance3D { Name = "FlagMesh", Mesh = ProceduralMeshes.Flag() });
+            AddHoleNode(flag);
+            _flags.Add((flag, default));
+            PlaceFlag(grid, hole);
+            if (grid.Blank)
+            {
+                continue; // terre vierge : le départ n'est pas encore posé
+            }
+
+            var y = (float)grid.Sample(hole.Tee.X, hole.Tee.Z);
+            var tee = new Vector3((float)hole.Tee.X, y, (float)hole.Tee.Z);
+            AddHoleNode(new MeshInstance3D { Name = $"TeeMarker{hole.Number}", Mesh = ProceduralMeshes.TeeMarker(), Position = tee });
+            AddHoleNode(new Label3D
+            {
+                Name = $"HoleNumber{hole.Number}",
+                Text = hole.Number.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                Billboard = BaseMaterial3D.BillboardModeEnum.Enabled,
+                Shaded = false,
+                FontSize = 96,
+                PixelSize = 0.06f,
+                OutlineSize = 24,
+                Modulate = Colors.White,
+                OutlineModulate = new Color(0.1f, 0.2f, 0.5f),
+                Position = tee + new Vector3(0f, 7f, 0f),
+            });
+        }
     }
 
-    /// <summary>Pose le drapeau sur le trou courant (il change de place chaque jour).</summary>
-    private void PlaceFlag(TerrainGrid grid)
+    private void AddHoleNode(Node node)
     {
-        var hole = grid.Hole;
-        _flagAt = hole;
-        _flag!.Position = new Vector3((float)hole.X, (float)grid.Sample(hole.X, hole.Z), (float)hole.Z);
+        AddChild(node);
+        _holeNodes.Add(node);
+    }
+
+    /// <summary>Pose le drapeau d'un trou sur son drapeau du jour (il change de place chaque jour).</summary>
+    private void PlaceFlag(TerrainGrid grid, CourseHole hole)
+    {
+        var at = hole.Hole;
+        _flags[hole.Number - 1] = (_flags[hole.Number - 1].Flag, at);
+        _flags[hole.Number - 1].Flag.Position = new Vector3((float)at.X, (float)grid.Sample(at.X, at.Z), (float)at.Z);
     }
 
     /// <summary>Oriente le fanion (pointé vers +X dans son maillage) dans le sens du vent (x, z du monde) ; sans vent, il ne bouge pas.</summary>
     public void SetWind(Vector2 direction)
     {
-        if (_flag is not null && direction.LengthSquared() > 1e-4f)
+        if (direction.LengthSquared() > 1e-4f)
         {
-            _flag.Rotation = new Vector3(0f, -Mathf.Atan2(direction.Y, direction.X), 0f);
+            foreach (var (flag, _) in _flags)
+            {
+                flag.Rotation = new Vector3(0f, -Mathf.Atan2(direction.Y, direction.X), 0f);
+            }
         }
     }
 
@@ -88,9 +131,17 @@ public partial class ActorLayer : Node3D
             return;
         }
 
-        if (_grid.Hole != _flagAt)
+        if (_grid.Course.Count != _flags.Count)
         {
-            PlaceFlag(_grid);
+            BuildHoles(_grid); // trou ajouté ou retiré en jeu
+        }
+
+        foreach (var hole in _grid.Course.Holes)
+        {
+            if (hole.Hole != _flags[hole.Number - 1].At)
+            {
+                PlaceFlag(_grid, hole);
+            }
         }
 
         if (previousChanged)

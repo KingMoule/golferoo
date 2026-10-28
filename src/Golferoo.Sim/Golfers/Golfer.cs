@@ -1,4 +1,5 @@
 using Golferoo.Sim.Save;
+using Golferoo.Sim.Scoring;
 using Golferoo.Sim.Shots;
 using Golferoo.Sim.Terrain;
 
@@ -36,6 +37,9 @@ public enum GolferState : byte
 
     /// <summary>Votre pro, à son tour : attend le coup du joueur (<see cref="World.PlayProShot"/>).</summary>
     AwaitingShot = 9,
+
+    /// <summary>Marche du green qu'il vient de finir vers le départ du trou suivant.</summary>
+    ToNextTee = 10,
 }
 
 public sealed class Golfer
@@ -57,7 +61,10 @@ public sealed class Golfer
 
     public GolferState State { get; internal set; }
 
-    /// <summary>Coups joués sur le trou (pénalités comprises).</summary>
+    /// <summary>Carte de score de la partie, un trou par ligne du parcours (0 : trou pas encore joué, ou sauté parce que fermé). Nulle hors d'un groupe.</summary>
+    public ScoreCard? Card { get; internal set; }
+
+    /// <summary>Coups joués sur le trou en cours (pénalités comprises) ; remis à zéro au départ du trou suivant.</summary>
     public int Strokes { get; internal set; }
 
     /// <summary>Position de la balle de ce golfeur.</summary>
@@ -85,6 +92,9 @@ public sealed class Golfer
 
     /// <summary>Ticks restants du geste en cours.</summary>
     internal int SwingTicks { get; set; }
+
+    /// <summary>Planification du coup en cours, étalée sur les ticks du geste (C12 lot 4) ; nulle pour un putt, un coup du joueur ou quand le geste est fini.</summary>
+    internal PlanJob? Plan { get; set; }
 
     /// <summary>Coup choisi par le joueur (votre pro), joué au prochain geste.</summary>
     internal Pro.ProShot? PlannedShot { get; set; }
@@ -126,8 +136,12 @@ public sealed class Golfer
             w.ProShot(shot);
         }
 
+        w.Bool(Plan is not null);
+        Plan?.Write(w);
         w.Bool(InLeague);
         w.Int(WaypointIndex);
+        w.Bool(Card is not null);
+        Card?.Write(w);
     }
 
     internal static Golfer Read(SaveReader r)
@@ -150,8 +164,10 @@ public sealed class Golfer
         golfer.FlightIndex = r.Int();
         golfer.SwingTicks = r.Int();
         golfer.PlannedShot = r.Bool() ? r.ProShot() : null;
+        golfer.Plan = r.Bool() ? PlanJob.Read(r) : null;
         golfer.InLeague = r.Bool();
         golfer.WaypointIndex = r.Int();
+        golfer.Card = r.Bool() ? ScoreCard.Read(r) : null;
         return golfer;
     }
 }

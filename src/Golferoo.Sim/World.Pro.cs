@@ -53,6 +53,9 @@ public sealed partial class World
         }
     }
 
+    /// <summary>Le trou en cours du groupe de ce golfeur (le trou 1 si le golfeur ne joue pas).</summary>
+    public CourseHole HoleOf(Golfer golfer) => RequireTerrain().Course[_groups.FirstOrDefault(g => g.Golfers.Contains(golfer))?.Hole ?? 1];
+
     /// <summary>Vrai tant qu'un coup du pro attend son tick : le mode visée ne doit pas se rouvrir entre-temps.</summary>
     public bool ProShotPending => _proShots.Count > 0;
 
@@ -75,7 +78,7 @@ public sealed partial class World
         var golfer = AwaitingPro ?? throw new InvalidOperationException("Le pro n'attend pas de coup.");
         var resolver = (PhysicalShotResolver)_resolver;
         resolver.Wind = Wind;
-        return Execute(resolver, terrain, golfer.Ball, shot, null);
+        return Execute(resolver, terrain, golfer.Ball, shot, null, PinOf(terrain, golfer));
     }
 
     /// <summary>Distance au trou sous laquelle le putt du pro est donné (« gimme ») : un coup, balle au trou.</summary>
@@ -84,17 +87,17 @@ public sealed partial class World
     private bool IsManualPro(Golfer g) => _manualPro && g.MemberId == _proMemberId;
 
     /// <summary>Putt donné : sur le green à moins de <see cref="GimmeDistance"/> du trou, le coup compte et la balle est au trou, sans expérience.</summary>
-    private static bool Gimme(TerrainGrid terrain, Golfer g)
+    private static bool Gimme(TerrainGrid terrain, Point2 pin, Golfer g)
     {
-        var dx = terrain.Hole.X - g.Ball.X;
-        var dz = terrain.Hole.Z - g.Ball.Z;
+        var dx = pin.X - g.Ball.X;
+        var dz = pin.Z - g.Ball.Z;
         if (terrain.SurfaceAt(g.Ball.X, g.Ball.Z) != Surface.Green || (dx * dx) + (dz * dz) >= GimmeDistance * GimmeDistance)
         {
             return false;
         }
 
         g.Strokes++;
-        g.Ball = terrain.Hole;
+        g.Ball = pin;
         g.Holed = true;
         g.State = GolferState.Exiting;
         return true;
@@ -113,23 +116,27 @@ public sealed partial class World
         }
     }
 
-    private ShotResult ExecuteProShot(TerrainGrid terrain, Golfer g, ProShot shot) =>
-        Execute((PhysicalShotResolver)_resolver, terrain, g.Ball, shot, _rng);
+    private ShotResult ExecuteProShot(TerrainGrid terrain, Golfer g, ProShot shot, Point2 pin) =>
+        Execute((PhysicalShotResolver)_resolver, terrain, g.Ball, shot, _rng, pin);
 
-    private ShotResult Execute(PhysicalShotResolver resolver, TerrainGrid terrain, Point2 ball, ProShot shot, DeterministicRng? rng)
+    /// <summary>Drapeau du trou que joue le groupe de ce golfeur.</summary>
+    private Point2 PinOf(TerrainGrid terrain, Golfer g) =>
+        terrain.Course[_groups.First(group => group.Golfers.Contains(g)).Hole].Hole;
+
+    private ShotResult Execute(PhysicalShotResolver resolver, TerrainGrid terrain, Point2 ball, ProShot shot, DeterministicRng? rng, Point2 pin)
     {
         var skills = Pro!;
         var dispersion = skills.Dispersion(shot.Club);
         if (shot.Club.IsPutter)
         {
-            return resolver.PuttTo(ball, shot.Target, terrain, rng, dispersion);
+            return resolver.PuttTo(ball, shot.Target, terrain, rng, dispersion, pin);
         }
 
         var dx = shot.Target.X - ball.X;
         var dz = shot.Target.Z - ball.Z;
         var d = Math.Sqrt((dx * dx) + (dz * dz));
         var (ux, uz) = d < 1e-9 ? (1.0, 0.0) : (dx / d, dz / d);
-        return resolver.ExecuteShaped(ball, shot.Club, ux, uz, shot.Force * skills.ForceBonus, shot.Shape, terrain, rng, dispersion, 1.0, skills.ShapeSigma(shot.Shape));
+        return resolver.ExecuteShaped(ball, shot.Club, ux, uz, shot.Force * skills.ForceBonus, shot.Shape, terrain, rng, dispersion, 1.0, skills.ShapeSigma(shot.Shape), pin);
     }
 
     private void MixPro(ref ulong hash)

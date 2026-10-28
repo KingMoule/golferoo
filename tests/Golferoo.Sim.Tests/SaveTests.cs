@@ -67,8 +67,8 @@ public class SaveTests
         world.RazeTree(world.Trees.Trees[0].Id);
         world.SetTurfSettings(TurfSettings.Normal with { GreenSpeed = GreenSpeed.Fast });
         world.SetCourseRating(new CourseRating(1, terrain.Par, 3.4, 4.6));
-        Assert.True(world.PlaceTee(terrain.Tee));
-        Assert.True(world.PlaceHole(terrain.Hole));
+        Assert.True(world.PlaceTee(1, terrain.Tee));
+        Assert.True(world.PlaceHole(1, terrain.Hole));
         world.PlayProShot(new ProShot(Clubs.Iron7, new Point2(200, 60), ShotShape.Fade, 0.8));
         Assert.Equal(1, world.PendingEdits - 1);
         Assert.True(world.PendingTreeCommands >= 2);
@@ -290,6 +290,39 @@ public class SaveTests
         }
     }
 
+    /// <summary>C12 lot 5 : un ajout de trou en file, puis un trou joué et retiré, se sauvent et se relisent à l'identique.</summary>
+    [Fact]
+    public void NewHoleCommands_QueuedThenPlayedAndRemoved_ReloadWithTheSameChecksum()
+    {
+        var world = new World(3, CourseTests.ThreeHoles());
+        Assert.True(world.AddHole(world.Terrain!.Course[2].Tee, world.Terrain.Course[2].Hole));
+        var queued = Load(Save(world));
+        Assert.Equal(world.Checksum(), queued.Checksum());
+        world.Step();
+        queued.Step();
+        Assert.Equal(4, queued.Terrain!.Course.Count);
+        Assert.Equal(world.Checksum(), queued.Checksum());
+
+        world.SpawnGroup();
+        for (var i = 0; i < 120_000 && !world.Groups.All(g => g.Finished); i++)
+        {
+            world.Step();
+        }
+
+        Assert.True(world.RemoveLastHole());
+        var removing = Load(Save(world));
+        Assert.Equal(world.Checksum(), removing.Checksum());
+        world.Step();
+        removing.Step();
+        var after = Load(Save(world));
+        Assert.Equal(3, after.Terrain!.Course.Count);
+        Assert.Equal(world.Checksum(), after.Checksum());
+        Assert.Equal(world.Checksum(), removing.Checksum());
+        after.Step(1000);
+        world.Step(1000);
+        Assert.Equal(world.Checksum(), after.Checksum());
+    }
+
     [Fact]
     public void Load_WrongMagic_Throws()
     {
@@ -303,9 +336,229 @@ public class SaveTests
     public void Load_UnknownVersion_Throws()
     {
         var bytes = Save(Build(1, "proto", "start"));
-        bytes[4] = 2;
+        bytes[4] = 9;
 
         Assert.Throws<InvalidDataException>(() => Load(bytes));
+    }
+
+    [Theory]
+    [InlineData(2)]
+    [InlineData(3)] // C12 lot 4 : planification en cours dans le golfeur, champs de flux en attente et en cache dans le monde
+    public void Load_VersionTwoOrThree_SaysItIsAnOlderVersion(byte version)
+    {
+        var bytes = Save(Build(1, "proto", "start"));
+        bytes[4] = version;
+
+        var e = Assert.Throws<InvalidDataException>(() => Load(bytes));
+        Assert.Contains("ancienne version", e.Message);
+    }
+
+    [Fact]
+    public void Load_VersionOne_SaysItIsAnOlderVersion()
+    {
+        var bytes = Save(Build(1, "proto", "start"));
+        bytes[4] = 1;
+
+        var e = Assert.Throws<InvalidDataException>(() => Load(bytes));
+        Assert.Contains("ancienne version", e.Message);
+    }
+
+    /// <summary>C12 lot 1 : parcours de trois trous, groupe en jeu, une pose de départ du trou 3 en file.</summary>
+    private static World ThreeHoleWorld(ulong seed, bool queued)
+    {
+        var world = new World(seed, CourseTests.ThreeHoles());
+        world.SetLoadMode(6);
+        world.SpawnGroup();
+        world.Step(300);
+        if (queued)
+        {
+            Assert.True(world.PlaceTee(3, world.Terrain!.Course[3].Tee));
+            Assert.True(world.PlaceHole(2, world.Terrain.Course[2].Hole));
+        }
+
+        return world;
+    }
+
+    [Theory]
+    [InlineData(1UL, false)]
+    [InlineData(2UL, true)]
+    public void ThreeHoleCourse_ReloadedAndAdvanced_HasTheSameChecksum(ulong seed, bool queued)
+    {
+        var original = ThreeHoleWorld(seed, queued);
+        var bytes = Save(original);
+
+        var loaded = Load(bytes);
+        Assert.Equal(original.Checksum(), loaded.Checksum());
+        Assert.Equal(3, loaded.Terrain!.Course.Count);
+        Assert.Equal(original.Terrain!.Course[3].Tee, loaded.Terrain.Course[3].Tee);
+        Assert.Equal(original.Terrain.Course[2].Par, loaded.Terrain.Course[2].Par);
+        Assert.Equal(bytes, Save(loaded));
+        original.Step(2000);
+        loaded.Step(2000);
+
+        Assert.Equal(original.Checksum(), loaded.Checksum());
+    }
+
+    /// <summary>C12 lot 2 : cinq groupes, le premier en route vers le départ du trou 2, les derniers encore dans la file.</summary>
+    private static World MidPlayThreeHoles(ulong seed)
+    {
+        var world = new World(seed, CourseTests.ThreeHoles());
+        for (var i = 0; i < 5; i++)
+        {
+            world.SpawnGroup();
+        }
+
+        for (var i = 0; i < 60_000 && !world.Groups.SelectMany(g => g.Golfers).Any(g => g.State == GolferState.ToNextTee); i++)
+        {
+            world.Step();
+        }
+
+        Assert.Contains(world.Groups, g => g.Hole == 2);
+        Assert.Contains(world.Groups, g => !g.Released);
+        return world;
+    }
+
+    [Theory]
+    [InlineData(1UL)]
+    [InlineData(2UL)]
+    public void MidPlay_HoleCardsAndQueue_ReloadedAndAdvanced_HaveTheSameChecksum(ulong seed)
+    {
+        var original = MidPlayThreeHoles(seed);
+        var bytes = Save(original);
+
+        var loaded = Load(bytes);
+        Assert.Equal(original.Checksum(), loaded.Checksum());
+        Assert.Equal(original.Groups.Select(g => (g.Hole, g.Released)), loaded.Groups.Select(g => (g.Hole, g.Released)));
+        Assert.Equal(original.Groups[0].Golfers[0].Card!.Gross, loaded.Groups[0].Golfers[0].Card!.Gross);
+        Assert.Equal(bytes, Save(loaded));
+        original.Step(3000);
+        loaded.Step(3000);
+
+        Assert.Equal(original.Checksum(), loaded.Checksum());
+    }
+
+    /// <summary>C12 lot 4 : un golfeur au milieu de la planification de son coup (candidats déjà évalués), et des champs de flux qui attendent après une retouche.</summary>
+    [Theory]
+    [InlineData("plan")]
+    [InlineData("flow")]
+    public void MidPlanOrMidRetouch_ReloadedAndAdvanced_HasTheSameChecksum(string scenario)
+    {
+        var original = new World(4, Hole("dogleg"));
+        original.SetLoadMode(40);
+        original.SpawnGroup();
+        if (scenario == "plan")
+        {
+            for (var i = 0; i < 6000 && !original.Groups[0].Golfers.Any(g => g.Plan is { IsDone: false, Stage: > 0 } or { IsDone: false, Cursor: > 20 }); i++)
+            {
+                original.Step();
+            }
+
+            Assert.Contains(original.Groups[0].Golfers, g => g.Plan is { IsDone: false });
+        }
+        else
+        {
+            original.Step(300);
+            original.PaintSurface(new Point2(150, 70), 12, Surface.Bunker);
+            original.Step();
+            Assert.NotEmpty(original.Flow!.Pending);
+        }
+
+        var bytes = Save(original);
+        var loaded = Load(bytes);
+        Assert.Equal(original.Checksum(), loaded.Checksum());
+        Assert.Equal(bytes, Save(loaded));
+        original.Step(600);
+        loaded.Step(600);
+
+        Assert.Equal(original.Checksum(), loaded.Checksum());
+    }
+
+    [Fact]
+    public void NewState_EntersTheChecksum()
+    {
+        var a = MidPlayThreeHoles(1);
+        var b = Load(Save(a));
+        var before = b.Checksum();
+        b.Groups[0].Hole = 3;
+        Assert.NotEqual(before, b.Checksum());
+        b.Groups[0].Hole = 2;
+        b.Groups[0].Golfers[0].Card!.Record(2, 4);
+        Assert.NotEqual(before, b.Checksum());
+        b.Groups[0].Golfers[0].Card!.PickUp(2);
+        b.Groups[^1].Released = true;
+        Assert.NotEqual(before, b.Checksum());
+    }
+
+    [Theory]
+    [InlineData("hole")]
+    [InlineData("card")]
+    public void Load_GroupHoleOrCardOutsideTheCourse_Throws(string what)
+    {
+        var world = new World(1, CourseTests.ThreeHoles());
+        var group = world.SpawnGroup();
+        world.Step(10);
+        var bytes = Save(world);
+        var raw = Unpack(bytes);
+        byte[] pattern;
+        int offset;
+        if (what == "hole")
+        {
+            // Group: id, league round (-1), release tick, started, hole, released.
+            pattern = [.. BitConverter.GetBytes(group.Id), .. BitConverter.GetBytes(-1), .. BitConverter.GetBytes(0L), (byte)(group.Started ? 1 : 0), .. BitConverter.GetBytes(group.Hole)];
+            offset = pattern.Length - 4;
+        }
+        else
+        {
+            // Score card: hole count then pars (three holes of par four) ; claim nine holes.
+            pattern = [.. BitConverter.GetBytes(3), .. BitConverter.GetBytes(4), .. BitConverter.GetBytes(4), .. BitConverter.GetBytes(4)];
+            offset = 0;
+        }
+
+        var index = raw.AsSpan().IndexOf(pattern);
+        Assert.True(index >= 0, "motif introuvable dans le corps");
+        raw[index + offset] = (byte)(what == "hole" ? 9 : 2);
+        var forged = Pack(bytes, raw, Golferoo.Sim.Save.SaveFormat.Hash(raw));
+
+        Assert.Throws<InvalidDataException>(() => Load(forged));
+    }
+
+    [Fact]
+    public void Load_HoleCommandOutsideTheCourse_Throws()
+    {
+        var terrain = CourseTests.ThreeHoles();
+        var world = new World(1, terrain);
+        var at = terrain.Course[3].Tee;
+        Assert.True(world.PlaceTee(3, at));
+        var bytes = Save(world);
+        var body = new MemoryStream();
+        using (var gzip = new GZipStream(new MemoryStream(bytes, 28, bytes.Length - 28), CompressionMode.Decompress))
+        {
+            gzip.CopyTo(body);
+        }
+
+        var raw = body.ToArray();
+        var pattern = BitConverter.GetBytes(3).Append((byte)1).Concat(BitConverter.GetBytes(at.X)).Concat(BitConverter.GetBytes(at.Z)).ToArray();
+        var index = raw.AsSpan().IndexOf(pattern);
+        Assert.True(index >= 0, "commande de trou introuvable dans le corps");
+        raw[index] = 7;
+        var forged = Pack(bytes, raw, Golferoo.Sim.Save.SaveFormat.Hash(raw));
+
+        var e = Assert.Throws<InvalidDataException>(() => Load(forged));
+        Assert.Contains("incohérente", e.Message);
+    }
+
+    [Fact]
+    public void BlankTerrain_ReloadedAfterOpening_KeepsItsHoleState()
+    {
+        var blank = HoleLoader.Load(Path.Combine(Path.GetDirectoryName(TerrainTests.HolePath())!, "blank-coude.json"), 2);
+        var world = new World(1, blank);
+        world.Step();
+        Assert.False(world.HoleOpen);
+
+        var loaded = Load(Save(world));
+
+        Assert.False(loaded.HoleOpen);
+        Assert.Equal(world.Checksum(), loaded.Checksum());
     }
 
     [Fact]

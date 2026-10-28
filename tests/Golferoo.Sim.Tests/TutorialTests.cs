@@ -57,8 +57,8 @@ public class TutorialTests
         Plant(world);
         PaintTeeAndFairway(world);
         PaintGreen(world);
-        Assert.True(world.PlaceTee(TeeSpot));
-        Assert.True(world.PlaceHole(GreenSpot));
+        Assert.True(world.PlaceTee(1, TeeSpot));
+        Assert.True(world.PlaceHole(1, GreenSpot));
         world.Step();
         Assert.Equal(TutorialStep.Done, TutorialSteps.Current(world));
         Assert.True(world.HoleOpen);
@@ -92,8 +92,8 @@ public class TutorialTests
     {
         var world = BlankWorld();
 
-        Assert.False(world.PlaceTee(TeeSpot));
-        Assert.False(world.PlaceHole(GreenSpot));
+        Assert.False(world.PlaceTee(1, TeeSpot));
+        Assert.False(world.PlaceHole(1, GreenSpot));
         Assert.Equal(0, world.PendingEdits);
     }
 
@@ -114,8 +114,8 @@ public class TutorialTests
         world.PaintSurface(TeeSpot, 6, Surface.Tee);
         world.PaintSurface(new Point2(60, 244), 11, Surface.Green);
         world.Step();
-        world.PlaceTee(TeeSpot);
-        world.PlaceHole(new Point2(60, 244));
+        world.PlaceTee(1, TeeSpot);
+        world.PlaceHole(1, new Point2(60, 244));
         world.Step();
 
         Assert.Contains(HoleIssue.TooClose, HoleCheck.Check(world.Terrain!));
@@ -130,8 +130,8 @@ public class TutorialTests
         world.Step();
         world.PaintSurface(GreenSpot, 11, Surface.Green);
         world.Step();
-        world.PlaceTee(TeeSpot);
-        world.PlaceHole(GreenSpot);
+        world.PlaceTee(1, TeeSpot);
+        world.PlaceHole(1, GreenSpot);
         world.Step();
 
         Assert.Contains(HoleIssue.NoPath, HoleCheck.Check(world.Terrain!));
@@ -196,8 +196,8 @@ public class TutorialTests
         Plant(world);
         PaintTeeAndFairway(world);
         PaintGreen(world);
-        world.PlaceTee(TeeSpot);
-        world.PlaceHole(GreenSpot);
+        world.PlaceTee(1, TeeSpot);
+        world.PlaceHole(1, GreenSpot);
         world.Step();
         Assert.Equal(TutorialStep.Done, TutorialSteps.Current(world));
 
@@ -216,8 +216,8 @@ public class TutorialTests
         Plant(world);
         PaintTeeAndFairway(world);
         PaintGreen(world);
-        world.PlaceTee(TeeSpot);
-        world.PlaceHole(GreenSpot);
+        world.PlaceTee(1, TeeSpot);
+        world.PlaceHole(1, GreenSpot);
         world.Step();
 
         Assert.Equal(2, world.SpawnGroup().Golfers.Count);

@@ -10,7 +10,7 @@ namespace Golferoo.Game.Rendering;
 /// Tondeuses du matin, au rendu seulement : pendant le premier quart de la journée, une tondeuse par zone tondue ce jour-là
 /// (<see cref="TurfGrid.IsMowedOn"/>, composantes connexes d'une même surface) la parcourt en allers-retours le long des bandes de tonte.
 /// Elle s'arrête quand un golfeur est à moins de <see cref="StopDistance"/> m. Rien de ce qu'elle fait ne revient dans la simulation.
-/// Au plus <see cref="MaxMowers"/> zones servies, les plus proches du trou d'abord.
+/// Au plus <see cref="MaxMowers"/> zones servies, réparties sur les trous du parcours : chaque zone va au trou dont le drapeau est le plus proche, puis on prend à tour de rôle la plus proche de chaque trou.
 /// </summary>
 public partial class MowerLayer : Node3D
 {
@@ -105,10 +105,26 @@ public partial class MowerLayer : Node3D
 
         _mowers.Clear();
         var grid = _grid!;
-        var hole = new Vector2((float)grid.Hole.X, (float)grid.Hole.Z);
-        var zones = FindZones(grid, dayIndex);
-        zones.Sort((a, b) => a.Centroid.DistanceSquaredTo(hole).CompareTo(b.Centroid.DistanceSquaredTo(hole)));
-        foreach (var zone in zones.Take(MaxMowers))
+        var pins = grid.Course.Holes.Select(h => new Vector2((float)h.Hole.X, (float)h.Hole.Z)).ToArray();
+        var perHole = pins.Select(_ => new List<Zone>()).ToArray();
+        foreach (var zone in FindZones(grid, dayIndex))
+        {
+            var nearest = Enumerable.Range(0, pins.Length).MinBy(i => zone.Centroid.DistanceSquaredTo(pins[i]));
+            perHole[nearest].Add(zone);
+        }
+
+        for (var i = 0; i < pins.Length; i++)
+        {
+            perHole[i].Sort((a, b) => a.Centroid.DistanceSquaredTo(pins[i]).CompareTo(b.Centroid.DistanceSquaredTo(pins[i])));
+        }
+
+        var served = new List<Zone>();
+        for (var rank = 0; served.Count < MaxMowers && perHole.Any(z => rank < z.Count); rank++)
+        {
+            served.AddRange(perHole.Where(z => rank < z.Count).Select(z => z[rank]));
+        }
+
+        foreach (var zone in served.Take(MaxMowers))
         {
             if (LoadModel(zone) is not { } node)
             {
