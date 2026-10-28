@@ -5,6 +5,7 @@ using Golferoo.Game.Rendering;
 using Golferoo.Game.Tools;
 using Golferoo.Game.Ui;
 using Golferoo.Sim;
+using Golferoo.Sim.Economy;
 using Golferoo.Sim.Golfers;
 using Golferoo.Sim.Terrain;
 using Golferoo.Sim.Trees;
@@ -1252,9 +1253,9 @@ public partial class SmokeTest : Node
         }
 
         var planted = world.Trees.Trees[^1];
-        if (world.TreeSpending != TreeCosts.Mound || !tool.Select(planted.Id) || !tool.Describe().Contains("ans"))
+        if (-world.Ledger.Current(LedgerCategory.Trees) != world.Economy.TreeMound || !tool.Select(planted.Id) || !tool.Describe().Contains("ans"))
         {
-            failures.Add($"outil arbres : dépenses {world.TreeSpending}, panneau « {tool.Describe()} »");
+            failures.Add($"outil arbres : dépenses {-world.Ledger.Current(LedgerCategory.Trees)}, panneau « {tool.Describe()} »");
         }
 
         var standing = trees.TreeCount;
@@ -1296,10 +1297,11 @@ public partial class SmokeTest : Node
             failures.Add($"outil arbres, abattage : sim {world.Trees.Count}, couche {trees.TotalCount}");
         }
 
-        var expected = TreeCosts.Mound + TreeCosts.ClearFallen + TreeCosts.Sapling + TreeCosts.Raze;
-        if (world.TreeSpending != expected)
+        var e = world.Economy;
+        var expected = e.TreeMound + e.TreeClearFallen + e.TreeSapling + e.TreeRaze;
+        if (-world.Ledger.Current(LedgerCategory.Trees) != expected)
         {
-            failures.Add($"outil arbres : dépenses {world.TreeSpending}, attendu {expected}");
+            failures.Add($"outil arbres : dépenses {-world.Ledger.Current(LedgerCategory.Trees)}, attendu {expected}");
         }
 
         tool.SetActive(false);

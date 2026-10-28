@@ -937,7 +937,7 @@ public partial class Main : Node3D
         _messagePill?.SetVisible(Time.GetTicksMsec() < _messageUntil);
         if (_hud is { Visible: true })
         {
-            _hud.Text = $"{Engine.GetFramesPerSecond()} FPS | {Actors.VisibleGolfers} golfeurs | tick {World.Tick} | x{Speed}{(Paused ? " (pause)" : string.Empty)} | {DateText()} | travaux arbres {World.TreeSpending}\n{WeatherText()} | {StimpText()} | {RatingText()}{(_league is null ? string.Empty : $"\n{_league.ProText()}")}{(Time.GetTicksMsec() < _messageUntil ? "\n" + _message : string.Empty)}";
+            _hud.Text = $"{Engine.GetFramesPerSecond()} FPS | {Actors.VisibleGolfers} golfeurs | tick {World.Tick} | x{Speed}{(Paused ? " (pause)" : string.Empty)} | {DateText()} | solde {Golferoo.Sim.Economy.Ledger.Dollars(World.Ledger.Balance)}\n{WeatherText()} | {StimpText()} | {RatingText()}{(_league is null ? string.Empty : $"\n{_league.ProText()}")}{(Time.GetTicksMsec() < _messageUntil ? "\n" + _message : string.Empty)}";
         }
     }
 

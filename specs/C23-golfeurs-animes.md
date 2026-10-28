@@ -42,7 +42,7 @@ Dossier du projet, `c23/` : `golfer_polo_v4.blend`, `golfer_polo_v4.glb` (sans s
 - Teintes par `instance_shader_parameter` (polo par profil, peau, pantalon) et échelle ±5 % tirées de l'identifiant du golfeur (stables d'une partie à l'autre).
 
 **Synchronisation de l'impact**
-- La sim tient un golfeur en `Swinging` pendant `SwingTicksCount` (1 s) avant de lancer la balle. Ce délai devient la durée jusqu'à l'impact du swing (lue en donnée, arrondie au tick : environ 1,2 s si l'impact est vers 60 % des 2 s). C'est un changement de la sim : sommes de contrôle et bancs à revérifier, aucun nouvel état.
+- La sim tient un golfeur en `Swinging` pendant `SwingTicksCount` (1 s) avant de lancer la balle. Ce délai devient la durée jusqu'à l'impact du swing, arrondie au tick : 23 ticks (impact à l'image 35, 1,13 s). C'est une constante de la sim, qui ne lit aucun fichier ; la fumée échoue si l'impact écrit dans le `.glb` s'en écarte. C'est un changement de la sim : sommes de contrôle et bancs à revérifier, aucun nouvel état.
 - Chip : même swing joué plus vite et avec moins d'amplitude (mélange avec la pose de repos), impact au même tick. Putt provisoire : swing à 40 % d'amplitude.
 
 **Banc** : `--fps-bench-golfers 200` (et 100) dans `FpsBench` : 200 golfeurs qui marchent et frappent sur « Le neuf », caméra fixe qui en voit le plus possible ; `Mesurer FPS.bat` gagne ces deux mesures. **Repli** : si la mesure de Guillaume manque la cible, lot 3 passe aux animations cuites en texture lues par le shader d'un `MultiMesh`.
@@ -61,7 +61,7 @@ Aucun. Une mesure de sa part à la fin du lot 1 (`Mesurer FPS.bat`).
 1. `python -I tools/blender/golfer_anim.py` régénère `game/assets/golfers/golfer.glb` à l'identique (même empreinte) ; le fichier contient `walk`, `idle` et `golf_swing_2s`, 21 os, moins de 2 500 triangles, l'image d'impact en métadonnée.
 2. Dans la fumée Godot, un golfeur proche joue `walk` en marchant, `idle` en attendant, le swing en `Swinging`, et l'animation suit l'état quand il change.
 3. La balle quitte le sol au tick où le swing atteint son impact (fumée : écart d'au plus un tick entre l'image d'impact jouée et le départ de la balle).
-4. Test de la sim : un golfeur reste en `Swinging` exactement la durée d'impact lue en donnée ; même graine, même somme de contrôle ; `SaveTests` passe.
+4. Test de la sim : un golfeur reste en `Swinging` exactement `World.SwingTicksCount` ticks, et la fumée vérifie que cette constante tombe sur l'image d'impact du `.glb` à un tick près ; même graine, même somme de contrôle ; `SaveTests` passe.
 5. Le pool ne dépasse jamais sa borne ; au-delà de 150 m ou au-delà du pool, le golfeur est une silhouette du `MultiMesh` ; la bascule ne fait pas sauter sa position (fumée).
 6. La vitesse de la marche suit la vitesse du golfeur à 10 % près (pas de patinage visible ; fumée sur la distance parcourue par cycle).
 7. Les captures `c23-marche` et `c23-swing` montrent le modèle de Guillaume en marche et au sommet du swing.

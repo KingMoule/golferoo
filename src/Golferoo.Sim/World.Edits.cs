@@ -1,3 +1,4 @@
+using Golferoo.Sim.Economy;
 using Golferoo.Sim.Golfers;
 using Golferoo.Sim.Pathing;
 using Golferoo.Sim.Terrain;
@@ -17,7 +18,8 @@ public sealed partial class World
 
     /// <summary>
     /// Met en file la peinture de <paramref name="surface"/> sur les cellules dont le centre est dans le rayon (mètres, coordonnées monde).
-    /// Appliquée au début du tick suivant, sans coût ni annulation. Une peinture qui ne laisserait aucune cellule
+    /// Appliquée au début du tick suivant, sans annulation, débitée selon les cellules qui changent réellement (<see cref="EconomyParams.PaintCost"/>)
+    /// ou refusée entière par la limite de découvert (<see cref="Ledger.PurchaseRefused"/>). Une peinture qui ne laisserait aucune cellule
     /// franchissable sur la carte est ignorée. Golfeurs et balles au repos dans une cellule devenue infranchissable sont
     /// reposés sur la cellule franchissable la plus proche, sans pénalité ; une balle en vol qui retombe dans une telle
     /// cellule est reposée de même à l'atterrissage.
@@ -36,7 +38,8 @@ public sealed partial class World
     /// <summary>
     /// Met en file une montée (ou baisse si négatif) du relief, profil en cosinus dans le rayon. Delta borné par appel
     /// (<see cref="TerrainGrid.MaxRaiseDelta"/>), hauteur bornée (<see cref="TerrainGrid.MinHeight"/> à <see cref="TerrainGrid.MaxHeight"/>).
-    /// Appliquée au début du tick suivant.
+    /// Appliquée au début du tick suivant, débitée selon le volume réellement déplacé (<see cref="TerrainGrid.RaiseVolume"/>) ou refusée entière
+    /// par la limite de découvert.
     /// </summary>
     public void RaiseTerrain(Point2 center, double radius, double deltaMeters)
     {
@@ -68,11 +71,16 @@ public sealed partial class World
             CellRect? rect;
             if (e.IsPaint)
             {
+                // Prix : cellules qui changent réellement, au tarif de la surface d'arrivée. Refusée par la limite de découvert, rien ne change.
+                if (!terrain.KeepsWalkableCell(e.Center, e.Radius, e.Surface)
+                    || !TrySpend(LedgerCategory.Surfaces, Price(terrain.CountPaint(e.Center, e.Radius, e.Surface) * terrain.CellSize * terrain.CellSize, Economy.PaintCost(e.Surface))))
+                {
+                    continue;
+                }
+
                 // Arbres posés sur du sous-bois dans la zone : ceux qui perdent leur sous-bois sont retirés.
                 var onUnderbrush = e.Surface == Surface.Trees ? null : TreesOnUnderbrush(terrain, e.Center, e.Radius);
-                rect = terrain.KeepsWalkableCell(e.Center, e.Radius, e.Surface)
-                    ? terrain.PaintDisc(e.Center, e.Radius, e.Surface)
-                    : null;
+                rect = terrain.PaintDisc(e.Center, e.Radius, e.Surface);
                 if (rect is { } painted)
                 {
                     if (e.Surface == Surface.Trees)
@@ -87,6 +95,11 @@ public sealed partial class World
             }
             else
             {
+                if (!TrySpend(LedgerCategory.Relief, Price(terrain.RaiseVolume(e.Center, e.Radius, e.Delta), Economy.ReliefPerM3)))
+                {
+                    continue;
+                }
+
                 rect = terrain.RaiseDisc(e.Center, e.Radius, e.Delta);
                 if (rect is { } raised)
                 {

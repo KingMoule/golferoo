@@ -11,6 +11,9 @@ public readonly record struct TurfSettings(GreenSpeed GreenSpeed, FairwayFirmnes
 {
     public static TurfSettings Normal => new(GreenSpeed.Normal, FairwayFirmness.Normal, RoughLength.Normal);
 
+    /// <summary>Consignes exigeantes (C14) : greens rapides ou rough court ; l'entretien des trous est alors majoré.</summary>
+    public bool Demanding => GreenSpeed == GreenSpeed.Fast || RoughLength == RoughLength.Short;
+
     /// <summary>Hauteur visée du green, en mm : 3 (rapide), 4, 5 (lent).</summary>
     public double GreenMm => GreenSpeed switch { GreenSpeed.Fast => 3.0, GreenSpeed.Slow => 5.0, _ => 4.0 };
 
