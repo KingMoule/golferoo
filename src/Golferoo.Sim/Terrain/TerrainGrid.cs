@@ -5,21 +5,24 @@ using Golferoo.Sim.Trees;
 namespace Golferoo.Sim.Terrain;
 
 /// <summary>
-/// Terrain simulé : champ de hauteur lissé et une surface discrète par cellule, plus les repères du trou.
+/// Terrain simulé : champ de hauteur lissé et une surface discrète par cellule, plus le parcours (repères des trous).
 /// Unités : mètres, x vers l'est, z vers le sud, y la hauteur.
 /// </summary>
 public sealed class TerrainGrid
 {
     private readonly Surface[] _surfaces;
 
+    /// <summary>Terrain d'un trou : un parcours d'un seul trou, de numéro 1 et de par déduit.</summary>
     public TerrainGrid(HeightField heights, string name, Point2 tee, Point2 green, Point2 hole)
+        : this(heights, name, new Course([new CourseHole(1, tee, green, hole, DeducedPar(tee, hole))]))
+    {
+    }
+
+    public TerrainGrid(HeightField heights, string name, Course course)
     {
         Heights = heights ?? throw new ArgumentNullException(nameof(heights));
         Name = name;
-        Tee = tee;
-        Green = green;
-        Hole = hole;
-        Par = DeducedPar(tee, hole);
+        Course = course ?? throw new ArgumentNullException(nameof(course));
         _surfaces = new Surface[heights.CellsX * heights.CellsZ];
         Array.Fill(_surfaces, Surface.Rough);
         Turf = new Golferoo.Sim.Turf.TurfGrid(this);
@@ -37,6 +40,9 @@ public sealed class TerrainGrid
     public Puddles Puddles { get; }
 
     public HeightField Heights { get; }
+
+    /// <summary>Les trous du parcours posés sur cette carte : un seul pour un fichier de trou.</summary>
+    public Course Course { get; internal set; }
 
     /// <summary>Arbres isolés listés par le fichier du trou, plantés à la création du monde (vide hors fichier).</summary>
     public IReadOnlyList<Golferoo.Sim.Trees.TreePlacement> IsolatedTrees { get; internal set; } = [];
@@ -63,20 +69,21 @@ public sealed class TerrainGrid
 
     public string Name { get; }
 
-    /// <summary>Position de départ, en mètres.</summary>
-    public Point2 Tee { get; private set; }
+    /// <summary>Départ du trou 1, en mètres (raccourci de <c>Course[1].Tee</c> ; les groupes ne jouent que le trou 1 jusqu'au lot 2 de C12).</summary>
+    public Point2 Tee => Course[1].Tee;
 
     /// <summary>Terre vierge (C07) : le fichier ne donne que des repères provisoires, départ et trou sont à poser et le trou reste fermé jusqu'à ce qu'il soit valide.</summary>
     public bool Blank { get; internal set; }
 
-    /// <summary>Déplace le départ (pose du joueur, C07) ; compté dans la somme de contrôle du terrain.</summary>
-    internal void MoveTee(Point2 tee) => Tee = tee;
+    /// <summary>Centre du green du trou 1, en mètres.</summary>
+    public Point2 Green => Course[1].Green;
 
-    /// <summary>Centre du green, en mètres.</summary>
-    public Point2 Green { get; }
-
-    /// <summary>Par du trou : celui du fichier, sinon déduit de la distance tee-trou.</summary>
-    public int Par { get; internal set; }
+    /// <summary>Par du trou 1 : celui du fichier, sinon déduit de la distance tee-trou.</summary>
+    public int Par
+    {
+        get => Course[1].Par;
+        internal set => Course[1].Par = value;
+    }
 
     /// <summary>Barème de l'USGA : jusqu'à 230 m par 3, jusqu'à 430 m par 4, au-delà par 5.</summary>
     public static int DeducedPar(Point2 tee, Point2 hole)
@@ -85,11 +92,8 @@ public sealed class TerrainGrid
         return d <= 230.0 ? 3 : d <= 430.0 ? 4 : 5;
     }
 
-    /// <summary>Position du trou, en mètres.</summary>
-    public Point2 Hole { get; private set; }
-
-    /// <summary>Déplace le drapeau (changement de jour) ; la balle et les golfeurs lisent <see cref="Hole"/> à chaque coup, aucun champ de flux n'en dépend.</summary>
-    internal void MovePin(Point2 hole) => Hole = hole;
+    /// <summary>Drapeau du trou 1, en mètres.</summary>
+    public Point2 Hole => Course[1].Hole;
 
     public int CellsX => Heights.CellsX;
 
@@ -326,12 +330,7 @@ public sealed class TerrainGrid
             hash *= 0x100000001B3UL;
         }
 
-        foreach (var p in new[] { Tee, Green, Hole })
-        {
-            Mix(ref hash, (ulong)BitConverter.DoubleToInt64Bits(p.X));
-            Mix(ref hash, (ulong)BitConverter.DoubleToInt64Bits(p.Z));
-        }
-
+        Course.MixInto(ref hash);
         return hash;
     }
 
@@ -340,10 +339,7 @@ public sealed class TerrainGrid
     {
         Heights.Write(w);
         w.String(Name);
-        w.Point(Tee);
-        w.Point(Green);
-        w.Point(Hole);
-        w.Int(Par);
+        Course.Write(w);
         w.Bool(Blank);
         w.Long(Version);
         w.Long(SurfaceVersion);
@@ -362,10 +358,9 @@ public sealed class TerrainGrid
     {
         var heights = HeightField.Read(r);
         var name = r.String();
-        var (tee, green, hole) = (r.Point(), r.Point(), r.Point());
-        var terrain = new TerrainGrid(heights, name, tee, green, hole)
+        var course = Course.Read(r);
+        var terrain = new TerrainGrid(heights, name, course)
         {
-            Par = r.Int(),
             Blank = r.Bool(),
             Version = r.Long(),
             SurfaceVersion = r.Long(),
@@ -386,7 +381,7 @@ public sealed class TerrainGrid
         return terrain;
     }
 
-    private static void Mix(ref ulong hash, ulong value)
+    internal static void Mix(ref ulong hash, ulong value)
     {
         for (var i = 0; i < 8; i++)
         {

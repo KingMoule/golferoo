@@ -561,8 +561,8 @@ public partial class Captures : Node
 
         world.PaintSurface(new Point2(268, 56), 11, Surface.Green);
         main.StepTicks(1);
-        world.PlaceTee(new Point2(28, 244));
-        world.PlaceHole(new Point2(268, 56));
+        world.PlaceTee(1, new Point2(28, 244));
+        world.PlaceHole(1, new Point2(268, 56));
         main.StepTicks(2);
         GD.Print($"TUTORIAL ouvert={world.HoleOpen} etape={Golferoo.Sim.Tutorial.TutorialSteps.Current(world)}");
         main.Camera.SetView(45f, 220f, center);

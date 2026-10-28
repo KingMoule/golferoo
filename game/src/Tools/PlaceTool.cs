@@ -82,10 +82,10 @@ public partial class PlaceTool : Node
             switch (grid.SurfaceAt(point.X, point.Z))
             {
                 case Surface.Tee:
-                    _main.World.PlaceTee(point);
+                    _main.World.PlaceTee(1, point);
                     break;
                 case Surface.Green:
-                    _main.World.PlaceHole(point);
+                    _main.World.PlaceHole(1, point);
                     break;
                 default:
                     break;

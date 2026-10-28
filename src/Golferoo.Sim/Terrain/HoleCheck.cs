@@ -23,7 +23,11 @@ public static class HoleCheck
     public const double MinGreenArea = 300.0;
     public const double MinDistance = 50.0;
 
-    public static List<HoleIssue> Check(TerrainGrid terrain)
+    /// <summary>Vérifie le trou 1 (un terrain d'un trou).</summary>
+    public static List<HoleIssue> Check(TerrainGrid terrain) => Check(terrain, terrain.Course[1]);
+
+    /// <summary>Vérifie un trou du parcours. Les surfaces (surface de départ, de fairway, de green) se comptent sur toute la carte.</summary>
+    public static List<HoleIssue> Check(TerrainGrid terrain, CourseHole hole)
     {
         var issues = new List<HoleIssue>();
         if (Area(terrain, Surface.Tee) < MinTeeArea)
@@ -41,8 +45,8 @@ public static class HoleCheck
             issues.Add(HoleIssue.GreenTooSmall);
         }
 
-        var teeOk = terrain.SurfaceAt(terrain.Tee.X, terrain.Tee.Z) == Surface.Tee;
-        var holeOk = terrain.SurfaceAt(terrain.Hole.X, terrain.Hole.Z) == Surface.Green;
+        var teeOk = terrain.SurfaceAt(hole.Tee.X, hole.Tee.Z) == Surface.Tee;
+        var holeOk = terrain.SurfaceAt(hole.Hole.X, hole.Hole.Z) == Surface.Green;
         if (!teeOk)
         {
             issues.Add(HoleIssue.TeeNotPlaced);
@@ -55,14 +59,14 @@ public static class HoleCheck
 
         if (teeOk && holeOk)
         {
-            var dx = terrain.Hole.X - terrain.Tee.X;
-            var dz = terrain.Hole.Z - terrain.Tee.Z;
+            var dx = hole.Hole.X - hole.Tee.X;
+            var dz = hole.Hole.Z - hole.Tee.Z;
             if ((dx * dx) + (dz * dz) < MinDistance * MinDistance)
             {
                 issues.Add(HoleIssue.TooClose);
             }
 
-            if (!Connected(terrain, terrain.Tee, terrain.Hole))
+            if (!Connected(terrain, hole.Tee, hole.Hole))
             {
                 issues.Add(HoleIssue.NoPath);
             }

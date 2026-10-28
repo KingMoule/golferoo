@@ -67,8 +67,8 @@ public class SaveTests
         world.RazeTree(world.Trees.Trees[0].Id);
         world.SetTurfSettings(TurfSettings.Normal with { GreenSpeed = GreenSpeed.Fast });
         world.SetCourseRating(new CourseRating(1, terrain.Par, 3.4, 4.6));
-        Assert.True(world.PlaceTee(terrain.Tee));
-        Assert.True(world.PlaceHole(terrain.Hole));
+        Assert.True(world.PlaceTee(1, terrain.Tee));
+        Assert.True(world.PlaceHole(1, terrain.Hole));
         world.PlayProShot(new ProShot(Clubs.Iron7, new Point2(200, 60), ShotShape.Fade, 0.8));
         Assert.Equal(1, world.PendingEdits - 1);
         Assert.True(world.PendingTreeCommands >= 2);
@@ -303,9 +303,69 @@ public class SaveTests
     public void Load_UnknownVersion_Throws()
     {
         var bytes = Save(Build(1, "proto", "start"));
-        bytes[4] = 2;
+        bytes[4] = 9;
 
         Assert.Throws<InvalidDataException>(() => Load(bytes));
+    }
+
+    [Fact]
+    public void Load_VersionOne_SaysItIsAnOlderVersion()
+    {
+        var bytes = Save(Build(1, "proto", "start"));
+        bytes[4] = 1;
+
+        var e = Assert.Throws<InvalidDataException>(() => Load(bytes));
+        Assert.Contains("ancienne version", e.Message);
+    }
+
+    /// <summary>C12 lot 1 : parcours de trois trous, groupe en jeu, une pose de départ du trou 3 en file.</summary>
+    private static World ThreeHoleWorld(ulong seed, bool queued)
+    {
+        var world = new World(seed, CourseTests.ThreeHoles());
+        world.SetLoadMode(6);
+        world.SpawnGroup();
+        world.Step(300);
+        if (queued)
+        {
+            Assert.True(world.PlaceTee(3, world.Terrain!.Course[3].Tee));
+            Assert.True(world.PlaceHole(2, world.Terrain.Course[2].Hole));
+        }
+
+        return world;
+    }
+
+    [Theory]
+    [InlineData(1UL, false)]
+    [InlineData(2UL, true)]
+    public void ThreeHoleCourse_ReloadedAndAdvanced_HasTheSameChecksum(ulong seed, bool queued)
+    {
+        var original = ThreeHoleWorld(seed, queued);
+        var bytes = Save(original);
+
+        var loaded = Load(bytes);
+        Assert.Equal(original.Checksum(), loaded.Checksum());
+        Assert.Equal(3, loaded.Terrain!.Course.Count);
+        Assert.Equal(original.Terrain!.Course[3].Tee, loaded.Terrain.Course[3].Tee);
+        Assert.Equal(original.Terrain.Course[2].Par, loaded.Terrain.Course[2].Par);
+        Assert.Equal(bytes, Save(loaded));
+        original.Step(2000);
+        loaded.Step(2000);
+
+        Assert.Equal(original.Checksum(), loaded.Checksum());
+    }
+
+    [Fact]
+    public void BlankTerrain_ReloadedAfterOpening_KeepsItsHoleState()
+    {
+        var blank = HoleLoader.Load(Path.Combine(Path.GetDirectoryName(TerrainTests.HolePath())!, "blank-coude.json"), 2);
+        var world = new World(1, blank);
+        world.Step();
+        Assert.False(world.HoleOpen);
+
+        var loaded = Load(Save(world));
+
+        Assert.False(loaded.HoleOpen);
+        Assert.Equal(world.Checksum(), loaded.Checksum());
     }
 
     [Fact]
