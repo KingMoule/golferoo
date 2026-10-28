@@ -56,14 +56,10 @@ public partial class BottomBar : Control
         bar.SetAnchorsAndOffsetsPreset(LayoutPreset.BottomWide);
         bar.OffsetTop = -Height;
 
-        // Le tiroir : centré au-dessus de la barre ; la colonne qui le porte laisse passer la souris partout ailleurs.
-        var dock = new VBoxContainer { Name = "DrawerDock", Alignment = BoxContainer.AlignmentMode.End, MouseFilter = MouseFilterEnum.Ignore };
-        dock.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
-        dock.OffsetBottom = -Height - 12f;
+        // Le tiroir : centré au-dessus de la barre, sous la pile des panneaux, dans la même colonne qu'elle.
         bar.Drawer = ToolDrawer.Create(main, bar, thumbnails);
         bar.Drawer.SizeFlagsHorizontal = SizeFlags.ShrinkCenter;
-        dock.AddChild(bar.Drawer);
-        root.AddChild(dock);
+        main.Panels.Dock.AddChild(bar.Drawer);
 
         bar.AddChild(bar.TopTier());
         bar.AddChild(bar.BottomTier());

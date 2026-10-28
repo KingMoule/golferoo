@@ -25,7 +25,6 @@ public partial class Brush : Node3D
         Surface.Tee, Surface.Green, Surface.Fairway, Surface.Rough, Surface.Bunker, Surface.Water, Surface.Trees, Surface.Path,
     ];
 
-
     private const int RingSegments = 48;
 
     private Main? _main;

@@ -81,8 +81,7 @@ public partial class LeaguePanel : Node
     {
         if (_panel.Visible)
         {
-            _main.Panels.Close(_cardPanel);
-            _main.Panels.Close(_panel);
+            _panel.EmitSignal(UiPanel.SignalName.Closed);
             return;
         }
 
