@@ -16,7 +16,7 @@ Journal des commandes et rejeu (moitié de F4) avec les scénarios ; sauvegardes
 
 ## Règles de projet
 - Fusion : une PR prête (quatre jobs de CI verts sur le dernier commit, audit prévu par la spec sans bloquant, aucun commentaire de revue ouvert) est fusionnée par la session elle-même (`merge_pull_request`, méthode merge, `expectedHeadSha`). On ne supprime pas la branche. Exception : une PR qui touche `CLAUDE.md`, `.claude/` ou `docs/workflow.md` attend Guillaume.
-- Guillaume délègue les choix de cadrage aux recommandations de la session (2026-10-27) : décider, noter dans la spec, ne le solliciter que pour ce qu'il est seul à pouvoir faire.
+- Chantiers de l'alpha (C13 à C24) : Guillaume veut être interrogé avant chaque spec (2026-10-28) ; rondes de questions numérotées avec recommandation, maquette quand c'est visuel, spec validée par lui avant les lots. Ailleurs, la délégation du 2026-10-27 tient : décider et noter dans la spec.
 - Assets 3D : partir du catalogue `catalogue-assets/` (catalogue_complet.html et recensement-catalogue.md, dossier partagé du projet) ; filières dans `docs/assets-3d.md`.
 - Agents du dépôt non chargés en session cloud de projet : déléguer à un agent général qui lit `.claude/agents/<rôle>.md`. Deux codeurs en parallèle : un worktree chacun.
 
@@ -27,4 +27,4 @@ Journal des commandes et rejeu (moitié de F4) avec les scénarios ; sauvegardes
 `apt-get update` puis `apt-get install dotnet-sdk-10.0` ; `dotnet test Golferoo.sln` dure 8 à 10 min. Godot ne se télécharge pas : la CI fait foi. `gh` en REST seulement (GraphQL bloqué : `gh pr create` échoue, outil MCP GitHub à la place). Journaux CI trop gros : lignes de preuve en fin de job et dans le résumé (`$GITHUB_STEP_SUMMARY`). Mesure de référence (RTX 2080, 1080p) : 632 FPS prototype, 322 FPS à 5 000 arbres.
 
 ## Prochaine étape
-Plan de l'alpha (`docs/plan-alpha.md`, R04) : chantiers C13 à C24, décisions de Guillaume du 2026-10-28. Vague 1 (C13, C14, C21, C23 dès réception des fichiers Blender) à cadrer au signal de Guillaume.
+Plan de l'alpha (`docs/plan-alpha.md`, R04) : chantiers C13 à C24, décisions de Guillaume du 2026-10-28. Vague 1 : C13 cadré (`specs/C13-fondation-interface.md`, principes dans `docs/design-interface.md`), à valider par Guillaume ; puis cadrer C14, C21 et C23 (le swing `.blend` est dans le dossier du projet sous `c23/`).
