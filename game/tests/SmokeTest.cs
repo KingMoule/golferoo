@@ -1,3 +1,4 @@
+using System.Globalization;
 using Godot;
 using Golferoo.Game.Cameras;
 using Golferoo.Game.Rendering;
@@ -56,6 +57,7 @@ public partial class SmokeTest : Node
         {
             var tutorialFailures = CheckTutorial();
             CheckFollow(tutorialFailures);
+            CheckSave(tutorialFailures);
             Finish(tutorialFailures);
         }
     }
@@ -129,6 +131,39 @@ public partial class SmokeTest : Node
         main.StepTicks(20);
         GD.Print($"SMOKE tutoriel : trou valide, étape {Golferoo.Sim.Tutorial.TutorialSteps.Current(world)}");
         return failures;
+    }
+
+    /// <summary>C11 lot 3 : F5 et F8 dans l'InputMap ; sauve, recharge par la scène (un nouveau Main part du monde chargé), même somme de contrôle.</summary>
+    private void CheckSave(List<string> failures)
+    {
+        foreach (var action in new[] { "game_quicksave", "game_quickload" })
+        {
+            if (!InputMap.HasAction(action) || InputMap.ActionGetEvents(action).Count == 0)
+            {
+                failures.Add($"action {action} absente de l'InputMap");
+            }
+        }
+
+        var before = _main!.World.Checksum();
+        SaveSlots.Serialize(_main.World, out var ms);
+        string? error = null;
+        if (!_main.QuickSave() || (error = Main.TryLoad(SaveSlots.QuickPath)) is not null)
+        {
+            failures.Add($"sauvegarde ou lecture en échec : {error}");
+            return;
+        }
+
+        _main.QueueFree();
+        _main = GD.Load<PackedScene>("res://Main.tscn").Instantiate<Main>();
+        AddChild(_main);
+        var after = _main.World.Checksum();
+        if (after != before)
+        {
+            failures.Add($"somme de contrôle après rechargement {after:x16} au lieu de {before:x16}");
+            return;
+        }
+
+        GD.Print($"SAVE OK checksum={before:x16} apres={after:x16} serialisation={ms.ToString("F2", CultureInfo.InvariantCulture)} ms");
     }
 
     /// <summary>C10 lot 1 : touches de caméra dans l'InputMap, Début centre sur le départ, Tab lance le suivi (vérifié par <see cref="CheckFollow"/>).</summary>
