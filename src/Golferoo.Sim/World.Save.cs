@@ -195,6 +195,11 @@ public sealed partial class World
         }
 
         _manualPro = r.Bool();
+        if (_manualPro && League is null)
+        {
+            throw new InvalidDataException("Pro joué à la main sans ligue.");
+        }
+
         _resolver = resolver ?? (Terrain is null ? new StubShotResolver() : new PhysicalShotResolver());
         if (Terrain is not null)
         {

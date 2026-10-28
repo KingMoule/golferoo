@@ -148,12 +148,14 @@ public class SaveTests
             Func<bool> reached = scenario switch
             {
                 "round" => () => league.Rounds[0].Cards.Count > 0 && !league.Rounds[0].Closed,
+                "flight" => () => world.Groups.Any(g => g.LeagueRound >= 0 && g.Golfers.Any(x => x.State == GolferState.BallInFlight)),
                 "final" => () => league.Final.Cards.Count > 0 && !league.Final.Closed,
                 _ => () => league.Adjusted,
             };
             for (var i = 0; i < 40_000 && !reached(); i++)
             {
-                world.Step(100);
+                // "flight" : une fois la première journée lancée, tick par tick jusqu'à une balle de ligue en vol.
+                world.Step(scenario == "flight" && league.Rounds[0].StartDay >= 0 ? 1 : 100);
             }
 
             Assert.True(reached(), "scénario non atteint");
@@ -202,6 +204,7 @@ public class SaveTests
     [InlineData(3UL, "proto", "final")]
     [InlineData(2UL, "proto", "adjusted")]
     [InlineData(3UL, "proto", "training")]
+    [InlineData(1UL, "proto", "flight")]
     public void LeagueWorld_ReloadedAndAdvanced_HasTheSameChecksum(ulong seed, string map, string scenario)
     {
         var original = LeagueWorld(seed, map, scenario);
@@ -217,6 +220,16 @@ public class SaveTests
 
         Assert.Equal(original.Checksum(), loaded.Checksum());
         AssertSameLeague(original, loaded);
+    }
+
+    [Fact]
+    public void Load_ManualProWithoutALeague_Throws()
+    {
+        var bytes = Save(Build(1, "proto", "start"));
+        var raw = Unpack(bytes);
+        raw[^1] = 1; // _manualPro, dernier octet d'un monde sans ligue
+
+        Assert.Throws<InvalidDataException>(() => Load(Pack(bytes, raw, Golferoo.Sim.Save.SaveFormat.Hash(raw))));
     }
 
     [Fact]

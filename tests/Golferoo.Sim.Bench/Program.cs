@@ -190,8 +190,8 @@ allPassed &= dayChange.Median < dayChangeLimitMs;
 var leagueDay = MeasureLeagueDay(holePath);
 allPassed &= leagueDay.Median < leagueDayLimitMs;
 
-// Sauvegarde (C11 lot 2) d'un parcours chargé : 512 x 512, ligue en cours de journée, 5 000 arbres. Écriture en mémoire, relecture et taille du fichier.
-var save = MeasureSave();
+// Sauvegarde (C11 lot 2) du cas réel du jeu : dogleg, ligue en cours de journée, 5 000 arbres. Écriture en mémoire, relecture et taille du fichier.
+var save = MeasureSave(holePath);
 allPassed &= save.Save.Median < saveLimitMs && save.Load.Median < loadLimitMs && save.Bytes < saveFileLimitBytes;
 Console.WriteLine($"Sauvegarde ({save.Trees} arbres, ligue) : écriture {save.Save.Median:F1} ms (limite {saveLimitMs}), chargement {save.Load.Median:F1} ms (limite {loadLimitMs}), fichier {save.Bytes / 1024.0:F0} Ko (limite {saveFileLimitBytes / 1024:F0})");
 
@@ -499,23 +499,20 @@ static (int Groups, double Median, double Max) MeasureLeagueDay(string holePath)
     return (world.League.Rounds[0].Pairs.Count, samples[samples.Count / 2], samples[^1]);
 }
 
-static (int Trees, (double Mean, double P99, double Max, double Median) Save, (double Mean, double P99, double Max, double Median) Load, int Bytes) MeasureSave()
+static (int Trees, (double Mean, double P99, double Max, double Median) Save, (double Mean, double P99, double Max, double Median) Load, int Bytes) MeasureSave(string holePath)
 {
+    // Le cas réel du jeu : le dogleg (facteur 2), la ligue, et le boisement complété à 5 000 arbres en grille comme FpsBench.FillTrees.
     const int treeCount = 5_000;
-    var map = new TerrainGrid(new HeightField(512, 512, 2.0), "plat", new Point2(2, 2), new Point2(1000, 1000), new Point2(1000, 1000));
-    for (var z = 0; z < 512; z++)
+    var dogleg = HoleLoader.Load(Path.Combine(Path.GetDirectoryName(holePath)!, "dogleg-par4.json"), 2);
+    var world = new World(seed: 41, dogleg, league: true) { Climate = Climate.Calm };
+    var width = dogleg.CellsX * dogleg.CellSize;
+    var depth = dogleg.CellsZ * dogleg.CellSize;
+    var missing = treeCount - world.Trees.Count;
+    var step = Math.Sqrt(width * depth / missing);
+    var cols = Math.Max(1, (int)(width / step));
+    for (var i = 0; i < missing; i++)
     {
-        for (var x = 0; x < 512; x++)
-        {
-            map.PaintCell(x, z, Surface.Rough);
-        }
-    }
-
-    var world = new World(seed: 41, map, league: true) { Climate = Climate.Calm };
-    var placer = new DeterministicRng(42);
-    for (var i = 0; i < treeCount; i++)
-    {
-        world.Trees.Add(2 + (placer.NextDouble() * 1020), 2 + (placer.NextDouble() * 1020), (TreeSpeciesId)(i % TreeSpeciesTable.Count), 40 * 12);
+        world.Trees.Add(((i % cols) + 0.5) * width / cols, Math.Min(((i / cols) + 0.5) * step, depth - 0.5), (TreeSpeciesId)(i % 3), 40 * 12);
     }
 
     world.Step((world.League!.Rounds[0].NominalDay * Calendar.TicksPerDay) + 3_000);
