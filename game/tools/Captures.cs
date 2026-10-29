@@ -735,17 +735,6 @@ public partial class Captures : Node
         main.Camera.SetFreeView(200f, 40f, 60f, new Vector3((float)pond.X, (float)grid.Sample(pond.X, pond.Z), (float)pond.Z));
         await Frames(SettleFrames);
         Save("c21-eau");
-        // DIAG
-        var tm = main.TerrainView.GetChildren().OfType<MeshInstance3D>().First(c => c.Name.ToString().StartsWith("Terrain_")).MaterialOverride as ShaderMaterial;
-        tm!.SetShaderParameter("shore_depth", 0f);
-        await Frames(SettleFrames);
-        Save("c21-diag-sansenfoncement");
-        tm.SetShaderParameter("shore_depth", 1f);
-        var sun = main.FindChildren("*", "DirectionalLight3D", true, false).OfType<DirectionalLight3D>().First();
-        sun.ShadowEnabled = false;
-        await Frames(SettleFrames);
-        Save("c21-diag-sansombre");
-        sun.ShadowEnabled = true;
         main.Camera.SetMode(CameraMode.Iso, instant: true);
 
         for (var i = 0; i < 5; i++)

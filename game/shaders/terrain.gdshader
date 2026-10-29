@@ -60,7 +60,7 @@ void vertex() {
 		float ang = float(k) * 0.785398;
 		water += textureLod(weights_b, uv + vec2(cos(ang), sin(ang)) * (blur_meters * 0.5) / grid_size, 0.0).g;
 	}
-	VERTEX.y -= shore_depth * smoothstep(0.4, 0.9, water / 10.0);
+	VERTEX.y -= shore_depth * smoothstep(0.15, 0.9, water / 10.0);
 	wpos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
 }
 
@@ -76,7 +76,9 @@ void fragment() {
 	} else if (best == 4 && dist < lip_band) {
 		col *= vec3(0.84, 0.81, 0.74); // lèvre du bunker
 	} else if (best != 5 && second == 5 && dist < bank_band) {
-		col = vec3(0.42, 0.40, 0.27); // berge
+		// Berge : fondu vers l'intérieur de la bande (pas de marche à son bord), plus marqué côté herbe que côté sable.
+		float bank = 1.0 - smoothstep(0.0, bank_band, dist);
+		col = mix(col, vec3(0.42, 0.40, 0.27), (best == 4 ? 0.55 : 0.9) * bank);
 	}
 	// Anticrénelage : à moins d'un pixel de la frontière, la couleur fond vers la surface voisine.
 	float edge = clamp(dist / max(fwidth(dist), 1e-4), 0.0, 1.0);
