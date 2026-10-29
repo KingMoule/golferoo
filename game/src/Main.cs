@@ -39,7 +39,8 @@ public partial class Main : Node3D
     public const int LoadModeGolfers = 200;
     public const int MaxTicksPerFrame = 16;
 
-    private static readonly int[] Speeds = [1, 2, 4, 8, 16];
+    /// <summary>Les vitesses du jeu, de ×1 à ×16 (touches 1 à 5, boutons de la barre).</summary>
+    public static readonly int[] Speeds = [1, 2, 4, 8, 16];
 
     private readonly WorldSnapshot _snapshotA = new();
     private readonly WorldSnapshot _snapshotB = new();
@@ -74,10 +75,6 @@ public partial class Main : Node3D
     /// <summary>Moment de la journée imposé au soleil (captures) ; sans valeur, il suit le calendrier.</summary>
     public double? SunDayFraction { get; set; }
 
-    private static readonly string[] MonthNames = ["janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août", "septembre", "octobre", "novembre", "décembre"];
-    private static readonly string[] SeasonNames = ["printemps", "été", "automne", "hiver"];
-    private static readonly string[] SkyNames = ["soleil", "nuages", "pluie", "forte pluie"];
-
     // D'où vient le vent, par huitième de tour depuis le nord (−Z), dans le sens horaire (vers +X, l'est).
     private static readonly string[] CompassNames = ["N", "NE", "E", "SE", "S", "SO", "O", "NO"];
     private Rect2I? _dirtyCells;
@@ -111,6 +108,9 @@ public partial class Main : Node3D
 
     /// <summary>Racine de l'interface (calque « Ui ») : barre, tiroir, pastilles.</summary>
     public UiRoot Ui { get; private set; } = null!;
+
+    /// <summary>La pile des panneaux (Gazon, Ligue, Votre pro) au-dessus de la barre.</summary>
+    public PanelStack Panels { get; private set; } = null!;
 
     /// <summary>La barre du bas, d'où part tout outil.</summary>
     public BottomBar Bar { get; private set; } = null!;
@@ -312,16 +312,18 @@ public partial class Main : Node3D
         AddChild(TreeTool);
         TreeTool.Init(this);
 
-        Turf = new TurfPanel { Name = "TurfPanelLayer" };
+        Ui = UiTheme.CreateRoot(this);
+        Panels = PanelStack.Create(Ui);
+        Turf = new TurfPanel { Name = "TurfPanel" };
         AddChild(Turf);
         Turf.Init(this);
 
         if (World.League is not null)
         {
-            _league = new LeaguePanel { Name = "LeaguePanelLayer" };
+            _league = new LeaguePanel { Name = "LeaguePanel" };
             AddChild(_league);
             _league.Init(this);
-            ProPanel = new ProPanel { Name = "ProPanelLayer" };
+            ProPanel = new ProPanel { Name = "ProPanel" };
             AddChild(ProPanel);
             ProPanel.Init(this);
         }
@@ -361,7 +363,7 @@ public partial class Main : Node3D
 
         if (!FpsBench.Active)
         {
-            Tutorial = new TutorialPanel { Name = "TutorialPanelLayer" };
+            Tutorial = new TutorialPanel { Name = "Tutorial" };
             AddChild(Tutorial);
             Tutorial.Init(this, loaded is null && TutorialMode ? TutorialPanel.Mode.Welcome : loaded is null && OfferTutorial && OS.GetCmdlineUserArgs().Length == 0 ? TutorialPanel.Mode.Offer : TutorialPanel.Mode.Off);
         }
@@ -536,6 +538,9 @@ public partial class Main : Node3D
             case Key.F12:
                 ToggleDebug();
                 break;
+            case Key.Escape:
+                Panels.CloseLast();
+                break;
             case Key.G:
                 SpawnGroup();
                 break;
@@ -604,10 +609,9 @@ public partial class Main : Node3D
         RefreshHud();
     }
 
-    /// <summary>Calque d'interface : barre du bas et tiroir, pastille du trou suivi et des messages, en haut au centre.</summary>
+    /// <summary>Calque d'interface (sa pile de panneaux est déjà là) : barre du bas et tiroir, pastille du trou suivi et des messages, en haut au centre.</summary>
     private void BuildUi()
     {
-        Ui = UiTheme.CreateRoot(this);
         var thumbnails = new ThumbnailRenderer { Name = "Thumbnails" };
         AddChild(thumbnails);
         Bar = BottomBar.Create(this, Ui, thumbnails);
@@ -966,13 +970,13 @@ public partial class Main : Node3D
         var kmh = Math.Sqrt((w.X * w.X) + (w.Z * w.Z)) * 3.6;
         var from = Math.Atan2(-w.X, w.Z); // direction d'où il vient, comptée depuis le nord (−Z) vers l'est (+X)
         var octant = ((int)Math.Round(from / (Math.PI / 4.0)) + 8) % 8;
-        var forecast = string.Join(", ", Enumerable.Range(1, 3).Select(d => SkyNames[(int)World.Forecast(d)]));
-        return $"{SkyNames[(int)World.Weather.Sky]}, vent {kmh:0} km/h {CompassNames[octant]} | prévision : {forecast}";
+        var forecast = string.Join(", ", Enumerable.Range(1, 3).Select(d => UiNames.Skies[(int)World.Forecast(d)]));
+        return $"{UiNames.Skies[(int)World.Weather.Sky]}, vent {kmh:0} km/h {CompassNames[octant]} | prévision : {forecast}";
     }
 
     private string DateText()
     {
         var d = World.Date;
-        return $"{d.Day} {MonthNames[d.Month - 1]}, an {d.Year}, {SeasonNames[(int)d.Season]}";
+        return $"{d.Day} {UiNames.Months[d.Month - 1]}, an {d.Year}, {UiNames.Seasons[(int)d.Season]}";
     }
 }

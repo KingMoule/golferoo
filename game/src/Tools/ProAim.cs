@@ -24,7 +24,7 @@ public partial class ProAim : Node3D
     private static readonly string[] ShapeNames = ["Droit", "Draw", "Fade", "Chip"];
 
     private Main? _main;
-    private PanelContainer? _panel;
+    private Ui.UiPanel? _panel;
     private Label? _label;
     private HBoxContainer? _clubRow;
     private HBoxContainer? _shapeRow;
@@ -63,19 +63,14 @@ public partial class ProAim : Node3D
             },
         });
 
-        var layer = new CanvasLayer { Name = "ProAimLayer" };
-        _panel = new PanelContainer { Name = "ProAimPanel", Visible = false };
-        // En bas à droite, au-dessus de la barre : le panneau des consignes de tonte occupe le bas à gauche.
-        _panel.AnchorLeft = 1f;
-        _panel.AnchorRight = 1f;
-        _panel.AnchorTop = 1f;
-        _panel.AnchorBottom = 1f;
-        _panel.OffsetLeft = -620f;
-        _panel.OffsetRight = -8f;
-        _panel.OffsetTop = -190f - Ui.BottomBar.Height;
-        _panel.OffsetBottom = -8f - Ui.BottomBar.Height;
-        _panel.GrowVertical = Control.GrowDirection.Begin;
-        var box = new VBoxContainer();
+        // Hors de la pile : la visée s'ouvre et se ferme d'elle-même avec le tour du pro ; en haut à droite, loin de la pile du bas.
+        _panel = Ui.UiPanel.Create(Ui.UiIds.Panel.Aim, "Visée de votre pro", "figurine", 600f);
+        _panel.Visible = false;
+        _panel.CloseButton.Visible = false;
+        _panel.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.TopRight);
+        _panel.GrowHorizontal = Control.GrowDirection.Begin;
+        (_panel.OffsetTop, _panel.OffsetRight) = (16f, -16f);
+        var box = _panel.Content;
         _label = new Label();
         box.AddChild(_label);
         _clubRow = new HBoxContainer();
@@ -107,9 +102,7 @@ public partial class ProAim : Node3D
         play.Pressed += Play;
         forceRow.AddChild(play);
         box.AddChild(forceRow);
-        _panel.AddChild(box);
-        layer.AddChild(_panel);
-        AddChild(layer);
+        main.Ui.AddChild(_panel);
     }
 
     public override void _Process(double delta) => Sync();
