@@ -1,5 +1,5 @@
 # Progression de votre pro par l'expérience (C25)
-Statut : proposé
+Statut : validé (go de Guillaume le 2026-10-29)
 Créé : 2026-10-29
 
 ## But
@@ -81,7 +81,7 @@ D = distance visée (du départ au point visé). L'écart est mesuré entre l'ar
 Les lots 1 et 2 touchent des fichiers différents (`Pro/` d'un côté, `Shots/` de l'autre) et peuvent avancer en parallèle. Le lot 3 vient après le lot 1, et le lot 4 en dernier.
 
 ## Choix à trancher par Guillaume
-Aucun : la grille a été validée le 2026-10-29. Les seuils et le rythme se règlent en données au lot 4.
+Aucun : la grille et la spec ont été validées le 2026-10-29 (« go »). Les seuils et le rythme se règlent en données au lot 4.
 
 ## Critères d'acceptation
 1. Test : le draw au fer long, à pleine force, de 170 m, arrêté à 3 m du point visé, donne de l'XP à Fers longs, Draw, Distance et Précision, chacune égale à 10 × sa qualité calculée à la main ; il n'en donne ni à Dosage ni aux autres habiletés.
