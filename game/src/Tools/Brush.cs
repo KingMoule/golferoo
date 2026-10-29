@@ -34,8 +34,33 @@ public partial class Brush : Node3D
     private Vector3? _hit;
     private Vector2? _cursor;
     private MouseButton _stroke;
+    private ulong _strokeEnded;
+
+    /// <summary>Combien de temps réel le dernier coup de pinceau reste annulable (C14).</summary>
+    public const ulong UndoWindowMilliseconds = 5000;
 
     public bool Active { get; private set; }
+
+    /// <summary>Un coup de pinceau est en cours (bouton gardé).</summary>
+    public bool Stroking => _stroke != MouseButton.None;
+
+    /// <summary>Vrai pendant <see cref="UndoWindowMilliseconds"/> après un coup de pinceau qui a changé quelque chose.</summary>
+    public bool CanUndo => _main is not null && !Stroking && _strokeEnded != 0 && Time.GetTicksMsec() - _strokeEnded < UndoWindowMilliseconds && _main.World.CanUndoStroke;
+
+    /// <summary>Pour la fumée : vieillit le dernier coup de pinceau de <paramref name="milliseconds"/> sans attendre en vrai.</summary>
+    public void AgeLastStroke(ulong milliseconds) => _strokeEnded = _strokeEnded > milliseconds ? _strokeEnded - milliseconds : 1;
+
+    /// <summary>Annule le dernier coup de pinceau (bouton Annuler, Ctrl+Z) s'il est encore dans sa fenêtre ; la fenêtre se referme.</summary>
+    public void Undo()
+    {
+        if (!CanUndo)
+        {
+            return;
+        }
+
+        _main!.World.UndoStroke();
+        _strokeEnded = 0;
+    }
 
     /// <summary>Vrai pour le relief, faux pour la peinture de surface.</summary>
     public bool ReliefMode { get; private set; }
@@ -144,6 +169,7 @@ public partial class Brush : Node3D
         if (@event is InputEventMouseButton { Pressed: false } release && release.ButtonIndex == _stroke)
         {
             _stroke = MouseButton.None;
+            _strokeEnded = Time.GetTicksMsec();
         }
     }
 
@@ -153,6 +179,11 @@ public partial class Brush : Node3D
         if (Active && @event is InputEventMouseButton { Pressed: true, ButtonIndex: MouseButton.Left or MouseButton.Right } press)
         {
             _stroke = press.ButtonIndex;
+            _strokeEnded = 0;
+            if (ReliefMode || press.ButtonIndex == MouseButton.Left)
+            {
+                _main!.World.BeginStroke();
+            }
         }
     }
 
@@ -236,6 +267,8 @@ public partial class Brush : Node3D
             DrawRing(h);
             Apply(h);
         }
+
+        _main.Finances?.ShowCost(Active && Stroking, Cursor, _main.World.StrokeCost);
     }
 
     /// <summary>Poste une retouche au point visé pendant un trait, sauf si la précédente attend encore son tick. Vrai si postée.</summary>
@@ -250,11 +283,21 @@ public partial class Brush : Node3D
         var center = new Point2(hit.X, hit.Z);
         if (ReliefMode)
         {
+            if (!_main.Finances.Allow(ReliefPrice(world, center, _stroke == MouseButton.Left ? ReliefStepMeters : -ReliefStepMeters)))
+            {
+                return false;
+            }
+
             world.RaiseTerrain(center, Radius, _stroke == MouseButton.Left ? ReliefStepMeters : -ReliefStepMeters);
             return true;
         }
 
         if (_stroke != MouseButton.Left)
+        {
+            return false;
+        }
+
+        if (!_main.Finances.Allow(PaintPrice(world, center, BulldozerMode ? Surface.Rough : PaintedSurface)))
         {
             return false;
         }
@@ -269,6 +312,15 @@ public partial class Brush : Node3D
         world.PaintSurface(center, Radius, PaintedSurface);
         return true;
     }
+
+    /// <summary>Ce que coûterait la peinture, au centime près comme la sim (cellules qui changent réellement).</summary>
+    private long PaintPrice(World world, Point2 center, Surface surface)
+    {
+        var grid = world.Terrain!;
+        return grid.CountPaint(center, Radius, surface) * (long)Math.Round(grid.CellSize * grid.CellSize * world.Economy.PaintCost(surface));
+    }
+
+    private long ReliefPrice(World world, Point2 center, double delta) => (long)Math.Round(Math.Abs(world.Terrain!.RaiseVolume(center, Radius, delta)) * world.Economy.ReliefPerM3);
 
     private void DrawRing(Vector3 center)
     {

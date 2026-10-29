@@ -91,6 +91,11 @@ public partial class PlaceTool : Node
         }
 
         var world = _main!.World;
+        if (!_main.Finances.Allow(world.Economy.NewHole))
+        {
+            return;
+        }
+
         _main.ShowMessage(world.AddHole(tee, point) ? $"Trou {grid.Course.Count + 1} ajouté (par {TerrainGrid.DeducedPar(tee, point)})." : Describe(world.NewHoleIssues(tee, point)));
         EndNewHole();
     }

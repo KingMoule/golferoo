@@ -147,7 +147,14 @@ public partial class Finances : Node
     public bool Allow(long cost)
     {
         var balance = _main.World.Ledger.Balance;
-        if (balance - cost >= 0 || _accepted)
+        if (balance - cost >= 0)
+        {
+            // Un solde qui reste positif n'a rien à confirmer ; un accord donné pour un passage précédent ne vaut plus.
+            _accepted = _accepted && balance < 0;
+            return true;
+        }
+
+        if (_accepted)
         {
             return true;
         }

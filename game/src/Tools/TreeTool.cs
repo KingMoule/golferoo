@@ -190,6 +190,11 @@ public partial class TreeTool : Node3D
             return false;
         }
 
+        if (!_main.Finances.Allow(_main.World.Economy.RazeCost(t)))
+        {
+            return false;
+        }
+
         _main.World.RazeTree(SelectedId);
         SelectedId = -1;
         return true;
@@ -197,7 +202,13 @@ public partial class TreeTool : Node3D
 
     public void RazeAreaAt(Point2 center) => _main!.World.RazeArea(center, _main.Brush.Radius, KeepRemarkable);
 
-    public void PlantAt(Point2 position, TreePlantStage stage) => _main!.World.PlantTree(position.X, position.Z, Species, stage);
+    public void PlantAt(Point2 position, TreePlantStage stage)
+    {
+        if (_main!.Finances.Allow(_main.World.Economy.PlantCost(stage)))
+        {
+            _main.World.PlantTree(position.X, position.Z, Species, stage);
+        }
+    }
 
     /// <summary>Fait tomber l'arbre sélectionné vers la droite de l'écran (direction de la caméra), pour être bien vu.</summary>
     public bool FellSelected()
