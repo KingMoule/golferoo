@@ -28,7 +28,7 @@ public class MistakeTests(ITestOutputHelper output)
         var all = new List<(int, double)>[chunks];
         Parallel.For(0, chunks, chunk =>
         {
-            var resolver = new PhysicalShotResolver { Trees = world.Trees, Season = world.Season };
+            var resolver = new PhysicalShotResolver { Trees = world.Trees, Season = world.Season, MapCapacity = World.MapCapacityFor(terrain) };
             var list = all[chunk] = [];
             for (var n = chunk; n < holes; n += chunks)
             {

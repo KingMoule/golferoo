@@ -200,6 +200,11 @@ public sealed partial class World
         Mix(ref hash, ((ulong)(uint)r.Holes << 32) | (uint)r.Par);
         Mix(ref hash, (ulong)BitConverter.DoubleToInt64Bits(r.ScratchStrokes));
         Mix(ref hash, (ulong)BitConverter.DoubleToInt64Bits(r.BogeyStrokes));
+        Mix(ref hash, (ulong)(r.ScratchByHole?.Count ?? -1));
+        foreach (var s in r.ScratchByHole ?? [])
+        {
+            Mix(ref hash, (ulong)BitConverter.DoubleToInt64Bits(s));
+        }
     }
 
     private void ApplyTurfCommands()

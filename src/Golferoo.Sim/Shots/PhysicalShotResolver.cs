@@ -232,11 +232,14 @@ public sealed class PhysicalShotResolver : IShotResolver
         rz = z * inv;
     }
 
-    /// <summary>Quasi-gaussienne centrée réduite (somme de quatre uniformes), sans log ni trigonométrie.</summary>
+    /// <summary>
+    /// Normale centrée réduite par Box-Muller (C21 : loi normale sans troncature), deux tirages du RNG par valeur ; le second
+    /// résultat n'est pas gardé, pour que le RNG reste le seul état.
+    /// </summary>
     private static double Gauss(DeterministicRng rng)
     {
-        var s = rng.NextDouble() + rng.NextDouble() + rng.NextDouble() + rng.NextDouble();
-        return (s - 2.0) * 1.7320508075688772;
+        var u = 1.0 - rng.NextDouble();
+        return Math.Sqrt(-2.0 * Math.Log(u)) * Math.Cos(2.0 * Math.PI * rng.NextDouble());
     }
 
     /// <summary>

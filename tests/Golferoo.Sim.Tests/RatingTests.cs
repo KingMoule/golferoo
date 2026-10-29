@@ -22,7 +22,8 @@ public class RatingTests
         var rating = CourseRater.Rate(Hole(), 1);
 
         Assert.InRange(rating.Slope, 55, 155);
-        Assert.InRange(rating.ScratchPerHole - rating.Par, 0.0, 0.4);
+        // C21 : niveau calé sur « Le neuf » ; sur ce par 4 court et ouvert, la note scratch passe sous le par (−0,38).
+        Assert.InRange(rating.ScratchPerHole - rating.Par, -0.6, 0.0);
         Assert.True(rating.BogeyStrokes > rating.ScratchStrokes);
     }
 

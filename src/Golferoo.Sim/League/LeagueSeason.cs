@@ -239,7 +239,7 @@ public sealed class LeagueSeason
         var round = RoundAt(roundNumber);
         foreach (var (id, card) in cards)
         {
-            var differential = rating is null ? (double?)null : Handicap.Differential(card.Gross, rating, card.HoleCount);
+            var differential = rating is null ? (double?)null : Handicap.Differential(card, rating);
             _byId[id].AddCard(new LeagueCard(round.Number, card.Gross, differential));
             round.Cards[id] = card;
         }

@@ -21,7 +21,7 @@ public class ProfileTests(ITestOutputHelper output)
 
     private sealed record Stats(double TeeDriver, double ShapedShare, int Penalties, double DriveLength, double Strokes);
 
-    private static Stats Play(Archetype profile)
+    private static Stats Play(Archetype profile, int holes = Holes)
     {
         var (terrain, world) = Dogleg();
         var drivers = 0;
@@ -31,7 +31,7 @@ public class ProfileTests(ITestOutputHelper output)
         var drive = 0.0;
         var strokes = 0;
         var gate = new object();
-        Parallel.For(1, Holes + 1, seed =>
+        Parallel.For(1, holes + 1, seed =>
         {
             // Un vent par trou, comme d'un jour à l'autre (jusqu'à 8 m/s, toutes directions) : le golfeur le connaît et planifie avec.
             var weather = new DeterministicRng(0xC0FFEEUL + (ulong)seed);
@@ -76,7 +76,7 @@ public class ProfileTests(ITestOutputHelper output)
             }
         });
 
-        return new Stats((double)drivers / Holes, (double)shaped / Math.Max(1, full), penalties, drive / Holes, (double)strokes / Holes);
+        return new Stats((double)drivers / holes, (double)shaped / Math.Max(1, full), penalties, drive / holes, (double)strokes / holes);
     }
 
     [Fact]
@@ -92,9 +92,28 @@ public class ProfileTests(ITestOutputHelper output)
 
         Assert.True(stats[Archetype.LongHitter].TeeDriver > stats[Archetype.Cautious].TeeDriver);
         Assert.True(stats[Archetype.Drawer].ShapedShare > 0.5);
-        Assert.True(stats[Archetype.Cautious].Penalties < stats[Archetype.Charger].Penalties);
         Assert.True(stats[Archetype.LongHitter].DriveLength > stats[Archetype.Cautious].DriveLength);
     }
+
+    /// <summary>
+    /// C21 lot 2, critère 6 : sur le dogleg, le fonceur prend plus de pénalités que le neutre, et le neutre plus que le prudent
+    /// (avant C21 : 9 pour le fonceur contre 12 pour le neutre, sur 200 trous). <see cref="PenaltyHoles"/> trous : assez pour que
+    /// l'écart dépasse le bruit d'un tirage.
+    /// </summary>
+    [Fact]
+    public void Dogleg_ChargerTakesMorePenaltiesThanNeutral_AndCautiousFewer()
+    {
+        var penalties = new[] { Archetype.Cautious, Archetype.Neutral, Archetype.Charger }.ToDictionary(a => a, a => Play(a, PenaltyHoles));
+        foreach (var (a, s) in penalties)
+        {
+            output.WriteLine($"{a,-10} pénalités {s.Penalties} sur {PenaltyHoles} trous, coups {s.Strokes:F2}");
+        }
+
+        Assert.True(penalties[Archetype.Charger].Penalties > penalties[Archetype.Neutral].Penalties);
+        Assert.True(penalties[Archetype.Neutral].Penalties > penalties[Archetype.Cautious].Penalties);
+    }
+
+    private const int PenaltyHoles = 800;
 
     [Fact]
     public void Members_HaveAStableProfile_AndGenerateMembersKeepsNamesAndHandicaps()
@@ -209,8 +228,11 @@ public class ProfileTests(ITestOutputHelper output)
 
         var artist = Spread(Archetype.Artist);
         var neutral = Spread(Archetype.Neutral);
-        output.WriteLine($"dispersion : artiste {artist:F2} m, neutre {neutral:F2} m");
-        Assert.True(artist < neutral);
+        var gain = 1.0 - (artist / neutral);
+        output.WriteLine($"dispersion : artiste {artist:F2} m, neutre {neutral:F2} m, gain {gain:P1}");
+
+        // C21 lot 2, critère 7 : environ 15 % de régularité en plus (avant C21 : 6 %).
+        Assert.InRange(gain, 0.12, 0.18);
     }
 
     /// <summary>
@@ -321,10 +343,11 @@ public class ProfileTests(ITestOutputHelper output)
     }
 
     /// <summary>
-    /// Approche de 130 m dans le rough au nord du coude, la balle de la capture <c>c09-approche</c> (<c>Captures.Approach</c>) :
-    /// trouvée en balayant le dogleg tous les 8 m, c'est l'approche où les six chutes prévues s'écartent le plus (10,7 m au moins).
+    /// Approche de 155 m dans le rough au nord du coude, la balle de la capture <c>c09-approche</c> (<c>Captures.Approach</c>) :
+    /// trouvée en balayant le dogleg tous les 8 m (de 90 à 170 m du trou), c'est l'approche où les six chutes prévues s'écartent le plus
+    /// (5,8 m au moins ; C21 : déplacée de (148, 28), où la dispersion recalée rapproche les chutes).
     /// </summary>
-    private static readonly Point2 Approach = new(148, 28);
+    private static readonly Point2 Approach = new(124, 20);
 
     /// <summary>Lot 4 (critère 9) : depuis l'approche de la capture, les six archétypes visent six points de chute distincts.</summary>
     [Fact]

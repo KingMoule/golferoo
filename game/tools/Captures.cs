@@ -46,10 +46,10 @@ public partial class Captures : Node
     private static readonly Point2 ForestEdge = new(18.5 * 8, 26.5 * 8);
 
     /// <summary>
-    /// Approche de 130 m dans le rough au nord du coude (<c>ProfileTests.Approach</c>) : les six archétypes y visent six points
-    /// de chute écartés de 10 m au moins, trouvés en balayant le dogleg tous les 8 m.
+    /// Approche de 155 m dans le rough au nord du coude (<c>ProfileTests.Approach</c>) : les six archétypes y visent six points
+    /// de chute écartés de 5 m au moins, trouvés en balayant le dogleg tous les 8 m.
     /// </summary>
-    private static readonly Point2 Approach = new(148, 28);
+    private static readonly Point2 Approach = new(124, 20);
 
     /// <summary>Couleur de chaque archétype attribuable dans <c>c09-profils</c> et <c>c09-sortie</c>, dans l'ordre de <see cref="Archetype"/>.</summary>
     private static readonly Color[] ProfileColors =
@@ -484,8 +484,8 @@ public partial class Captures : Node
             },
         });
         var legend = new VBoxContainer();
-        // À gauche sous le HUD, au-dessus du panneau des consignes de tonte.
-        var panel = new PanelContainer { Position = new Vector2(16f, 240f) };
+        // En haut à gauche, hors du parcours dans les trois vues (C21) : à 240 px du haut, elle couvrait le départ de c09-profils.
+        var panel = new PanelContainer { Position = new Vector2(16f, 16f) };
         panel.AddChild(legend);
         var layer = new CanvasLayer { Layer = 10 };
         layer.AddChild(panel);
@@ -495,7 +495,7 @@ public partial class Captures : Node
         var views = new[]
         {
             ("c09-profils", terrain.Tee, "depuis le départ", true, 260f),
-            ("c09-approche", Approach, "approche de 130 m", true, 170f),
+            ("c09-approche", Approach, "approche de 155 m", true, 190f),
             ("c09-sortie", ForestEdge, "depuis la lisière", false, 0f),
         };
         foreach (var (name, ball, title, between, size) in views)

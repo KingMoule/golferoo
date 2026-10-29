@@ -150,9 +150,19 @@ public sealed partial class World
         w.Int(r.Par);
         w.Double(r.ScratchStrokes);
         w.Double(r.BogeyStrokes);
+        w.Int(r.ScratchByHole?.Count ?? -1);
+        foreach (var s in r.ScratchByHole ?? [])
+        {
+            w.Double(s);
+        }
     }
 
-    private static CourseRating ReadRating(SaveReader r) => new(r.Int(), r.Int(), r.Double(), r.Double());
+    private static CourseRating ReadRating(SaveReader r)
+    {
+        var (holes, par, scratch, bogey) = (r.Int(), r.Int(), r.Double(), r.Double());
+        var count = r.Int();
+        return new(holes, par, scratch, bogey, count < 0 ? null : r.Doubles(count));
+    }
 
     /// <summary>Chargement : relit l'état dans le même ordre que <see cref="Write"/> et ne génère rien (ni boisement, ni membres).</summary>
     private World(SaveReader r, IShotResolver? resolver)

@@ -50,8 +50,12 @@ public sealed record GolferProfile(Archetype Archetype, double Risk, double Flan
     /// <summary>Coût retiré au driver du long frappeur au départ, en mètres : il le préfère.</summary>
     public const double TeeDriverBonus = 10.0;
 
-    /// <summary>Dispersion retirée au plus par la beauté du point de départ (artiste) : × (1 − 0,25 × beauté).</summary>
-    public const double BeautyDispersion = 0.25;
+    /// <summary>
+    /// Dispersion retirée au plus par la beauté du point de départ (artiste) : × (1 − 0,4 × beauté). C21 : réglée pour que, dans un bel
+    /// endroit (beauté 0,8), les balles de l'artiste s'arrêtent environ 15 % moins dispersées que celles du neutre (le roulement et les
+    /// choix non optimaux diluent l'effet du facteur).
+    /// </summary>
+    public const double BeautyDispersion = 0.4;
 
     /// <summary>Coût d'un point de chute retiré par sa beauté (artiste), en mètres : 5 m × beauté.</summary>
     public const double BeautyCost = 5.0;
