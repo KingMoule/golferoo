@@ -203,7 +203,17 @@ public sealed class TerrainGrid
     /// Comme <see cref="PaintDisc(Point2, double, Surface)"/>, mais seules les cellules de surface <paramref name="only"/> sont changées
     /// (toutes si null) ; <paramref name="changed"/> reçoit leur nombre.
     /// </summary>
-    public CellRect? PaintDisc(Point2 center, double radius, Surface surface, Surface? only, out int changed)
+    public CellRect? PaintDisc(Point2 center, double radius, Surface surface, Surface? only, out int changed) =>
+        PaintCells(center, radius, surface, only, apply: true, out changed);
+
+    /// <summary>Nombre de cellules que <see cref="PaintDisc(Point2, double, Surface, Surface?, out int)"/> changerait, sans rien changer (prix d'une commande).</summary>
+    public int CountPaint(Point2 center, double radius, Surface surface, Surface? only = null)
+    {
+        PaintCells(center, radius, surface, only, apply: false, out var changed);
+        return changed;
+    }
+
+    private CellRect? PaintCells(Point2 center, double radius, Surface surface, Surface? only, bool apply, out int changed)
     {
         changed = 0;
         ValidateRadius(radius);
@@ -233,14 +243,18 @@ public sealed class TerrainGrid
                 var current = _surfaces[(cz * CellsX) + cx];
                 if (current != surface && (only is null || current == only))
                 {
-                    _surfaces[(cz * CellsX) + cx] = surface;
+                    if (apply)
+                    {
+                        _surfaces[(cz * CellsX) + cx] = surface;
+                    }
+
                     changed++;
                     rect = rect is { } r ? r.Include(cx, cz) : new CellRect(cx, cz, cx, cz);
                 }
             }
         }
 
-        if (rect is not null)
+        if (rect is not null && apply)
         {
             SurfaceVersion++;
             Version++;
@@ -255,8 +269,21 @@ public sealed class TerrainGrid
     /// la hauteur des coins à [<see cref="MinHeight"/>, <see cref="MaxHeight"/>].
     /// Rend le rectangle des cellules touchant un coin modifié, ou null si rien n'a changé.
     /// </summary>
-    public CellRect? RaiseDisc(Point2 center, double radius, double deltaMeters)
+    public CellRect? RaiseDisc(Point2 center, double radius, double deltaMeters) => RaiseCorners(center, radius, deltaMeters, apply: true, out _);
+
+    /// <summary>
+    /// Volume de terre, en m³, que <see cref="RaiseDisc"/> déplacerait, sans rien changer (prix d'une commande) : somme des variations absolues
+    /// de hauteur des coins, chaque coin comptant pour une cellule (<see cref="CellSize"/>²).
+    /// </summary>
+    public double RaiseVolume(Point2 center, double radius, double deltaMeters)
     {
+        RaiseCorners(center, radius, deltaMeters, apply: false, out var volume);
+        return volume;
+    }
+
+    private CellRect? RaiseCorners(Point2 center, double radius, double deltaMeters, bool apply, out double volume)
+    {
+        volume = 0;
         ValidateRadius(radius);
         if (!double.IsFinite(deltaMeters))
         {
@@ -289,13 +316,18 @@ public sealed class TerrainGrid
                     continue;
                 }
 
-                Heights.SetCornerHeight(i, j, value);
+                volume += Math.Abs(value - old) * CellSize * CellSize;
+                if (apply)
+                {
+                    Heights.SetCornerHeight(i, j, value);
+                }
+
                 var cell = new CellRect(Math.Max(0, i - 1), Math.Max(0, j - 1), Math.Min(CellsX - 1, i), Math.Min(CellsZ - 1, j));
                 rect = rect is { } r ? r.Union(cell) : cell;
             }
         }
 
-        if (rect is not null)
+        if (rect is not null && apply)
         {
             HeightVersion++;
             Version++;

@@ -1,5 +1,6 @@
 using System.Globalization;
 using Godot;
+using Golferoo.Game.Ui;
 using Golferoo.Sim.Golfers;
 using Golferoo.Sim.League;
 using Calendar = Golferoo.Sim.Time.Calendar;
@@ -7,23 +8,21 @@ using Calendar = Golferoo.Sim.Time.Calendar;
 namespace Golferoo.Game.Tools;
 
 /// <summary>
-/// La ligue à l'écran (touche J) : classement de chaque division, carte de score d'un joueur au clic sur son nom,
+/// La ligue à l'écran (bouton Ligue) : classement de chaque division, carte de score d'un joueur au clic sur son nom,
 /// avis temporaires de fin de saison et ligne du pro pour le HUD. Rafraîchi à l'ouverture et au changement de jour, jamais par image.
 /// </summary>
-public partial class LeaguePanel : CanvasLayer
+public partial class LeaguePanel : Node
 {
     private const ulong NoticeMilliseconds = 6000;
 
-    private static readonly string[] MonthNames = ["janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août", "septembre", "octobre", "novembre", "décembre"];
     private static readonly string[] FormatNames = ["stroke play", "stableford", "match play", "contre le par"];
     /// <summary>Style de jeu d'un membre (C09), dans l'ordre de <see cref="Archetype"/> ; le neutre n'est attribué à personne.</summary>
     private static readonly string[] StyleNames = ["", "prudent", "long frappeur", "joueur de draw", "joueur de fade", "artiste", "fonceur"];
-    private static readonly Color ProColor = new(1f, 0.85f, 0.3f);
 
     private Main _main = null!;
     private LeagueSeason _league = null!;
-    private PanelContainer _panel = null!;
-    private PanelContainer _cardPanel = null!;
+    private UiPanel _panel = null!;
+    private UiPanel _cardPanel = null!;
     private Label _title = null!;
     private Label _rating = null!;
     private VBoxContainer _divisions = null!;
@@ -35,41 +34,44 @@ public partial class LeaguePanel : CanvasLayer
     private Member? _shown;
     private ((int Cards, int Division, int Year) Key, string Text) _pro = ((-1, -1, -1), string.Empty);
 
+    /// <summary>Largeurs du panneau et de la carte (les captures vérifient qu'ils n'en débordent pas).</summary>
+    public const float Width = 380f;
+    public const float CardWidth = 340f;
+
     public bool IsOpen => _panel.Visible;
 
-    /// <summary>Construit le panneau (à droite), la carte de score (à sa gauche) et l'avis (en haut au centre), tous cachés.</summary>
+    /// <summary>Construit le panneau et la carte de score dans la pile, fermés, et l'avis (en haut au centre), caché.</summary>
     public void Init(Main main)
     {
         _main = main;
         _league = main.World.League!;
         _eventsSeen = _league.Events.Count;
 
-        _panel = new PanelContainer { Name = "LeaguePanel", Visible = false, AnchorLeft = 1f, AnchorRight = 1f, OffsetLeft = -360f, OffsetRight = -8f, OffsetTop = 60f };
-        var box = new VBoxContainer();
-        // Renvoi à la ligne : « Ligue, an 1 | Prochaine journée : 5 avril, stroke play » élargissait le panneau à 396 px.
-        _title = new Label { AutowrapMode = TextServer.AutowrapMode.WordSmart };
-        _rating = new Label { AutowrapMode = TextServer.AutowrapMode.WordSmart };
-        _champion = new Label { AutowrapMode = TextServer.AutowrapMode.WordSmart };
-        _divisions = new VBoxContainer();
-        var scroll = new ScrollContainer { CustomMinimumSize = new Vector2(340f, 420f), HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled };
+        _panel = UiPanel.Create(UiIds.Panel.League, "Ligue", "trophy", Width);
+        var box = _panel.Content;
+        // Renvoi à la ligne : « Ligue, an 1 | Prochaine journée : 5 avril, stroke play » élargissait le panneau.
+        _title = new Label { ThemeTypeVariation = "UiName", AutowrapMode = TextServer.AutowrapMode.WordSmart };
+        _rating = new Label { ThemeTypeVariation = "UiCaption", AutowrapMode = TextServer.AutowrapMode.WordSmart };
+        _champion = new Label { ThemeTypeVariation = "UiCaption", AutowrapMode = TextServer.AutowrapMode.WordSmart };
+        _divisions = new VBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
+        var scroll = new ScrollContainer { CustomMinimumSize = new Vector2(0f, 340f), HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled };
         scroll.AddChild(_divisions);
         box.AddChild(_title);
         box.AddChild(_rating);
         box.AddChild(scroll);
         box.AddChild(_champion);
-        _panel.AddChild(box);
-        AddChild(_panel);
+        _panel.Closed += () => main.Panels.Close(_cardPanel);
+        main.Panels.Add(_panel);
 
-        _cardPanel = new PanelContainer { Name = "LeagueCard", Visible = false, AnchorLeft = 1f, AnchorRight = 1f, OffsetLeft = -700f, OffsetRight = -368f, OffsetTop = 60f };
-        _cardBody = new VBoxContainer();
-        _cardPanel.AddChild(_cardBody);
-        AddChild(_cardPanel);
+        _cardPanel = UiPanel.Create(UiIds.Panel.LeagueCard, "Carte de score", "flag", CardWidth);
+        _cardBody = _cardPanel.Content;
+        main.Panels.Add(_cardPanel);
 
         _notice = new Label { Name = "LeagueNotice", Visible = false, AnchorLeft = 0.5f, AnchorRight = 0.5f, OffsetLeft = -300f, OffsetRight = 300f, OffsetTop = 90f, HorizontalAlignment = HorizontalAlignment.Center };
         _notice.AddThemeColorOverride("font_outline_color", Colors.Black);
         _notice.AddThemeConstantOverride("outline_size", 6);
         _notice.AddThemeFontSizeOverride("font_size", 22);
-        AddChild(_notice);
+        main.Ui.AddChild(_notice);
     }
 
     /// <summary>Décimale à la française : « 31,4 ».</summary>
@@ -77,12 +79,14 @@ public partial class LeaguePanel : CanvasLayer
 
     public void Toggle()
     {
-        _panel.Visible = !_panel.Visible;
-        _cardPanel.Visible = _panel.Visible && _shown is not null;
         if (_panel.Visible)
         {
-            Refresh();
+            _panel.EmitSignal(UiPanel.SignalName.Closed);
+            return;
         }
+
+        _main.Panels.Open(_panel);
+        Refresh();
     }
 
     public override void _Process(double delta)
@@ -172,7 +176,7 @@ public partial class LeaguePanel : CanvasLayer
 
     /// <summary>Les journées tombent le 5 du mois ; <paramref name="nominalDay"/> compte depuis le 1er avril.</summary>
     private static string DateText(int nominalDay) =>
-        $"{(nominalDay % Calendar.DaysPerMonth) + 1} {MonthNames[(Calendar.StartMonth - 1 + (nominalDay / Calendar.DaysPerMonth)) % 12]}";
+        $"{(nominalDay % Calendar.DaysPerMonth) + 1} {UiNames.Months[(Calendar.StartMonth - 1 + (nominalDay / Calendar.DaysPerMonth)) % 12]}";
 
     /// <summary>Reconstruit le contenu : en-tête, un tableau par division, champion de l'an passé.</summary>
     public void Refresh()
@@ -190,12 +194,12 @@ public partial class LeaguePanel : CanvasLayer
 
         for (var d = 0; d < _league.Divisions.Count; d++)
         {
-            _divisions.AddChild(new Label { Text = $"Division {d + 1}" });
+            _divisions.AddChild(new Label { Text = $"Division {d + 1}", ThemeTypeVariation = "UiName" });
             // Pas de colonne « Style » (C09) : le style est sur la fiche.
             var grid = new GridContainer { Columns = 4 };
             foreach (var head in new[] { "Rang", "Nom", "Hcp", "Points" })
             {
-                grid.AddChild(new Label { Text = head });
+                grid.AddChild(new Label { Text = head, ThemeTypeVariation = "UiTableHeader" });
             }
 
             var rank = 1;
@@ -216,7 +220,7 @@ public partial class LeaguePanel : CanvasLayer
         _champion.Text = _league.Champions.Count > 0
             ? $"Champion an {_league.Champions[^1].Year + 1} : {_league.Members[_league.Champions[^1].MemberId].Name} (brut {_league.Champions[^1].Gross})"
             : string.Empty;
-        if (_shown is not null)
+        if (_shown is not null && _cardPanel.Visible)
         {
             ShowCard(_shown);
         }
@@ -239,25 +243,26 @@ public partial class LeaguePanel : CanvasLayer
     {
         if (member.IsPro)
         {
-            control.AddThemeColorOverride("font_color", ProColor);
+            control.AddThemeColorOverride("font_color", UiTheme.Flag);
         }
     }
 
-    /// <summary>Carte de score d'un joueur : ses journées de la saison (journée, format, brut, écart).</summary>
+    /// <summary>Carte de score d'un joueur, ouverte dans la pile : ses journées de la saison (journée, format, brut, écart).</summary>
     public void ShowCard(Member member)
     {
         _shown = member;
+        _cardPanel.Title.Text = member.Name;
         foreach (var child in _cardBody.GetChildren())
         {
             child.QueueFree();
         }
 
         // Renvoi à la ligne : « Vera L. | pas encore de handicap | long frappeur » dépasse la largeur de la carte.
-        _cardBody.AddChild(new Label { Text = $"{member.Name} | {HandicapText(member)}" + (member.IsPro ? "" : $" | {Style(member)}"), AutowrapMode = TextServer.AutowrapMode.WordSmart });
+        _cardBody.AddChild(new Label { Text = HandicapText(member) + (member.IsPro ? "" : $" | {Style(member)}"), ThemeTypeVariation = "UiCaption", AutowrapMode = TextServer.AutowrapMode.WordSmart });
         var grid = new GridContainer { Columns = 4 };
         foreach (var head in new[] { "Journée", "Format", "Brut", "Écart" })
         {
-            grid.AddChild(new Label { Text = head });
+            grid.AddChild(new Label { Text = head, ThemeTypeVariation = "UiTableHeader" });
         }
 
         foreach (var round in _league.Rounds.Append(_league.Final))
@@ -275,6 +280,6 @@ public partial class LeaguePanel : CanvasLayer
         }
 
         _cardBody.AddChild(grid);
-        _cardPanel.Visible = _panel.Visible;
+        _main.Panels.Open(_cardPanel);
     }
 }

@@ -39,7 +39,7 @@ public partial class Captures : Node
     private const int ProfileViewCount = 3;
     private const int FreeViewCount = 4;
     private const int SaveViewCount = 2;
-    private const int CourseViewCount = 4;
+    private const int CourseViewCount = 7;
     private const int GalleryViewCount = 1;
 
     /// <summary>Lisière sud de la forêt du coude, la balle de <c>ForestExitTests.Edge</c> (tuile 18,5 / 26,5 de 8 m).</summary>
@@ -252,7 +252,7 @@ public partial class Captures : Node
                         await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
                     }
 
-                    GD.Print($"CLEARING20 {main.World.Trees.Count} arbres, tombés {main.TerrainView.Trees?.FallenCount}, chutes en cours {main.TerrainView.Trees?.FallingCount}, dépenses {main.World.TreeSpending}");
+                    GD.Print($"CLEARING20 {main.World.Trees.Count} arbres, tombés {main.TerrainView.Trees?.FallenCount}, chutes en cours {main.TerrainView.Trees?.FallingCount}, solde {Golferoo.Sim.Economy.Ledger.Dollars(main.World.Ledger.Balance)}");
                 }
             }
 
@@ -397,13 +397,13 @@ public partial class Captures : Node
         main.Camera.SetView(45f, 120f, new Vector3((float)world.Terrain!.Green.X, 0f, (float)world.Terrain.Green.Z));
         main.League!.Toggle();
         await Frames(SettleFrames);
-        CheckWidth(main.League.GetNode<Control>("LeaguePanel"), 352f);
+        CheckWidth(main.Ui.Find(UiIds.Panel.League)!, LeaguePanel.Width);
         Save("league-panel");
 
         // C09 : la fiche d'un membre porte son style (celle du pro n'en a pas), sans élargir la carte.
         main.League.ShowCard(league.Members.First(m => !m.IsPro));
         await Frames(SettleFrames);
-        CheckWidth(main.League.GetNode<Control>("LeagueCard"), 332f);
+        CheckWidth(main.Ui.Find(UiIds.Panel.LeagueCard)!, LeaguePanel.CardWidth);
         Save("league-card-member");
         main.League.ShowCard(league.Members.First(m => m.IsPro));
         await Frames(SettleFrames);
@@ -748,7 +748,40 @@ public partial class Captures : Node
         main.Camera.SetView(45f, Math.Clamp(span * 0.8f, 120f, 400f), focus);
         await Frames(SettleFrames);
         Save("c12-groupes");
+
+        // C23 : de près, un golfeur qui marche, puis un golfeur au sommet de son swing (le modèle de Guillaume).
+        main.Actors.Range = float.PositiveInfinity;
+        await CloseUp(main, "c23-marche", g => g.State is GolferState.WalkingToBall or GolferState.ToNextTee or GolferState.Exiting, _ => true);
+        await CloseUp(main, "c23-swing", g => g.State == GolferState.Swinging, rig => rig.Clip == GolferModel.Swing && Math.Abs(rig.Time - SwingTopSeconds) < 0.03);
+        main.Actors.Range = ActorLayer.AnimatedRange;
         await InterfaceView(main, placed[0].Id);
+    }
+
+    /// <summary>Sommet du swing de golf_swing_2s (image 23 sur 61 à 30 images/s).</summary>
+    private const double SwingTopSeconds = 22.0 / 30.0;
+
+    /// <summary>Avance tick par tick jusqu'à un golfeur animé qui remplit les deux conditions, puis le cadre de près en vue libre.</summary>
+    private async Task CloseUp(Main main, string name, Func<GolferView, bool> state, Func<GolferRig, bool> pose)
+    {
+        for (var i = 0; i < 20 * 600; i++)
+        {
+            foreach (var g in main.World.Snapshot().Golfers.Where(state))
+            {
+                if (main.Actors.RigOf(g.Id) is { } rig && pose(rig) && main.Actors.PositionOf(g.Id) is { } at)
+                {
+                    GD.Print($"C23 {name} golfeur={g.Id} etat={g.State} clip={rig.Clip} t={rig.Time:F2} tick={main.World.Tick}");
+                    main.Camera.SetFreeView(rig.Rotation.Y * 180f / MathF.PI, 10f, 10f, at + new Vector3(0f, 1.8f, 0f));
+                    await Frames(SettleFrames);
+                    Save(name);
+                    return;
+                }
+            }
+
+            main.StepTicks(1);
+        }
+
+        GD.PrintErr($"CAPTURES FAIL {name} : aucun golfeur trouvé");
+        _failures++;
     }
 
     /// <summary>
@@ -780,6 +813,21 @@ public partial class Captures : Node
         Save("c13-interface");
         tip.QueueFree();
         main.Bar.Select(ToolFamily.None, toggle: false);
+
+        // C13 lot 3 : trois panneaux ouverts par leurs boutons, empilés de droite à gauche au-dessus de la barre.
+        foreach (var id in new[] { UiIds.Tool.Turf, UiIds.Round.League, UiIds.Round.Pro })
+        {
+            ((BaseButton)main.Ui.Find(id)!).EmitSignal(BaseButton.SignalName.Pressed);
+        }
+
+        await Frames(SettleFrames);
+        GD.Print($"PANNEAUX ouverts={string.Join(",", main.Panels.Opened.Select(p => p.Name))}");
+        Save("c13-panneaux");
+        foreach (var panel in main.Panels.Opened.ToList())
+        {
+            main.Panels.Close(panel);
+        }
+
         window.ContentScaleSize = oldSize;
         window.ContentScaleMode = oldMode;
     }
@@ -866,7 +914,7 @@ public partial class Captures : Node
             }
         }
 
-        GD.Print($"CLEARING centre=({centre.X:F0},{centre.Z:F0}) arbres {before} puis {world.Trees.Count}, refusées {world.TreeCommandsRefused}, dépenses {world.TreeSpending}");
+        GD.Print($"CLEARING centre=({centre.X:F0},{centre.Z:F0}) arbres {before} puis {world.Trees.Count}, refusées {world.TreeCommandsRefused}, solde {Golferoo.Sim.Economy.Ledger.Dollars(world.Ledger.Balance)}");
         return new Vector3((float)centre.X, (float)grid.Sample(centre.X, centre.Z) + 2f, (float)centre.Z);
     }
 

@@ -5,6 +5,8 @@ using Golferoo.Game.Rendering;
 using Golferoo.Game.Tools;
 using Golferoo.Game.Ui;
 using Golferoo.Sim;
+using Golferoo.Sim.Economy;
+using Golferoo.Sim.Golfers;
 using Golferoo.Sim.Terrain;
 using Golferoo.Sim.Trees;
 
@@ -100,48 +102,115 @@ public partial class SmokeTest : Node
         Main.TutorialMode = false;
     }
 
+    /// <summary>
+    /// C13 critères 7 et 8 : le tutoriel se fait en entier aux boutons. À chaque tour, le bouton mis en évidence existe dans <c>UiRoot</c> et
+    /// se voit ; s'il n'est pas encore pris, on le presse, sinon on fait le clic de l'étape sur le terrain (par les commandes que ce clic
+    /// poste, avec l'état de l'outil que les boutons ont choisi). Aucun texte de la bulle ne cite une touche.
+    /// </summary>
     private List<string> CheckTutorial()
     {
         var failures = new List<string>();
         var main = _tutorial!;
         var world = main.World;
+        var grid = world.Terrain!;
+        var tutorial = main.Tutorial;
         var tee = new Point2(28, 244);
         var green = new Point2(268, 56);
-        if (world.HoleOpen || main.Tutorial is null || main.Tutorial.Phase != Golferoo.Game.Tutorial.TutorialPanel.Mode.Welcome)
+        if (world.HoleOpen || tutorial is null || tutorial.Phase != Golferoo.Game.Tutorial.TutorialPanel.Mode.Welcome)
         {
             failures.Add("tutoriel : terre vierge ouverte ou bulle absente");
             return failures;
         }
 
-        foreach (var p in world.Terrain!.IsolatedTrees)
+        var texts = new List<string> { tutorial.Text };
+        Press(main, UiIds.Tutorial.Start, failures);
+        var highlighted = new HashSet<string>();
+        for (var turn = 0; turn < 200 && Golferoo.Sim.Tutorial.TutorialSteps.Current(world) is var step && step != Golferoo.Sim.Tutorial.TutorialStep.Done; turn++)
         {
-            world.RazeTree(world.Trees.Trees.First(t => t.X == p.X && t.Z == p.Z).Id);
+            tutorial._Process(0);
+            texts.Add(tutorial.Text);
+            if (tutorial.Highlighted is not { } id || main.Ui.Find(id) is not BaseButton { Visible: true } button || !button.IsVisibleInTree())
+            {
+                failures.Add($"tutoriel, étape {step} : bouton mis en évidence « {tutorial.Highlighted} » absent de UiRoot ou caché");
+                break;
+            }
+
+            highlighted.Add(id);
+            if (!button.ButtonPressed)
+            {
+                Press(main, id, failures);
+            }
+            else if (!TutorialClick(main, step, tee, green))
+            {
+                failures.Add($"tutoriel, étape {step} : rien à cliquer avec « {id} » pris");
+                break;
+            }
+
+            main.StepTicks(2);
         }
 
-        world.PlantTree(64, 208, TreeSpeciesId.Oak, TreePlantStage.Sapling);
-        world.PaintSurface(tee, 6, Surface.Tee);
-        foreach (var x in new[] { 100.0, 160.0, 220.0 })
+        tutorial._Process(0);
+        texts.Add(tutorial.Text);
+        if (!world.HoleOpen || tutorial.Phase != Golferoo.Game.Tutorial.TutorialPanel.Mode.Finished || tutorial.Highlighted != UiIds.Tutorial.Golfers)
         {
-            world.PaintSurface(new Point2(x, 236), 10, Surface.Fairway);
+            failures.Add($"tutoriel : pas fini aux boutons (trou ouvert {world.HoleOpen}, phase {tutorial.Phase}, étape {Golferoo.Sim.Tutorial.TutorialSteps.Current(world)})");
         }
 
-        world.PaintSurface(green, 11, Surface.Green);
-        main.StepTicks(1);
-        if (!world.PlaceTee(1, tee) || !world.PlaceHole(1, green))
+        if (main.Ui.Find(UiIds.Tutorial.Ring) is not { Visible: true })
         {
-            failures.Add("tutoriel : pose du départ ou du trou refusée");
+            failures.Add("tutoriel : l'anneau jaune ne se voit pas");
         }
 
-        main.StepTicks(2);
-        if (!world.HoleOpen)
+        Press(main, UiIds.Tutorial.Golfers, failures);
+        if (world.Groups.Count == 0 || tutorial.Phase != Golferoo.Game.Tutorial.TutorialPanel.Mode.Off)
         {
-            failures.Add("tutoriel : le trou n'est pas valide après la construction");
+            failures.Add("tutoriel : « Lancer des golfeurs » ne lance personne ou laisse la bulle");
         }
 
-        main.SpawnGroup();
         main.StepTicks(20);
-        GD.Print($"SMOKE tutoriel : trou valide, étape {Golferoo.Sim.Tutorial.TutorialSteps.Current(world)}");
+        CheckNoKeys(main, failures, texts);
+        GD.Print($"SMOKE tutoriel : fini aux boutons, {highlighted.Count} boutons mis en évidence ({string.Join(", ", highlighted)}), {failures.Count} échec");
         return failures;
+    }
+
+    /// <summary>Le clic sur le terrain de l'étape <paramref name="step"/>, l'outil déjà choisi aux boutons ; faux si l'outil n'est pas dans le bon état.</summary>
+    private static bool TutorialClick(Main main, Golferoo.Sim.Tutorial.TutorialStep step, Point2 tee, Point2 green)
+    {
+        var world = main.World;
+        var brush = main.Brush;
+        var size = (Godot.Range)main.Ui.Find(UiIds.Drawer.BrushSize)!;
+        void Paint(double radius, params Point2[] points)
+        {
+            size.Value = radius;
+            foreach (var p in points)
+            {
+                world.PaintSurface(p, brush.Radius, brush.PaintedSurface);
+            }
+        }
+
+        switch (step)
+        {
+            case Golferoo.Sim.Tutorial.TutorialStep.ClearTrees when main.TreeTool.Mode == TreeTool.ClickMode.Select:
+                var isolated = world.Terrain!.IsolatedTrees;
+                var corridor = world.Trees.Trees.Where(t => t.State == TreeState.Standing && isolated.Any(p => p.X == t.X && p.Z == t.Z)).Select(t => (int?)t.Id).FirstOrDefault();
+                return corridor is { } id && main.TreeTool.Select(id);
+            case Golferoo.Sim.Tutorial.TutorialStep.PlantSapling when main.TreeTool.Mode == TreeTool.ClickMode.Sapling:
+                main.TreeTool.PlantAt(new Point2(64, 208), TreePlantStage.Sapling);
+                return true;
+            case Golferoo.Sim.Tutorial.TutorialStep.PaintTee when brush.PaintedSurface == Surface.Tee:
+                Paint(6, tee);
+                return true;
+            case Golferoo.Sim.Tutorial.TutorialStep.PaintFairway when brush.PaintedSurface == Surface.Fairway:
+                Paint(10, new Point2(100, 236), new Point2(160, 236), new Point2(220, 236));
+                return true;
+            case Golferoo.Sim.Tutorial.TutorialStep.PaintGreen when brush.PaintedSurface == Surface.Green:
+                Paint(11, green);
+                return true;
+            case Golferoo.Sim.Tutorial.TutorialStep.PlaceTeeAndHole when main.PlaceTool.Active && !main.PlaceTool.NewHole:
+                return world.PlaceTee(main.CameraHole, tee) && world.PlaceHole(main.CameraHole, green);
+            default:
+                return false;
+        }
     }
 
     /// <summary>C11 lot 3 : F5 et F8 dans l'InputMap ; sauve, recharge par la scène (un nouveau Main part du monde chargé), même somme de contrôle.</summary>
@@ -439,6 +508,141 @@ public partial class SmokeTest : Node
     }
 
     /// <summary>
+    /// C23 lot 1 : le golfeur animé. Le .glb et la sim placent l'impact au même tick ; sur « trois trous », un golfeur suivi de près joue le clip
+    /// de son état, l'image d'impact tombe au tick où la balle part (un tick d'écart au plus), la marche avance d'un cycle par cycle de distance
+    /// (10 % près), la bascule à 150 m ne déplace pas le golfeur et le pool ne dépasse jamais sa borne. Écrit <c>GOLFERS OK</c>.
+    /// </summary>
+    private void CheckGolfers(List<string> failures)
+    {
+        if (GolferModel.Load() is not { } model)
+        {
+            failures.Add($"golfeurs : {GolferModel.ScenePath} absent");
+            return;
+        }
+
+        string[] clips = [GolferModel.Walk, GolferModel.Idle, GolferModel.Swing, GolferModel.Chip, GolferModel.Putt];
+        var impactTicks = (int)Math.Round(model.Impact(GolferModel.Swing) * World.TicksPerSecond);
+        if (model.Bones != 21 || clips.Any(c => !model.Has(c)) || model.WalkCycle <= 0 || impactTicks != World.SwingTicksCount)
+        {
+            failures.Add($"golfeurs : {model.Bones} os, clips {string.Join(",", clips.Where(model.Has))}, cycle {model.WalkCycle} m, impact à {impactTicks} ticks (sim : {World.SwingTicksCount})");
+            return;
+        }
+
+        var before = failures.Count;
+        const string dir = "res://data/courses";
+        var grid = CourseLoader.Parse(ReadText($"{dir}/trois-trous.json"), dir, _main!.Factor, relative => ReadText((dir + "/" + relative).SimplifyPath()));
+        var world = new World(11, grid);
+        var layer = new ActorLayer { Name = "GolferActors" };
+        AddChild(layer);
+        layer.Build(grid);
+        var id = world.SpawnGroup().Golfers[0].Id;
+        var (prev, cur) = (world.Snapshot(), world.Snapshot());
+        var mismatches = new List<string>();
+        long? impactTick = null, departTick = null;
+        double walked = 0, cycles = 0;
+        GolferView last = default;
+        var lastClip = string.Empty;
+        var lastTime = 0.0;
+        for (var i = 0; i < 20 * 600 && (departTick is null || cycles < 3); i++)
+        {
+            (prev, cur) = (cur, prev);
+            world.Step();
+            world.Snapshot(cur);
+            var view = cur.Golfers.First(g => g.Id == id);
+            layer.Viewer = new Vector3((float)view.Position.X, 2f, (float)view.Position.Z);
+            layer.Update(cur, prev, 1f, true);
+            if (layer.RigOf(id) is not { } rig)
+            {
+                failures.Add($"golfeurs : le golfeur suivi n'est pas animé au tick {cur.Tick}");
+                break;
+            }
+
+            var expected = view.State switch
+            {
+                GolferState.Arriving or GolferState.WalkingToBall or GolferState.Exiting or GolferState.ToNextTee => GolferModel.Walk,
+                GolferState.Swinging => rig.Clip == GolferModel.Chip ? GolferModel.Chip : GolferModel.Swing,
+                GolferState.Putting => GolferModel.Putt,
+                GolferState.BallInFlight => rig.Clip,
+                _ => GolferModel.Idle,
+            };
+            if (rig.Clip != expected && mismatches.Count < 5)
+            {
+                mismatches.Add($"{view.State}:{rig.Clip}@{cur.Tick}");
+            }
+
+            if (impactTick is null && rig.Clip is GolferModel.Swing or GolferModel.Chip && rig.Time >= model.Impact(rig.Clip) - 1e-6)
+            {
+                impactTick = cur.Tick;
+            }
+
+            if (departTick is null && view.State == GolferState.BallInFlight)
+            {
+                departTick = cur.Tick;
+            }
+
+            if (rig.Clip == GolferModel.Walk && lastClip == GolferModel.Walk)
+            {
+                var length = model.Length(GolferModel.Walk);
+                cycles += ((rig.Time - lastTime + length) % length) / length;
+                walked += new Vector2((float)(view.Position.X - last.Position.X), (float)(view.Position.Z - last.Position.Z)).Length();
+            }
+
+            (last, lastClip, lastTime) = (view, rig.Clip, rig.Time);
+        }
+
+        var ratio = cycles > 0 ? walked / (cycles * model.WalkCycle * ProceduralMeshes.GolferScale) : 0.0;
+        if (mismatches.Count > 0)
+        {
+            failures.Add($"golfeurs : clip qui ne suit pas l'état ({string.Join(", ", mismatches)})");
+        }
+
+        if (impactTick is null || departTick is null || Math.Abs(impactTick.Value - departTick.Value) > 1)
+        {
+            failures.Add($"golfeurs : impact joué au tick {impactTick}, balle partie au tick {departTick}");
+        }
+
+        if (cycles < 1 || Math.Abs(ratio - 1.0) > 0.1)
+        {
+            failures.Add($"golfeurs : {walked:F1} m pour {cycles:F2} cycles de marche (rapport {ratio:F2} au cycle du modèle)");
+        }
+
+        // Bascule : à 149 m le golfeur est animé, à 151 m une silhouette du MultiMesh, au même endroit.
+        var at = cur.Golfers.First(g => g.Id == id).Position;
+        layer.Viewer = new Vector3((float)at.X + 149f, 0f, (float)at.Z);
+        layer.Update(cur, cur, 1f, true);
+        var animated = layer.RigOf(id) is not null;
+        var near = layer.PositionOf(id);
+        layer.Viewer = new Vector3((float)at.X + 151f, 0f, (float)at.Z);
+        layer.Update(cur, cur, 1f, true);
+        var far = layer.PositionOf(id);
+        // Le rendu factice du mode headless ne garde pas les instances du MultiMesh : on compte les silhouettes de la couche.
+        var silhouette = layer.RigOf(id) is null && layer.VisibleGolfers - layer.AnimatedGolfers == cur.Golfers.Count;
+        if (!animated || !silhouette || near is null || far is null || near.Value.DistanceTo(far.Value) > 1e-3f)
+        {
+            failures.Add($"golfeurs : bascule à 150 m (animé à 149 m : {animated}, silhouette à 151 m : {silhouette}, positions {near} puis {far})");
+        }
+
+        // Pool : 50 golfeurs de trop, tous près ; puis un mode charge plus petit rend les rigs en trop.
+        layer.Range = float.PositiveInfinity;
+        world.SetLoadMode(ActorLayer.PoolSize + 50);
+        layer.Update(world.Snapshot(cur), cur, 1f, true);
+        var full = (layer.AnimatedGolfers, layer.RigCount);
+        world.SetLoadMode(10);
+        layer.Update(world.Snapshot(cur), cur, 1f, true);
+        if (full != (ActorLayer.PoolSize, ActorLayer.PoolSize) || layer.RigCount > ActorLayer.PoolSize || layer.AnimatedGolfers != cur.Golfers.Count)
+        {
+            failures.Add($"golfeurs : pool {full.AnimatedGolfers} animés / {full.RigCount} rigs pour {ActorLayer.PoolSize + 50} golfeurs, puis {layer.AnimatedGolfers} pour {cur.Golfers.Count}");
+        }
+
+        if (failures.Count == before)
+        {
+            GD.Print($"GOLFERS OK impact={impactTick} depart={departTick} marche={walked:F1} m / {cycles:F2} cycles (rapport {ratio:F2}) pool={full.RigCount}");
+        }
+
+        layer.QueueFree();
+    }
+
+    /// <summary>
     /// C12 lot 5 : sur un parcours de trois trous, un quatrième trou s'ajoute (drapeau, repère et numéro apparaissent), une paire le joue,
     /// puis il se retire (les trois nœuds disparaissent). Écrit <c>NEWHOLE OK</c>.
     /// </summary>
@@ -566,6 +770,7 @@ public partial class SmokeTest : Node
 
         CheckCourse(failures);
         CheckNewHole(failures);
+        CheckGolfers(failures);
         CheckCamera(failures);
         CheckBrush(failures);
         CheckAssets(failures);
@@ -745,7 +950,7 @@ public partial class SmokeTest : Node
         {
             ("barre", main.Ui.Find(UiIds.Tool.Buildings)),
             ("tiroir", main.Ui.Find(UiIds.Drawer.Status)?.GetParentControl()),
-            ("ligue", main.League?.GetNodeOrNull<Control>("LeaguePanel")),
+            ("ligue", main.Ui.Find(UiIds.Panel.League)),
         };
         foreach (var (name, control) in targets)
         {
@@ -788,9 +993,11 @@ public partial class SmokeTest : Node
     }
 
     /// <summary>Émet le signal <c>Pressed</c> du bouton d'identifiant <paramref name="id"/>, comme un clic ; faux s'il manque.</summary>
-    private bool Press(string id, List<string> failures)
+    private bool Press(string id, List<string> failures) => Press(_main!, id, failures);
+
+    private static bool Press(Main main, string id, List<string> failures)
     {
-        if (_main!.Ui.Find(id) is not BaseButton button || button.Disabled)
+        if (main.Ui.Find(id) is not BaseButton button || button.Disabled)
         {
             failures.Add($"barre : bouton {id} absent ou grisé");
             return false;
@@ -924,11 +1131,6 @@ public partial class SmokeTest : Node
         Expect(main.Camera.Mode == CameraMode.Free, "Caméra libre");
         Press(UiIds.Round.Camera, failures);
         Expect(main.Camera.Mode == CameraMode.Iso, "retour à la vue iso");
-        Press(UiIds.Round.League, failures);
-        Press(UiIds.Round.Pro, failures);
-        Expect(main.League?.IsOpen == true && main.ProPanel?.IsOpen == true, "Ligue et Votre pro ne s'ouvrent pas");
-        Press(UiIds.Round.League, failures);
-        Press(UiIds.Round.Pro, failures);
         foreach (var id in new[] { UiIds.Tool.Buildings, UiIds.Tool.Amenities, UiIds.Round.Finances })
         {
             Expect(ui.Find(id) is BaseButton { Disabled: true }, $"{id} devrait être grisé");
@@ -937,6 +1139,79 @@ public partial class SmokeTest : Node
         main.Bar.Select(ToolFamily.None, toggle: false);
         Expect(!brush.Active && !trees.Active && !place.Active && !ui.Find(UiIds.Drawer.Root)!.Visible, "rien de pris : le tiroir reste ouvert");
         GD.Print($"SMOKE barre : outils, vignettes, actions, vitesses, caméra par leurs boutons ({failures.Count} échec)");
+        CheckPanels(failures);
+        CheckNoKeys(main, failures, []);
+    }
+
+    /// <summary>
+    /// C13 critère 6 : Gazon, Ligue et Votre pro s'ouvrent par leur bouton et s'empilent de droite à gauche sans se fermer ; Échap ferme le
+    /// dernier ouvert, puis le précédent ; la croix ferme le sien, même au milieu de la pile.
+    /// </summary>
+    private void CheckPanels(List<string> failures)
+    {
+        var main = _main!;
+        var stack = main.Panels;
+        void Expect(bool ok, string what)
+        {
+            if (!ok)
+            {
+                failures.Add($"panneaux : {what}");
+            }
+        }
+
+        UiPanel Panel(string id) => (UiPanel)main.Ui.Find(id)!;
+        bool Open(params string[] ids) => stack.Opened.Select(p => p.Name.ToString()).SequenceEqual(ids) && ids.All(id => Panel(id).IsVisibleInTree());
+
+        Expect(stack.Opened.Count == 0, "la pile n'est pas vide au départ");
+        Press(UiIds.Tool.Turf, failures);
+        Press(UiIds.Round.League, failures);
+        Press(UiIds.Round.Pro, failures);
+        Expect(Open(UiIds.Panel.Turf, UiIds.Panel.League, UiIds.Panel.Pro) && main.Turf.IsOpen && main.League?.IsOpen == true && main.ProPanel?.IsOpen == true, "les trois ne s'empilent pas");
+        Expect(Panel(UiIds.Panel.Pro).GetIndex() < Panel(UiIds.Panel.League).GetIndex() && Panel(UiIds.Panel.League).GetIndex() < Panel(UiIds.Panel.Turf).GetIndex(), "le dernier ouvert n'est pas à gauche des autres");
+        PushKey(Key.Escape);
+        Expect(Open(UiIds.Panel.Turf, UiIds.Panel.League), "Échap ne ferme pas Votre pro, le dernier ouvert");
+        PushKey(Key.Escape);
+        Expect(Open(UiIds.Panel.Turf), "un second Échap ne ferme pas la Ligue");
+        Press(UiIds.Round.League, failures);
+        Press(UiIds.Round.Pro, failures);
+        Panel(UiIds.Panel.League).CloseButton.EmitSignal(BaseButton.SignalName.Pressed);
+        Expect(Open(UiIds.Panel.Turf, UiIds.Panel.Pro), "la croix de la Ligue ne ferme pas la sienne seule");
+        Panel(UiIds.Panel.Turf).CloseButton.EmitSignal(BaseButton.SignalName.Pressed);
+        PushKey(Key.Escape);
+        Expect(stack.Opened.Count == 0 && !main.Turf.IsOpen && main.ProPanel?.IsOpen != true, "la croix du Gazon puis Échap ne vident pas la pile");
+        GD.Print($"SMOKE panneaux : trois empilés, Échap et croix ({failures.Count} échec)");
+    }
+
+    /// <summary>C13 critère 7 : aucun libellé, info-bulle ou texte de l'interface (et du tutoriel, <paramref name="extra"/>) ne cite une touche.</summary>
+    private static void CheckNoKeys(Main main, List<string> failures, IEnumerable<string> extra)
+    {
+        var texts = new List<string>(extra);
+        foreach (var node in main.Ui.FindChildren("*", "", recursive: true, owned: false))
+        {
+            if (node is Control control)
+            {
+                texts.Add(control.TooltipText);
+            }
+
+            texts.Add(node switch
+            {
+                Label label => label.Text,
+                Button button => button.Text,
+                RichTextLabel rich => rich.Text,
+                _ => "",
+            });
+        }
+
+        foreach (var text in texts.Where(t => t.Length > 0).Distinct())
+        {
+            if (text.Contains("(T", StringComparison.Ordinal) || text.Contains("[b]F1", StringComparison.Ordinal) || text.Contains("touche", StringComparison.OrdinalIgnoreCase)
+                || System.Text.RegularExpressions.Regex.IsMatch(text, @"\[b\](\\?.|F\d+)\[/b\]"))
+            {
+                failures.Add($"texte qui cite une touche : « {text} »");
+            }
+        }
+
+        GD.Print($"SMOKE touches : {texts.Count} textes sans touche citée");
     }
 
     /// <summary>C13 critère 5 : un carré de fairway et l'arbre planté dessus ; un trait de bulldozer au même point les efface.</summary>
@@ -1085,10 +1360,21 @@ public partial class SmokeTest : Node
             failures.Add("après « Jouer », la visée se rouvre avant que le coup parte");
         }
 
-        _main.StepTicks(200);
-        if (pro.Strokes != 1)
+        // On compte les envols plutôt que les coups : une balle à l'eau ajoute une pénalité au compte (le vent varie avec l'heure de la fumée).
+        var flights = 0;
+        for (var i = 0; i < 200; i++)
         {
-            failures.Add($"après « Jouer », le pro compte {pro.Strokes} coups au lieu de 1");
+            var wasInFlight = pro.State == GolferState.BallInFlight;
+            _main.StepTicks(1);
+            if (!wasInFlight && pro.State == GolferState.BallInFlight)
+            {
+                flights++;
+            }
+        }
+
+        if (flights != 1)
+        {
+            failures.Add($"après « Jouer », le pro frappe {flights} fois au lieu d'une");
         }
     }
 
@@ -1115,9 +1401,9 @@ public partial class SmokeTest : Node
         }
 
         var planted = world.Trees.Trees[^1];
-        if (world.TreeSpending != TreeCosts.Mound || !tool.Select(planted.Id) || !tool.Describe().Contains("ans"))
+        if (-world.Ledger.Current(LedgerCategory.Trees) != world.Economy.TreeMound || !tool.Select(planted.Id) || !tool.Describe().Contains("ans"))
         {
-            failures.Add($"outil arbres : dépenses {world.TreeSpending}, panneau « {tool.Describe()} »");
+            failures.Add($"outil arbres : dépenses {-world.Ledger.Current(LedgerCategory.Trees)}, panneau « {tool.Describe()} »");
         }
 
         var standing = trees.TreeCount;
@@ -1159,10 +1445,11 @@ public partial class SmokeTest : Node
             failures.Add($"outil arbres, abattage : sim {world.Trees.Count}, couche {trees.TotalCount}");
         }
 
-        var expected = TreeCosts.Mound + TreeCosts.ClearFallen + TreeCosts.Sapling + TreeCosts.Raze;
-        if (world.TreeSpending != expected)
+        var e = world.Economy;
+        var expected = e.TreeMound + e.TreeClearFallen + e.TreeSapling + e.TreeRaze;
+        if (-world.Ledger.Current(LedgerCategory.Trees) != expected)
         {
-            failures.Add($"outil arbres : dépenses {world.TreeSpending}, attendu {expected}");
+            failures.Add($"outil arbres : dépenses {-world.Ledger.Current(LedgerCategory.Trees)}, attendu {expected}");
         }
 
         tool.SetActive(false);
@@ -1242,6 +1529,7 @@ public partial class SmokeTest : Node
         ["vehicles"] = 800,
         ["buildings"] = 3000,
         ["structures"] = 600,
+        ["golfers"] = 2500, // le golfeur animé de C23 (tools/blender/golfer_anim.py)
         ["ui"] = 0, // polices et icônes de l'interface (C13) : aucun modèle 3D admis.
     };
 
@@ -1334,9 +1622,9 @@ public partial class SmokeTest : Node
         brush.SetActive(true);
         brush.SelectSurface(Surface.Bunker);
         brush.ChangeRadius(4f);
-        if (!brush.Describe().Contains("Bunker") || !brush.Describe().Contains("10"))
+        if (brush.PaintedSurface != Surface.Bunker || Math.Abs(brush.Radius - 10f) > 0.01f)
         {
-            failures.Add($"panneau du pinceau inattendu : {brush.Describe()}");
+            failures.Add($"pinceau inattendu : {brush.PaintedSurface}, rayon {brush.Radius}");
         }
 
         if (!Brush.TryPick(grid, new Vector3((float)center.X, 200f, (float)center.Z), Vector3.Down, 400f, out var hit)

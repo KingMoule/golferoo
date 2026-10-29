@@ -1,0 +1,51 @@
+// Paramètres de l'économie en difficulté Facile (spec C14, « Paramètres de Facile »).
+// Montants en cents entiers ; taux en points de base (1 % = 100) ; « parM2 » : par mètre carré de cellule réellement changée.
+// Tous les paramètres sont obligatoires et positifs ou nuls : un oubli ou une valeur négative refuse le fichier.
+{
+  // Argent
+  "startingMoney": 15000000,
+  "overdraftInterestBasisPoints": 100,
+  "overdraftLimit": 10000000,
+  "overdraftFreeHoles": 3,
+  "bankruptcyThreshold": 10000000,
+  "bankruptcyMonths": 6,
+
+  // Construction : peinture, selon la surface d'arrivée
+  "paintFairwayPerM2": 100,
+  "paintGreenPerM2": 600,
+  "paintTeePerM2": 400,
+  "paintBunkerPerM2": 300,
+  "paintWaterPerM2": 400,
+  "paintPathPerM2": 200,
+  "paintRoughPerM2": 20,
+  "paintTreesPerM2": 100,
+  "reliefPerM3": 200,
+  "newHole": 200000,
+
+  // Arbres
+  "treeSapling": 5000,
+  "treeMound": 80000,
+  "treeRaze": 15000,
+  "treeRemarkableMultiplier": 2,
+  "treeClearPerM2": 50,
+  "treeClearFallen": 10000,
+
+  // Entretien, chaque fin de mois
+  "maintenancePerHole": 110000,
+  "demandingTurfBasisPoints": 2000,
+
+  // Revenus (lot 2 et C16) : green fee par trou joué, cotisation annuelle prélevée par douzièmes
+  "greenFeeVisitor": 1500,
+  "greenFeeMember": 1200,
+  "greenFeeSilver": 1000,
+  "greenFeeGold": 800,
+  "greenFeePlatinum": 600,
+  "duesMember": 36000,
+  "duesSilver": 60000,
+  "duesGold": 96000,
+  "duesPlatinum": 144000,
+
+  // Humeur à la fin du trou : facteur du green fee de ×0,5 (humeur −10) à ×1,2 (humeur +10), ×1 à humeur neutre
+  "moodFactorMinBasisPoints": 5000,
+  "moodFactorMaxBasisPoints": 12000
+}

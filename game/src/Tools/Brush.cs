@@ -25,8 +25,6 @@ public partial class Brush : Node3D
         Surface.Tee, Surface.Green, Surface.Fairway, Surface.Rough, Surface.Bunker, Surface.Water, Surface.Trees, Surface.Path,
     ];
 
-    private static readonly string[] SurfaceNames = ["Départ", "Green", "Fairway", "Rough", "Bunker", "Eau", "Bois", "Chemin"];
-
     private const int RingSegments = 48;
 
     private Main? _main;
@@ -69,10 +67,6 @@ public partial class Brush : Node3D
         _ring = new MeshInstance3D { Name = "Ring", Mesh = _ringMesh, MaterialOverride = _ringMaterial, Visible = false, CastShadow = GeometryInstance3D.ShadowCastingSetting.Off };
         AddChild(_ring);
     }
-
-    /// <summary>Outil, surface et rayon, en une phrase.</summary>
-    public string Describe() =>
-        $"{(BulldozerMode ? "Bulldozer" : ReliefMode ? "Relief : clic gauche monte, clic droit creuse" : "Surface " + SurfaceNames[(int)PaintedSurface])}, rayon {Radius:0} m";
 
     public void SetActive(bool active)
     {
@@ -279,7 +273,7 @@ public partial class Brush : Node3D
     private void DrawRing(Vector3 center)
     {
         var grid = _main!.World.Terrain!;
-        _ringMaterial!.AlbedoColor = BulldozerMode ? new Color("F08B72") : ReliefMode ? new Color(1f, 0.85f, 0.2f) : new Color(1f, 1f, 1f);
+        _ringMaterial!.AlbedoColor = BulldozerMode ? Ui.UiTheme.BrickLight : ReliefMode ? new Color(1f, 0.85f, 0.2f) : new Color(1f, 1f, 1f);
         _ringMesh!.ClearSurfaces();
         _ringMesh.SurfaceBegin(Mesh.PrimitiveType.LineStrip);
         for (var i = 0; i <= RingSegments; i++)

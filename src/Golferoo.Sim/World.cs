@@ -1,3 +1,4 @@
+using Golferoo.Sim.Economy;
 using Golferoo.Sim.Golfers;
 using Golferoo.Sim.League;
 using Golferoo.Sim.Pathing;
@@ -25,8 +26,12 @@ public sealed partial class World
     /// <summary>Durée d'un tick en secondes.</summary>
     public const double TickSeconds = 1.0 / TicksPerSecond;
 
-    /// <summary>Durée d'un coup (geste), en ticks.</summary>
-    private const int SwingTicksCount = TicksPerSecond;
+    /// <summary>
+    /// Durée d'un coup jusqu'à l'impact, en ticks : l'image d'impact du swing animé (<c>impact_golf_swing_2s</c> dans les extras de
+    /// game/assets/golfers/golfer.glb, 1,133 s) arrondie au tick. Une constante plutôt qu'une lecture du fichier : la sim reste pure et
+    /// déterministe sans dépendre d'un asset ; la fumée Godot échoue si le .glb et cette valeur divergent (spec C23).
+    /// </summary>
+    public const int SwingTicksCount = 23;
 
     /// <summary>Budget de planification par tick, tous golfeurs confondus, en pas de simulation de la balle (<see cref="Shots.BallSimulator.Step"/>) : environ 0,3 µs chacun, soit 1,5 à 2 ms par tick. Un drive complet en compte des dizaines de milliers.</summary>
     public const int PlanBudgetPerTick = 6500;
@@ -61,10 +66,12 @@ public sealed partial class World
     private Point2?[] _exitPoints = [];
     private long _exitPointVersion = -1;
 
-    public World(ulong seed, TerrainGrid? terrain = null, IShotResolver? resolver = null, bool league = false)
+    public World(ulong seed, TerrainGrid? terrain = null, IShotResolver? resolver = null, bool league = false, EconomyParams? economy = null)
     {
         Seed = seed;
         Terrain = terrain;
+        Economy = economy ?? EconomyParams.Facile;
+        Ledger = new Ledger(Economy.StartingMoney);
         if (terrain is not null)
         {
             _holesOpen = [.. terrain.Course.Holes.Select(_ => !terrain.Blank)];
@@ -261,6 +268,7 @@ public sealed partial class World
     /// <summary>Debug : saute au 1er du mois suivant et fait pousser les arbres.</summary>
     public void SkipToNextMonth()
     {
+        CloseMonth(CurrentMonth);
         _dayOffset += Calendar.DaysPerMonth - Date.Day + 1;
         _rainyDays = 0;
         GrowTrees();
@@ -507,7 +515,7 @@ public sealed partial class World
             }
         }
 
-        var month = Calendar.MonthIndex(Tick, _dayOffset);
+        var month = CurrentMonth;
         var day = DayIndex;
         Tick++;
         if (DayIndex != day)
@@ -530,8 +538,9 @@ public sealed partial class World
             }
         }
 
-        if (Calendar.MonthIndex(Tick, _dayOffset) != month)
+        if (CurrentMonth != month)
         {
+            CloseMonth(month);
             SpringRain(day);
             GrowTrees();
         }
@@ -561,9 +570,10 @@ public sealed partial class World
         items.Clear();
         foreach (var group in _groups)
         {
+            var pin = Terrain is { } terrain ? terrain.Course[group.Hole].Hole : default;
             foreach (var g in group.Golfers)
             {
-                items.Add(new GolferView(g.Id, group.Id, g.Position, g.Ball, g.State, g.Strokes, g.Holed, BallPosition(g), g.PickedUp));
+                items.Add(new GolferView(g.Id, group.Id, g.Position, g.Ball, g.State, g.Strokes, g.Holed, BallPosition(g), g.PickedUp, pin));
             }
         }
 
@@ -836,7 +846,7 @@ public sealed partial class World
                     break;
                 case GolferState.Swinging:
                 case GolferState.Putting:
-                    // Le geste dure SwingTicksCount ticks ; le coup ne part pas avant que sa planification soit finie.
+                    // Le geste dure SwingTicksCount ticks jusqu'à l'impact ; le coup ne part pas avant que sa planification soit finie.
                     if (--g.SwingTicks <= 0 && g.Plan is not { IsDone: false })
                     {
                         Hit(terrain, g, hole.Hole);

@@ -9,6 +9,8 @@ namespace Golferoo.Game.Tools;
 /// Mode mesure (`-- --fps-bench`) : 1920x1080, vsync coupé, 200 golfeurs, 5 s de chauffe puis 30 s de mesure.
 /// Affiche le résultat, l'écrit dans fps-result.txt à côté de l'exécutable et quitte 10 s plus tard.
 /// `-- --fps-bench-low` : même chargement, mais en caméra libre rasante qui longe le parcours (fps-result-low.txt).
+/// `-- --fps-bench-golfers N` (C23) : « Le neuf », N golfeurs animés qui marchent (un sur deux frappe en boucle), tous animés quelle que soit
+/// leur distance, caméra fixe sur tout le parcours (fps-result-golfers-N.txt).
 /// </summary>
 public partial class FpsBench : Node
 {
@@ -17,10 +19,13 @@ public partial class FpsBench : Node
     private const double ShowSeconds = 10;
 
     /// <summary>Vrai si l'une des deux mesures est demandée (même trou, mêmes arbres, pas d'interface de jeu).</summary>
-    public static bool Active => Low || OS.GetCmdlineUserArgs().Contains("--fps-bench");
+    public static bool Active => Low || Golfers > 0 || OS.GetCmdlineUserArgs().Contains("--fps-bench");
 
     /// <summary>Vrai pour la mesure en vue rasante.</summary>
     public static bool Low => OS.GetCmdlineUserArgs().Contains("--fps-bench-low");
+
+    /// <summary>Nombre de golfeurs animés de la mesure C23, 0 sinon.</summary>
+    public static int Golfers => int.TryParse(Main.CommandLineOption("--fps-bench-golfers"), out var n) ? n : 0;
 
     private const float LowPitchDegrees = 8f;
     private const float LowDistance = 15f;
@@ -77,6 +82,8 @@ public partial class FpsBench : Node
         }
     }
 
+    private static string Suffix => Low ? "-low" : Golfers > 0 ? $"-golfers-{Golfers}" : string.Empty;
+
     private readonly List<double> _frames = [];
     private Main _main = null!;
     private Label _label = null!;
@@ -95,7 +102,18 @@ public partial class FpsBench : Node
         window.Size = new Vector2I(1920, 1080);
         window.Position = Vector2I.Zero;
         DisplayServer.WindowSetVsyncMode(DisplayServer.VSyncMode.Disabled);
-        _main.ToggleLoadMode();
+        if (Golfers > 0)
+        {
+            _main.ToggleLoadMode(Golfers);
+            _main.Actors.Range = float.PositiveInfinity;
+            _main.Actors.BenchSwing = true;
+            var grid = _main.World.Terrain!;
+            _main.Camera.SetFreeView(0f, 60f, 520f, new Vector3((float)(grid.CellsX * grid.CellSize) / 2f, 0f, (float)(grid.CellsZ * grid.CellSize) / 2f));
+        }
+        else
+        {
+            _main.ToggleLoadMode();
+        }
 
         _label = new Label { Position = new Vector2(40, 100) };
         _label.AddThemeFontSizeOverride("font_size", 36);
@@ -128,7 +146,7 @@ public partial class FpsBench : Node
 
         if (_elapsed < WarmupSeconds)
         {
-            _label.Text = $"Mesure FPS : chauffe {WarmupSeconds - _elapsed:F0} s ({_main.Actors.VisibleGolfers} golfeurs)";
+            _label.Text = $"Mesure FPS : chauffe {WarmupSeconds - _elapsed:F0} s ({_main.Actors.VisibleGolfers} golfeurs, {_main.Actors.AnimatedGolfers} animés)";
             return;
         }
 
@@ -168,23 +186,23 @@ public partial class FpsBench : Node
         }
 
         var text =
-            $"Golferoo - mesure FPS{(Low ? " (vue rasante)" : string.Empty)}\n" +
+            $"Golferoo - mesure FPS{(Low ? " (vue rasante)" : Golfers > 0 ? $" ({Golfers} golfeurs animes)" : string.Empty)}\n" +
             $"FPS moyen : {avg:F1}\n" +
             $"1 % bas : {1.0 / p99:F1} FPS (pire image {sorted[^1] * 1000:F1} ms, p99 {p99 * 1000:F1} ms)\n" +
             $"Tick de simulation moyen : {tickMs:F3} ms\n" +
-            $"Golfeurs : {_main.Actors.VisibleGolfers}\n" +
+            $"Golfeurs : {_main.Actors.VisibleGolfers} (animes : {_main.Actors.AnimatedGolfers})\n" +
             $"Arbres : {_main.World.Trees.Count}\n" +
             $"Resolution : {size.X:F0}x{size.Y:F0}, facteur {_main.Factor}\n" +
             $"Carte graphique : {RenderingServer.GetVideoAdapterName()}\n" +
             $"Version : {version}\n" +
             $"Images mesurees : {_frames.Count} en {total:F1} s\n";
         _label.Text = text + "\nFermeture dans 10 s.";
-        GD.Print($"FPSBENCH{(Low ? "-LOW" : string.Empty)} avg={avg:F1} low1={1.0 / p99:F1} tickMs={tickMs:F3} golfers={_main.Actors.VisibleGolfers} trees={_main.World.Trees.Count} res={size.X:F0}x{size.Y:F0} factor={_main.Factor} gpu=\"{RenderingServer.GetVideoAdapterName()}\" version={version}");
+        GD.Print($"FPSBENCH{Suffix.ToUpperInvariant()} avg={avg:F1} low1={1.0 / p99:F1} tickMs={tickMs:F3} golfers={_main.Actors.VisibleGolfers} animated={_main.Actors.AnimatedGolfers} trees={_main.World.Trees.Count} res={size.X:F0}x{size.Y:F0} factor={_main.Factor} gpu=\"{RenderingServer.GetVideoAdapterName()}\" version={version}");
 
         var dir = System.IO.Path.GetDirectoryName(OS.GetExecutablePath()) ?? ".";
         try
         {
-            System.IO.File.WriteAllText(System.IO.Path.Combine(dir, Low ? "fps-result-low.txt" : "fps-result.txt"), text);
+            System.IO.File.WriteAllText(System.IO.Path.Combine(dir, $"fps-result{Suffix}.txt"), text);
         }
         catch (Exception e)
         {
