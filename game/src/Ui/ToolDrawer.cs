@@ -96,6 +96,9 @@ public partial class ToolDrawer : PanelContainer
         }
 
         row.AddChild(new Control { SizeFlagsHorizontal = SizeFlags.ExpandFill });
+        var undo = Action(UiIds.Action.Undo, "Annuler", "Annule le dernier coup de pinceau et rend son prix. Possible pendant cinq secondes ; les arbres rasés ne reviennent pas.", _main.Brush.Undo);
+        undo.Visible = false;
+        row.AddChild(undo);
         var sizeRow = new HBoxContainer();
         sizeRow.AddThemeConstantOverride("separation", 10);
         sizeRow.AddChild(new Label { Text = "Taille du pinceau", ThemeTypeVariation = "UiCaption", VerticalAlignment = VerticalAlignment.Center });
@@ -147,7 +150,9 @@ public partial class ToolDrawer : PanelContainer
         {
             var thumb = UiThumb.Create(id, name, surface == Surface.Rough ? rough.Darkened(0.25f) : rough, top, top.Darkened(0.45f));
             thumb.Description = text;
-            thumb.Costs = [("Construction", "— / m²"), ("Entretien", "— / mois")];
+            var perM2 = UiMoney.Format(_main.World.Economy.PaintCost(surface));
+            thumb.Price.Text = perM2 + "/m²";
+            thumb.Costs = [("Construction", perM2 + " / m²")];
             thumb.Pressed += () =>
             {
                 _main.Brush.SelectSurface(surface);
@@ -171,7 +176,9 @@ public partial class ToolDrawer : PanelContainer
                 var name = TreeSpeciesTable.Get(species).Name;
                 var thumb = UiThumb.Create(UiIds.Thumb.Tree(species.ToString(), stage.ToString()), $"{name}, {(stage == TreePlantStage.Mound ? "motte" : "plant")}", thumbnails.Render(TreeTool.ModelPath(species, stage)));
                 thumb.Description = stage == TreePlantStage.Mound ? "Un jeune arbre déjà formé, planté avec sa motte." : "Un plant qui mettra des années à grandir.";
-                thumb.Costs = [("Plantation", "—"), ("Entretien", "— / mois")];
+                var planting = UiMoney.Format(_main.World.Economy.PlantCost(stage));
+                thumb.Price.Text = planting;
+                thumb.Costs = [("Plantation", planting)];
                 thumb.Pressed += () =>
                 {
                     _main.TreeTool.SetPlanting(species, stage);
@@ -188,10 +195,12 @@ public partial class ToolDrawer : PanelContainer
         page.AddChild(actions);
         var tool = _main.TreeTool;
         actions.AddChild(Action(UiIds.Action.TreeSelect, "Sélectionner", "Un clic sur un arbre le sélectionne.", () => tool.SetMode(TreeTool.ClickMode.Select), toggle: true));
-        actions.AddChild(Action(UiIds.Action.TreeRaze, "Raser", "Abat l'arbre sélectionné.", () => tool.RazeSelected()));
-        actions.AddChild(Action(UiIds.Action.TreeRazeArea, "Raser une zone", "Un clic rase les arbres et le sous-bois sous le pinceau.", () => tool.SetMode(TreeTool.ClickMode.RazeArea), toggle: true));
+        var economy = _main.World.Economy;
+        var raze = UiMoney.Format(economy.TreeRaze);
+        actions.AddChild(Action(UiIds.Action.TreeRaze, "Raser", $"Abat l'arbre sélectionné : {raze}, {UiMoney.Format(economy.TreeRaze * economy.TreeRemarkableMultiplier)} pour un remarquable.", () => tool.RazeSelected()));
+        actions.AddChild(Action(UiIds.Action.TreeRazeArea, "Raser une zone", $"Un clic rase les arbres et le sous-bois sous le pinceau : {raze} par arbre, {UiMoney.Format(economy.TreeClearPerM2)} par m² de sous-bois.", () => tool.SetMode(TreeTool.ClickMode.RazeArea), toggle: true));
         actions.AddChild(Action(UiIds.Action.TreeKeepRemarkable, "Garder les remarquables", "La zone rasée épargne les arbres remarquables.", () => tool.SetKeepRemarkable(!tool.KeepRemarkable), toggle: true));
-        actions.AddChild(Action(UiIds.Action.TreeClearFallen, "Dégager le tronc", "Débite le tronc tombé sélectionné.", () => tool.ClearSelected()));
+        actions.AddChild(Action(UiIds.Action.TreeClearFallen, "Dégager le tronc", $"Dégage le tronc tombé sélectionné : {UiMoney.Format(economy.TreeClearFallen)}.", () => tool.ClearSelected()));
         return page;
     }
 
@@ -201,7 +210,7 @@ public partial class ToolDrawer : PanelContainer
         page.AddThemeConstantOverride("separation", 8);
         var place = _main.PlaceTool;
         page.AddChild(Action(UiIds.Action.HolePose, "Poser départ et trou", "Un clic sur un départ le pose, un clic sur le green place le drapeau.", place.BeginPose, toggle: true));
-        page.AddChild(Action(UiIds.Action.HoleNew, "Nouveau trou", "Un clic sur un départ, puis un clic sur un green : un trou de plus.", place.BeginNewHole, toggle: true));
+        page.AddChild(Action(UiIds.Action.HoleNew, "Nouveau trou", $"Un clic sur un départ, puis un clic sur un green : un trou de plus, {UiMoney.Format(_main.World.Economy.NewHole)}. Une fois ouvert, il coûte {UiMoney.Format(_main.World.Economy.MaintenancePerHole)} d'entretien par mois.", place.BeginNewHole, toggle: true));
         page.AddChild(Action(UiIds.Action.HoleRemove, "Supprimer", "Retire le dernier trou du parcours.", place.RemoveLastHole));
         page.AddChild(Action(UiIds.Action.HolePrevious, "Trou précédent", "La caméra va au trou d'avant.", () => _main.CameraStepHole(-1)));
         page.AddChild(Action(UiIds.Action.HoleNext, "Trou suivant", "La caméra va au trou d'après.", () => _main.CameraStepHole(1)));
@@ -250,6 +259,17 @@ public partial class ToolDrawer : PanelContainer
         }
 
         _sizeRow.Visible = family != ToolFamily.Holes;
+        var undo = _actions[UiIds.Action.Undo];
+        undo.Visible = (family is ToolFamily.Terrain or ToolFamily.Relief or ToolFamily.Bulldozer) && brush.CanUndo;
+        if (undo.Visible)
+        {
+            var text = $"Annuler ({UiMoney.Format(_main.World.StrokeCost)})";
+            if (undo.Text != text)
+            {
+                undo.Text = text;
+            }
+        }
+
         _size.SetValueNoSignal(brush.Radius);
         foreach (var (surface, thumb) in _surfaceThumbs)
         {
@@ -270,7 +290,7 @@ public partial class ToolDrawer : PanelContainer
 
         var status = family switch
         {
-            ToolFamily.Relief => "Clic gauche : monter le sol. Clic droit : creuser.",
+            ToolFamily.Relief => $"Clic gauche : monter le sol. Clic droit : creuser. {UiMoney.Format(_main.World.Economy.ReliefPerM3)} par m³ de terre déplacée.",
             ToolFamily.Bulldozer => "Efface ce qui a été posé : la surface revient au rough, les arbres sont rasés.",
             ToolFamily.Trees => trees.Describe(),
             ToolFamily.Holes => place.Status,

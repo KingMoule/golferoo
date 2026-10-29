@@ -116,6 +116,9 @@ public partial class Main : Node3D
     /// <summary>Le fil des messages du jeu (bouton Birdie).</summary>
     public Birdie Birdie { get; private set; } = null!;
 
+    /// <summary>Les finances du club : panneau, coût du coup près du curseur, confirmation du découvert (bouton Finances).</summary>
+    public Finances Finances { get; private set; } = null!;
+
     /// <summary>Échelle d'interface (<c>-- --ui-scale 1.25</c>) : 1, 1,25 ou 1,5.</summary>
     public static float UiScale => float.TryParse(CommandLineOption("--ui-scale"), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var scale) ? Math.Clamp(scale, 1f, 1.5f) : 1f;
 
@@ -342,6 +345,9 @@ public partial class Main : Node3D
         Birdie = new Birdie { Name = "Birdie" };
         AddChild(Birdie);
         Birdie.Init(this);
+        Finances = new Finances { Name = "Finances" };
+        AddChild(Finances);
+        Finances.Init(this);
         // L'échelle agrandit toute l'interface (calques 2D), pas le rendu 3D.
         GetWindow().ContentScaleFactor = UiScale;
 
@@ -522,6 +528,13 @@ public partial class Main : Node3D
     private void HandleKey(InputEventKey @event)
     {
         var key = @event.Keycode;
+        if (key == Key.Z && @event.CtrlPressed)
+        {
+            Brush.Undo();
+            Bar.Sync();
+            return;
+        }
+
         if (ProAim.HandleKey(key) || PlaceTool.HandleKey(key) || TreeTool.HandleKey(key))
         {
             return;
@@ -552,7 +565,11 @@ public partial class Main : Node3D
                 ToggleDebug();
                 break;
             case Key.Escape:
-                Panels.CloseLast();
+                if (!Finances.DismissPrompt())
+                {
+                    Panels.CloseLast();
+                }
+
                 break;
             case Key.G:
                 SpawnGroup();
@@ -848,7 +865,7 @@ public partial class Main : Node3D
             Birdie.Post(Birdie.Club, $"{UiNames.Capitalized(UiNames.Seasons[(int)_season])} sur le parcours : le gazon et le feuillage changent.", "#saison");
         }
 
-        Birdie.Post(Birdie.Club, $"Ce matin : {UiNames.Skies[(int)World.Weather.Sky]}. Demain : {UiNames.Skies[(int)World.Forecast(1)]}.", "#météo");
+        Birdie.PostWeather($"Ce matin : {UiNames.Skies[(int)World.Weather.Sky]}. Demain : {UiNames.Skies[(int)World.Forecast(1)]}.");
     }
 
     private void StepOnce()

@@ -49,6 +49,7 @@ public static class UiIds
         public const string BirdieUnread = "BirdieUnread";
         public const string BirdieFeed = "BirdieFeed";
         public const string BirdieMute = "BirdieMute";
+        public const string StrokeCost = "HudStrokeCost";
 
         /// <summary>Bouton de vitesse ×<paramref name="speed"/> (1, 2, 4, 8 ou 16).</summary>
         public static string Speed(int speed) => $"HudSpeed{speed}";
@@ -94,6 +95,7 @@ public static class UiIds
         public const string HoleRemove = "ActionHolesRemove";
         public const string HolePrevious = "ActionHolesPrevious";
         public const string HoleNext = "ActionHolesNext";
+        public const string Undo = "ActionUndo";
     }
 
     public static class Panel
@@ -103,9 +105,21 @@ public static class UiIds
         public const string Pro = "PanelPro";
         public const string LeagueCard = "PanelLeagueCard";
         public const string Birdie = "PanelBirdie";
+        public const string Finances = "PanelFinances";
+        public const string Overdraft = "PanelOverdraft";
 
         /// <summary>La visée du pro, hors de la pile : elle suit le tour du pro.</summary>
         public const string Aim = "PanelAim";
+    }
+
+    /// <summary>Le panneau Finances et la confirmation du découvert.</summary>
+    public static class Finance
+    {
+        public const string Balance = "FinancesBalance";
+        public const string Chart = "FinancesChart";
+        public const string Table = "FinancesTable";
+        public const string OverdraftYes = "FinancesOverdraftYes";
+        public const string OverdraftNo = "FinancesOverdraftNo";
     }
 
     /// <summary>La bulle de votre pro (tutoriel), ses boutons et l'anneau qui entoure le bouton attendu.</summary>
