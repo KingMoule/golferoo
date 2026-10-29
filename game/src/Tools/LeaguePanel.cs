@@ -26,6 +26,7 @@ public partial class LeaguePanel : Node
     private Label _title = null!;
     private Label _rating = null!;
     private VBoxContainer _divisions = null!;
+    private ScrollContainer _scroll = null!;
     private Label _champion = null!;
     private VBoxContainer _cardBody = null!;
     private int _eventsSeen;
@@ -52,11 +53,11 @@ public partial class LeaguePanel : Node
         _rating = new Label { ThemeTypeVariation = "UiCaption", AutowrapMode = TextServer.AutowrapMode.WordSmart };
         _champion = new Label { ThemeTypeVariation = "UiCaption", AutowrapMode = TextServer.AutowrapMode.WordSmart };
         _divisions = new VBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
-        var scroll = new ScrollContainer { CustomMinimumSize = new Vector2(0f, 340f), HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled };
-        scroll.AddChild(_divisions);
+        _scroll = new ScrollContainer { HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled };
+        _scroll.AddChild(_divisions);
         box.AddChild(_title);
         box.AddChild(_rating);
-        box.AddChild(scroll);
+        box.AddChild(_scroll);
         box.AddChild(_champion);
         _panel.Closed += () => main.Panels.Close(_cardPanel);
         main.Panels.Add(_panel);
@@ -78,6 +79,7 @@ public partial class LeaguePanel : Node
         }
 
         _main.Panels.Open(_panel);
+        UiTheme.FitList(_scroll);
         Refresh();
     }
 
@@ -132,7 +134,7 @@ public partial class LeaguePanel : Node
         var (text, tag) = e.Type switch
         {
             LeagueEventType.Champion when who.IsPro => ("Champion du club ! Je n'y crois pas encore. Merci à vous tous.", "#champion"),
-            LeagueEventType.Champion => ($"Champion du club, an {e.Year} ! La tournée est pour moi au chalet.", "#champion"),
+            LeagueEventType.Champion => ($"Champion du club, an {e.Year + 1} ! La tournée est pour moi au chalet.", "#champion"),
             LeagueEventType.Promoted when who.IsPro => ($"Je monte en division {e.Division + 1}. La saison prochaine sera plus relevée.", "#promotion"),
             LeagueEventType.Relegated when who.IsPro => ($"Je descends en division {e.Division + 1}. On se reprend la saison prochaine.", "#relégation"),
             _ => (null, null),

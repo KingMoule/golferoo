@@ -26,6 +26,7 @@ public partial class Birdie : Node
     private Main _main = null!;
     private UiPanel _panel = null!;
     private VBoxContainer _feed = null!;
+    private ScrollContainer _scroll = null!;
     private PanelContainer _peek = null!;
     private Container _peekSlot = null!;
     private Label _unread = null!;
@@ -45,9 +46,9 @@ public partial class Birdie : Node
         _panel = UiPanel.Create(UiIds.Panel.Birdie, "Birdie", "birdie", Width);
         _feed = new VBoxContainer { Name = UiIds.Hud.BirdieFeed, SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
         _feed.AddThemeConstantOverride("separation", 0);
-        var scroll = new ScrollContainer { CustomMinimumSize = new Vector2(0f, 340f), HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled };
-        scroll.AddChild(_feed);
-        _panel.Content.AddChild(scroll);
+        _scroll = new ScrollContainer { HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled };
+        _scroll.AddChild(_feed);
+        _panel.Content.AddChild(_scroll);
         main.Panels.Add(_panel);
 
         _peekSlot = new MarginContainer { MouseFilter = Control.MouseFilterEnum.Ignore };
@@ -104,6 +105,7 @@ public partial class Birdie : Node
         }
 
         _main.Panels.Open(_panel);
+        UiTheme.FitList(_scroll);
         _peek.Visible = false;
         SetUnread(0);
     }
