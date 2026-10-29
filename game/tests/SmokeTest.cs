@@ -1254,6 +1254,7 @@ public partial class SmokeTest : Node
         Press(UiIds.Round.Finances, failures);
 
         // 2 et 4. Un coup de pinceau : le prix près du curseur égale StrokeCost ; Annuler, puis Ctrl+Z, puis plus rien après cinq secondes.
+        var followed = main.Camera.FollowedId;
         main.Camera.CenterOn(new Vector3((float)p.X, 0f, (float)p.Z));
         Press(UiIds.Tool.Terrain, failures);
         brush.SetRadius(6f);
@@ -1325,6 +1326,8 @@ public partial class SmokeTest : Node
             Expect(main.Birdie.Chirps.Any(c => c.Tag == "#finances"), "un refus de la limite n'écrit pas dans Birdie");
         }
 
+        main.Camera.Follow(followed);
+        main.Bar.Select(ToolFamily.None, toggle: false);
         GD.Print($"SMOKE finances : pastille, panneau, prix du coup, découvert ({finances.Prompts} confirmations), Annuler et Ctrl+Z, refus Birdie ({failures.Count} échec)");
     }
 
