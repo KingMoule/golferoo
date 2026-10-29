@@ -346,7 +346,8 @@ public class SaveTests
     [InlineData(2)]
     [InlineData(3)] // C12 lot 4 : planification en cours dans le golfeur, champs de flux en attente et en cache dans le monde
     [InlineData(4)] // C14 lot 1 : grand livre et paramètres de l'économie
-    public void Load_VersionTwoToFour_SaysItIsAnOlderVersion(byte version)
+    [InlineData(5)] // C14 lot 2 : annulation du dernier coup de pinceau, genre des retouches en file
+    public void Load_OlderVersion_SaysItIsAnOlderVersion(byte version)
     {
         var bytes = Save(Build(1, "proto", "start"));
         bytes[4] = version;
@@ -473,6 +474,59 @@ public class SaveTests
         loaded.Step(600);
 
         Assert.Equal(original.Checksum(), loaded.Checksum());
+    }
+
+    /// <summary>
+    /// C14 lot 2 : sauvé au milieu d'un mois avec un coup de pinceau annulable et des retouches de coup en file, le monde rechargé
+    /// redonne le même solde, le même grand livre et la même annulation. Sans la mémoire du coup dans la somme, deux mondes
+    /// au même terrain, l'un annulable et l'autre non, auraient la même somme.
+    /// </summary>
+    [Fact]
+    public void MidMonthStroke_ReloadedThenUndone_HasTheSameBalanceLedgerAndChecksum()
+    {
+        var original = new World(2, CourseTests.ThreeHoles());
+        original.SpawnGroup();
+        original.Step(300);
+        var tee = original.Terrain!.Course[1].Tee;
+        StrokeUndoTests.Stroke(original, new Point2(tee.X + 30, tee.Z + 30));
+        original.BeginStroke();
+        original.PaintSurface(new Point2(tee.X + 60, tee.Z + 30), 5, Surface.Green);
+        original.UndoStroke();
+        Assert.True(original.CanUndoStroke);
+
+        var bytes = Save(original);
+        var loaded = Load(bytes);
+        Assert.Equal(original.Checksum(), loaded.Checksum());
+        Assert.Equal(bytes, Save(loaded));
+        Assert.True(loaded.CanUndoStroke);
+        Assert.Equal(original.StrokeCost, loaded.StrokeCost);
+
+        foreach (var w in new[] { original, loaded })
+        {
+            w.Step();
+            w.UndoStroke();
+            w.Step(2000);
+        }
+
+        Assert.Equal(original.Ledger.Balance, loaded.Ledger.Balance);
+        Assert.Equal(original.Ledger.Months.Count, loaded.Ledger.Months.Count);
+        Assert.Equal(original.Terrain!.Checksum(), loaded.Terrain!.Checksum());
+        Assert.Equal(original.Checksum(), loaded.Checksum());
+
+        // Même terrain et même caisse, mais seul le second peut encore annuler : sommes différentes.
+        var a = new World(2, CourseTests.ThreeHoles());
+        var b = new World(2, CourseTests.ThreeHoles());
+        foreach (var w in new[] { a, b })
+        {
+            StrokeUndoTests.Stroke(w, new Point2(tee.X + 30, tee.Z + 30));
+        }
+
+        a.BeginStroke();
+        a.Step();
+        b.Step();
+        Assert.Equal(a.Terrain!.Checksum(), b.Terrain!.Checksum());
+        Assert.Equal(a.Ledger.Balance, b.Ledger.Balance);
+        Assert.NotEqual(a.Checksum(), b.Checksum());
     }
 
     [Fact]

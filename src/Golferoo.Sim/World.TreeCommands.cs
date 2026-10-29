@@ -100,6 +100,7 @@ public sealed partial class World
         }
 
         var terrain = Terrain;
+        ForgetStroke(); // une autre commande de terrain : le dernier coup de pinceau ne s'annule plus
         while (_treeCommands.Count > 0)
         {
             var c = _treeCommands.Dequeue();
@@ -163,7 +164,7 @@ public sealed partial class World
         }
 
         var cells = terrain.CountPaint(center, radius, Surface.Rough, Surface.Trees);
-        if (!TrySpend(LedgerCategory.Trees, cost + Price(cells * terrain.CellSize * terrain.CellSize, Economy.TreeClearPerM2)))
+        if (!TrySpend(LedgerCategory.Trees, cost + PerCell(terrain, cells, Economy.TreeClearPerM2)))
         {
             return false;
         }

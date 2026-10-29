@@ -254,6 +254,26 @@ public class EconomyTests
     }
 
     [Fact]
+    public void FromThreeOpenHoles_ReliefAndNewHoleBelowTheLimit_AreRefusedWhole()
+    {
+        var world = ThreeHolesBroke(With(("startingMoney", 0), ("reliefPerM3", 20_000_000), ("newHole", 20_000_000)));
+        var t = world.Terrain!;
+        var terrainSum = t.Checksum();
+        var heightVersion = t.HeightVersion;
+
+        world.RaiseTerrain(t.Course[1].Tee, 15, 1.5);
+        Assert.True(world.AddHole(t.Course[2].Tee, t.Course[2].Hole));
+        world.Step();
+
+        Assert.Equal(0, world.Ledger.Balance);
+        Assert.Equal(heightVersion, t.HeightVersion);
+        Assert.Equal(terrainSum, t.Checksum());
+        Assert.Equal(3, t.Course.Count);
+        Assert.Equal(3, world.OpenHoles);
+        Assert.Equal(2, world.Ledger.Refused);
+    }
+
+    [Fact]
     public void UnderThreeOpenHoles_TheOverdraftHasNoLimit()
     {
         var world = new World(1, CourseTests.ThreeHoles(), economy: With(("startingMoney", 0), ("paintRoughPerM2", 40_000)));
@@ -323,6 +343,13 @@ public class EconomyTests
         Assert.Equal(-110_000, line.Total(LedgerCategory.Maintenance));
         Assert.Equal(-3_100, line.Total(LedgerCategory.Interest));
         Assert.Equal(-313_100, world.Ledger.Balance);
+
+        // 1 % d'un solde qui ne tombe pas juste : tronqué au cent (−309 950 ¢ donne −3 099 ¢, pas −3 100).
+        var odd = new World(1, RoughField(), economy: With(("startingMoney", 50), ("paintFairwayPerM2", 2_000)));
+        odd.PaintSurface(CellCentre(5, 5), 1.0, Surface.Fairway);
+        odd.Step();
+        odd.SkipToNextMonth();
+        Assert.Equal(-3_099, odd.Ledger.Months[0].Total(LedgerCategory.Interest));
 
         // Solde positif : pas d'intérêts.
         var rich = new World(1, RoughField());

@@ -1,15 +1,18 @@
 using Godot;
+using Golferoo.Game.Ui;
 using Golferoo.Sim;
 using Golferoo.Sim.Terrain;
+using Golferoo.Sim.Trees;
 using Golferoo.Sim.Tutorial;
 
 namespace Golferoo.Game.Tutorial;
 
 /// <summary>
-/// Bulle de votre pro pour le tutoriel de C07 : proposition au démarrage (Oui / Plus tard), accueil, puis une étape à la fois, lue dans
-/// <see cref="TutorialSteps.Current"/> (la sim garde l'état, la bulle ne retient que sa phase). Aucune règle ici.
+/// Bulle de votre pro pour le tutoriel de C07, hors de la pile de panneaux : proposition au démarrage (Oui / Plus tard), accueil, puis une
+/// étape à la fois, lue dans <see cref="TutorialSteps.Current"/> (la sim garde l'état, la bulle ne retient que sa phase). Chaque étape se fait
+/// aux boutons : le texte ne cite aucune touche, et un anneau jaune qui pulse entoure le bouton attendu (<see cref="Highlighted"/>). Aucune règle ici.
 /// </summary>
-public partial class TutorialPanel : CanvasLayer
+public partial class TutorialPanel : Node
 {
     public enum Mode
     {
@@ -21,6 +24,7 @@ public partial class TutorialPanel : CanvasLayer
     }
 
     private const int StepCount = 6;
+    private const float RingPad = 5f;
 
     private Main? _main;
     private PanelContainer? _panel;
@@ -29,7 +33,9 @@ public partial class TutorialPanel : CanvasLayer
     private Button? _later;
     private Button? _start;
     private Button? _skip;
+    private Button? _golfers;
     private Button? _close;
+    private Panel? _ring;
     private GhostOutline? _ghost;
     private string _shown = string.Empty;
 
@@ -38,27 +44,46 @@ public partial class TutorialPanel : CanvasLayer
     /// <summary>Texte affiché en ce moment (balises comprises), pour la fumée et les captures.</summary>
     public string Text => _shown;
 
+    /// <summary>L'identifiant (<see cref="UiIds"/>) du bouton que l'anneau entoure, ou <c>null</c>.</summary>
+    public string? Highlighted { get; private set; }
+
     public void Init(Main main, Mode mode)
     {
         _main = main;
-        _panel = new PanelContainer { Name = "TutorialBubble", Visible = false };
-        _panel.AnchorLeft = 0.5f;
-        _panel.AnchorRight = 0.5f;
-        _panel.OffsetLeft = -270f;
-        _panel.OffsetRight = 270f;
-        _panel.OffsetTop = 92f;
+        var row = new HBoxContainer();
+        row.AddThemeConstantOverride("separation", 14);
+        var badge = UiPanel.Badge("figurine", 44);
+        badge.SizeFlagsVertical = Control.SizeFlags.ShrinkBegin;
+        row.AddChild(badge);
         var box = new VBoxContainer();
-        _text = new RichTextLabel { Name = "TutorialText", BbcodeEnabled = true, FitContent = true, ScrollActive = false, CustomMinimumSize = new Vector2(520f, 0f) };
-        var buttons = new HBoxContainer();
-        _yes = Button("TutorialYes", "Oui", Accept, buttons);
-        _later = Button("TutorialLater", "Plus tard", Dismiss, buttons);
-        _start = Button("TutorialStart", "Commencer", Start, buttons);
-        _skip = Button("TutorialSkip", "Passer le tutoriel", Dismiss, buttons);
-        _close = Button("TutorialClose", "Fermer", Dismiss, buttons);
+        box.AddThemeConstantOverride("separation", 8);
+        row.AddChild(box);
+        box.AddChild(new Label { Text = "Votre pro", ThemeTypeVariation = "UiTitle" });
+        _text = new RichTextLabel { Name = UiIds.Tutorial.Text, BbcodeEnabled = true, FitContent = true, ScrollActive = false, CustomMinimumSize = new Vector2(480f, 0f) };
+        _text.AddThemeColorOverride("default_color", UiTheme.Cream);
+        _text.AddThemeFontOverride("bold_font", UiTheme.NunitoHeavy);
         box.AddChild(_text);
+        var buttons = new HBoxContainer();
+        buttons.AddThemeConstantOverride("separation", 8);
         box.AddChild(buttons);
-        _panel.AddChild(box);
-        AddChild(_panel);
+        _yes = Button(UiIds.Tutorial.Yes, "Oui", Accept, buttons);
+        _later = Button(UiIds.Tutorial.Later, "Plus tard", Dismiss, buttons);
+        _start = Button(UiIds.Tutorial.Start, "Commencer", Start, buttons);
+        _skip = Button(UiIds.Tutorial.Skip, "Passer le tutoriel", Dismiss, buttons);
+        _golfers = Button(UiIds.Tutorial.Golfers, "Lancer des golfeurs", LaunchGolfers, buttons);
+        _close = Button(UiIds.Tutorial.Close, "Fermer", Dismiss, buttons);
+
+        _panel = UiTheme.GlassFrame(UiIds.Tutorial.Bubble, row, 16);
+        _panel.Visible = false;
+        _panel.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.CenterTop);
+        _panel.GrowHorizontal = Control.GrowDirection.Both;
+        _panel.OffsetTop = 100f; // sous les pastilles du trou et des messages
+        main.Ui.AddChild(_panel);
+
+        var ringStyle = UiTheme.Box(Colors.Transparent, UiTheme.ToolRadius + (int)RingPad, UiTheme.Flag, 3);
+        _ring = new Panel { Name = UiIds.Tutorial.Ring, Visible = false, MouseFilter = Control.MouseFilterEnum.Ignore };
+        _ring.AddThemeStyleboxOverride("panel", ringStyle);
+        main.Ui.AddChild(_ring);
 
         if (main.World.Terrain!.Blank)
         {
@@ -73,41 +98,80 @@ public partial class TutorialPanel : CanvasLayer
 
     public override void _Process(double delta)
     {
-        if (Phase != Mode.Running || _main is null)
+        if (_main is null)
         {
             return;
         }
 
-        var world = _main.World;
-        var step = TutorialSteps.Current(world);
-        if (step == TutorialStep.Done)
+        if (Phase == Mode.Running)
         {
-            SetPhase(Mode.Finished);
-            return;
-        }
-
-        var terrain = world.Terrain!;
-        var text = StepText(step, world, terrain);
-        if (text != _shown)
-        {
-            Say(text);
-        }
-
-        _ghost?.Show(
-            step switch
+            var world = _main.World;
+            var step = TutorialSteps.Current(world);
+            if (step == TutorialStep.Done)
             {
-                TutorialStep.PaintTee => [Surface.Tee],
-                TutorialStep.PaintFairway => [Surface.Fairway],
-                TutorialStep.PaintGreen => [Surface.Green],
-                TutorialStep.PlaceTeeAndHole => [Surface.Tee, Surface.Green],
-                _ => [],
-            },
-            step == TutorialStep.ClearTrees);
+                SetPhase(Mode.Finished);
+            }
+            else
+            {
+                var text = StepText(step, world, world.Terrain!);
+                if (text != _shown)
+                {
+                    Say(text);
+                }
+
+                Highlighted = Target(step);
+                _ghost?.Show(
+                    step switch
+                    {
+                        TutorialStep.PaintTee => [Surface.Tee],
+                        TutorialStep.PaintFairway => [Surface.Fairway],
+                        TutorialStep.PaintGreen => [Surface.Green],
+                        TutorialStep.PlaceTeeAndHole => [Surface.Tee, Surface.Green],
+                        _ => [],
+                    },
+                    step == TutorialStep.ClearTrees);
+            }
+        }
+
+        PlaceRing();
+    }
+
+    /// <summary>Le bouton attendu à l'étape <paramref name="step"/> : la famille d'outils d'abord, puis la vignette ou l'action du tiroir.</summary>
+    private string Target(TutorialStep step)
+    {
+        var main = _main!;
+        var family = main.Bar.Current;
+        var trees = main.TreeTool;
+        return step switch
+        {
+            TutorialStep.ClearTrees => family != ToolFamily.Trees ? UiIds.Tool.Trees : trees.SelectedId < 0 ? UiIds.Action.TreeSelect : UiIds.Action.TreeRaze,
+            TutorialStep.PlantSapling => family != ToolFamily.Trees ? UiIds.Tool.Trees : UiIds.Thumb.Tree(trees.Species.ToString(), nameof(TreePlantStage.Sapling)),
+            TutorialStep.PaintTee => family != ToolFamily.Terrain ? UiIds.Tool.Terrain : UiIds.Thumb.Tee,
+            TutorialStep.PaintFairway => family != ToolFamily.Terrain ? UiIds.Tool.Terrain : UiIds.Thumb.Fairway,
+            TutorialStep.PaintGreen => family != ToolFamily.Terrain ? UiIds.Tool.Terrain : UiIds.Thumb.Green,
+            _ => family != ToolFamily.Holes ? UiIds.Tool.Holes : UiIds.Action.HolePose,
+        };
+    }
+
+    /// <summary>L'anneau jaune autour du bouton <see cref="Highlighted"/>, qui pulse ; caché si le bouton n'est pas à l'écran.</summary>
+    private void PlaceRing()
+    {
+        var target = Highlighted is null ? null : _main!.Ui.Find(Highlighted);
+        _ring!.Visible = target is not null && target.IsVisibleInTree();
+        if (!_ring.Visible)
+        {
+            return;
+        }
+
+        var rect = target!.GetGlobalRect().Grow(RingPad);
+        _ring.GlobalPosition = rect.Position;
+        _ring.Size = rect.Size;
+        _ring.Modulate = new Color(1f, 1f, 1f, 0.6f + (0.4f * Mathf.Sin((float)Time.GetTicksMsec() * 0.006f)));
     }
 
     private static Button Button(string name, string text, Action pressed, Container parent)
     {
-        var button = new Button { Name = name, Text = text };
+        var button = new Button { Name = name, Text = text, FocusMode = Control.FocusModeEnum.None };
         button.Pressed += pressed;
         parent.AddChild(button);
         return button;
@@ -116,11 +180,13 @@ public partial class TutorialPanel : CanvasLayer
     private void SetPhase(Mode mode)
     {
         Phase = mode;
+        Highlighted = mode == Mode.Finished ? UiIds.Tutorial.Golfers : null;
         _panel!.Visible = mode != Mode.Off;
         _yes!.Visible = mode == Mode.Offer;
         _later!.Visible = mode == Mode.Offer;
         _start!.Visible = mode == Mode.Welcome;
         _skip!.Visible = mode is Mode.Welcome or Mode.Running;
+        _golfers!.Visible = mode == Mode.Finished;
         _close!.Visible = mode == Mode.Finished;
         _ghost?.Show([], false);
         switch (mode)
@@ -134,7 +200,7 @@ public partial class TutorialPanel : CanvasLayer
             case Mode.Finished:
                 var terrain = _main!.World.Terrain!;
                 var meters = Math.Sqrt(Math.Pow(terrain.Hole.X - terrain.Tee.X, 2) + Math.Pow(terrain.Hole.Z - terrain.Tee.Z, 2));
-                Say($"[b]Le trou est valide ![/b] Par {terrain.Par}, {meters:0} m. Lancez des golfeurs avec [b]G[/b] et regardez la première paire le jouer. Bon jeu !");
+                Say($"[b]Le trou est valide ![/b] Par {terrain.Par}, {meters:0} m. Cliquez sur [b]Lancer des golfeurs[/b] et regardez la première paire le jouer. Bon jeu !");
                 break;
             default:
                 break;
@@ -156,6 +222,12 @@ public partial class TutorialPanel : CanvasLayer
 
     private void Dismiss() => SetPhase(Mode.Off);
 
+    private void LaunchGolfers()
+    {
+        _main!.SpawnGroup();
+        Dismiss();
+    }
+
     /// <summary>Commence le tutoriel (le bouton « Commencer »).</summary>
     public void Start() => SetPhase(Mode.Running);
 
@@ -164,12 +236,12 @@ public partial class TutorialPanel : CanvasLayer
         var head = $"[b]Étape {(int)step + 1} sur {StepCount}[/b] — ";
         return head + step switch
         {
-            TutorialStep.ClearTrees => $"des arbres encombrent le passage ({TutorialSteps.CorridorTreesLeft(world, terrain)} encerclés de rouge). Appuyez sur [b]T[/b], cliquez sur un arbre puis sur [b]R[/b] pour le raser ([b]X[/b] rase toute une zone).",
-            TutorialStep.PlantSapling => "plantez une pousse. Avec l'outil arbres ([b]T[/b]), appuyez sur [b]P[/b] puis cliquez sur le rough ; vous pouvez en planter plusieurs ([b]Y[/b] change d'essence).",
-            TutorialStep.PaintTee => "peignez le départ. Appuyez sur [b]B[/b], choisissez Tee avec [b]F1[/b], puis maintenez le clic gauche sur le contour blanc (il n'est qu'indicatif).",
-            TutorialStep.PaintFairway => "peignez le fairway. Choisissez Fairway avec [b]F3[/b] et suivez le contour vert ; [b]\\[[/b] et [b]\\][/b] changent le rayon du pinceau.",
-            TutorialStep.PaintGreen => "peignez le green. Choisissez Green avec [b]F2[/b] et couvrez le contour turquoise.",
-            TutorialStep.PlaceTeeAndHole => "posez le départ et le trou. Appuyez sur [b]V[/b], cliquez sur le départ, puis sur le green." + Missing(terrain),
+            TutorialStep.ClearTrees => $"des arbres encombrent le passage ({TutorialSteps.CorridorTreesLeft(world, terrain)} encerclés de rouge). Cliquez sur [b]Arbres[/b], puis sur [b]Sélectionner[/b] et sur un arbre, enfin sur [b]Raser[/b] ([b]Raser une zone[/b] en abat plusieurs d'un coup).",
+            TutorialStep.PlantSapling => "plantez une pousse. Dans le tiroir [b]Arbres[/b], cliquez sur un plant, puis sur le rough ; vous pouvez en planter plusieurs, de chaque essence.",
+            TutorialStep.PaintTee => "peignez le départ. Cliquez sur [b]Terrain[/b], puis sur [b]Départ[/b], et maintenez le clic gauche sur le contour blanc (il n'est qu'indicatif).",
+            TutorialStep.PaintFairway => "peignez le fairway. Choisissez [b]Fairway[/b] et suivez le contour vert ; le curseur [b]Taille du pinceau[/b] change le rayon.",
+            TutorialStep.PaintGreen => "peignez le green. Choisissez [b]Green[/b] et couvrez le contour turquoise.",
+            TutorialStep.PlaceTeeAndHole => "posez le départ et le trou. Cliquez sur [b]Trous[/b], puis sur le départ, enfin sur le green." + Missing(terrain),
             _ => string.Empty,
         };
     }

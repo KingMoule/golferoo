@@ -22,11 +22,6 @@ public partial class BottomBar : Control
     private const double OpenHour = 7.0;
     private const double DayHours = 12.0;
 
-    private static readonly int[] Speeds = [1, 2, 4, 8, 16];
-    private static readonly string[] MonthNames = ["janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août", "septembre", "octobre", "novembre", "décembre"];
-    private static readonly string[] SeasonNames = ["Printemps", "Été", "Automne", "Hiver"];
-    private static readonly string[] SkyNames = ["soleil", "nuages", "pluie", "forte pluie"];
-
     private readonly Dictionary<ToolFamily, UiToolButton> _families = [];
     private readonly Dictionary<int, Button> _speeds = [];
     private Main _main = null!;
@@ -34,6 +29,7 @@ public partial class BottomBar : Control
     private UiToolButton _views = null!;
     private Button _league = null!;
     private Button _pro = null!;
+    private Button _birdie = null!;
     private Button _camera = null!;
     private Button _pause = null!;
     private Panel _clockFill = null!;
@@ -61,14 +57,10 @@ public partial class BottomBar : Control
         bar.SetAnchorsAndOffsetsPreset(LayoutPreset.BottomWide);
         bar.OffsetTop = -Height;
 
-        // Le tiroir : centré au-dessus de la barre ; la colonne qui le porte laisse passer la souris partout ailleurs.
-        var dock = new VBoxContainer { Name = "DrawerDock", Alignment = BoxContainer.AlignmentMode.End, MouseFilter = MouseFilterEnum.Ignore };
-        dock.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
-        dock.OffsetBottom = -Height - 12f;
+        // Le tiroir : centré au-dessus de la barre, sous la pile des panneaux, dans la même colonne qu'elle.
         bar.Drawer = ToolDrawer.Create(main, bar, thumbnails);
         bar.Drawer.SizeFlagsHorizontal = SizeFlags.ShrinkCenter;
-        dock.AddChild(bar.Drawer);
-        root.AddChild(dock);
+        main.Panels.Dock.AddChild(bar.Drawer);
 
         bar.AddChild(bar.TopTier());
         bar.AddChild(bar.BottomTier());
@@ -132,6 +124,7 @@ public partial class BottomBar : Control
         _views.Chosen = _main.TurfOverlay;
         _league.SetPressedNoSignal(_main.League?.IsOpen == true);
         _pro.SetPressedNoSignal(_main.ProPanel?.IsOpen == true);
+        _birdie.SetPressedNoSignal(_main.Birdie?.IsOpen == true);
         _camera.SetPressedNoSignal(_main.Camera.Mode == CameraMode.Free);
         _pause.SetPressedNoSignal(_main.Paused);
         foreach (var (speed, button) in _speeds)
@@ -143,9 +136,9 @@ public partial class BottomBar : Control
         var date = world.Date;
         var hours = OpenHour + (Math.Clamp(date.DayFraction, 0.0, 1.0) * DayHours);
         SetText(_clockTime, $"{(int)hours:00}:{(int)((hours - Math.Floor(hours)) * 60):00}");
-        SetText(_clockDate, $"{date.Day} {MonthNames[date.Month - 1]}, an {date.Year}");
+        SetText(_clockDate, $"{date.Day} {UiNames.Months[date.Month - 1]}, an {date.Year}");
         _clockFill.Size = new Vector2(Mathf.Max(18f, _clockFill.GetParentControl().Size.X * (float)date.DayFraction), UiTheme.PillHeight);
-        _weather.SetText($"{Capitalized(SkyNames[(int)world.Weather.Sky])} · — °C · {SeasonNames[(int)date.Season]} · demain : {SkyNames[(int)world.Forecast(1)]}");
+        _weather.SetText($"{UiNames.Capitalized(UiNames.Skies[(int)world.Weather.Sky])} · — °C · {UiNames.Capitalized(UiNames.Seasons[(int)date.Season])} · demain : {UiNames.Skies[(int)world.Forecast(1)]}");
         _members.SetText(world.League is { } league ? league.Members.Count.ToString(System.Globalization.CultureInfo.InvariantCulture) : "—");
     }
 
@@ -156,8 +149,6 @@ public partial class BottomBar : Control
             label.Text = text;
         }
     }
-
-    private static string Capitalized(string text) => char.ToUpperInvariant(text[0]) + text[1..];
 
     /// <summary>Fond de verre pleine largeur d'un étage, filet clair en haut.</summary>
     private static PanelContainer Tier(string name, Color tint, float top, float height, Control content)
@@ -219,7 +210,7 @@ public partial class BottomBar : Control
         _league = Round(round, UiIds.Round.League, "trophy", "Ligue", () => _main.League?.Toggle(), enabled: _main.League is not null);
         _pro = Round(round, UiIds.Round.Pro, "figurine", "Votre pro", () => _main.ProPanel?.Toggle(), enabled: _main.ProPanel is not null);
         Round(round, UiIds.Round.Finances, "coin", "Finances : bientôt", null, enabled: false);
-        Round(round, UiIds.Round.Birdie, "birdie", "Birdie : bientôt", null, enabled: false);
+        _birdie = Round(round, UiIds.Round.Birdie, "birdie", "Birdie : les nouvelles du club", () => _main.Birdie.Toggle(), enabled: true);
         _camera = Round(round, UiIds.Round.Camera, "video", "Caméra libre (clic du milieu glissé pour tourner et incliner)", () => _main.Camera.ToggleMode(), enabled: true);
         return Tier("BarTop", UiTheme.BarTop, 0f, TopHeight, row);
     }
@@ -237,7 +228,7 @@ public partial class BottomBar : Control
         _pause = PillButton(UiIds.Hud.Pause, "", "Pause", () => _main.Paused = !_main.Paused);
         _pause.Icon = UiTheme.Icon("pause");
         buttons.AddChild(_pause);
-        foreach (var s in Speeds)
+        foreach (var s in Main.Speeds)
         {
             var button = PillButton(UiIds.Hud.Speed(s), $"×{s}", $"Vitesse ×{s}", () => _main.SetSpeed(s));
             _speeds[s] = button;
