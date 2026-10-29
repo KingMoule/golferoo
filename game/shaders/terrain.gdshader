@@ -1,21 +1,19 @@
 shader_type spatial;
 render_mode cull_back, diffuse_lambert, specular_disabled;
 
-// Deux textures RGBA d'un texel par cellule : poids "un parmi huit" par surface.
-// Le filtrage bilinéaire adoucit les bords, le bruit les rend courbes, puis on prend le poids maximal.
-uniform sampler2D weights_a : filter_linear, repeat_disable;
-uniform sampler2D weights_b : filter_linear, repeat_disable;
+#include "res://shaders/surface_field.gdshaderinc"
+
 // État du gazon, un texel par cellule : R hauteur (0,25 = référence de la surface), G usure.
 uniform sampler2D turf_state : filter_linear, repeat_disable;
 // Surcouche d'état (touche H) : 1 pour l'afficher.
 uniform float overlay = 0.0;
-uniform vec2 grid_size = vec2(384.0, 128.0);
-uniform float noise_amount = 0.45;
-uniform float noise_scale = 0.35;
 uniform float stripe_width = 6.0;
-// Rayon du flou des poids, en mètres. Le trou est dessiné par tuiles de 8 m : sans flou plus large
-// qu'une cellule, les bords gardent l'escalier des tuiles.
-uniform float blur_meters = 5.0;
+// Bandes de transition, en mètres : rough tondu autour du départ, du green et du fairway ; lèvre du bunker ; berge de l'eau.
+uniform float cut_band = 0.6;
+uniform float lip_band = 0.35;
+uniform float bank_band = 0.8;
+// Rive en pente douce : sous l'eau, le fond s'enfonce au rendu jusqu'à cette profondeur (la sim garde ses hauteurs).
+uniform float shore_depth = 0.8;
 // Teinte de saison de l'herbe (l'été vaut 1) ; ni le sable, ni l'eau, ni le chemin.
 uniform vec3 season_tint = vec3(1.0);
 // Sol mouillé : assombrit tout le terrain (0 sec, 1 pluie du jour).
@@ -23,78 +21,66 @@ uniform float wetness = 0.0;
 
 varying vec3 wpos;
 
-float hash(vec2 p) {
-	return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
-}
-
-float vnoise(vec2 p) {
-	vec2 i = floor(p);
-	vec2 f = fract(p);
-	f = f * f * (3.0 - 2.0 * f);
-	return mix(mix(hash(i), hash(i + vec2(1.0, 0.0)), f.x),
-			mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), f.x), f.y);
-}
-
 vec3 srgb(vec3 c) {
 	return pow(c, vec3(2.2));
 }
 
+// Couleur de base d'une surface, teinte de saison comprise pour l'herbe et le sol des bois.
+vec3 base_color(int s) {
+	vec3 c;
+	if (s == 0) {
+		c = vec3(0.45, 0.78, 0.35); // tee
+	} else if (s == 1) {
+		c = vec3(0.56, 0.90, 0.46); // green
+	} else if (s == 2) {
+		c = vec3(0.40, 0.715, 0.305); // fairway (rayé plus bas)
+	} else if (s == 3) {
+		c = vec3(0.24, 0.48, 0.21); // rough
+	} else if (s == 4) {
+		c = vec3(0.96, 0.91, 0.68); // sable (clair)
+	} else if (s == 5) {
+		c = vec3(0.20, 0.42, 0.55); // fond d'eau
+	} else if (s == 6) {
+		c = vec3(0.17, 0.33, 0.15); // sol sous arbres
+	} else {
+		c = vec3(0.72, 0.64, 0.50); // chemin
+	}
+	if (s <= 3 || s == 6) {
+		c = clamp(c * season_tint, 0.0, 1.0);
+	}
+	return c;
+}
+
 void vertex() {
+	wpos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
+	// Part d'eau autour du sommet (canal G de B) : passé la rive, le fond descend en pente douce.
+	vec2 uv = wpos.xz / grid_size;
+	float water = textureLod(weights_b, uv, 0.0).g * 2.0;
+	for (int k = 0; k < 8; k++) {
+		float ang = float(k) * 0.785398;
+		water += textureLod(weights_b, uv + vec2(cos(ang), sin(ang)) * (blur_meters * 0.5) / grid_size, 0.0).g;
+	}
+	VERTEX.y -= shore_depth * smoothstep(0.55, 0.95, water / 10.0);
 	wpos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
 }
 
 void fragment() {
 	vec2 uv = wpos.xz / grid_size;
-	// Flou en deux couronnes (8 + 8 prises) autour du centre.
-	vec4 a = texture(weights_a, uv) * 2.0;
-	vec4 b = texture(weights_b, uv) * 2.0;
-	float total = 2.0;
-	for (int k = 0; k < 8; k++) {
-		float ang = float(k) * 0.785398;
-		vec2 dir = vec2(cos(ang), sin(ang));
-		vec2 o1 = dir * (blur_meters * 0.5) / grid_size;
-		vec2 o2 = vec2(cos(ang + 0.392699), sin(ang + 0.392699)) * blur_meters / grid_size;
-		a += texture(weights_a, uv + o1) + 0.6 * texture(weights_a, uv + o2);
-		b += texture(weights_b, uv + o1) + 0.6 * texture(weights_b, uv + o2);
-		total += 1.6;
+	int best;
+	int second;
+	float dist;
+	surface_pick(wpos.xz, best, second, dist);
+	vec3 col = base_color(best);
+	if (best == 3 && second <= 2 && dist < cut_band) {
+		col = mix(base_color(3), base_color(2), 0.45); // rough tondu
+	} else if (best == 4 && dist < lip_band) {
+		col *= vec3(0.84, 0.81, 0.74); // lèvre du bunker
+	} else if (best != 5 && second == 5 && dist < bank_band) {
+		col = vec3(0.42, 0.40, 0.27); // berge
 	}
-	a /= total;
-	b /= total;
-	float w[8];
-	w[0] = a.r; w[1] = a.g; w[2] = a.b; w[3] = a.a;
-	w[4] = b.r; w[5] = b.g; w[6] = b.b; w[7] = b.a;
-
-	int best = 0;
-	float best_v = -1.0;
-	for (int i = 0; i < 8; i++) {
-		float v = w[i] + (vnoise(wpos.xz * noise_scale + vec2(float(i) * 17.3, float(i) * 5.1)) - 0.5) * noise_amount;
-		if (v > best_v) {
-			best_v = v;
-			best = i;
-		}
-	}
-
-	vec3 col;
-	if (best == 0) {
-		col = vec3(0.45, 0.78, 0.35); // tee
-	} else if (best == 1) {
-		col = vec3(0.56, 0.90, 0.46); // green
-	} else if (best == 2) {
-		col = vec3(0.40, 0.715, 0.305); // fairway (rayé plus bas)
-	} else if (best == 3) {
-		col = vec3(0.24, 0.48, 0.21); // rough
-	} else if (best == 4) {
-		col = vec3(0.96, 0.91, 0.68); // sable (clair)
-	} else if (best == 5) {
-		col = vec3(0.20, 0.42, 0.55); // fond d'eau
-	} else if (best == 6) {
-		col = vec3(0.17, 0.33, 0.15); // sol sous arbres
-	} else {
-		col = vec3(0.72, 0.64, 0.50); // chemin
-	}
-	if (best <= 3 || best == 6) {
-		col = clamp(col * season_tint, 0.0, 1.0);
-	}
+	// Anticrénelage : à moins d'un pixel de la frontière, la couleur fond vers la surface voisine.
+	float edge = clamp(dist / max(fwidth(dist), 1e-4), 0.0, 1.0);
+	col = mix(base_color(second), col, 0.5 + 0.5 * edge);
 	if (best <= 3) {
 		vec2 st = texture(turf_state, uv).rg;
 		float k = st.r * 4.0; // hauteur relative à la référence : 1 = référence

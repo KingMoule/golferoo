@@ -26,6 +26,7 @@ public partial class TerrainRenderer : Node3D
     private ulong _turfUploadMs;
     private ShaderMaterial? _terrainMaterial;
     private ShaderMaterial? _waterMaterial;
+    private ShaderMaterial? _puddleMaterial;
     private TreeLayer? _trees;
 
     /// <summary>Sommets par cellule dans chaque direction (plus fin que la grille).</summary>
@@ -72,11 +73,18 @@ public partial class TerrainRenderer : Node3D
         _turfUploadMs = Time.GetTicksMsec();
 
         _terrainMaterial = new ShaderMaterial { Shader = GD.Load<Shader>("res://shaders/terrain.gdshader") };
-        _terrainMaterial.SetShaderParameter("weights_a", _textureA);
-        _terrainMaterial.SetShaderParameter("weights_b", _textureB);
         _terrainMaterial.SetShaderParameter("turf_state", _turfTexture);
-        _terrainMaterial.SetShaderParameter("grid_size", new Vector2((float)(grid.CellsX * grid.CellSize), (float)(grid.CellsZ * grid.CellSize)));
-        _waterMaterial = new ShaderMaterial { Shader = GD.Load<Shader>("res://shaders/water.gdshader") };
+        var water = GD.Load<Shader>("res://shaders/water.gdshader");
+        _waterMaterial = new ShaderMaterial { Shader = water };
+        _waterMaterial.SetShaderParameter("shore_mask", true);
+        _puddleMaterial = new ShaderMaterial { Shader = water };
+        foreach (var material in new[] { _terrainMaterial, _waterMaterial })
+        {
+            // Terrain et plans d'eau lisent le même champ des surfaces : la rive de l'un est celle de l'autre.
+            material.SetShaderParameter("weights_a", _textureA);
+            material.SetShaderParameter("weights_b", _textureB);
+            material.SetShaderParameter("grid_size", new Vector2((float)(grid.CellsX * grid.CellSize), (float)(grid.CellsZ * grid.CellSize)));
+        }
 
         for (var j = 0; j < ChunksZ; j++)
         {
@@ -148,7 +156,7 @@ public partial class TerrainRenderer : Node3D
         PuddleCells = cells.Count;
         if (cells.Count > 0)
         {
-            _puddles = new MeshInstance3D { Name = "Puddles", Mesh = Quads(_grid, cells), MaterialOverride = _waterMaterial, CastShadow = GeometryInstance3D.ShadowCastingSetting.Off };
+            _puddles = new MeshInstance3D { Name = "Puddles", Mesh = Quads(_grid, cells), MaterialOverride = _puddleMaterial, CastShadow = GeometryInstance3D.ShadowCastingSetting.Off };
             AddChild(_puddles);
         }
 
@@ -357,6 +365,10 @@ public partial class TerrainRenderer : Node3D
         return MakeMesh(vertices, normals, indices);
     }
 
+    /// <summary>
+    /// Plan d'eau du bloc : les cellules d'eau et celles qui les bordent, car la rive lissée du shader passe en dehors des cellules
+    /// d'eau aux coins rentrants. Le shader d'eau découpe la rive ; le niveau est le plus haut centre des cellules d'eau touchées.
+    /// </summary>
     private static ArrayMesh? BuildWaterMesh(TerrainGrid grid, int cx0, int cz0, int nx, int nz)
     {
         var cells = new List<(int X, int Z)>();
@@ -365,14 +377,27 @@ public partial class TerrainRenderer : Node3D
         {
             for (var cx = cx0; cx < cx0 + nx; cx++)
             {
-                if (grid.GetCellSurface(cx, cz) != Surface.Water)
+                var near = false;
+                for (var dz = -1; dz <= 1; dz++)
                 {
-                    continue;
+                    for (var dx = -1; dx <= 1; dx++)
+                    {
+                        var (x, z) = (cx + dx, cz + dz);
+                        if (x < 0 || z < 0 || x >= grid.CellsX || z >= grid.CellsZ || grid.GetCellSurface(x, z) != Surface.Water)
+                        {
+                            continue;
+                        }
+
+                        var c = grid.CellCenter(x, z);
+                        level = Math.Max(level, grid.Sample(c.X, c.Z));
+                        near = true;
+                    }
                 }
 
-                var c = grid.CellCenter(cx, cz);
-                level = Math.Max(level, grid.Sample(c.X, c.Z));
-                cells.Add((cx, cz));
+                if (near)
+                {
+                    cells.Add((cx, cz));
+                }
             }
         }
 
