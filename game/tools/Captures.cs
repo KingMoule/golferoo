@@ -39,7 +39,7 @@ public partial class Captures : Node
     private const int ProfileViewCount = 3;
     private const int FreeViewCount = 4;
     private const int SaveViewCount = 2;
-    private const int CourseViewCount = 7;
+    private const int CourseViewCount = 9;
     private const int GalleryViewCount = 1;
 
     /// <summary>Lisière sud de la forêt du coude, la balle de <c>ForestExitTests.Edge</c> (tuile 18,5 / 26,5 de 8 m).</summary>
@@ -828,8 +828,46 @@ public partial class Captures : Node
             main.Panels.Close(panel);
         }
 
+        await BirdieViews(main);
         window.ContentScaleSize = oldSize;
         window.ContentScaleMode = oldMode;
+    }
+
+    /// <summary>
+    /// C13 lot 4 : trois messages du jeu dans Birdie, l'aperçu du dernier en haut à gauche et le compteur sur son bouton (<c>c13-birdie</c>) ;
+    /// puis l'interface à 150 % (l'écran logique fait 1280×720) avec le tiroir Terrain, la Ligue et le fil ouverts (<c>c13-echelle-150</c>).
+    /// </summary>
+    private async Task BirdieViews(Main main)
+    {
+        main.Birdie.Post(Birdie.Club, "Partie sauvegardée. Le registre du club est à jour.", "#sauvegarde");
+        if (main.World.League is { } league && league.Members.FirstOrDefault(m => !m.IsPro) is { } member)
+        {
+            main.League!.Announce(new Golferoo.Sim.League.LeagueEvent(league.Year, Golferoo.Sim.League.LeagueEventType.Champion, member.Id, 0));
+        }
+
+        main.Birdie.Post(Birdie.Club, "Journée de ligue aujourd'hui, en stroke play. Les membres partent du 1.", "#ligue");
+        await Frames(SettleFrames);
+        GD.Print($"BIRDIE non lus={main.Birdie.Unread} messages={main.Birdie.Chirps.Count}");
+        Save("c13-birdie");
+
+        var window = GetTree().Root;
+        window.ContentScaleFactor = 1.5f;
+        main.Bar.Select(ToolFamily.Terrain, toggle: false);
+        main.League?.Toggle();
+        main.Birdie.Toggle();
+        await Frames(SettleFrames);
+        var screen = window.GetVisibleRect();
+        var outside = main.Ui.FindChildren("*", "Control", recursive: true, owned: false).OfType<Control>()
+            .Count(c => c.IsVisibleInTree() && c.Size.X > 0f && !screen.Grow(1f).Encloses(c.GetGlobalRect()));
+        GD.Print($"ECHELLE 1,5 ecran={screen.Size} hors_ecran={outside}");
+        Save("c13-echelle-150");
+        foreach (var panel in main.Panels.Opened.ToList())
+        {
+            main.Panels.Close(panel);
+        }
+
+        main.Bar.Select(ToolFamily.None, toggle: false);
+        window.ContentScaleFactor = 1f;
     }
 
 

@@ -112,6 +112,12 @@ public partial class Main : Node3D
     /// <summary>La pile des panneaux (Gazon, Ligue, Votre pro) au-dessus de la barre.</summary>
     public PanelStack Panels { get; private set; } = null!;
 
+    /// <summary>Le fil des messages du jeu (bouton Birdie).</summary>
+    public Birdie Birdie { get; private set; } = null!;
+
+    /// <summary>Échelle d'interface (<c>-- --ui-scale 1.25</c>) : 1, 1,25 ou 1,5.</summary>
+    public static float UiScale => float.TryParse(CommandLineOption("--ui-scale"), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var scale) ? Math.Clamp(scale, 1f, 1.5f) : 1f;
+
     /// <summary>La barre du bas, d'où part tout outil.</summary>
     public BottomBar Bar { get; private set; } = null!;
 
@@ -332,6 +338,11 @@ public partial class Main : Node3D
         AddChild(PlaceTool);
         PlaceTool.Init(this);
         BuildUi();
+        Birdie = new Birdie { Name = "Birdie" };
+        AddChild(Birdie);
+        Birdie.Init(this);
+        // L'échelle agrandit toute l'interface (calques 2D), pas le rendu 3D.
+        GetWindow().ContentScaleFactor = UiScale;
 
         // Débogage (FPS, tick, golfeurs) : caché au lancement, F12 le montre.
         _hud = GetNode<Label>("TickLabel");
@@ -371,7 +382,7 @@ public partial class Main : Node3D
         _carryPlay = null;
         if (_carryMessage is not null)
         {
-            ShowMessage(_carryMessage);
+            Birdie.Post(Birdie.Club, _carryMessage, "#sauvegarde");
             _carryMessage = null;
         }
 
@@ -639,7 +650,7 @@ public partial class Main : Node3D
     {
         if (InTutorial)
         {
-            ShowMessage("Sauvegarde indisponible pendant le tutoriel");
+            Birdie.Post(Birdie.Pro, "Pas de sauvegarde pendant la leçon : on finit le trou d'abord.", "#tutoriel");
             return false;
         }
 
@@ -647,12 +658,12 @@ public partial class Main : Node3D
         {
             SaveSlots.Write(SaveSlots.QuickPath, SaveSlots.Serialize(World, out var ms));
             GD.Print($"SAVE rapide serialisation={ms:F2} ms tick={World.Tick}");
-            ShowMessage("Partie sauvegardée");
+            Birdie.Post(Birdie.Club, "Partie sauvegardée. Le registre du club est à jour.", "#sauvegarde");
             return true;
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException)
         {
-            ShowMessage($"Sauvegarde impossible : {e.Message}");
+            Birdie.Post(Birdie.Club, $"Sauvegarde impossible : {e.Message}", "#sauvegarde");
             return false;
         }
     }
@@ -672,7 +683,7 @@ public partial class Main : Node3D
             }
         }
 
-        ShowMessage(error ?? "Aucune sauvegarde à charger");
+        Birdie.Post(Birdie.Club, error ?? "Aucune sauvegarde à charger pour l'instant.", "#sauvegarde");
     }
 
     /// <summary>Lit une sauvegarde et la garde pour le prochain <see cref="_Ready"/> ; rend le message d'erreur, ou null si tout va bien.</summary>
@@ -682,7 +693,7 @@ public partial class Main : Node3D
         {
             _pendingWorld = SaveSlots.Read(path);
             GD.Print($"LOAD {path} tick={_pendingWorld.Tick}");
-            _carryMessage = "Partie chargée";
+            _carryMessage = "Partie chargée. Bon retour au club !";
             return null;
         }
         catch (Exception e) when (e is InvalidDataException or IOException or UnauthorizedAccessException)
@@ -775,6 +786,14 @@ public partial class Main : Node3D
         }
 
         return null;
+    }
+
+    /// <summary>Suit le golfeur du membre <paramref name="memberId"/> de la ligue ; faux s'il n'est pas sur le parcours.</summary>
+    public bool FollowMember(int memberId)
+    {
+        var golfer = World.Groups.SelectMany(group => group.Golfers).FirstOrDefault(g => g.MemberId == memberId);
+        Camera.Follow(golfer?.Id ?? Camera.FollowedId);
+        return golfer is not null;
     }
 
     /// <summary>Suit le golfeur suivant sur le parcours, par id croissant (touche Tab).</summary>

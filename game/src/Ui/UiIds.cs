@@ -45,6 +45,9 @@ public static class UiIds
         public const string Mood = "HudMood";
         public const string Hole = "HudHole";
         public const string Message = "HudMessage";
+        public const string BirdiePeek = "BirdiePeek";
+        public const string BirdieUnread = "BirdieUnread";
+        public const string BirdieFeed = "BirdieFeed";
 
         /// <summary>Bouton de vitesse ×<paramref name="speed"/> (1, 2, 4, 8 ou 16).</summary>
         public static string Speed(int speed) => $"HudSpeed{speed}";
@@ -98,6 +101,7 @@ public static class UiIds
         public const string League = "PanelLeague";
         public const string Pro = "PanelPro";
         public const string LeagueCard = "PanelLeagueCard";
+        public const string Birdie = "PanelBirdie";
 
         /// <summary>La visée du pro, hors de la pile : elle suit le tour du pro.</summary>
         public const string Aim = "PanelAim";
