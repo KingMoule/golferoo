@@ -66,6 +66,7 @@ public sealed partial class World
         w.List(_holesOpen, w.Bool);
         w.Long(_holeCheckedVersion);
         w.String(Economy.ToJson());
+        w.String(Progression.ToJson());
         Ledger.Write(w);
         w.Int(TreeCommandsRefused);
         w.Int(TreesPlanted);
@@ -180,6 +181,7 @@ public sealed partial class World
         _holesOpen = [.. r.List(r.Bool)];
         _holeCheckedVersion = r.Long();
         Economy = EconomyParams.Parse(r.String());
+        Progression = ProgressionParams.Parse(r.String());
         Ledger = Ledger.Read(r);
         TreeCommandsRefused = r.Int();
         TreesPlanted = r.Int();
@@ -250,7 +252,7 @@ public sealed partial class World
         if (r.Bool())
         {
             League = LeagueSeason.Read(r, Seed);
-            Pro = ProSkills.Read(r);
+            Pro = ProSkills.Read(r, Progression);
             _proMemberId = League.Members.First(m => m.IsPro).Id;
         }
 

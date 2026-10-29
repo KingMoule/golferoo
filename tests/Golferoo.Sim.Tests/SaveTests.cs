@@ -142,7 +142,7 @@ public class SaveTests
             }
 
             Assert.True(group.Finished);
-            Assert.True(world.Pro!.Experience(ProSkill.Putting) > 0);
+            Assert.True(world.Pro!.Experience(ProSkill.Putter) > 0);
         }
         else
         {
@@ -324,6 +324,45 @@ public class SaveTests
         Assert.Equal(world.Checksum(), after.Checksum());
     }
 
+    /// <summary>C25 : l'XP de chaque habileté et son entraînement de l'année survivent à la sauvegarde et entrent dans la somme de contrôle.</summary>
+    [Fact]
+    public void ProSkills_EveryExperienceRoundTrips_AndEntersTheChecksum()
+    {
+        var world = LeagueWorld(2, "proto", "training");
+        for (var i = 0; i < ProSkills.Count; i++)
+        {
+            world.Pro!.Gain((ProSkill)i, 137 + (i * 11), league: i % 2 == 0, year: 3);
+        }
+
+        var loaded = Load(Save(world));
+        for (var i = 0; i < ProSkills.Count; i++)
+        {
+            var skill = (ProSkill)i;
+            Assert.Equal(world.Pro!.Experience(skill), loaded.Pro!.Experience(skill));
+            Assert.Equal(world.Pro.TrainingThisYear(skill, 3), loaded.Pro.TrainingThisYear(skill, 3));
+            var other = Load(Save(world));
+            other.Pro!.Gain(skill, 1, league: true, year: 3);
+            Assert.NotEqual(world.Checksum(), other.Checksum());
+        }
+
+        Assert.Equal(world.Checksum(), loaded.Checksum());
+    }
+
+    /// <summary>C25 : les réglages de progression font partie de la partie (sauvegarde et somme de contrôle), comme les paramètres de l'économie.</summary>
+    [Fact]
+    public void Progression_RoundTrips_AndEntersTheChecksum()
+    {
+        var terrain = Hole("proto");
+        var custom = ProgressionParams.Default with { CostScale = 0.1, TrainingCapPerYear = 123 };
+        var world = new World(2, terrain, league: true, progression: custom);
+        var loaded = Load(Save(world));
+
+        Assert.Equal(custom, loaded.Progression);
+        Assert.Equal(123 * 100, loaded.Pro!.TrainingCap);
+        Assert.Equal(world.Checksum(), loaded.Checksum());
+        Assert.NotEqual(new World(2, terrain, league: true).Checksum(), world.Checksum());
+    }
+
     [Fact]
     public void Load_WrongMagic_Throws()
     {
@@ -348,6 +387,7 @@ public class SaveTests
     [InlineData(4)] // C14 lot 1 : grand livre et paramètres de l'économie
     [InlineData(5)] // C14 lot 2 : annulation du dernier coup de pinceau, genre des retouches en file
     [InlineData(6)] // C21 lot 2 : note scratch trou par trou
+    [InlineData(7)] // C25 lot 1 : XP des 17 habiletés en centièmes
     public void Load_OlderVersion_SaysItIsAnOlderVersion(byte version)
     {
         var bytes = Save(Build(1, "proto", "start"));

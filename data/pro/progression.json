@@ -1,0 +1,17 @@
+{
+  // Progression de votre pro (C25). Provisoire : le lot 4 calibre l'échelle des coûts, le plafond d'entraînement et les seuils.
+  // XP pour passer du niveau n au niveau n + 1 : costScale × (n + 1 + 300 × 2^((n + 1) / 7)) / 4.
+  "costScale": 0.06,
+  // XP d'entraînement au plus, par habileté et par année (remise à zéro au 1er avril).
+  "trainingCapPerYear": 300,
+  // Seuils de qualité : l'écart (en part de la distance visée D) où la qualité tombe à 0.
+  "clubFraction": 0.15,
+  "clubFloor": 0.05,
+  "putterMeters": 1.0,
+  "putterFraction": 0.2,
+  "precisionFraction": 0.06,
+  "dosageFraction": 0.08,
+  "distanceFloor": 0.85,
+  "fullForce": 0.9,
+  "curveFraction": 1.0
+}

@@ -13,13 +13,16 @@ public static class SkillLevels
     public const double Bogey = 2.1;
     public const double MaxHandicap = 54.0;
 
+    /// <summary>Handicap le plus bas accepté (+4, le pro du circuit de C25). Les golfeurs ordinaires restent à 0 ou plus par leur handicap de départ.</summary>
+    public const double MinHandicap = -4.0;
+
     /// <summary>Probabilité d'un choix non optimal au handicap 0, et ce qui s'y ajoute au handicap 36.</summary>
     public const double ScratchMistake = 0.05;
 
     public const double MistakeAt36 = 0.15;
 
     public static double FromHandicap(double handicap) =>
-        Scratch + ((Bogey - Scratch) * Math.Clamp(handicap, 0.0, MaxHandicap) / 20.0);
+        Scratch + ((Bogey - Scratch) * Math.Clamp(handicap, MinHandicap, MaxHandicap) / 20.0);
 
     /// <summary>Handicap d'un niveau (inverse de <see cref="FromHandicap"/>, borné à 0 et 54).</summary>
     public static double ToHandicap(double skill) =>
