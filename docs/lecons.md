@@ -39,3 +39,9 @@ Ajouter sans relire tout le fichier : `echo "- ..." >> docs/lecons.md`. `/amelio
 - Un `git add -A` d'agent a embarqué les `.import` et `.uid` générés par Godot : à ajouter au `.gitignore` si ce n'est pas voulu.
 - La fumée comptait les coups du pro par son score : une pénalité d'eau la faisait échouer au hasard du vent (#116). Un test de fumée vérifie un évènement, pas un compteur qu'autre chose peut bouger.
 - Dans un worktree isolé, les agents voient refuser les commandes gh/git composées (jq select, && enchaînés, sed à variables) : ils attendent la CI par un script du scratchpad (C14 lot 2, C13 lot 4).
+- 2026-10-29 (reprise locale Windows) : `gh run view --log` tronque le journal du job Captures aux séquences d'échappement ; `gh api --allow-escape-sequences repos/KingMoule/golferoo/actions/jobs/<id>/logs` donne les lignes `FULL`.
+- Les worktrees d'agents sous `.claude/worktrees/` dépassent la longueur de chemin du lanceur de tests sous Windows (Win32 87) : copier dans un dossier court (`C:\t\...`).
+- `core.autocrlf=true` sous Windows : `dotnet format --verify-no-changes` sort des dizaines de milliers d'ENDOFLINE ; filtrer `grep -v ENDOFLINE`, la CI Linux fait foi.
+- Un brief d'audit qui donne `git diff <sha>^1...<sha>` sur une tête qui est une fusion de main vise le mauvais parent : donner `git diff origin/main...origin/<branche>` ou le commit de fusion dans main.
+- Les tests sur des années fictives ont caché pendant deux chantiers une remise à zéro au 1er janvier au lieu du 1er avril (C08 → C25) : tester les règles de calendrier avec la vraie date de `Calendar`.
+- Une limite d'usage coupe les agents en arrière-plan sans les rendre reprenables : leurs worktrees gardent le travail non commité, un nouvel agent peut y reprendre.
