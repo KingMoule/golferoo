@@ -90,13 +90,18 @@ public static class ProceduralMeshes
         var cloth = b.Surface(new StandardMaterial3D { VertexColorUseAsAlbedo = true, Roughness = 0.9f, CullMode = BaseMaterial3D.CullModeEnum.Disabled });
         b.Frustum(pole, new Vector3(0, FlagHeight * 0.5f, 0), 0.03f, 0.03f, FlagHeight, 6, new Color(0.93f, 0.93f, 0.93f));
         b.Frustum(pole, new Vector3(0, FlagHeight + 0.03f, 0), 0.05f, 0.0f, 0.06f, 6, new Color(0.9f, 0.8f, 0.2f));
+        // Liseré blanc côté mât puis fanion rouge, côte à côte dans le même plan : superposés à 1 mm l'un de l'autre,
+        // ils se disputaient le tampon de profondeur et le drapeau scintillait (C21).
         var top = FlagHeight - 0.05f;
         var bottom = FlagHeight - 0.55f;
-        b.Raw(cloth, new Vector3(0.03f, top, 0), new Vector3(0.03f, bottom, 0), new Vector3(0.75f, (top + bottom) * 0.5f, 0), new Color(0.9f, 0.15f, 0.12f));
-        // Liseré le long du mât : deux triangles formant un rectangle.
-        var w = 0.1f;
-        b.Raw(cloth, new Vector3(0.03f, top, 0.001f), new Vector3(0.03f, bottom, 0.001f), new Vector3(0.03f + w, bottom, 0.001f), Colors.White);
-        b.Raw(cloth, new Vector3(0.03f, top, 0.001f), new Vector3(0.03f + w, bottom, 0.001f), new Vector3(0.03f + w, top, 0.001f), Colors.White);
+        var tip = new Vector3(0.75f, (top + bottom) * 0.5f, 0);
+        var x = 0.13f;
+        var t = (x - 0.03f) / (tip.X - 0.03f);
+        var upper = new Vector3(x, Mathf.Lerp(top, tip.Y, t), 0);
+        var lower = new Vector3(x, Mathf.Lerp(bottom, tip.Y, t), 0);
+        b.Raw(cloth, new Vector3(0.03f, top, 0), new Vector3(0.03f, bottom, 0), lower, Colors.White);
+        b.Raw(cloth, new Vector3(0.03f, top, 0), lower, upper, Colors.White);
+        b.Raw(cloth, upper, lower, tip, new Color(0.9f, 0.15f, 0.12f));
         return b.Build();
     });
 

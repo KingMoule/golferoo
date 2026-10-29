@@ -39,7 +39,7 @@ public partial class Captures : Node
     private const int ProfileViewCount = 3;
     private const int FreeViewCount = 4;
     private const int SaveViewCount = 2;
-    private const int CourseViewCount = 7;
+    private const int CourseViewCount = 9;
     private const int GalleryViewCount = 1;
 
     /// <summary>Lisière sud de la forêt du coude, la balle de <c>ForestExitTests.Edge</c> (tuile 18,5 / 26,5 de 8 m).</summary>
@@ -693,7 +693,7 @@ public partial class Captures : Node
 
     /// <summary>
     /// C12 lot 3, sur « Le neuf » (le parcours par défaut) : <c>c12-parcours</c> (vue d'ensemble libre, de haut), <c>c12-trou-3</c> (le par 5 de bout en bout)
-    /// et <c>c12-groupes</c> (cinq groupes lâchés d'affilée, cadrés ensemble).
+    /// et <c>c12-groupes</c> (cinq groupes lâchés d'affilée, cadrés ensemble) ; C21 lot 1 : <c>c21-bordures</c> et <c>c21-eau</c> (contours lissés, de près).
     /// </summary>
     private async Task CourseViews()
     {
@@ -725,6 +725,17 @@ public partial class Captures : Node
         main.Camera.SetView(45f, 300f, mid);
         await Frames(SettleFrames);
         Save("c12-trou-3");
+
+        // C21 : de près, les contours lissés du green 1 et de ses bunkers, puis la rive de l'étang voisin.
+        var green1 = grid.Course[1].Green;
+        main.Camera.SetView(225f, 70f, new Vector3((float)green1.X, (float)grid.Sample(green1.X, green1.Z), (float)green1.Z));
+        await Frames(SettleFrames);
+        Save("c21-bordures");
+        var pond = new Point2(262, 130);
+        main.Camera.SetFreeView(200f, 40f, 60f, new Vector3((float)pond.X, (float)grid.Sample(pond.X, pond.Z), (float)pond.Z));
+        await Frames(SettleFrames);
+        Save("c21-eau");
+        main.Camera.SetMode(CameraMode.Iso, instant: true);
 
         for (var i = 0; i < 5; i++)
         {
