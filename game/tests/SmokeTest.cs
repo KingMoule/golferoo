@@ -1137,7 +1137,7 @@ public partial class SmokeTest : Node
         Expect(main.Camera.Mode == CameraMode.Free, "Caméra libre");
         Press(UiIds.Round.Camera, failures);
         Expect(main.Camera.Mode == CameraMode.Iso, "retour à la vue iso");
-        foreach (var id in new[] { UiIds.Tool.Buildings, UiIds.Tool.Amenities, UiIds.Round.Finances })
+        foreach (var id in new[] { UiIds.Tool.Buildings, UiIds.Tool.Amenities })
         {
             Expect(ui.Find(id) is BaseButton { Disabled: true }, $"{id} devrait être grisé");
         }
@@ -1150,6 +1150,7 @@ public partial class SmokeTest : Node
         CheckUiScale(failures);
         CheckNoKeys(main, failures, []);
         CheckBirdieDays(failures);
+        CheckFinances(failures);
     }
 
     /// <summary>
@@ -1161,11 +1162,13 @@ public partial class SmokeTest : Node
         var main = _main!;
         var birdie = main.Birdie;
         var season = main.World.Season;
-        var (morning, seasonal) = (birdie.Chirps.Count(c => c.Tag == "#météo"), birdie.Chirps.Count(c => c.Tag == "#saison"));
+        var seasonal = birdie.Chirps.Count(c => c.Tag == "#saison");
+        var unread = birdie.Unread;
         main.SkipToNextMonth();
-        if (birdie.Chirps[^1].Tag != "#météo" || birdie.Chirps.Count(c => c.Tag == "#météo") != morning + 1)
+        main.SkipToNextMonth();
+        if (birdie.Chirps[^1].Tag != "#météo" || birdie.Chirps.Count(c => c.Tag == "#météo") != 1 || birdie.Unread != unread + (main.World.Season != season ? 1 : 0))
         {
-            failures.Add("birdie : un nouveau matin ne publie pas la météo");
+            failures.Add($"birdie : deux matins devraient laisser un seul message météo sans non lu de plus ({birdie.Chirps.Count(c => c.Tag == "#météo")} messages, non lus {unread} puis {birdie.Unread})");
         }
 
         for (var i = 0; i < 4 && main.World.Season == season; i++)
@@ -1181,6 +1184,196 @@ public partial class SmokeTest : Node
 
         Press(UiIds.Hud.BirdieMute, failures); // la sourdine doit survivre à un nouveau Main (F9 recharge la scène) : voir CheckTutorial
         GD.Print($"SMOKE birdie jours : météo au matin, saison {season} puis {main.World.Season} annoncée (derniers messages {string.Join(",", latest)})");
+    }
+
+    /// <summary>Pousse Ctrl+Z (appui puis relâché), comme le clavier.</summary>
+    private void PushUndoKey()
+    {
+        foreach (var pressed in new[] { true, false })
+        {
+            GetViewport().PushInput(new InputEventKey { Keycode = Key.Z, PhysicalKeycode = Key.Z, CtrlPressed = true, Pressed = pressed });
+        }
+    }
+
+    private static string[][] TableRows(UiTable table)
+    {
+        var cells = table.GetChildren().OfType<Label>().Skip(table.Columns).Select(l => l.Text).ToList();
+        return [.. Enumerable.Range(0, cells.Count / table.Columns).Select(r => cells.Skip(r * table.Columns).Take(table.Columns).ToArray())];
+    }
+
+    /// <summary>
+    /// C14 lot 3 : la pastille d'argent et le panneau suivent le grand livre (une dépense, puis une clôture de mois) ; le prix près du curseur égale
+    /// <c>StrokeCost</c> ; la confirmation du découvert s'ouvre une fois par passage ; Annuler et Ctrl+Z défont le coup dans les cinq secondes
+    /// et plus après ; un achat refusé par la limite écrit dans Birdie. Placé en dernier : il dépense, saute un mois et finit par vider la caisse.
+    /// </summary>
+    private void CheckFinances(List<string> failures)
+    {
+        var main = _main!;
+        var world = main.World;
+        var grid = world.Terrain!;
+        var ledger = world.Ledger;
+        var brush = main.Brush;
+        var finances = main.Finances;
+        var money = (UiPill)main.Ui.Find(UiIds.Hud.Money)!;
+
+        void Expect(bool ok, string what)
+        {
+            if (!ok)
+            {
+                failures.Add("finances : " + what);
+            }
+        }
+
+        string Pill() => UiMoney.Pill(ledger);
+        if (FreeSpot(world, grid) is not { } p)
+        {
+            failures.Add("finances : aucun emplacement libre");
+            return;
+        }
+
+        // 1. Le grand livre bouge : la pastille et le panneau suivent, puis la clôture du mois les range en deux colonnes.
+        main.Bar.Select(ToolFamily.None, toggle: false);
+        Press(UiIds.Round.Finances, failures);
+        Expect(finances.IsOpen, "le bouton n'ouvre pas le panneau");
+        var start = ledger.Balance;
+        world.PaintSurface(p, 8, Surface.Water);
+        main.StepTicks(1);
+        main.Bar.Sync();
+        var spent = start - ledger.Balance;
+        var balanceLabel = (Label)main.Ui.Find(UiIds.Finance.Balance)!;
+        Expect(spent > 0 && money.Label.Text == Pill() && balanceLabel.Text == UiMoney.Format(ledger.Balance), $"après une dépense de {spent}, pastille « {money.Label.Text} » ou solde « {balanceLabel.Text} » hors du grand livre");
+        var rows = TableRows(finances.Table);
+        Expect(rows.Length == 9 && rows[2][0] == "Surfaces" && rows[2][1] == UiMoney.Format(ledger.Current(LedgerCategory.Surfaces), true) && rows[^1][1] == UiMoney.Format(UiMoney.MonthResult(ledger), true), "le détail du mois ne suit pas le grand livre");
+        main.SkipToNextMonth();
+        main.Bar.Sync();
+        var closed = ledger.Months[^1];
+        rows = TableRows(finances.Table);
+        Expect(money.Label.Text == Pill() && rows[^1][2] == UiMoney.Format(closed.Result, true) && rows[2][2] == UiMoney.Format(closed.Total(LedgerCategory.Surfaces), true), "la clôture du mois n'arrive pas dans la colonne du mois précédent");
+        var chart = finances.Chart;
+        Expect(chart.Known[^1] && chart.Known[^2] && !chart.Known[0] && chart.Balance[^1] == ledger.Balance && chart.Expense[^2] > 0, "le graphique ne montre pas le mois clos et le mois en cours");
+        Press(UiIds.Round.Finances, failures);
+
+        // 2 et 4. Un coup de pinceau : le prix près du curseur égale StrokeCost ; Annuler, puis Ctrl+Z, puis plus rien après cinq secondes.
+        var followed = main.Camera.FollowedId;
+        main.Camera.CenterOn(new Vector3((float)p.X, 0f, (float)p.Z));
+        Press(UiIds.Tool.Terrain, failures);
+        brush.SetRadius(6f);
+        var at = main.Camera.View!.UnprojectPosition(new Vector3((float)p.X, (float)grid.Sample(p.X, p.Z), (float)p.Z));
+        var undo = main.Ui.Find(UiIds.Action.Undo)!;
+        var pill = finances.CostPill;
+        var surfaces = new[] { Surface.Bunker, Surface.Green, Surface.Path };
+        for (var round = 0; round < surfaces.Length; round++)
+        {
+            brush.SelectSurface(surfaces[round]);
+            var before = ledger.Balance;
+            PushClick(at, pressed: true);
+            brush.Apply(brush.PickAt(at, out var hit) ? hit : default);
+            main.StepTicks(1);
+            brush._Process(0);
+            Expect(world.StrokeCost > 0 && pill.Visible && pill.Text == UiMoney.Format(world.StrokeCost) && before - ledger.Balance == world.StrokeCost, $"manche {round} : prix près du curseur « {pill.Text} » pour un coup de {world.StrokeCost}, débit {before - ledger.Balance}");
+            PushClick(at, pressed: false);
+            main.Bar.Sync();
+            Expect(brush.CanUndo && undo.Visible, $"manche {round} : Annuler absent juste après le coup");
+            var cost = world.StrokeCost;
+            if (round == 0)
+            {
+                Press(UiIds.Action.Undo, failures);
+            }
+            else if (round == 1)
+            {
+                PushUndoKey();
+            }
+            else
+            {
+                brush.AgeLastStroke(Brush.UndoWindowMilliseconds + 1);
+                main.Bar.Sync();
+                Expect(!brush.CanUndo && !undo.Visible, "Annuler reste offert après cinq secondes");
+                PushUndoKey();
+            }
+
+            main.StepTicks(1);
+            main.Bar.Sync();
+            Expect(round == 2 ? before - ledger.Balance == cost : ledger.Balance == before && !undo.Visible, $"manche {round} : solde {ledger.Balance} au lieu de {(round == 2 ? before - cost : before)}");
+        }
+
+        // Un clic sans retouche ne rend pas ses cinq secondes au coup précédent ; la pause arrête le compte à rebours et grise le bouton.
+        void Stroke(Surface surface)
+        {
+            brush.SelectSurface(surface);
+            PushClick(at, pressed: true);
+            brush.Apply(brush.PickAt(at, out var h) ? h : default);
+            main.StepTicks(1);
+            PushClick(at, pressed: false);
+            main.Bar.Sync();
+        }
+
+        Stroke(Surface.Water);
+        Expect(brush.CanUndo, "pause : pas de coup annulable pour commencer");
+        brush.AgeLastStroke(3000);
+        PushClick(at, pressed: true);
+        PushClick(at, pressed: false);
+        brush.AgeLastStroke(2500);
+        Expect(!brush.CanUndo, "un clic sans retouche a rendu cinq secondes au coup précédent");
+        Stroke(Surface.Fairway);
+        var paused = ledger.Balance;
+        main.Paused = true;
+        brush._Process(10.0);
+        main.Bar.Sync();
+        PushUndoKey();
+        main.StepTicks(1);
+        Expect(brush.UndoOffered && !brush.CanUndo && undo.Visible && ((Button)undo).Disabled && ledger.Balance == paused, "en pause, l'annulation devrait attendre : bouton grisé, Ctrl+Z sans effet, temps gardé");
+        main.Paused = false;
+        brush._Process(0);
+        main.Bar.Sync();
+        Expect(brush.CanUndo && !((Button)undo).Disabled, "à la reprise, le coup devrait rester annulable");
+        PushUndoKey();
+        main.StepTicks(1);
+        Expect(ledger.Balance > paused, "à la reprise, Ctrl+Z n'annule pas le coup");
+
+        // Le prix annoncé d'une zone rasée (et du bulldozer) égale ce que la sim débite.
+        world.PaintSurface(p, 8, Surface.Fairway);
+        main.StepTicks(1);
+        world.PlantTree(p.X, p.Z, TreeSpeciesId.Oak, TreePlantStage.Mound);
+        main.StepTicks(1);
+        var razePrice = TreeTool.RazePrice(world, p, 6.0, keepRemarkable: false);
+        var beforeRaze = ledger.Balance;
+        world.RazeArea(p, 6.0, keepRemarkable: false);
+        main.StepTicks(1);
+        Expect(razePrice > 0 && beforeRaze - ledger.Balance == razePrice, $"zone rasée : annoncé {razePrice}, débité {beforeRaze - ledger.Balance}");
+
+        // 3. Confirmation du découvert : une seule fois par passage ; refus par la limite : un message de Birdie.
+        var prompts = finances.Prompts;
+        var over = ledger.Balance + 1;
+        Expect(!finances.Allow(over) && finances.PromptOpen && finances.Prompts == prompts + 1, "le passage sous zéro n'ouvre pas la confirmation");
+        Expect(!finances.Allow(over) && finances.Prompts == prompts + 1, "la confirmation s'ouvre deux fois");
+        Press(UiIds.Finance.OverdraftNo, failures);
+        Expect(!finances.PromptOpen && !finances.Allow(over) && finances.Prompts == prompts + 2, "après refus, la commande suivante devrait redemander");
+        Press(UiIds.Finance.OverdraftYes, failures);
+        Expect(!finances.PromptOpen && finances.Allow(over) && finances.Allow(over) && finances.Prompts == prompts + 2, "après accord, le passage ne redemande pas");
+        Expect(finances.Allow(1) && !finances.Allow(over) && finances.Prompts == prompts + 3, "un achat resté positif devrait annuler l'accord");
+        finances.DismissPrompt();
+
+        var refused = ledger.Refused;
+        for (var i = 0; i < 60 && ledger.Refused == refused; i++)
+        {
+            world.RaiseTerrain(new Point2(grid.CellsX * grid.CellSize * 0.5, grid.CellsZ * grid.CellSize * 0.5), 40.0, i % 2 == 0 ? 2.0 : -2.0);
+            main.StepTicks(1);
+        }
+
+        if (world.OpenHoles >= 3)
+        {
+            Expect(ledger.Refused > refused && main.Birdie.Chirps.Any(c => c.Tag == "#finances"), $"achat refusé ({ledger.Refused - refused}) sans message Birdie");
+        }
+        else
+        {
+            // Moins de trois trous ouverts : la sim ne refuse rien ; on lève l'événement à la main pour vérifier le message.
+            finances.OnRefused(LedgerCategory.Relief, 5_000_000);
+            Expect(main.Birdie.Chirps.Any(c => c.Tag == "#finances"), "un refus de la limite n'écrit pas dans Birdie");
+        }
+
+        main.Camera.Follow(followed);
+        main.Bar.Select(ToolFamily.None, toggle: false);
+        GD.Print($"SMOKE finances : pastille, panneau, prix du coup, découvert ({finances.Prompts} confirmations), Annuler et Ctrl+Z, refus Birdie ({failures.Count} échec)");
     }
 
     /// <summary>
@@ -1294,6 +1487,16 @@ public partial class SmokeTest : Node
             failures.Add($"échelle 1,5 : écran {screen}, étages {string.Join(" / ", tiers)}, colonne {dock}");
         }
 
+        var worst = (UiPill)main.Ui.Find(UiIds.Hud.Money)!;
+        worst.SetText(UiMoney.PillText(-123_456_700, -12_345_600));
+        var wide = new[] { "BarTop", "BarBottom" }.Select(n => main.Bar.GetNode<Control>(n).GetCombinedMinimumSize().X).ToArray();
+        var club = (Label)((UiPill)main.Ui.Find(UiIds.Hud.Club)!).Label;
+        if (wide.Any(w => w > screen.X) || club.TextOverrunBehavior != TextServer.OverrunBehavior.TrimEllipsis)
+        {
+            failures.Add($"échelle 1,5 : un solde de -1,23 M$ fait déborder la barre ({string.Join(" / ", wide)}) ou le nom du club n'a pas de points de suspension");
+        }
+
+        main.Bar.Sync();
         GD.Print($"SMOKE echelle 1,5 : écran {screen}, étages {string.Join(" / ", tiers)}, colonne {dock}");
         main.Birdie.Toggle();
         main.League.Toggle();

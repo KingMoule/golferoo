@@ -34,8 +34,37 @@ public partial class Brush : Node3D
     private Vector3? _hit;
     private Vector2? _cursor;
     private MouseButton _stroke;
+    private double _undoLeft;
+    private bool _strokeBegun;
+
+    /// <summary>Combien de temps réel le dernier coup de pinceau reste annulable (C14).</summary>
+    public const ulong UndoWindowMilliseconds = 5000;
 
     public bool Active { get; private set; }
+
+    /// <summary>Un coup de pinceau est en cours (bouton gardé).</summary>
+    public bool Stroking => _stroke != MouseButton.None;
+
+    /// <summary>Vrai pendant <see cref="UndoWindowMilliseconds"/> après un coup de pinceau qui a changé quelque chose.</summary>
+    public bool CanUndo => UndoOffered && !_main!.Paused;
+
+    /// <summary>La fenêtre d'annulation court encore (le bouton reste visible, grisé en pause) : son compte à rebours s'arrête en pause.</summary>
+    public bool UndoOffered => _main is not null && !Stroking && _undoLeft > 0 && _main.World.CanUndoStroke;
+
+    /// <summary>Pour la fumée : vieillit le dernier coup de pinceau de <paramref name="milliseconds"/> sans attendre en vrai.</summary>
+    public void AgeLastStroke(ulong milliseconds) => _undoLeft = Math.Max(0.0, _undoLeft - milliseconds);
+
+    /// <summary>Annule le dernier coup de pinceau (bouton Annuler, Ctrl+Z) s'il est encore dans sa fenêtre ; la fenêtre se referme.</summary>
+    public void Undo()
+    {
+        if (!CanUndo)
+        {
+            return;
+        }
+
+        _main!.World.UndoStroke();
+        _undoLeft = 0;
+    }
 
     /// <summary>Vrai pour le relief, faux pour la peinture de surface.</summary>
     public bool ReliefMode { get; private set; }
@@ -144,6 +173,10 @@ public partial class Brush : Node3D
         if (@event is InputEventMouseButton { Pressed: false } release && release.ButtonIndex == _stroke)
         {
             _stroke = MouseButton.None;
+            if (_strokeBegun)
+            {
+                _undoLeft = UndoWindowMilliseconds;
+            }
         }
     }
 
@@ -153,6 +186,7 @@ public partial class Brush : Node3D
         if (Active && @event is InputEventMouseButton { Pressed: true, ButtonIndex: MouseButton.Left or MouseButton.Right } press)
         {
             _stroke = press.ButtonIndex;
+            _strokeBegun = false;
         }
     }
 
@@ -225,6 +259,11 @@ public partial class Brush : Node3D
             return;
         }
 
+        if (!_main.Paused && !Stroking)
+        {
+            _undoLeft = Math.Max(0.0, _undoLeft - (delta * 1000.0));
+        }
+
         // Le curseur au sol éclaircit les couronnes même quand le pinceau est éteint.
         var picked = PickAt(Cursor, out var hit);
         _main!.TerrainView.Trees?.SetFocus(TreeLayer.CursorSlot, picked ? hit : null, TreeLayer.CursorFocusRadius);
@@ -236,6 +275,8 @@ public partial class Brush : Node3D
             DrawRing(h);
             Apply(h);
         }
+
+        _main.Finances?.ShowCost(Active && Stroking, Cursor, _main.World.StrokeCost);
     }
 
     /// <summary>Poste une retouche au point visé pendant un trait, sauf si la précédente attend encore son tick. Vrai si postée.</summary>
@@ -248,17 +289,31 @@ public partial class Brush : Node3D
         }
 
         var center = new Point2(hit.X, hit.Z);
-        if (ReliefMode)
-        {
-            world.RaiseTerrain(center, Radius, _stroke == MouseButton.Left ? ReliefStepMeters : -ReliefStepMeters);
-            return true;
-        }
-
-        if (_stroke != MouseButton.Left)
+        if (!ReliefMode && _stroke != MouseButton.Left)
         {
             return false;
         }
 
+        if (ReliefMode)
+        {
+            if (!_main.Finances.Allow(ReliefPrice(world, center, _stroke == MouseButton.Left ? ReliefStepMeters : -ReliefStepMeters)))
+            {
+                return false;
+            }
+
+            BeginStroke(world);
+            world.RaiseTerrain(center, Radius, _stroke == MouseButton.Left ? ReliefStepMeters : -ReliefStepMeters);
+            return true;
+        }
+
+        if (!_main.Finances.Allow(BulldozerMode
+            ? PaintPrice(world, center, Surface.Rough) + TreeTool.RazePrice(world, center, Radius, keepRemarkable: false)
+            : PaintPrice(world, center, PaintedSurface)))
+        {
+            return false;
+        }
+
+        BeginStroke(world);
         if (BulldozerMode)
         {
             world.PaintSurface(center, Radius, Surface.Rough);
@@ -269,6 +324,26 @@ public partial class Brush : Node3D
         world.PaintSurface(center, Radius, PaintedSurface);
         return true;
     }
+
+    /// <summary>Le premier geste d'un trait ouvre le coup de pinceau annulable, dans la même file que la retouche qui le suit.</summary>
+    private void BeginStroke(World world)
+    {
+        if (!_strokeBegun)
+        {
+            _strokeBegun = true;
+            _undoLeft = 0; // le coup précédent est remplacé ; la fenêtre du nouveau commence au relâché
+            world.BeginStroke();
+        }
+    }
+
+    /// <summary>Ce que coûterait la peinture, au centime près comme la sim (cellules qui changent réellement).</summary>
+    private long PaintPrice(World world, Point2 center, Surface surface)
+    {
+        var grid = world.Terrain!;
+        return grid.CountPaint(center, Radius, surface) * (long)Math.Round(grid.CellSize * grid.CellSize * world.Economy.PaintCost(surface));
+    }
+
+    private long ReliefPrice(World world, Point2 center, double delta) => (long)Math.Round(Math.Abs(world.Terrain!.RaiseVolume(center, Radius, delta)) * world.Economy.ReliefPerM3);
 
     private void DrawRing(Vector3 center)
     {

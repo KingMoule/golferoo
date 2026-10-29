@@ -11,6 +11,7 @@ public partial class Birdie : Node
 {
     public const int Capacity = 50;
     public const float Width = 380f;
+    public const string WeatherTag = "#météo";
     private const ulong PeekMilliseconds = 8000;
 
     /// <summary>Qui parle : nom, pseudo et couleur de l'avatar.</summary>
@@ -82,7 +83,28 @@ public partial class Birdie : Node
     }
 
     /// <summary>Publie un message court et toujours informatif ; il s'affiche en aperçu, et compte comme non lu si le fil est fermé.</summary>
-    public void Post(Author author, string text, string tag, int memberId = -1)
+    public void Post(Author author, string text, string tag, int memberId = -1) => Add(author, text, tag, memberId, ambient: false);
+
+    /// <summary>
+    /// La météo du matin : elle remplace celle de la veille (un seul message <see cref="WeatherTag"/> dans le fil), ne compte pas comme non lue
+    /// et n'ouvre pas l'aperçu ; elle reste en haut du fil comme le dernier message.
+    /// </summary>
+    public void PostWeather(string text)
+    {
+        var old = _chirps.FindIndex(c => c.Tag == WeatherTag);
+        if (old >= 0)
+        {
+            // Le fil est dans l'ordre inverse de la liste (le plus récent en haut).
+            var row = _feed.GetChild(_chirps.Count - 1 - old);
+            _chirps.RemoveAt(old);
+            _feed.RemoveChild(row);
+            row.QueueFree();
+        }
+
+        Add(Club, text, WeatherTag, -1, ambient: true);
+    }
+
+    private void Add(Author author, string text, string tag, int memberId, bool ambient)
     {
         var date = _main.World.Date;
         var chirp = new Chirp(author, text, tag, $"{date.Day} {UiNames.Months[date.Month - 1]}", memberId);
@@ -96,7 +118,7 @@ public partial class Birdie : Node
         }
 
         GD.Print($"BIRDIE {author.Handle} {text} {tag}");
-        if (IsOpen)
+        if (ambient || IsOpen)
         {
             return;
         }

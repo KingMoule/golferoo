@@ -30,6 +30,9 @@ public partial class BottomBar : Control
     private Button _league = null!;
     private Button _pro = null!;
     private Button _birdie = null!;
+    private Button _finances = null!;
+    private UiPill _money = null!;
+    private bool? _debt;
     private Button _camera = null!;
     private Button _pause = null!;
     private Panel _clockFill = null!;
@@ -125,6 +128,8 @@ public partial class BottomBar : Control
         _league.SetPressedNoSignal(_main.League?.IsOpen == true);
         _pro.SetPressedNoSignal(_main.ProPanel?.IsOpen == true);
         _birdie.SetPressedNoSignal(_main.Birdie?.IsOpen == true);
+        _finances.SetPressedNoSignal(_main.Finances?.IsOpen == true);
+        _main.Finances?.Refresh();
         _camera.SetPressedNoSignal(_main.Camera.Mode == CameraMode.Free);
         _pause.SetPressedNoSignal(_main.Paused);
         foreach (var (speed, button) in _speeds)
@@ -138,8 +143,15 @@ public partial class BottomBar : Control
         SetText(_clockTime, $"{(int)hours:00}:{(int)((hours - Math.Floor(hours)) * 60):00}");
         SetText(_clockDate, $"{date.Day} {UiNames.Months[date.Month - 1]}, an {date.Year}");
         _clockFill.Size = new Vector2(Mathf.Max(18f, _clockFill.GetParentControl().Size.X * (float)date.DayFraction), UiTheme.PillHeight);
-        _weather.SetText($"{UiNames.Capitalized(UiNames.Skies[(int)world.Weather.Sky])} · — °C · {UiNames.Capitalized(UiNames.Seasons[(int)date.Season])} · demain : {UiNames.Skies[(int)world.Forecast(1)]}");
+        _weather.SetText($"{UiNames.Capitalized(UiNames.Skies[(int)world.Weather.Sky])} · {UiNames.Capitalized(UiNames.Seasons[(int)date.Season])} · demain : {UiNames.Skies[(int)world.Forecast(1)]}");
         _members.SetText(world.League is { } league ? league.Members.Count.ToString(System.Globalization.CultureInfo.InvariantCulture) : "—");
+        var ledger = world.Ledger;
+        _money.SetText(UiMoney.Pill(ledger));
+        if (_debt != ledger.Balance < 0)
+        {
+            _debt = ledger.Balance < 0;
+            _money.Label.AddThemeColorOverride("font_color", _debt == true ? UiTheme.BrickLight : UiTheme.Grass);
+        }
     }
 
     private static void SetText(Label label, string text)
@@ -209,7 +221,7 @@ public partial class BottomBar : Control
         row.AddChild(round);
         _league = Round(round, UiIds.Round.League, "trophy", "Ligue", () => _main.League?.Toggle(), enabled: _main.League is not null);
         _pro = Round(round, UiIds.Round.Pro, "figurine", "Votre pro", () => _main.ProPanel?.Toggle(), enabled: _main.ProPanel is not null);
-        Round(round, UiIds.Round.Finances, "coin", "Finances : bientôt", null, enabled: false);
+        _finances = Round(round, UiIds.Round.Finances, "coin", "Finances : solde, douze derniers mois, détail par catégorie", () => _main.Finances.Toggle(), enabled: true);
         _birdie = Round(round, UiIds.Round.Birdie, "birdie", "Birdie : les nouvelles du club", () => _main.Birdie.Toggle(), enabled: true);
         _camera = Round(round, UiIds.Round.Camera, "video", "Caméra libre (clic du milieu glissé pour tourner et incliner)", () => _main.Camera.ToggleMode(), enabled: true);
         return Tier("BarTop", UiTheme.BarTop, 0f, TopHeight, row);
@@ -248,6 +260,7 @@ public partial class BottomBar : Control
         club.Label.ThemeTypeVariation = "UiName";
         club.Label.AddThemeFontSizeOverride("font_size", 16);
         club.Label.ClipText = true;
+        club.Label.TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis; // trop long : coupé à la fin, jamais des deux côtés
         club.Label.SizeFlagsHorizontal = SizeFlags.ExpandFill;
         club.Label.HorizontalAlignment = HorizontalAlignment.Center;
         row.AddChild(club);
@@ -255,13 +268,13 @@ public partial class BottomBar : Control
         _members = UiPill.Create(UiIds.Hud.Members, "—", "figurine", UiTheme.CreamIcon);
         _members.TooltipText = "Membres de la ligue du club";
         row.AddChild(_members);
-        var money = UiPill.Create(UiIds.Hud.Money, "—", "coin", UiTheme.Grass);
-        money.TooltipText = "Argent : bientôt";
-        row.AddChild(money);
+        _money = UiPill.Create(UiIds.Hud.Money, "—", "coin", UiTheme.Grass);
+        _money.TooltipText = "Argent : le solde du club, puis le résultat du mois en cours. Le bouton Finances donne le détail.";
+        row.AddChild(_money);
         var mood = UiPill.Create(UiIds.Hud.Mood, "—");
         mood.Visible = false; // C16 : visages d'humeur.
         row.AddChild(mood);
-        foreach (var pill in new Control[] { _members, money })
+        foreach (var pill in new Control[] { _members, _money })
         {
             pill.SizeFlagsVertical = SizeFlags.ShrinkCenter;
         }
@@ -272,7 +285,7 @@ public partial class BottomBar : Control
     /// <summary>Heure et date sur l'avancée du jour (aplat bleu ciel de gauche à droite).</summary>
     private Control Clock()
     {
-        var pill = new Panel { Name = UiIds.Hud.Clock, CustomMinimumSize = new Vector2(196f, UiTheme.PillHeight), SizeFlagsVertical = SizeFlags.ShrinkCenter, ClipContents = true, TooltipText = "Heure et date ; l'aplat montre l'avancée du jour" };
+        var pill = new Panel { Name = UiIds.Hud.Clock, CustomMinimumSize = new Vector2(170f, UiTheme.PillHeight), SizeFlagsVertical = SizeFlags.ShrinkCenter, ClipContents = true, TooltipText = "Heure et date ; l'aplat montre l'avancée du jour" };
         pill.AddThemeStyleboxOverride("panel", PillStyle(0f));
         var fillStyle = UiTheme.Box(new Color(UiTheme.Sky, 0.22f), 0);
         fillStyle.CornerRadiusTopLeft = fillStyle.CornerRadiusBottomLeft = UiTheme.PillHeight / 2;

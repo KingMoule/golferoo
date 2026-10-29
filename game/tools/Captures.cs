@@ -41,6 +41,7 @@ public partial class Captures : Node
     private const int SaveViewCount = 2;
     private const int CourseViewCount = 11;
     private const int GalleryViewCount = 1;
+    private const int FinanceViewCount = 1;
 
     /// <summary>Lisière sud de la forêt du coude, la balle de <c>ForestExitTests.Edge</c> (tuile 18,5 / 26,5 de 8 m).</summary>
     private static readonly Point2 ForestEdge = new(18.5 * 8, 26.5 * 8);
@@ -316,7 +317,7 @@ public partial class Captures : Node
         await SaveViews(await FreeViews(await TutorialViews(await ProfileViews(await AimView(await LeagueViews(main))))));
         await CourseViews();
         await GalleryView();
-        if (_failures == 0 && _index == expected + LeagueViewCount + TutorialViewCount + ProfileViewCount + FreeViewCount + SaveViewCount + CourseViewCount + GalleryViewCount)
+        if (_failures == 0 && _index == expected + LeagueViewCount + TutorialViewCount + ProfileViewCount + FreeViewCount + SaveViewCount + CourseViewCount + GalleryViewCount + FinanceViewCount)
         {
             GD.Print($"CAPTURES OK {_index} images");
             return 0;
@@ -840,6 +841,7 @@ public partial class Captures : Node
         }
 
         await BirdieViews(main);
+        await FinanceView(main);
         window.ContentScaleSize = oldSize;
         window.ContentScaleMode = oldMode;
     }
@@ -883,6 +885,34 @@ public partial class Captures : Node
         window.ContentScaleFactor = 1f;
     }
 
+
+    /// <summary>
+    /// C14 lot 3 : le panneau Finances après huit mois de travaux (<c>c14-finances</c>) : douze mois en barres revenus et dépenses avec la ligne du solde,
+    /// puis le détail du mois courant et du précédent.
+    /// </summary>
+    private async Task FinanceView(Main main)
+    {
+        var world = main.World;
+        var grid = world.Terrain!;
+        var center = new Point2(grid.CellsX * grid.CellSize * 0.5, grid.CellsZ * grid.CellSize * 0.5);
+        var surfaces = new[] { Surface.Bunker, Surface.Fairway, Surface.Water, Surface.Path, Surface.Green, Surface.Fairway, Surface.Bunker, Surface.Water };
+        for (var month = 0; month < surfaces.Length; month++)
+        {
+            world.PaintSurface(center, 6 + (month * 3), surfaces[month]);
+            main.StepTicks(1);
+            main.SkipToNextMonth();
+        }
+
+        world.PaintSurface(center, 12, Surface.Green);
+        main.StepTicks(1);
+        main.Bar.Select(ToolFamily.None, toggle: false);
+        ((BaseButton)main.Ui.Find(UiIds.Round.Finances)!).EmitSignal(BaseButton.SignalName.Pressed);
+        await Frames(SettleFrames);
+        var ledger = world.Ledger;
+        GD.Print($"FINANCES solde={ledger.Balance} mois_clos={ledger.Months.Count} mois_connus={main.Finances.Chart.Known.Count(k => k)} lignes={main.Finances.Table.GetChildCount() / main.Finances.Table.Columns}");
+        Save("c14-finances");
+        main.Finances.Toggle();
+    }
 
     /// <summary>C13 lot 1 : l'écran témoin des composants d'interface (<c>res://tools/UiGallery.tscn</c>), seul à l'écran.</summary>
     private async Task GalleryView()
