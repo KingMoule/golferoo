@@ -1360,10 +1360,21 @@ public partial class SmokeTest : Node
             failures.Add("après « Jouer », la visée se rouvre avant que le coup parte");
         }
 
-        _main.StepTicks(200);
-        if (pro.Strokes != 1)
+        // On compte les envols plutôt que les coups : une balle à l'eau ajoute une pénalité au compte (le vent varie avec l'heure de la fumée).
+        var flights = 0;
+        for (var i = 0; i < 200; i++)
         {
-            failures.Add($"après « Jouer », le pro compte {pro.Strokes} coups au lieu de 1");
+            var wasInFlight = pro.State == GolferState.BallInFlight;
+            _main.StepTicks(1);
+            if (!wasInFlight && pro.State == GolferState.BallInFlight)
+            {
+                flights++;
+            }
+        }
+
+        if (flights != 1)
+        {
+            failures.Add($"après « Jouer », le pro frappe {flights} fois au lieu d'une");
         }
     }
 
