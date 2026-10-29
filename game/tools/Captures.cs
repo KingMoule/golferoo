@@ -736,16 +736,16 @@ public partial class Captures : Node
         await Frames(SettleFrames);
         Save("c21-eau");
         // DIAG
-        main.TerrainView.GetNodeOrNull<Node3D>("Puddles")?.Hide();
+        var tm = main.TerrainView.GetChildren().OfType<MeshInstance3D>().First(c => c.Name.ToString().StartsWith("Terrain_")).MaterialOverride as ShaderMaterial;
+        tm!.SetShaderParameter("shore_depth", 0f);
         await Frames(SettleFrames);
-        Save("c21-diag-sanspuddles");
-        foreach (var c in main.TerrainView.GetChildren().OfType<Node3D>().Where(c => c.Name.ToString().StartsWith("Water_")))
-        {
-            c.Hide();
-        }
-
+        Save("c21-diag-sansenfoncement");
+        tm.SetShaderParameter("shore_depth", 1f);
+        var sun = main.FindChildren("*", "DirectionalLight3D", true, false).OfType<DirectionalLight3D>().First();
+        sun.ShadowEnabled = false;
         await Frames(SettleFrames);
-        Save("c21-diag-sanseau");
+        Save("c21-diag-sansombre");
+        sun.ShadowEnabled = true;
         main.Camera.SetMode(CameraMode.Iso, instant: true);
 
         for (var i = 0; i < 5; i++)
