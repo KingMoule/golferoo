@@ -260,6 +260,7 @@ public partial class BottomBar : Control
         club.Label.ThemeTypeVariation = "UiName";
         club.Label.AddThemeFontSizeOverride("font_size", 16);
         club.Label.ClipText = true;
+        club.Label.TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis; // trop long : coupé à la fin, jamais des deux côtés
         club.Label.SizeFlagsHorizontal = SizeFlags.ExpandFill;
         club.Label.HorizontalAlignment = HorizontalAlignment.Center;
         row.AddChild(club);
@@ -284,7 +285,7 @@ public partial class BottomBar : Control
     /// <summary>Heure et date sur l'avancée du jour (aplat bleu ciel de gauche à droite).</summary>
     private Control Clock()
     {
-        var pill = new Panel { Name = UiIds.Hud.Clock, CustomMinimumSize = new Vector2(180f, UiTheme.PillHeight), SizeFlagsVertical = SizeFlags.ShrinkCenter, ClipContents = true, TooltipText = "Heure et date ; l'aplat montre l'avancée du jour" };
+        var pill = new Panel { Name = UiIds.Hud.Clock, CustomMinimumSize = new Vector2(170f, UiTheme.PillHeight), SizeFlagsVertical = SizeFlags.ShrinkCenter, ClipContents = true, TooltipText = "Heure et date ; l'aplat montre l'avancée du jour" };
         pill.AddThemeStyleboxOverride("panel", PillStyle(0f));
         var fillStyle = UiTheme.Box(new Color(UiTheme.Sky, 0.22f), 0);
         fillStyle.CornerRadiusTopLeft = fillStyle.CornerRadiusBottomLeft = UiTheme.PillHeight / 2;

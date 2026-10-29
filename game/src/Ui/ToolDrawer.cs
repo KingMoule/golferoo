@@ -260,9 +260,10 @@ public partial class ToolDrawer : PanelContainer
 
         _sizeRow.Visible = family != ToolFamily.Holes;
         var undo = _actions[UiIds.Action.Undo];
-        undo.Visible = (family is ToolFamily.Terrain or ToolFamily.Relief or ToolFamily.Bulldozer) && brush.CanUndo;
+        undo.Visible = (family is ToolFamily.Terrain or ToolFamily.Relief or ToolFamily.Bulldozer) && brush.UndoOffered;
         if (undo.Visible)
         {
+            undo.Disabled = _main.Paused; // en pause, le compte à rebours est arrêté et l'annulation attend la reprise
             var text = $"Annuler ({UiMoney.Format(_main.World.StrokeCost)})";
             if (undo.Text != text)
             {

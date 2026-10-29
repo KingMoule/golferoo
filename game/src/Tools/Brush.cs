@@ -34,7 +34,7 @@ public partial class Brush : Node3D
     private Vector3? _hit;
     private Vector2? _cursor;
     private MouseButton _stroke;
-    private ulong _strokeEnded;
+    private double _undoLeft;
     private bool _strokeBegun;
 
     /// <summary>Combien de temps réel le dernier coup de pinceau reste annulable (C14).</summary>
@@ -46,10 +46,13 @@ public partial class Brush : Node3D
     public bool Stroking => _stroke != MouseButton.None;
 
     /// <summary>Vrai pendant <see cref="UndoWindowMilliseconds"/> après un coup de pinceau qui a changé quelque chose.</summary>
-    public bool CanUndo => _main is not null && !Stroking && _strokeEnded != 0 && Time.GetTicksMsec() - _strokeEnded < UndoWindowMilliseconds && _main.World.CanUndoStroke;
+    public bool CanUndo => UndoOffered && !_main!.Paused;
+
+    /// <summary>La fenêtre d'annulation court encore (le bouton reste visible, grisé en pause) : son compte à rebours s'arrête en pause.</summary>
+    public bool UndoOffered => _main is not null && !Stroking && _undoLeft > 0 && _main.World.CanUndoStroke;
 
     /// <summary>Pour la fumée : vieillit le dernier coup de pinceau de <paramref name="milliseconds"/> sans attendre en vrai.</summary>
-    public void AgeLastStroke(ulong milliseconds) => _strokeEnded = _strokeEnded > milliseconds ? _strokeEnded - milliseconds : 1;
+    public void AgeLastStroke(ulong milliseconds) => _undoLeft = Math.Max(0.0, _undoLeft - milliseconds);
 
     /// <summary>Annule le dernier coup de pinceau (bouton Annuler, Ctrl+Z) s'il est encore dans sa fenêtre ; la fenêtre se referme.</summary>
     public void Undo()
@@ -60,7 +63,7 @@ public partial class Brush : Node3D
         }
 
         _main!.World.UndoStroke();
-        _strokeEnded = 0;
+        _undoLeft = 0;
     }
 
     /// <summary>Vrai pour le relief, faux pour la peinture de surface.</summary>
@@ -170,7 +173,10 @@ public partial class Brush : Node3D
         if (@event is InputEventMouseButton { Pressed: false } release && release.ButtonIndex == _stroke)
         {
             _stroke = MouseButton.None;
-            _strokeEnded = Time.GetTicksMsec();
+            if (_strokeBegun)
+            {
+                _undoLeft = UndoWindowMilliseconds;
+            }
         }
     }
 
@@ -180,7 +186,6 @@ public partial class Brush : Node3D
         if (Active && @event is InputEventMouseButton { Pressed: true, ButtonIndex: MouseButton.Left or MouseButton.Right } press)
         {
             _stroke = press.ButtonIndex;
-            _strokeEnded = 0;
             _strokeBegun = false;
         }
     }
@@ -254,6 +259,11 @@ public partial class Brush : Node3D
             return;
         }
 
+        if (!_main.Paused && !Stroking)
+        {
+            _undoLeft = Math.Max(0.0, _undoLeft - (delta * 1000.0));
+        }
+
         // Le curseur au sol éclaircit les couronnes même quand le pinceau est éteint.
         var picked = PickAt(Cursor, out var hit);
         _main!.TerrainView.Trees?.SetFocus(TreeLayer.CursorSlot, picked ? hit : null, TreeLayer.CursorFocusRadius);
@@ -296,7 +306,9 @@ public partial class Brush : Node3D
             return true;
         }
 
-        if (!_main.Finances.Allow(PaintPrice(world, center, BulldozerMode ? Surface.Rough : PaintedSurface)))
+        if (!_main.Finances.Allow(BulldozerMode
+            ? PaintPrice(world, center, Surface.Rough) + TreeTool.RazePrice(world, center, Radius, keepRemarkable: false)
+            : PaintPrice(world, center, PaintedSurface)))
         {
             return false;
         }
@@ -319,6 +331,7 @@ public partial class Brush : Node3D
         if (!_strokeBegun)
         {
             _strokeBegun = true;
+            _undoLeft = 0; // le coup précédent est remplacé ; la fenêtre du nouveau commence au relâché
             world.BeginStroke();
         }
     }

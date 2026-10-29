@@ -146,6 +146,11 @@ public partial class Finances : Node
     /// </summary>
     public bool Allow(long cost)
     {
+        if (cost <= 0)
+        {
+            return true;
+        }
+
         var balance = _main.World.Ledger.Balance;
         if (balance - cost >= 0)
         {
@@ -214,7 +219,7 @@ public partial class Finances : Node
 
         _lastRefusal = now;
         var economy = _main.World.Economy;
-        _main.Birdie?.Post(Birdie.Club, $"Achat refusé : {UiMoney.Format(cost)} de {CategoryName(category).ToLowerInvariant()}. Au-delà de {economy.OverdraftFreeHoles} trous ouverts, le découvert est limité à {UiMoney.Format(economy.OverdraftLimit)}.", "#finances");
+        _main.Birdie?.Post(Birdie.Club, $"Achat refusé : {UiMoney.Format(cost)} de {CategoryName(category).ToLowerInvariant()}. À partir de {economy.OverdraftFreeHoles} trous ouverts, le découvert est limité à {UiMoney.Format(economy.OverdraftLimit)}.", "#finances");
     }
 
     /// <summary>Recopie le grand livre dans le panneau ouvert ; les lignes du tableau ne sont refaites que si un montant a changé.</summary>

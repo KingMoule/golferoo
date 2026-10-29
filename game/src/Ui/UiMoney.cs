@@ -26,7 +26,19 @@ public static class UiMoney
     }
 
     /// <summary>Le texte de la pastille d'argent : le solde, puis le résultat du mois (« 149 520 $ · -480 »).</summary>
-    public static string Pill(Ledger ledger) => $"{Format(ledger.Balance)} · {Format(MonthResult(ledger), true).Replace(" $", string.Empty)}";
+    public static string Pill(Ledger ledger) => PillText(ledger.Balance, MonthResult(ledger));
+
+    /// <summary>
+    /// Le solde, puis le résultat du mois ; un solde d'un million ou plus s'écrit en millions (« -1,23 M$ ») et un résultat de 100 000 $ ou plus en milliers
+    /// (« -123 k »), pour que la barre du bas tienne à 150 % avec un solde à sept chiffres.
+    /// </summary>
+    public static string PillText(long balance, long result)
+    {
+        var big = Math.Abs(balance) >= 100_000_000;
+        var head = big ? (balance / 100_000_000m).ToString("0.00", CultureInfo.InvariantCulture).Replace('.', ',') + " M$" : Format(balance);
+        var tail = Math.Abs(result) >= 10_000_000 ? (result / 100_000m).ToString("+0;-0", CultureInfo.InvariantCulture) + " k" : Format(result, true).Replace(" $", string.Empty);
+        return $"{head} · {tail}";
+    }
 
     /// <summary>Résultat du mois en cours : la somme des catégories du grand livre.</summary>
     public static long MonthResult(Ledger ledger) => Enum.GetValues<LedgerCategory>().Sum(ledger.Current);

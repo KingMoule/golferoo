@@ -1296,6 +1296,51 @@ public partial class SmokeTest : Node
             Expect(round == 2 ? before - ledger.Balance == cost : ledger.Balance == before && !undo.Visible, $"manche {round} : solde {ledger.Balance} au lieu de {(round == 2 ? before - cost : before)}");
         }
 
+        // Un clic sans retouche ne rend pas ses cinq secondes au coup précédent ; la pause arrête le compte à rebours et grise le bouton.
+        void Stroke(Surface surface)
+        {
+            brush.SelectSurface(surface);
+            PushClick(at, pressed: true);
+            brush.Apply(brush.PickAt(at, out var h) ? h : default);
+            main.StepTicks(1);
+            PushClick(at, pressed: false);
+            main.Bar.Sync();
+        }
+
+        Stroke(Surface.Water);
+        Expect(brush.CanUndo, "pause : pas de coup annulable pour commencer");
+        brush.AgeLastStroke(3000);
+        PushClick(at, pressed: true);
+        PushClick(at, pressed: false);
+        brush.AgeLastStroke(2500);
+        Expect(!brush.CanUndo, "un clic sans retouche a rendu cinq secondes au coup précédent");
+        Stroke(Surface.Fairway);
+        var paused = ledger.Balance;
+        main.Paused = true;
+        brush._Process(10.0);
+        main.Bar.Sync();
+        PushUndoKey();
+        main.StepTicks(1);
+        Expect(brush.UndoOffered && !brush.CanUndo && undo.Visible && ((Button)undo).Disabled && ledger.Balance == paused, "en pause, l'annulation devrait attendre : bouton grisé, Ctrl+Z sans effet, temps gardé");
+        main.Paused = false;
+        brush._Process(0);
+        main.Bar.Sync();
+        Expect(brush.CanUndo && !((Button)undo).Disabled, "à la reprise, le coup devrait rester annulable");
+        PushUndoKey();
+        main.StepTicks(1);
+        Expect(ledger.Balance > paused, "à la reprise, Ctrl+Z n'annule pas le coup");
+
+        // Le prix annoncé d'une zone rasée (et du bulldozer) égale ce que la sim débite.
+        world.PaintSurface(p, 8, Surface.Fairway);
+        main.StepTicks(1);
+        world.PlantTree(p.X, p.Z, TreeSpeciesId.Oak, TreePlantStage.Mound);
+        main.StepTicks(1);
+        var razePrice = TreeTool.RazePrice(world, p, 6.0, keepRemarkable: false);
+        var beforeRaze = ledger.Balance;
+        world.RazeArea(p, 6.0, keepRemarkable: false);
+        main.StepTicks(1);
+        Expect(razePrice > 0 && beforeRaze - ledger.Balance == razePrice, $"zone rasée : annoncé {razePrice}, débité {beforeRaze - ledger.Balance}");
+
         // 3. Confirmation du découvert : une seule fois par passage ; refus par la limite : un message de Birdie.
         var prompts = finances.Prompts;
         var over = ledger.Balance + 1;
@@ -1442,6 +1487,16 @@ public partial class SmokeTest : Node
             failures.Add($"échelle 1,5 : écran {screen}, étages {string.Join(" / ", tiers)}, colonne {dock}");
         }
 
+        var worst = (UiPill)main.Ui.Find(UiIds.Hud.Money)!;
+        worst.SetText(UiMoney.PillText(-123_456_700, -12_345_600));
+        var wide = new[] { "BarTop", "BarBottom" }.Select(n => main.Bar.GetNode<Control>(n).GetCombinedMinimumSize().X).ToArray();
+        var club = (Label)((UiPill)main.Ui.Find(UiIds.Hud.Club)!).Label;
+        if (wide.Any(w => w > screen.X) || club.TextOverrunBehavior != TextServer.OverrunBehavior.TrimEllipsis)
+        {
+            failures.Add($"échelle 1,5 : un solde de -1,23 M$ fait déborder la barre ({string.Join(" / ", wide)}) ou le nom du club n'a pas de points de suspension");
+        }
+
+        main.Bar.Sync();
         GD.Print($"SMOKE echelle 1,5 : écran {screen}, étages {string.Join(" / ", tiers)}, colonne {dock}");
         main.Birdie.Toggle();
         main.League.Toggle();

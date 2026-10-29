@@ -91,7 +91,7 @@ public partial class PlaceTool : Node
         }
 
         var world = _main!.World;
-        if (!_main.Finances.Allow(world.Economy.NewHole))
+        if (world.NewHoleIssues(tee, point).Count == 0 && !_main.Finances.Allow(world.Economy.NewHole))
         {
             return;
         }
