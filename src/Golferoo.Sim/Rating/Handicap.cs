@@ -1,3 +1,5 @@
+using Golferoo.Sim.Scoring;
+
 namespace Golferoo.Sim.Rating;
 
 /// <summary>Handicap WHS simplifié : fonctions pures sur des écarts de cartes de score.</summary>
@@ -13,6 +15,28 @@ public static class Handicap
         ArgumentNullException.ThrowIfNull(rating);
         ArgumentOutOfRangeException.ThrowIfLessThan(holesPlayed, 1);
         return (gross - (rating.ScratchPerHole * holesPlayed)) * CourseRating.Reference / rating.Slope * 18.0 / holesPlayed;
+    }
+
+    /// <summary>
+    /// Écart d'une carte (C21) : brut des trous joués moins la note scratch de ces mêmes trous (<see cref="CourseRating.ScratchOf"/>),
+    /// × 113 / slope, ramené à 18 trous. Un trou fermé, donc non joué, ne compte ni dans le brut ni dans la note.
+    /// </summary>
+    public static double Differential(ScoreCard card, CourseRating rating)
+    {
+        ArgumentNullException.ThrowIfNull(card);
+        ArgumentNullException.ThrowIfNull(rating);
+        var (played, scratch) = (0, 0.0);
+        for (var h = 0; h < card.HoleCount; h++)
+        {
+            if (card.Strokes(h) > 0)
+            {
+                played++;
+                scratch += rating.ScratchOf(h);
+            }
+        }
+
+        ArgumentOutOfRangeException.ThrowIfLessThan(played, 1);
+        return (card.Gross - scratch) * CourseRating.Reference / rating.Slope * 18.0 / played;
     }
 
     /// <summary>Sous ce nombre de trous, les écarts sont trop bruités pour le barème WHS : l'index est la moyenne de tous.</summary>

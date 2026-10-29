@@ -32,15 +32,19 @@ public sealed record Club(
     public bool IsPutter => LaunchDegrees <= 0.0;
 }
 
-/// <summary>Table des clubs. Valeurs plausibles, sans réglage fin : les vitesses sont calibrées sur la table de portées (tests).</summary>
+/// <summary>
+/// Table des clubs. Les vitesses sont calibrées sur la table de portées (tests) ; les écarts types sont ceux d'un scratch (niveau 1),
+/// calés en C21 avec <see cref="Golfers.SkillLevels"/> sur des taux d'amateurs réels : le driver règle les fairways, les fers et la
+/// vitesse les greens en régulation.
+/// </summary>
 public static class Clubs
 {
-    public static readonly Club Driver = new("Driver", 69.3, 12.0, 220.0, 4.5, 0.05, 0.1);
-    public static readonly Club Wood3 = new("Bois 3", 62.4, 13.5, 200.0, 4.2, 0.05, 0.15);
-    public static readonly Club Iron5 = new("Fer 5", 52.7, 17.0, 170.0, 3.8, 0.05, 0.25);
-    public static readonly Club Iron7 = new("Fer 7", 43.4, 21.0, 140.0, 3.6, 0.05, 0.35);
-    public static readonly Club Iron9 = new("Fer 9", 34.7, 27.0, 110.0, 4.0, 0.06, 0.45);
-    public static readonly Club Wedge = new("Wedge", 27.2, 35.0, 80.0, 4.0, 0.06, 0.6);
+    public static readonly Club Driver = new("Driver", 69.3, 12.0, 220.0, 4.7, 0.03, 0.1);
+    public static readonly Club Wood3 = new("Bois 3", 62.4, 13.5, 200.0, 4.4, 0.03, 0.15);
+    public static readonly Club Iron5 = new("Fer 5", 52.7, 17.0, 170.0, 2.4, 0.017, 0.25);
+    public static readonly Club Iron7 = new("Fer 7", 43.4, 21.0, 140.0, 2.1, 0.017, 0.35);
+    public static readonly Club Iron9 = new("Fer 9", 34.7, 27.0, 110.0, 2.1, 0.017, 0.45);
+    public static readonly Club Wedge = new("Wedge", 27.2, 35.0, 80.0, 2.2, 0.017, 0.6);
     public static readonly Club Putter = new("Putter", 0.0, 0.0, 0.0, 0.25, 0.015);
 
     /// <summary>Clubs de jeu hors green, du plus long au plus court.</summary>

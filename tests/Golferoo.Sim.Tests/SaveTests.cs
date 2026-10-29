@@ -347,6 +347,7 @@ public class SaveTests
     [InlineData(3)] // C12 lot 4 : planification en cours dans le golfeur, champs de flux en attente et en cache dans le monde
     [InlineData(4)] // C14 lot 1 : grand livre et paramètres de l'économie
     [InlineData(5)] // C14 lot 2 : annulation du dernier coup de pinceau, genre des retouches en file
+    [InlineData(6)] // C21 lot 2 : note scratch trou par trou
     public void Load_OlderVersion_SaysItIsAnOlderVersion(byte version)
     {
         var bytes = Save(Build(1, "proto", "start"));
@@ -601,6 +602,28 @@ public class SaveTests
 
         var e = Assert.Throws<InvalidDataException>(() => Load(forged));
         Assert.Contains("incohérente", e.Message);
+    }
+
+    /// <summary>C21 lot 2 : la note scratch trou par trou se sauvegarde et entre dans la somme de contrôle.</summary>
+    [Fact]
+    public void RatingByHole_RoundTrips_AndEntersTheChecksum()
+    {
+        World With(double[]? byHole)
+        {
+            var world = new World(1, Hole("proto"));
+            world.SetCourseRating(new CourseRating(1, 4, 4.5, 5.5, byHole));
+            world.Step();
+            return world;
+        }
+
+        var a = With([4.5]);
+        var loaded = Load(Save(a));
+
+        Assert.Equal([4.5], loaded.CourseRating!.ScratchByHole!);
+        Assert.Equal(a.Checksum(), loaded.Checksum());
+        Assert.NotEqual(a.Checksum(), With([4.25]).Checksum());
+        Assert.NotEqual(a.Checksum(), With(null).Checksum());
+        Assert.Null(Load(Save(With(null))).CourseRating!.ScratchByHole);
     }
 
     [Fact]

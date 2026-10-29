@@ -40,19 +40,22 @@ public static class CourseRater
         }
 
         var resolver = new PhysicalShotResolver { Trees = trees, Season = season };
-        var scratch = TotalStrokes(resolver, copy, seed, SkillLevels.Scratch, games);
-        var bogey = TotalStrokes(resolver, copy, seed ^ 0x9E3779B97F4A7C15UL, SkillLevels.Bogey, games);
-        return new CourseRating(holes.Count, holes.Sum(h => h.Par), (double)scratch / games, (double)bogey / games);
+        var scratch = HoleStrokes(resolver, copy, seed, SkillLevels.Scratch, games);
+        var bogey = HoleStrokes(resolver, copy, seed ^ 0x9E3779B97F4A7C15UL, SkillLevels.Bogey, games);
+        return new CourseRating(holes.Count, holes.Sum(h => h.Par), (double)scratch.Sum() / games, (double)bogey.Sum() / games,
+            [.. scratch.Select(s => (double)s / games)]);
     }
 
-    private static int TotalStrokes(PhysicalShotResolver resolver, TerrainGrid terrain, ulong seed, double skill, int games)
+    /// <summary>Total des coups de <paramref name="games"/> parties, trou par trou.</summary>
+    private static int[] HoleStrokes(PhysicalShotResolver resolver, TerrainGrid terrain, ulong seed, double skill, int games)
     {
-        var total = 0;
+        var total = new int[terrain.Course.Count];
         for (var game = 0; game < games; game++)
         {
             var rng = new DeterministicRng(seed + ((ulong)game * 0x2545F4914F6CDD1DUL));
-            foreach (var hole in terrain.Course.Holes)
+            for (var h = 0; h < total.Length; h++)
             {
+                var hole = terrain.Course.Holes[h];
                 var ball = hole.Tee;
                 var strokes = 0;
                 while (strokes < World.MaxStrokes)
@@ -66,7 +69,7 @@ public static class CourseRater
                     }
                 }
 
-                total += Math.Min(strokes, World.MaxStrokes);
+                total[h] += Math.Min(strokes, World.MaxStrokes);
             }
         }
 

@@ -20,12 +20,14 @@ public class CourseTests
     // d'un tenant au dernier tick mais un PlanJob créé au début du geste, proto-par4 / graine 1 ne la redonne pas : au tick 2000 un geste est en cours et l'état du PlanJob entre dans la somme.
     // C23 lot 1 : les six sommes de coups changent, le geste dure 23 ticks (jusqu'à l'impact du swing animé) au lieu de 20.
     // Contrôle (vérifié) : avec SwingTicksCount = 20, les six cas redonnent exactement leurs sommes d'avant.
-    [InlineData("proto-par4", 1UL, 7753680314906160316UL)]
-    [InlineData("proto-par4", 2UL, 3106859440883824427UL)]
-    [InlineData("proto-par4", 3UL, 17819951929926984716UL)]
-    [InlineData("dogleg-par4", 1UL, 11675233575653625041UL)]
-    [InlineData("dogleg-par4", 2UL, 4951925622651977194UL)]
-    [InlineData("dogleg-par4", 3UL, 14725099549404512877UL)]
+    // C21 lot 2 : les six sommes de coups changent (écarts types et niveaux recalés, vraie loi normale par Box-Muller, tirage d'un choix non
+    // optimal par coup au RNG du monde) ; les trois de « blank-coude », sans coup joué, non.
+    [InlineData("proto-par4", 1UL, 17606501731160446518UL)]
+    [InlineData("proto-par4", 2UL, 10510913993954027195UL)]
+    [InlineData("proto-par4", 3UL, 15959334313397627081UL)]
+    [InlineData("dogleg-par4", 1UL, 10528660100828060831UL)]
+    [InlineData("dogleg-par4", 2UL, 3081298981598650964UL)]
+    [InlineData("dogleg-par4", 3UL, 12775752372418096707UL)]
     [InlineData("blank-coude", 1UL, 6977119086498316254UL)]
     [InlineData("blank-coude", 2UL, 6838184519777748364UL)]
     [InlineData("blank-coude", 3UL, 4217163305829179422UL)]

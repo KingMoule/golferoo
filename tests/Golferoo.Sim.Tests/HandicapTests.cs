@@ -60,6 +60,24 @@ public class HandicapTests
         Assert.Equal(2.0 * 113 / 97 * 18, diff, 9);
     }
 
+    /// <summary>
+    /// C21 lot 2, critère 8 : un trou fermé (non joué, 0 coup sur la carte) ne compte ni dans le brut ni dans la note ; l'écart ne dépend
+    /// pas de sa note. Avant : brut des trous joués contre la note de tous les trous, soit un écart faussé vers le bas.
+    /// </summary>
+    [Theory]
+    [InlineData(3.0)]
+    [InlineData(6.0)]
+    public void Differential_IgnoresAClosedHoleTheMemberDidNotPlay(double closedHoleScratch)
+    {
+        var rating = new CourseRating(3, 12, 8.0 + closedHoleScratch, 16.0 + closedHoleScratch, [3.5, closedHoleScratch, 4.5]);
+        var card = new Scoring.ScoreCard([4, 4, 4]);
+        card.Record(0, 5);
+        card.Record(2, 6); // trou 2 fermé : sauté
+
+        var expected = (11 - 8.0) * CourseRating.Reference / rating.Slope * 18.0 / 2;
+        Assert.Equal(expected, Handicap.Differential(card, rating), 9);
+    }
+
     [Fact]
     public void PlayingHandicap_AddsRatingMinusParAndScalesToHoles()
     {
