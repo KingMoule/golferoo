@@ -1299,7 +1299,7 @@ public partial class SmokeTest : Node
         var opened = main.Panels.Opened;
         var folded = opened.Where(p => p.Folded).Select(p => p.Name.ToString()).ToList();
         var column = main.Panels.Dock.GetCombinedMinimumSize();
-        var offscreen = column.X > screen.X - 32f ? 1 : 0;
+        var offscreen = column.X > screen.X - 32f || column.Y > screen.Y - BottomBar.Height - 28f ? 1 : 0;
         if (opened.Count != 4 || !folded.SequenceEqual([UiIds.Panel.Turf]) || offscreen != 0)
         {
             failures.Add($"repli : {opened.Count} panneaux, repliés {string.Join(",", folded)}, colonne {column}");
