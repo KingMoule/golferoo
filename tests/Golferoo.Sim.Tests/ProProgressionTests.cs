@@ -125,32 +125,112 @@ public class ProProgressionTests(ITestOutputHelper output)
     }
 
     [Fact]
-    public void AGimme_GivesNoExperience()
+    public void AGimme_HolesTheBall_AndGivesNoExperience()
     {
-        // Le putt donné compte un coup et met la balle au trou sans passer par un coup du pro : aucune XP de putter.
         var w = new World(1, HoleLoader.Load(Path.Combine(Path.GetDirectoryName(TerrainTests.HolePath())!, "dogleg-par4.json"), 2), league: true) { ManualPro = true };
-        var group = w.StartProRound();
-        var puttsPlayed = 0;
-        for (var i = 0; i < 60_000 && !group.Finished; i++)
+        w.StartProRound();
+        while (w.AwaitingPro is null)
         {
-            if (w.AwaitingPro is { } pro)
-            {
-                var onGreen = w.Terrain!.SurfaceAt(pro.Ball.X, pro.Ball.Z) == Surface.Green;
-                puttsPlayed += onGreen ? 1 : 0;
-                var d = Math.Sqrt(Math.Pow(w.Terrain.Hole.X - pro.Ball.X, 2) + Math.Pow(w.Terrain.Hole.Z - pro.Ball.Z, 2));
-                var club = onGreen ? Clubs.Putter : Clubs.Full.LastOrDefault(c => c.TargetRange >= d) ?? Clubs.Driver;
-                w.PlayProShot(new ProShot(club, w.Terrain.Hole, ShotShape.Straight, onGreen ? 1.0 : Math.Min(1.0, Math.Sqrt(d / club.TargetRange))));
-            }
-
             w.Step();
         }
 
-        Assert.True(group.Finished);
-        var strokes = Assert.Single(group.Golfers).Strokes;
-        output.WriteLine($"{strokes} coups, {puttsPlayed} putts joués");
+        var pro = w.AwaitingPro!;
+        w.PlayProShot(new ProShot(Clubs.Driver, new Point2(250, 236), ShotShape.Straight, 1.0));
+        for (var i = 0; i < 5_000 && pro.State != GolferState.WalkingToBall; i++)
+        {
+            w.Step();
+        }
 
-        // Un putt de 0,1 m rentré vaut au plus une qualité de 1 ; le total reste borné par les seuls putts joués.
-        Assert.True(Xp(w.Pro!, ProSkill.Putter) <= (long)puttsPlayed * 2 * ProQuality.FullHundredths);
+        Assert.Equal(GolferState.WalkingToBall, pro.State);
+
+        // La balle (vue par le monde à l'arrêt) est à 1 m du trou sur le green : à son tour, le putt est donné.
+        pro.Ball = new Point2(w.Terrain!.Hole.X - 1.0, w.Terrain.Hole.Z);
+        Assert.Equal(Surface.Green, w.Terrain.SurfaceAt(pro.Ball.X, pro.Ball.Z));
+        var before = Enum.GetValues<ProSkill>().Select(sk => w.Pro!.Experience(sk)).ToArray();
+        var strokes = pro.Strokes;
+        for (var i = 0; i < 5_000 && !pro.Holed; i++)
+        {
+            w.Step();
+        }
+
+        Assert.True(pro.Holed);
+        Assert.Equal(strokes + 1, pro.Strokes);
+        Assert.Equal(before, Enum.GetValues<ProSkill>().Select(sk => w.Pro!.Experience(sk)).ToArray());
+    }
+
+    [Fact]
+    public void TrainingYear_ChangesOnApril1st_NotOnJanuary1st()
+    {
+        var w = new World(3);
+        var p = new ProSkills();
+        var years = new List<(int Month, int Year)>();
+        for (var i = 0; i < 25; i++)
+        {
+            years.Add((w.Date.Month, w.PlayYear));
+            p.Gain(ProSkill.MidIrons, p.TrainingCap, league: false, year: w.PlayYear);
+            w.SkipToNextMonth();
+        }
+
+        output.WriteLine(string.Join(" ", years));
+        for (var i = 1; i < years.Count; i++)
+        {
+            Assert.Equal(years[i].Month == 4 ? years[i - 1].Year + 1 : years[i - 1].Year, years[i].Year);
+        }
+
+        // Un gain par mois, plafond plein : seul un mois d'avril ajoute l'année suivante (12 mois = 2 plafonds sur 25 mois, soit 3 plafonds).
+        Assert.Equal(3 * p.TrainingCap, p.Experience(ProSkill.MidIrons));
+    }
+
+    [Fact]
+    public void Dosage_ShrinksTheDepthErrorOfAPutt()
+    {
+        var green = ShotTests.Uniform(Surface.Green, cells: 120);
+        var resolver = new PhysicalShotResolver();
+        var shot = new ProShot(Clubs.Putter, new Point2(30, 240), ShotShape.Straight, 1.0);
+        double Depth(int dosage)
+        {
+            var p = AtLevel(25);
+            p.SetLevel(ProSkill.Dosage, dosage);
+            var aimed = p.Execute(resolver, green, Start, shot, null, new Point2(500, 500));
+            var rng = new DeterministicRng(4);
+            var sum = 0.0;
+            for (var i = 0; i < 1000; i++)
+            {
+                sum += Math.Abs(p.Execute(resolver, green, Start, shot, rng, new Point2(500, 500)).Ball.X - aimed.Ball.X);
+            }
+
+            return sum / 1000;
+        }
+
+        var (low, high) = (Depth(0), Depth(50));
+        output.WriteLine($"écart en profondeur à 10 m : Dosage 0 : {low:F3} m ; Dosage 50 : {high:F3} m");
+        Assert.True(high < low * 0.85);
+    }
+
+    [Fact]
+    public void ATinyAim_FeedsNeitherPrecisionNorDosage_ButTheClubKeepsItsFloor()
+    {
+        var shot = new ProShot(Clubs.Wedge, new Point2(20.3, 240), ShotShape.Straight, 0.5);
+        var p = new ProSkills();
+        p.Record(Fairway, Start, shot, Stop(20.3, 240), Stop(20.3, 240.2), league: false, year: 1);
+        Assert.Equal(0, Xp(p, ProSkill.Precision));
+        Assert.Equal(0, Xp(p, ProSkill.Dosage));
+        Assert.True(Xp(p, ProSkill.Wedge) >= 50);
+    }
+
+    [Fact]
+    public void APenaltyOnThePlannedShot_MeasuresFromTheClickedTarget_APenaltyOnThePlayedShot_FeedsOnlyTheClub()
+    {
+        var shot = new ProShot(Clubs.Iron7, new Point2(160, 240), ShotShape.Straight, 1.0);
+        var p = new ProSkills();
+        p.Record(Fairway, Start, shot, Stop(60, 300, penalty: 1), Stop(160, 240), league: false, year: 1);
+        Assert.Equal(1000, Xp(p, ProSkill.Precision));
+        Assert.Equal(1000, Xp(p, ProSkill.MidIrons));
+
+        var q = new ProSkills();
+        q.Record(Fairway, Start, shot, Stop(160, 240), Stop(160, 240, penalty: 1), league: false, year: 1);
+        Assert.Equal(0, Xp(q, ProSkill.Precision));
+        Assert.Equal(50, Xp(q, ProSkill.MidIrons));
     }
 
     // ---- Critère 4 -------------------------------------------------------------------------------------------------------------

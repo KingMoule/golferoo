@@ -19,18 +19,30 @@ public sealed record ProgressionParams(
 {
     public const int MaxLevel = 50;
 
+    private static readonly JsonSerializerOptions JsonOptions = new()
+    {
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+        ReadCommentHandling = JsonCommentHandling.Skip,
+        AllowTrailingCommas = true,
+        UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow,
+        NumberHandling = JsonNumberHandling.Strict,
+    };
+
     /// <summary>Réglages du jeu.</summary>
     public static ProgressionParams Default { get; } = Read();
 
     internal static ProgressionParams Parse(string json) =>
-        JsonSerializer.Deserialize<ProgressionParams>(json, new JsonSerializerOptions
-        {
-            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-            ReadCommentHandling = JsonCommentHandling.Skip,
-            AllowTrailingCommas = true,
-            UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow,
-            NumberHandling = JsonNumberHandling.Strict,
-        }) ?? throw new InvalidDataException("progression.json vide.");
+        JsonSerializer.Deserialize<ProgressionParams>(json, JsonOptions) ?? throw new InvalidDataException("progression.json vide.");
+
+    /// <summary>Le fichier de paramètres équivalent (sauvegarde).</summary>
+    internal string ToJson() => JsonSerializer.Serialize(this, JsonOptions);
+
+    /// <summary>Valeurs de tous les paramètres, dans un ordre fixe (somme de contrôle).</summary>
+    internal IEnumerable<long> Values() =>
+        [BitConverter.DoubleToInt64Bits(CostScale), BitConverter.DoubleToInt64Bits(TrainingCapPerYear), BitConverter.DoubleToInt64Bits(ClubFraction),
+         BitConverter.DoubleToInt64Bits(ClubFloor), BitConverter.DoubleToInt64Bits(PutterMeters), BitConverter.DoubleToInt64Bits(PutterFraction),
+         BitConverter.DoubleToInt64Bits(PrecisionFraction), BitConverter.DoubleToInt64Bits(DosageFraction), BitConverter.DoubleToInt64Bits(DistanceFloor),
+         BitConverter.DoubleToInt64Bits(FullForce), BitConverter.DoubleToInt64Bits(CurveFraction)];
 
     /// <summary>XP, en centièmes entiers, pour passer du niveau <paramref name="n"/> au suivant : a × (n + 1 + 300 × 2^((n + 1) / 7)) / 4.</summary>
     public long CostHundredths(int n) =>

@@ -348,6 +348,21 @@ public class SaveTests
         Assert.Equal(world.Checksum(), loaded.Checksum());
     }
 
+    /// <summary>C25 : les réglages de progression font partie de la partie (sauvegarde et somme de contrôle), comme les paramètres de l'économie.</summary>
+    [Fact]
+    public void Progression_RoundTrips_AndEntersTheChecksum()
+    {
+        var terrain = Hole("proto");
+        var custom = ProgressionParams.Default with { CostScale = 0.1, TrainingCapPerYear = 123 };
+        var world = new World(2, terrain, league: true, progression: custom);
+        var loaded = Load(Save(world));
+
+        Assert.Equal(custom, loaded.Progression);
+        Assert.Equal(123 * 100, loaded.Pro!.TrainingCap);
+        Assert.Equal(world.Checksum(), loaded.Checksum());
+        Assert.NotEqual(new World(2, terrain, league: true).Checksum(), world.Checksum());
+    }
+
     [Fact]
     public void Load_WrongMagic_Throws()
     {

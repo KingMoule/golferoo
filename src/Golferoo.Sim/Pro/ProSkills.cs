@@ -59,13 +59,19 @@ public sealed class ProSkills
     /// <summary>Perte de vitesse de balle par point de niveau au-delà de 1, comme les golfeurs ordinaires (<c>PhysicalShotResolver</c>).</summary>
     public const double PowerLossPerSkill = 0.05;
 
-    private static readonly ProgressionParams _params = ProgressionParams.Default;
+    private readonly ProgressionParams _params;
     private readonly long[] _xp = new long[Count];
     private readonly long[] _trainingThisYear = new long[Count];
     private int _trainingYear;
 
     /// <summary>XP cumulée en centièmes nécessaires pour atteindre chaque niveau : <c>_floor[n]</c> = XP du niveau n.</summary>
-    private static readonly long[] _floor = BuildFloors(ProgressionParams.Default);
+    private readonly long[] _floor;
+
+    public ProSkills(ProgressionParams? progression = null)
+    {
+        _params = progression ?? ProgressionParams.Default;
+        _floor = BuildFloors(_params);
+    }
 
     public long Experience(ProSkill skill) => _xp[(int)skill];
 
@@ -156,17 +162,13 @@ public sealed class ProSkills
         var club = shot.Club;
         var direction = DirectionFactor(club);
         var force = ForceFactor(club, shot.Force);
-        if (club.IsPutter)
-        {
-            return resolver.PuttTo(ball, shot.Target, terrain, rng, direction, pin);
-        }
-
         var dx = shot.Target.X - ball.X;
         var dz = shot.Target.Z - ball.Z;
         var d = Math.Sqrt((dx * dx) + (dz * dz));
         var (ux, uz) = d < 1e-9 ? (1.0, 0.0) : (dx / d, dz / d);
         var common = Math.Min(direction, force);
         var speed = shot.Force * SpeedFactor;
+        var speedNoise = 0.0;
         if (rng is not null)
         {
             var extraDirection = Math.Sqrt((direction * direction) - (common * common));
@@ -179,8 +181,16 @@ public sealed class ProSkills
 
             if (extraForce > 0.0)
             {
-                speed *= 1.0 + (club.SpeedSigma * extraForce * Gauss(rng));
+                speedNoise = club.SpeedSigma * extraForce * Gauss(rng);
+                speed *= 1.0 + speedNoise;
             }
+        }
+
+        if (club.IsPutter)
+        {
+            // La vitesse d'un putt vient de la distance visée (v² = 2 r d) : un écart de force s'obtient en allongeant ou raccourcissant la cible.
+            var aimed = d * (1.0 + speedNoise) * (1.0 + speedNoise);
+            return resolver.PuttTo(ball, new Point2(ball.X + (ux * aimed), ball.Z + (uz * aimed)), terrain, rng, common, pin);
         }
 
         return resolver.ExecuteShaped(ball, club, ux, uz, speed, shot.Shape, terrain, rng, common, 1.0, ShapeSigma(shot.Shape), pin);
@@ -250,9 +260,9 @@ public sealed class ProSkills
         }
     }
 
-    internal static ProSkills Read(SaveReader r)
+    internal static ProSkills Read(SaveReader r, ProgressionParams progression)
     {
-        var skills = new ProSkills { _trainingYear = r.Int() };
+        var skills = new ProSkills(progression) { _trainingYear = r.Int() };
         for (var i = 0; i < Count; i++)
         {
             skills._xp[i] = r.Long();

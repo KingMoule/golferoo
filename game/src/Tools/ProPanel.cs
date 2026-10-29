@@ -107,7 +107,7 @@ public partial class ProPanel : Node
             return;
         }
 
-        var year = _main.World.Date.Year;
+        var year = _main.World.PlayYear;
         _level.Text = $"Niveau de jeu : handicap {LeaguePanel.Decimal(_skills.OverallHandicap)}";
         for (var i = 0; i < Skills.Length; i++)
         {

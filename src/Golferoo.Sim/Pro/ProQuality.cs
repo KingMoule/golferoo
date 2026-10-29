@@ -6,12 +6,17 @@ namespace Golferoo.Sim.Pro;
 /// <summary>
 /// Qualité d'un coup du pro, habileté par habileté (C25) : qualité = (1 − écart / seuil)², de 0 à 1. XP = 10 × qualité, en centièmes
 /// (1 000 pour une qualité de 1). Seule l'habileté du club a un plancher. Le point visé est celui que le joueur a vu : l'arrêt du coup
-/// prévu sans hasard (<c>aimed</c>), pour un putt la cible.
+/// prévu sans hasard (<c>aimed</c>), pour un putt la cible ; si le coup prévu subit une pénalité (eau, hors limites), son point de drop ne dit rien
+/// de la visée : on prend la cible. Avec une pénalité sur le coup joué, toutes les habiletés autres que le club reçoivent 0 (le club garde son
+/// plancher). Sous 1 m de distance visée, la direction n'a pas de sens : ni Précision ni Dosage ne reçoivent d'XP.
 /// </summary>
 internal static class ProQuality
 {
     /// <summary>XP, en centièmes, d'un coup de qualité 1.</summary>
     internal const int FullHundredths = 1000;
+
+    /// <summary>Distance visée, en mètres, sous laquelle Précision et Dosage ne gagnent rien.</summary>
+    internal const double MinAimedDistance = 1.0;
 
     /// <summary>(1 − écart / seuil)² ; 0 au seuil et au-delà.</summary>
     internal static double Quality(double deviation, double threshold) =>
@@ -25,8 +30,9 @@ internal static class ProQuality
         var awards = new List<(ProSkill, int)>();
         var putt = shot.Club.IsPutter;
         var penalty = result.PenaltyStrokes > 0;
-        var reference = putt ? shot.Target : aimed.Ball;
+        var reference = putt || aimed.PenaltyStrokes > 0 ? shot.Target : aimed.Ball;
         var d = Math.Max(Dist(start, reference), 1e-6);
+        var tiny = d < MinAimedDistance;
         var (ux, uz) = ((reference.X - start.X) / d, (reference.Z - start.Z) / d);
         var (bx, bz) = (result.Ball.X - start.X, result.Ball.Z - start.Z);
         var holed = result.Holed;
@@ -55,12 +61,12 @@ internal static class ProQuality
         }
 
         var partial = shot.Force < p.FullForce;
-        if (!putt)
+        if (!putt && !tiny)
         {
             awards.Add((ProSkill.Precision, Hundredths(holed ? 1.0 : Quality(lateral, p.PrecisionFraction * d))));
         }
 
-        if (putt || partial)
+        if ((putt || partial) && !tiny)
         {
             awards.Add((ProSkill.Dosage, Hundredths(holed ? 1.0 : Quality(depth, p.DosageFraction * d))));
         }

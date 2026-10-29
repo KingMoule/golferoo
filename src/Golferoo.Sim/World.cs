@@ -66,11 +66,12 @@ public sealed partial class World
     private Point2?[] _exitPoints = [];
     private long _exitPointVersion = -1;
 
-    public World(ulong seed, TerrainGrid? terrain = null, IShotResolver? resolver = null, bool league = false, EconomyParams? economy = null)
+    public World(ulong seed, TerrainGrid? terrain = null, IShotResolver? resolver = null, bool league = false, EconomyParams? economy = null, ProgressionParams? progression = null)
     {
         Seed = seed;
         Terrain = terrain;
         Economy = economy ?? EconomyParams.Facile;
+        Progression = progression ?? ProgressionParams.Default;
         Ledger = new Ledger(Economy.StartingMoney);
         if (terrain is not null)
         {
@@ -87,7 +88,7 @@ public sealed partial class World
         if (league && terrain is not null)
         {
             League = new LeagueSeason(seed, LeagueSeason.GenerateMembers(seed));
-            Pro = new ProSkills();
+            Pro = new ProSkills(Progression);
             _proMemberId = League.Members.First(m => m.IsPro).Id;
         }
 
@@ -1097,7 +1098,7 @@ public sealed partial class World
         var result = g.Pending;
         if (g.PlannedShot is { } shot && Terrain is { } played)
         {
-            Pro!.Record(played, g.Ball, shot, AimedResult(played, g, shot), result, g.InLeague, Date.Year);
+            Pro!.Record(played, g.Ball, shot, AimedResult(played, g, shot), result, g.InLeague, PlayYear);
             g.PlannedShot = null;
         }
 

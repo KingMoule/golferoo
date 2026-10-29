@@ -2,6 +2,7 @@ using Golferoo.Sim.Golfers;
 using Golferoo.Sim.Pro;
 using Golferoo.Sim.Shots;
 using Golferoo.Sim.Terrain;
+using Golferoo.Sim.Time;
 
 namespace Golferoo.Sim;
 
@@ -14,6 +15,12 @@ public sealed partial class World
 
     /// <summary>Compétences de votre pro (nul sans ligue).</summary>
     public ProSkills? Pro { get; }
+
+    /// <summary>Réglages de la progression du pro (C25), sauvegardés avec la partie.</summary>
+    public ProgressionParams Progression { get; }
+
+    /// <summary>Année de jeu du plafond d'entraînement : elle change le 1er avril, début de la saison (et non le 1er janvier).</summary>
+    public int PlayYear => Date.Month < Calendar.StartMonth ? Date.Year - 1 : Date.Year;
 
     /// <summary>
     /// Vrai dans le jeu : à son tour, votre pro attend le coup du joueur (<see cref="GolferState.AwaitingShot"/>) et ne joue jamais seul.
@@ -142,6 +149,11 @@ public sealed partial class World
         }
 
         Mix(ref hash, Pro.Hash() ^ (_manualPro ? 1UL : 0UL));
+        foreach (var v in Progression.Values())
+        {
+            Mix(ref hash, (ulong)v);
+        }
+
         foreach (var s in _proShots)
         {
             MixShot(ref hash, s);
