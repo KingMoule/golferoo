@@ -10,7 +10,7 @@ Ce qui prouve la réussite : un draw long et bien visé au fer long fait progres
 ## Décisions de Guillaume (cadrage du 2026-10-29, rondes 1, 2 et 2 bis)
 1. **Quatre groupes d'habiletés** : les clubs (sept familles), les trajectoires, les qualités du coup et les situations (rough, bunker, vent, green).
 2. **Progression très longue** : plus de dix saisons pour amener une habileté travaillée au niveau maximal.
-3. **Un gain fixe par niveau**, affiché (exemple : Fers longs niv. 12 = dispersion −12 % par rapport au départ). La longueur de la progression vient du coût en XP de chaque niveau, qui augmente.
+3. **Un gain fixe par niveau**, affiché (exemple : Fers longs niv. 12 = dispersion −12 % par rapport au départ). La longueur de la progression vient du coût en XP de chaque niveau, qui augmente de façon exponentielle, comme la courbe d'XP d'OSRS : le coût double tous les 7 niveaux, et le niveau 43 représente la moitié de l'XP totale du niveau 50 (précision de Guillaume, le 2026-10-29, après le « go »).
 4. **XP selon la qualité** : XP = 10 × qualité, de 0 à 1, avec qualité = (1 − écart / seuil)², qui récompense surtout les très bons coups. Seule l'habileté du club a un plancher, **5 %** (0,5 XP pour un coup complètement raté). Les autres habiletés peuvent tomber à 0. L'XP n'est jamais négative.
 5. **Pénalité de lie pour tous les golfeurs** : le rough et le bunker gênent le coup lui-même (perte de vitesse et dispersion en plus) selon le niveau du golfeur ; les habiletés « sortie de rough » et « sortie de bunker » du pro la réduisent.
 6. **Vent et green par l'aperçu** : à bas niveau, la trajectoire prévue (vent) et la ligne prévue du putt (pente) sont faussées, et deviennent de plus en plus justes en montant. La physique du coup ne change pas.
@@ -48,7 +48,7 @@ D = distance visée (du départ au point visé). L'écart est mesuré entre l'ar
 - Un coup peut nourrir plusieurs habiletés. Chacune reçoit son propre XP, sans partage. Exemple : un draw au fer long à pleine force alimente Fers longs, Draw, Distance et Précision ; il n'alimente pas Dosage (pleine force), ni Vent si le vent est sous 3 m/s.
 
 **Niveaux et coût**
-- Les niveaux vont de 0 à 50. Le coût pour passer du niveau n au niveau n+1 est `cost(n) = a + b × n`, avec a et b calibrés au lot 4 : une saison type amène une habileté travaillée vers le niveau 10 à 15, et le niveau 50 demande au moins dix saisons types.
+- Les niveaux vont de 0 à 50. Le coût pour passer du niveau n au niveau n+1 suit la forme de la courbe d'OSRS : `cost(n) = a × (n + 1 + 300 × 2^((n + 1) / 7)) / 4`. Seule l'échelle a est calibrée au lot 4 : une saison type amène une habileté travaillée vers le niveau 25, puis il faut 2 à 3 niveaux par saison, et le niveau 50 demande au moins dix saisons types. Le niveau 43 cumule la moitié de l'XP du niveau 50 : c'est vérifié par un test.
 - Les fractions d'XP sont gardées en entiers à l'échelle 1/100, pour que la somme de contrôle reste exacte.
 - **Gain fixe par niveau** : chaque effet est interpolé linéairement entre sa valeur au niveau 0 (golfeur 36) et sa valeur au niveau 50 (golfeur +4). Par exemple, la dispersion d'un club suit `SkillLevels.FromHandicap(36 − 0,8 × niveau)`. `FromHandicap` doit accepter les handicaps négatifs jusqu'à +4 (aujourd'hui, la fonction borne à 0).
 - Niveau global du pro (handicap affiché) : la moyenne des sept habiletés de club, traduite en handicap. Le handicap WHS reste celui de C06, calculé sur ses cartes de ligue.
@@ -90,7 +90,7 @@ Aucun : la grille et la spec ont été validées le 2026-10-29 (« go »). Les s
 4. Test : une saison simulée de draws seulement fait progresser Draw et pas Fade ; même graine, même XP au centième.
 5. Test : chaque niveau d'une habileté de club réduit sa dispersion mesurée (2 000 coups) du même pas, à ± 1 point près ; au niveau 50, le pro joue comme un +4 sur « Le neuf » (note de parcours de C06, ± 1,5) ; au niveau 0, comme un 36 (± 2).
 6. Test : depuis le rough, un golfeur perd de la portée et disperse davantage qu'au fairway, d'autant moins que son niveau est bon ; au niveau 50 de Sortie de rough, la pénalité du pro est au moins réduite de moitié ; le critère 4 de C21 passe toujours.
-7. Test du lot 4 : une habileté travaillée à chaque coup d'une saison type (ligue et entraînement au plafond) termine la saison entre les niveaux 10 et 15 ; il faut au moins dix saisons types pour atteindre le niveau 50.
+7. Test du lot 4 : une habileté travaillée à chaque coup d'une saison type (ligue et entraînement au plafond) termine la saison entre les niveaux 22 et 28 ; il faut au moins dix saisons types pour atteindre le niveau 50 ; un test du lot 1 vérifie que le coût d'un niveau double tous les 7 niveaux (± 1 %) et que le niveau 43 cumule 50 % ± 2 de l'XP du niveau 50.
 8. Fumée : au niveau 0, l'écart entre l'aperçu et le coup joué sans dispersion, par vent de 8 m/s, dépasse un seuil ; il est nul au niveau 50 ; l'aperçu ne consomme pas le RNG du monde (même somme de contrôle avec ou sans aperçu).
 9. Fumée : un niveau gagné publie un message Birdie, et la fiche affiche le niveau, la barre d'XP et l'effet actuel ; captures `c25-fiche` et `c25-apercu`.
 10. `SaveTests` échoue si on oublie l'XP d'une habileté ; quatre jobs de CI verts ; `dotnet format` sans changement ; le banc tient (tick moyen sous 2 ms, 99e centile sous 5 ms).
