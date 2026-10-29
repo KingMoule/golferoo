@@ -59,6 +59,7 @@ public sealed partial class World
         Ledger.Post(LedgerCategory.Dues, PayingMembers * Economy.DuesMember / Calendar.MonthsPerYear);
 
         Ledger.CloseMonth(month);
+        ForgetStroke(); // un mois clos ne se rembourse plus dans le suivant
     }
 
     private long CurrentMonth => Calendar.MonthIndex(Tick, _dayOffset);

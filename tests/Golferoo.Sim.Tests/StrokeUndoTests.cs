@@ -103,4 +103,29 @@ public class StrokeUndoTests
         Assert.Equal(sum, t.Checksum());
         Assert.Equal(balance, world.Ledger.Balance);
     }
+
+    /// <summary>Décision de Guillaume (2026-10-29) : la clôture du mois fige le coup, sans quoi le remboursement tomberait dans le mois suivant.</summary>
+    [Fact]
+    public void AfterAMonthClose_TheStrokeCanNoLongerBeUndone()
+    {
+        var world = Ready();
+        var t = world.Terrain!;
+        Stroke(world, Spot(world));
+        var closed = false;
+        world.Ledger.MonthClosed += _ => closed = true;
+        while (!closed)
+        {
+            world.Step((int)Time.Calendar.TicksPerDay);
+        }
+
+        Assert.False(world.CanUndoStroke);
+        Assert.Equal(0, world.StrokeCost);
+        var (sum, balance) = (t.Checksum(), world.Ledger.Balance);
+
+        world.UndoStroke();
+        world.Step();
+
+        Assert.Equal(sum, t.Checksum());
+        Assert.Equal(balance, world.Ledger.Balance);
+    }
 }
