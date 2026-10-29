@@ -18,12 +18,14 @@ public class CourseTests
     // Les trajectoires s'écartent donc de celles d'avant, et la somme est prise à un tick où une planification peut être en cours (son état entre dans la somme).
     // Contrôle (vérifié) : sans PlanJob, coup planifié d'un seul tenant au dernier tick du geste comme avant, les six cas redonnent exactement leurs anciennes sommes. Avec une planification
     // d'un tenant au dernier tick mais un PlanJob créé au début du geste, proto-par4 / graine 1 ne la redonne pas : au tick 2000 un geste est en cours et l'état du PlanJob entre dans la somme.
-    [InlineData("proto-par4", 1UL, 11628230111699753088UL)]
-    [InlineData("proto-par4", 2UL, 16057505216054300669UL)]
-    [InlineData("proto-par4", 3UL, 6791233052755137976UL)]
-    [InlineData("dogleg-par4", 1UL, 3477997319521934705UL)]
-    [InlineData("dogleg-par4", 2UL, 7063386584096495762UL)]
-    [InlineData("dogleg-par4", 3UL, 4096734374109878651UL)]
+    // C23 lot 1 : les six sommes de coups changent, le geste dure 23 ticks (jusqu'à l'impact du swing animé) au lieu de 20.
+    // Contrôle (vérifié) : avec SwingTicksCount = 20, les six cas redonnent exactement leurs sommes d'avant.
+    [InlineData("proto-par4", 1UL, 7753680314906160316UL)]
+    [InlineData("proto-par4", 2UL, 3106859440883824427UL)]
+    [InlineData("proto-par4", 3UL, 17819951929926984716UL)]
+    [InlineData("dogleg-par4", 1UL, 11675233575653625041UL)]
+    [InlineData("dogleg-par4", 2UL, 4951925622651977194UL)]
+    [InlineData("dogleg-par4", 3UL, 14725099549404512877UL)]
     [InlineData("blank-coude", 1UL, 6977119086498316254UL)]
     [InlineData("blank-coude", 2UL, 6838184519777748364UL)]
     [InlineData("blank-coude", 3UL, 4217163305829179422UL)]

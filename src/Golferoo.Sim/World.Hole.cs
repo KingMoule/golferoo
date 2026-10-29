@@ -1,3 +1,4 @@
+using Golferoo.Sim.Economy;
 using Golferoo.Sim.Rating;
 using Golferoo.Sim.Scoring;
 using Golferoo.Sim.Terrain;
@@ -16,7 +17,7 @@ public sealed partial class World
     private bool _ratingStale;
     private readonly List<(int Round, (int MemberId, ScoreCard Card)[] Cards, long Tick)> _heldCards = [];
 
-    /// <summary>Ajouts et retraits de trou refusés à l'application (un groupe a pris le trou, ou la place a changé depuis la mise en file) : le jeu le dit au joueur.</summary>
+    /// <summary>Ajouts et retraits de trou refusés à l'application (un groupe a pris le trou, la place a changé depuis la mise en file, ou la limite de découvert) : le jeu le dit au joueur.</summary>
     public int HoleCommandsRefused { get; private set; }
 
     /// <summary>
@@ -83,7 +84,7 @@ public sealed partial class World
 
     /// <summary>
     /// Met en file l'ajout d'un trou en fin de parcours : départ en <paramref name="tee"/> (cellule de départ), drapeau en <paramref name="pin"/> (green),
-    /// numéro suivant, par d'après la distance (<see cref="TerrainGrid.DeducedPar"/>). Refusé (faux) si le parcours a déjà 18 trous, si les cellules ne conviennent pas,
+    /// numéro suivant, par d'après la distance (<see cref="TerrainGrid.DeducedPar"/>), au prix de <see cref="EconomyParams.NewHole"/>. Refusé (faux) si le parcours a déjà 18 trous, si les cellules ne conviennent pas,
     /// ou si <see cref="HoleCheck"/> local y trouve un manque. Jamais refusé à cause des groupes : un groupe déjà parti garde sa carte de N trous et finit après son dernier trou prévu, les groupes lancés ensuite jouent N+1. Invalide <see cref="CourseRating"/>.
     /// </summary>
     public bool AddHole(Point2 tee, Point2 pin)
@@ -132,7 +133,7 @@ public sealed partial class World
         while (_courseCommands.Count > 0)
         {
             var (add, tee, pin) = _courseCommands.Dequeue();
-            if (add && terrain.Course.Count < Course.MaxHoles && NewHoleIssues(terrain, tee, pin).Count == 0)
+            if (add && terrain.Course.Count < Course.MaxHoles && NewHoleIssues(terrain, tee, pin).Count == 0 && TrySpend(LedgerCategory.Holes, Economy.NewHole))
             {
                 terrain.Course.Add(new CourseHole(terrain.Course.Count + 1, tee, pin, pin, TerrainGrid.DeducedPar(tee, pin)));
                 _holesOpen = [.. _holesOpen, true];

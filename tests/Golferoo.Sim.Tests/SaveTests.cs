@@ -1,4 +1,5 @@
 using System.IO.Compression;
+using Golferoo.Sim.Economy;
 using Golferoo.Sim.Golfers;
 using Golferoo.Sim.Pro;
 using Golferoo.Sim.Rating;
@@ -344,7 +345,8 @@ public class SaveTests
     [Theory]
     [InlineData(2)]
     [InlineData(3)] // C12 lot 4 : planification en cours dans le golfeur, champs de flux en attente et en cache dans le monde
-    public void Load_VersionTwoOrThree_SaysItIsAnOlderVersion(byte version)
+    [InlineData(4)] // C14 lot 1 : grand livre et paramètres de l'économie
+    public void Load_VersionTwoToFour_SaysItIsAnOlderVersion(byte version)
     {
         var bytes = Save(Build(1, "proto", "start"));
         bytes[4] = version;
@@ -609,6 +611,67 @@ public class SaveTests
         var forged = Pack(bytes, raw, Golferoo.Sim.Save.SaveFormat.Hash(raw));
 
         Assert.Throws<InvalidDataException>(() => Load(forged));
+    }
+
+    /// <summary>C14 lot 1 : au milieu d'un mois, après une clôture, un refus et des débits, avec des paramètres changés.</summary>
+    [Fact]
+    public void Ledger_ReloadedMidMonth_KeepsBalanceMonthsAndParameters()
+    {
+        var economy = EconomyTests.With(("startingMoney", 1_000_000), ("paintBunkerPerM2", 900), ("overdraftFreeHoles", 0), ("overdraftLimit", 0));
+        var world = new World(4, Hole("dogleg"), economy: economy);
+        world.PaintSurface(new Point2(150, 70), 6, Surface.Bunker);
+        world.RaiseTerrain(new Point2(100, 40), 15, 1.5);
+        world.Step();
+        world.SkipToNextMonth();
+        world.PaintSurface(new Point2(150, 70), 40, Surface.Water); // refusée : sous la limite de zéro
+        world.PlantTree(60, 30, TreeSpeciesId.Birch, TreePlantStage.Sapling);
+        world.Step(3 * Calendar.TicksPerDay);
+        var ledger = world.Ledger;
+        Assert.Equal(1, ledger.Refused);
+        Assert.Single(ledger.Months);
+        Assert.NotEqual(0, ledger.Current(LedgerCategory.Trees));
+
+        var loaded = Load(Save(world));
+
+        Assert.Equal(world.Checksum(), loaded.Checksum());
+        Assert.Equal(economy, loaded.Economy);
+        Assert.Equal(ledger.Balance, loaded.Ledger.Balance);
+        Assert.Equal(ledger.Refused, loaded.Ledger.Refused);
+        foreach (var c in Enum.GetValues<LedgerCategory>())
+        {
+            Assert.Equal(ledger.Current(c), loaded.Ledger.Current(c));
+            Assert.Equal(ledger.Months[0].Total(c), loaded.Ledger.Months[0].Total(c));
+        }
+
+        Assert.Equal(ledger.Months[0].Month, loaded.Ledger.Months[0].Month);
+        world.Step(Calendar.TicksPerDay * Calendar.DaysPerMonth);
+        loaded.Step(Calendar.TicksPerDay * Calendar.DaysPerMonth);
+        Assert.Equal(2, loaded.Ledger.Months.Count);
+        Assert.Equal(world.Ledger.Balance, loaded.Ledger.Balance);
+        Assert.Equal(world.Checksum(), loaded.Checksum());
+    }
+
+    /// <summary>Chaque champ du grand livre et des paramètres entre dans la somme de contrôle.</summary>
+    [Fact]
+    public void Ledger_EveryField_EntersTheChecksum()
+    {
+        var world = new World(4, Hole("dogleg"));
+        var pristine = world.Checksum();
+        var economyStart = world.Ledger.Balance;
+        Assert.NotEqual(pristine, new World(4, Hole("dogleg"), economy: EconomyTests.With(("greenFeeGold", 801))).Checksum());
+
+        var sums = new HashSet<ulong> { pristine };
+        world.Ledger.Post(LedgerCategory.Dues, 1);
+        Assert.True(sums.Add(world.Checksum()));
+        world.Ledger.Post(LedgerCategory.GreenFees, -1); // même solde qu'au départ : seuls les totaux diffèrent
+        Assert.Equal(economyStart, world.Ledger.Balance);
+        Assert.True(sums.Add(world.Checksum()));
+        world.Ledger.TrySpend(LedgerCategory.Holes, 100, floor: 0);
+        Assert.True(sums.Add(world.Checksum()));
+        world.Ledger.TrySpend(LedgerCategory.Holes, long.MaxValue / 2, floor: 0); // refusée
+        Assert.True(sums.Add(world.Checksum()));
+        world.Ledger.CloseMonth(7);
+        Assert.True(sums.Add(world.Checksum()));
     }
 
     [Fact]

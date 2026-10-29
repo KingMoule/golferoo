@@ -19,7 +19,7 @@ namespace Golferoo.Game;
 public partial class Main : Node3D
 {
     /// <summary>Parcours joué : « Le neuf » (C12), ou celui d'`--course fichier` ; le tutoriel et la mesure FPS gardent leur trou.</summary>
-    public static string HoleFile => TutorialMode ? "data/holes/blank-coude.json" : FpsBench.Active ? "data/holes/proto-par4.json" : CourseOverride ?? CommandLineOption("--course") ?? "data/courses/le-neuf.json";
+    public static string HoleFile => TutorialMode ? "data/holes/blank-coude.json" : FpsBench.Active && FpsBench.Golfers == 0 ? "data/holes/proto-par4.json" : CourseOverride ?? CommandLineOption("--course") ?? "data/courses/le-neuf.json";
 
     /// <summary>Parcours imposé par le code (captures de trou seul) ; sans valeur, le parcours par défaut s'applique.</summary>
     public static string? CourseOverride { get; set; }
@@ -486,11 +486,11 @@ public partial class Main : Node3D
         ResetSnapshots();
     }
 
-    /// <summary>Bascule le mode charge à 200 golfeurs (touche L).</summary>
-    public void ToggleLoadMode()
+    /// <summary>Bascule le mode charge à 200 golfeurs (touche L), ou à <paramref name="golfers"/>.</summary>
+    public void ToggleLoadMode(int golfers = LoadModeGolfers)
     {
         _loadMode = !_loadMode;
-        World.SetLoadMode(_loadMode ? LoadModeGolfers : 0);
+        World.SetLoadMode(_loadMode ? golfers : 0);
         ResetSnapshots();
     }
 
@@ -941,7 +941,7 @@ public partial class Main : Node3D
         _messagePill?.SetVisible(Time.GetTicksMsec() < _messageUntil);
         if (_hud is { Visible: true })
         {
-            _hud.Text = $"{Engine.GetFramesPerSecond()} FPS | {Actors.VisibleGolfers} golfeurs | tick {World.Tick} | x{Speed}{(Paused ? " (pause)" : string.Empty)} | {DateText()} | travaux arbres {World.TreeSpending}\n{WeatherText()} | {StimpText()} | {RatingText()}{(_league is null ? string.Empty : $"\n{_league.ProText()}")}{(Time.GetTicksMsec() < _messageUntil ? "\n" + _message : string.Empty)}";
+            _hud.Text = $"{Engine.GetFramesPerSecond()} FPS | {Actors.VisibleGolfers} golfeurs | tick {World.Tick} | x{Speed}{(Paused ? " (pause)" : string.Empty)} | {DateText()} | solde {Golferoo.Sim.Economy.Ledger.Dollars(World.Ledger.Balance)}\n{WeatherText()} | {StimpText()} | {RatingText()}{(_league is null ? string.Empty : $"\n{_league.ProText()}")}{(Time.GetTicksMsec() < _messageUntil ? "\n" + _message : string.Empty)}";
         }
     }
 
