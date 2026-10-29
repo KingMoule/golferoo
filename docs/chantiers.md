@@ -23,7 +23,7 @@
 | C18 | Une partie du début à la fin (carrière, facile) | proposé | à cadrer | | `docs/plan-alpha.md` |
 | C19 | Tutoriel v2 et conseiller | proposé | à cadrer | | `docs/plan-alpha.md` |
 | C20 | Son minimal | proposé | à cadrer | | `docs/plan-alpha.md` |
-| C21 | Finitions reportées | en cours (lot 1 : PR #117, lot 2 WIP) | léger (lot 1), complet (2, 3) | #114 (spec), #117 (lot 1), `claude/c21-lot2-jeu`
+| C21 | Finitions reportées | en cours (lot 1 fusionné sans audit, lot 2 WIP) | léger (lot 1), complet (2, 3) | #114 (spec), #117 (lot 1), `claude/c21-lot2-jeu`
 | C22 | Préparation de l'alpha | proposé | à cadrer | | `docs/plan-alpha.md` |
 | C23 | Golfeurs animés (P2) | lot 1 livré, lot 2 attend les animations | complet (sim), léger (rendu) | #111 (spec), #113 (lot 1)
 | C24 | Génération de la propriété | proposé | à cadrer | | `docs/plan-alpha.md` |
