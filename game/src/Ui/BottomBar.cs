@@ -143,7 +143,7 @@ public partial class BottomBar : Control
         SetText(_clockTime, $"{(int)hours:00}:{(int)((hours - Math.Floor(hours)) * 60):00}");
         SetText(_clockDate, $"{date.Day} {UiNames.Months[date.Month - 1]}, an {date.Year}");
         _clockFill.Size = new Vector2(Mathf.Max(18f, _clockFill.GetParentControl().Size.X * (float)date.DayFraction), UiTheme.PillHeight);
-        _weather.SetText($"{UiNames.Capitalized(UiNames.Skies[(int)world.Weather.Sky])} · — °C · {UiNames.Capitalized(UiNames.Seasons[(int)date.Season])} · demain : {UiNames.Skies[(int)world.Forecast(1)]}");
+        _weather.SetText($"{UiNames.Capitalized(UiNames.Skies[(int)world.Weather.Sky])} · {UiNames.Capitalized(UiNames.Seasons[(int)date.Season])} · demain : {UiNames.Skies[(int)world.Forecast(1)]}");
         _members.SetText(world.League is { } league ? league.Members.Count.ToString(System.Globalization.CultureInfo.InvariantCulture) : "—");
         var ledger = world.Ledger;
         _money.SetText(UiMoney.Pill(ledger));
@@ -284,7 +284,7 @@ public partial class BottomBar : Control
     /// <summary>Heure et date sur l'avancée du jour (aplat bleu ciel de gauche à droite).</summary>
     private Control Clock()
     {
-        var pill = new Panel { Name = UiIds.Hud.Clock, CustomMinimumSize = new Vector2(196f, UiTheme.PillHeight), SizeFlagsVertical = SizeFlags.ShrinkCenter, ClipContents = true, TooltipText = "Heure et date ; l'aplat montre l'avancée du jour" };
+        var pill = new Panel { Name = UiIds.Hud.Clock, CustomMinimumSize = new Vector2(180f, UiTheme.PillHeight), SizeFlagsVertical = SizeFlags.ShrinkCenter, ClipContents = true, TooltipText = "Heure et date ; l'aplat montre l'avancée du jour" };
         pill.AddThemeStyleboxOverride("panel", PillStyle(0f));
         var fillStyle = UiTheme.Box(new Color(UiTheme.Sky, 0.22f), 0);
         fillStyle.CornerRadiusTopLeft = fillStyle.CornerRadiusBottomLeft = UiTheme.PillHeight / 2;
