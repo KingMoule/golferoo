@@ -43,7 +43,8 @@ public class SkillTests
         var scratch = MeanStrokes(SkillLevels.FromHandicap(0));
         var bogey = MeanStrokes(SkillLevels.FromHandicap(20));
 
-        Assert.InRange(scratch - par, 0.0, 0.4);
+        // C21 : le niveau se cale sur « Le neuf » (DispersionTests) ; le proto, par 4 court et ouvert, le scratch le joue sous le par (−0,3).
+        Assert.InRange(scratch - par, -0.6, 0.0);
         Assert.InRange(bogey - scratch, 0.7, 1.3);
     }
 

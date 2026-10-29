@@ -19,8 +19,8 @@ public sealed class PhysicalShotResolver : IShotResolver
     /// <summary>Écart type supplémentaire de la direction d'un putt par mètre de distance, en radians (0,06 degré).</summary>
     private const double PuttSigmaPerMeter = 0.06 * Math.PI / 180.0;
 
-    /// <summary>Vitesse de balle perdue par point de niveau au-dessus de 1.</summary>
-    private const double PowerLossPerSkill = 0.03;
+    /// <summary>Vitesse de balle perdue par point de niveau au-dessus de 1 (C21 : un handicap 18 perd 5 % de vitesse, 10 % de portée).</summary>
+    private const double PowerLossPerSkill = 0.05;
 
     private const double MaxPuttSpeed = 10.0;
     private const int PuttIterations = 8;
@@ -28,6 +28,9 @@ public sealed class PhysicalShotResolver : IShotResolver
 
     /// <summary>Coût d'un coup de pénalité, en mètres équivalents.</summary>
     private const double PenaltyCost = 100.0;
+
+    /// <summary>Écart de score au-delà duquel un choix non optimal n'est plus plausible : 0,5 coup, un coup de pénalité valant <see cref="PenaltyCost"/>.</summary>
+    internal const double MaxMistakeCost = 0.5 * PenaltyCost;
 
     /// <summary>Coût d'une balle arrêtée par une couronne : celui d'une balle sous les arbres (voir <c>Cost</c>).</summary>
     private const double TreesLieCost = 60.0;
@@ -100,7 +103,7 @@ public sealed class PhysicalShotResolver : IShotResolver
             return Putt(request, terrain, rng, profile.BeautyFactor(puttBeauty));
         }
 
-        var plan = Plan(request, terrain, profile);
+        var plan = Plan(request, terrain, rng);
         planned = plan;
         return ExecutePlan(request, plan, terrain, rng);
     }
@@ -127,7 +130,7 @@ public sealed class PhysicalShotResolver : IShotResolver
         }
 
         var profile = GolferProfile.Of(request.Profile);
-        var plan = Plan(request, terrain, profile);
+        var plan = Plan(request, terrain, null);
         var expectation = Trees is null ? null : new TreeCollision.Expectation();
         return Simulate(request.Ball, plan.Club, plan.DirX, plan.DirZ, plan.Force * profile.Speed(plan.Club, plan.Shape), plan.Low, plan.Shape, terrain, expectation, recordPath: true, request.Hole).Shot;
     }
@@ -229,11 +232,14 @@ public sealed class PhysicalShotResolver : IShotResolver
         rz = z * inv;
     }
 
-    /// <summary>Quasi-gaussienne centrée réduite (somme de quatre uniformes), sans log ni trigonométrie.</summary>
+    /// <summary>
+    /// Normale centrée réduite par Box-Muller (C21 : loi normale sans troncature), deux tirages du RNG par valeur ; le second
+    /// résultat n'est pas gardé, pour que le RNG reste le seul état.
+    /// </summary>
     private static double Gauss(DeterministicRng rng)
     {
-        var s = rng.NextDouble() + rng.NextDouble() + rng.NextDouble() + rng.NextDouble();
-        return (s - 2.0) * 1.7320508075688772;
+        var u = 1.0 - rng.NextDouble();
+        return Math.Sqrt(-2.0 * Math.Log(u)) * Math.Cos(2.0 * Math.PI * rng.NextDouble());
     }
 
     /// <summary>
@@ -256,10 +262,10 @@ public sealed class PhysicalShotResolver : IShotResolver
         return cost + (lie > 0.0 ? profile.Risk * lie : lie);
     }
 
-    private ShotPlan Plan(in ShotRequest request, TerrainGrid terrain, GolferProfile profile)
+    private ShotPlan Plan(in ShotRequest request, TerrainGrid terrain, DeterministicRng? rng)
     {
         var job = new PlanJob();
-        Advance(job, request, terrain, int.MaxValue);
+        Advance(job, request, terrain, int.MaxValue, rng);
         return job.Result!.Value;
     }
 
@@ -267,8 +273,9 @@ public sealed class PhysicalShotResolver : IShotResolver
     /// Fait avancer la planification de <paramref name="job"/> tant qu'il reste du <paramref name="budget"/>, compté en pas de simulation de la balle (<see cref="BallSimulator.Step"/>) des coups candidats évalués (C12 lot 4 :
     /// un budget par tick, pour qu'aucun tick ne porte tout un drive). Rend vrai quand elle est finie (<see cref="PlanJob.Result"/>) et le budget restant.
     /// Les évaluations se font toujours dans le même ordre : l'état de <paramref name="job"/> suffit à reprendre, et le résultat est celui d'un seul tenant.
+    /// <paramref name="rng"/> : le RNG du monde, tiré une fois la planification finie pour un éventuel choix non optimal (<see cref="SkillLevels.MistakeChance"/>) ; nul, toujours le meilleur.
     /// </summary>
-    internal (bool Done, int Left) Advance(PlanJob job, ShotRequest request, TerrainGrid terrain, int budget)
+    internal (bool Done, int Left) Advance(PlanJob job, ShotRequest request, TerrainGrid terrain, int budget, DeterministicRng? rng = null)
     {
         if (job.IsDone)
         {
@@ -465,20 +472,11 @@ public sealed class PhysicalShotResolver : IShotResolver
             job.Cursor = u + 1;
         }
 
-        var scores = new (double Neutral, double Beauty)[count];
+        var scores = Scores(job, profile);
         var best = 0;
-        for (var k = 0; k < count; k++)
+        for (var k = 1; k < count; k++)
         {
-            var (cost, _, bonus, _) = candidates[k];
-            var (left, right) = (job.Finals[k * perFinalist], job.Finals[(k * perFinalist) + 1]);
-            var score = ((2.0 * cost) + left.Cost + right.Cost) / 4.0;
-            if (profile.Safe)
-            {
-                score = ((4.0 * score) + job.Finals[(k * perFinalist) + 2].Cost + job.Finals[(k * perFinalist) + 3].Cost) / 6.0;
-            }
-
-            scores[k] = (score, ((2.0 * bonus) + left.Bonus + right.Bonus) / 4.0);
-            if (score < scores[best].Neutral)
+            if (scores[k].Neutral < scores[best].Neutral)
             {
                 best = k;
             }
@@ -500,9 +498,67 @@ public sealed class PhysicalShotResolver : IShotResolver
             best = artist;
         }
 
-        job.Result = candidates[best].Plan;
+        job.Result = candidates[rng is null ? best : Mistake(scores, best, request.Skill, rng)].Plan;
         job.Stage = PlanJob.Done;
         return (true, budget);
+    }
+
+    /// <summary>
+    /// Score de chaque finaliste (les <see cref="Finalists"/> premiers candidats triés) : coût du coup visé et de ses flancs
+    /// (et, pour le prudent, du trop long et du trop court), et bonus de beauté moyen (artiste).
+    /// </summary>
+    internal static (double Neutral, double Beauty)[] Scores(PlanJob job, GolferProfile profile)
+    {
+        var perFinalist = profile.Safe ? 4 : 2;
+        var scores = new (double Neutral, double Beauty)[job.Finals.Count / perFinalist];
+        for (var k = 0; k < scores.Length; k++)
+        {
+            var (cost, _, bonus, _) = job.Candidates[k];
+            var (left, right) = (job.Finals[k * perFinalist], job.Finals[(k * perFinalist) + 1]);
+            var score = ((2.0 * cost) + left.Cost + right.Cost) / 4.0;
+            if (profile.Safe)
+            {
+                score = ((4.0 * score) + job.Finals[(k * perFinalist) + 2].Cost + job.Finals[(k * perFinalist) + 3].Cost) / 6.0;
+            }
+
+            scores[k] = (score, ((2.0 * bonus) + left.Bonus + right.Bonus) / 4.0);
+        }
+
+        return scores;
+    }
+
+    /// <summary>
+    /// Choix non optimal (C21) : avec la probabilité <see cref="SkillLevels.MistakeChance"/> du niveau <paramref name="skill"/>, le golfeur
+    /// prend le deuxième ou le troisième finaliste par score au lieu du meilleur, au hasard entre ceux qui restent à moins de
+    /// <see cref="MaxMistakeCost"/> du meilleur ; sinon, ou si aucun ne l'est, le meilleur. Un tirage du RNG du monde par coup, deux s'il se trompe.
+    /// </summary>
+    private static int Mistake((double Neutral, double Beauty)[] scores, int best, double skill, DeterministicRng rng)
+    {
+        if (rng.NextDouble() >= SkillLevels.MistakeChance(skill))
+        {
+            return best;
+        }
+
+        int second = -1, third = -1;
+        for (var k = 0; k < scores.Length; k++)
+        {
+            if (k == best || scores[k].Neutral - scores[best].Neutral >= MaxMistakeCost)
+            {
+                continue;
+            }
+
+            if (second < 0 || scores[k].Neutral < scores[second].Neutral)
+            {
+                (second, third) = (k, second);
+            }
+            else if (third < 0 || scores[k].Neutral < scores[third].Neutral)
+            {
+                third = k;
+            }
+        }
+
+        var pick = rng.NextDouble();
+        return second < 0 ? best : third < 0 || pick < 0.5 ? second : third;
     }
 
     /// <summary>Direction du coup <paramref name="c"/> tournée d'un angle de sinus <paramref name="sin"/> et de cosinus <paramref name="cos"/>, avec la force donnée.</summary>
