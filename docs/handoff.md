@@ -1,7 +1,7 @@
 Mis à jour : 2026-10-29 (arrêt pour fin de forfait, en pleine vague 1 de l'alpha)
 
 ## État
-C00 à C12 livrés. Vague 1 de `docs/plan-alpha.md` en cours : C13 (lots 1 à 3), C14 (lot 1), C23 (lot 1) et les specs C21 (#114) et C23 (#111) fusionnés. PR #117, #118 et #119 fusionnées le 2026-10-29 sans leurs audits : à auditer après coup, dans cet ordre.
+C00 à C12 livrés. Vague 1 de `docs/plan-alpha.md` en cours : C13 (lots 1 à 3), C14 (lot 1), C23 (lot 1) et les specs C21 (#114) et C23 (#111) fusionnés. PR #117, #118 et #119 fusionnées le 2026-10-29 sans leurs audits : à auditer après coup (voir Prochaine étape).
 
 ## En cours
 - **C14 lot 2** (revenus, annulation du coup) : PR #119, `claude/c14-lot2-revenus`, 247dcd8, fusionnée sans audit ; audit *complet* à faire après coup (le premier a été arrêté). Livré : green fee par trou inscrit (15 $ visiteur, 12 $ membre, 0 pro), cotisations au mois, `World.Stroke.cs` (Begin/Undo/CanUndo/StrokeCost), sauvegarde v6, réserves R2 à R4 du lot 1. Rentabilité : +83 700 $/an fréquenté, −45 360 $/an à moitié moins de visiteurs. À juger à l'audit : pas d'abandon en cours de partie dans la sim (non testé) ; délai de 5 s laissé au jeu (lot 3) ; cotisations sur tous les `League.Members` hors pro (interprétation à confirmer par Guillaume) ; hiver arrondi à 0 paire. Puis **lot 3** (écran des finances, prix dans la barre ; contrôle léger).
