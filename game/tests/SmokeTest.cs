@@ -111,6 +111,12 @@ public partial class SmokeTest : Node
     {
         var failures = new List<string>();
         var main = _tutorial!;
+        if (!_main!.Birdie.Muted || !main.Birdie.Muted)
+        {
+            failures.Add("birdie : la sourdine ne survit pas à une nouvelle scène");
+        }
+
+        GD.Print($"SMOKE birdie sourdine rechargée : {(main.Birdie.Muted ? "toujours coupée" : "perdue")}");
         var world = main.World;
         var grid = world.Terrain!;
         var tutorial = main.Tutorial;
@@ -1173,6 +1179,7 @@ public partial class SmokeTest : Node
             failures.Add($"birdie : saison {season} puis {main.World.Season}, derniers messages {string.Join(",", latest)}");
         }
 
+        Press(UiIds.Hud.BirdieMute, failures); // la sourdine doit survivre à un nouveau Main (F9 recharge la scène) : voir CheckTutorial
         GD.Print($"SMOKE birdie jours : météo au matin, saison {season} puis {main.World.Season} annoncée (derniers messages {string.Join(",", latest)})");
     }
 
@@ -1313,6 +1320,14 @@ public partial class SmokeTest : Node
             failures.Add("repli : un clic sur l'onglet ne le déplie pas en repliant le plus ancien des autres");
         }
 
+        // Fermer un seul panneau redonne la place : la Ligue, repliée, se déplie.
+        main.Panels.Close(opened[^1]);
+        if (opened.Count != 3 || opened.Any(p => p.Folded))
+        {
+            failures.Add($"repli : fermer Birdie ne déplie pas la Ligue ({opened.Count(p => p.Folded)} replié)");
+        }
+
+        GD.Print($"SMOKE repli fermeture : un panneau fermé, {opened.Count(p => p.Folded)} replié");
         foreach (var panel in opened.ToList())
         {
             main.Panels.Close(panel);

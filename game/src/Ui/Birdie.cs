@@ -30,6 +30,7 @@ public partial class Birdie : Node
     private PanelContainer _peek = null!;
     private Container _peekSlot = null!;
     private Label _unread = null!;
+    private static bool _muted; // statique : la sourdine survit au rechargement de la scène (F9), sans toucher à la sauvegarde
     private Button _mute = null!;
     private ulong _peekUntil;
 
@@ -44,7 +45,7 @@ public partial class Birdie : Node
     /// Apparitions coupées : un nouveau message n'ouvre plus l'aperçu en haut à gauche, mais s'ajoute au fil et au compteur. Préférence
     /// d'interface de la session, pas un état de partie : elle n'entre ni dans la sauvegarde ni dans la somme de contrôle.
     /// </summary>
-    public bool Muted { get; private set; }
+    public bool Muted => _muted;
 
     /// <summary>Le panneau dans la pile (fermé), l'aperçu en haut à gauche (caché) et le compteur sur le bouton rond de la barre.</summary>
     public void Init(Main main)
@@ -59,7 +60,7 @@ public partial class Birdie : Node
         mute.Pressed += () => SetMuted(!Muted);
         _panel.Content.AddChild(mute);
         _mute = mute;
-        SetMuted(false);
+        SetMuted(_muted);
         _panel.Content.AddChild(_scroll);
         main.Panels.Add(_panel);
 
@@ -115,11 +116,11 @@ public partial class Birdie : Node
     /// <summary>Coupe (ou rétablit) les apparitions ; couper cache l'aperçu en cours.</summary>
     public void SetMuted(bool muted)
     {
-        Muted = muted;
+        _muted = muted;
         _mute.SetPressedNoSignal(muted);
         _mute.Text = muted ? "Apparitions coupées" : "Couper les apparitions";
         _mute.TooltipText = muted ? "Un nouveau message n'ouvre plus l'aperçu ; il s'ajoute au fil et au compteur. Cliquer pour rétablir." : "Un nouveau message n'ouvre plus l'aperçu en haut à gauche.";
-        if (muted)
+        if (muted && _peek is not null)
         {
             _peek.Visible = false;
         }
