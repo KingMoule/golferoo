@@ -779,6 +779,7 @@ public partial class SmokeTest : Node
         CheckGolfers(failures);
         CheckCamera(failures);
         CheckBrush(failures);
+        CheckHeldBrushFlow(failures);
         CheckAssets(failures);
         CheckAssetLibrary(failures);
 
@@ -939,6 +940,49 @@ public partial class SmokeTest : Node
     {
         GetViewport().PushInput(new InputEventMouseMotion { Position = at, GlobalPosition = at });
         GetViewport().PushInput(new InputEventMouseButton { ButtonIndex = MouseButton.Left, Pressed = pressed, Position = at, GlobalPosition = at, ButtonMask = pressed ? MouseButtonMask.Left : 0 });
+    }
+
+    /// <summary>
+    /// C21 lot 3, critère 11 : pinceau tenu 10 s (un coup par tick sur une carte chargée de marcheurs), aucun marcheur ne reste plus de 2 s de jeu
+    /// sans bouger, c'est-à-dire sans que son champ de flux ait été refait. Écrit <c>FLOW OK</c>.
+    /// </summary>
+    private void CheckHeldBrushFlow(List<string> failures)
+    {
+        var grid = Main.LoadTerrain(_main!.Factor);
+        var world = new World(5, grid);
+        world.SetLoadMode(40);
+        world.Step(200);
+        var snapshot = new WorldSnapshot();
+        var last = new Dictionary<int, Point2>();
+        var still = new Dictionary<int, int>();
+        var worst = 0;
+        var maxStill = 2 * World.TicksPerSecond;
+        for (var tick = 0; tick < 10 * World.TicksPerSecond; tick++)
+        {
+            world.PaintSurface(new Point2(2.0 + (tick % 2), 2.0), 1.0, tick % 2 == 0 ? Surface.Bunker : Surface.Rough);
+            world.Step();
+            world.Snapshot(snapshot);
+            foreach (var g in snapshot.Golfers)
+            {
+                if (g.State != GolferState.Roaming)
+                {
+                    continue;
+                }
+
+                var moved = !last.TryGetValue(g.Id, out var before) || before != g.Position;
+                still[g.Id] = moved ? 0 : still.GetValueOrDefault(g.Id) + 1;
+                last[g.Id] = g.Position;
+                worst = Math.Max(worst, still[g.Id]);
+            }
+        }
+
+        if (worst > maxStill)
+        {
+            failures.Add($"pinceau tenu : un marcheur est resté {worst} ticks sans bouger (limite {maxStill}, soit 2 s de jeu)");
+            return;
+        }
+
+        GD.Print($"FLOW OK worst={worst} ticks");
     }
 
     /// <summary>

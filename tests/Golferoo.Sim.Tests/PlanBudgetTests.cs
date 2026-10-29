@@ -1,4 +1,5 @@
 using Golferoo.Sim.Golfers;
+using Golferoo.Sim.Pathing;
 using Golferoo.Sim.Shots;
 using Golferoo.Sim.Terrain;
 
@@ -55,5 +56,44 @@ public class PlanBudgetTests
 
         world.Step(60);
         Assert.True(world.Flow.Pending.Count < waiting);
+    }
+
+    /// <summary>
+    /// C21 lot 3, critère 11 (côté sim) : pinceau tenu, la carte change à chaque tick ; aucun champ de flux n'attend plus de 2 s de jeu
+    /// (40 ticks), même quand les marcheurs de devant redemandent les leurs à chaque tick.
+    /// </summary>
+    [Fact]
+    public void BrushHeld_NoWalkerWaitsMoreThanTwoSecondsForItsFlowField()
+    {
+        var terrain = Dogleg();
+        var cache = new Pathing.FlowFieldCache(terrain);
+        var destinations = new List<Point2>();
+        for (var x = 6; destinations.Count < 32 && x < terrain.CellsX - 2; x += 5)
+        {
+            for (var z = 6; destinations.Count < 32 && z < terrain.CellsZ - 2; z += 7)
+            {
+                if (GridQueries.TryNearestWalkable(terrain, x, z, out var nx, out var nz) && nx == x && nz == z)
+                {
+                    destinations.Add(new Point2((x + 0.5) * terrain.CellSize, (z + 0.5) * terrain.CellSize));
+                    cache.Get(destinations[^1]);
+                }
+            }
+        }
+
+        Assert.True(destinations.Count >= 24, $"seulement {destinations.Count} destinations");
+        var waited = new int[destinations.Count];
+        var worst = 0;
+        for (var tick = 0; tick < 400; tick++)
+        {
+            terrain.PaintCell(1, 1, tick % 2 == 0 ? Surface.Bunker : Surface.Rough);   // un coup de pinceau par tick
+            cache.BeginTick();
+            for (var i = 0; i < destinations.Count; i++)
+            {
+                waited[i] = cache.TryGet(destinations[i]) is null ? waited[i] + 1 : 0;
+                worst = Math.Max(worst, waited[i]);
+            }
+        }
+
+        Assert.True(worst <= 2 * World.TicksPerSecond, $"un champ a attendu {worst} ticks");
     }
 }

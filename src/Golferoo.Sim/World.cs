@@ -256,7 +256,7 @@ public sealed partial class World
         var rng = new DeterministicRng(Seed ^ (0xA0761D6478BD642FUL * (ulong)(uint)(day + 1)));
         var yaw = Math.Atan2(w.WindDirZ, w.WindDirX);
         var victims = new List<(int Id, double Direction)>();
-        foreach (var t in Trees.Trees)
+        foreach (ref readonly var t in Trees.AsSpan())
         {
             if (t.State == TreeState.Standing && t.Height() >= Tree.YoungMaxHeight && rng.NextDouble() < StormFallChance)
             {

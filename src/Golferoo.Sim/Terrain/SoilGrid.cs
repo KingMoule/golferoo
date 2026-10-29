@@ -11,8 +11,7 @@ public sealed class SoilGrid
 {
     private readonly TerrainGrid _terrain;
     private readonly double[] _rollResistance;
-    private readonly double[] _restitution;
-    private readonly double[] _friction;
+    private readonly double[] _restitution = new double[SurfaceTable.Count];   // par surface : ne dépend que de la saison et de l'humidité (C21 : 8 valeurs au lieu d'un tableau par cellule)
     private long _version = -1;
     private Season _computedFor;
     private double _wetFor;
@@ -23,8 +22,6 @@ public sealed class SoilGrid
         _terrain = terrain;
         var cells = terrain.CellsX * terrain.CellsZ;
         _rollResistance = new double[cells];
-        _restitution = new double[cells];
-        _friction = new double[cells];
     }
 
     /// <summary>Saison du sol ; la changer fait recalculer le tableau à la prochaine lecture.</summary>
@@ -43,13 +40,13 @@ public sealed class SoilGrid
     public double RestitutionAt(double x, double z)
     {
         Refresh();
-        return _restitution[IndexAt(x, z)];
+        return _restitution[(int)_terrain.Surfaces[IndexAt(x, z)]];
     }
 
     public double FrictionAt(double x, double z)
     {
         Refresh();
-        return _friction[IndexAt(x, z)];
+        return SurfaceTable.Get(_terrain.Surfaces[IndexAt(x, z)]).Friction;
     }
 
     private static double RollFactor(Season season) => season switch
@@ -84,18 +81,24 @@ public sealed class SoilGrid
         var surfaces = _terrain.Surfaces;
         var turf = _terrain.Turf;
         var firm = turf.Settings.FairwayRoll;
+        Span<double> baseRoll = stackalloc double[SurfaceTable.Count];
+        for (var s = 0; s < baseRoll.Length; s++)
+        {
+            var p = SurfaceTable.Get((Surface)s);
+            baseRoll[s] = p.RollResistance * roll;
+            _restitution[s] = p.Restitution * rest;
+        }
+
         for (var i = 0; i < surfaces.Length; i++)
         {
-            var p = SurfaceTable.Get(surfaces[i]);
-            var grass = surfaces[i] <= Surface.Rough;
-            _rollResistance[i] = grass ? p.RollResistance * roll * turf.RollFactor(i) : p.RollResistance * roll;
-            _restitution[i] = p.Restitution * rest;
-            if (surfaces[i] == Surface.Fairway && firm != 1.0)
+            var s = surfaces[i];
+            var value = s <= Surface.Rough ? baseRoll[(int)s] * turf.RollFactor(i) : baseRoll[(int)s];
+            if (s == Surface.Fairway && firm != 1.0)
             {
-                _rollResistance[i] *= firm; // la restitution ne bouge pas : plus de rebond use la vitesse horizontale (frottement), le drive roulerait moins
+                value *= firm; // la restitution ne bouge pas : plus de rebond use la vitesse horizontale (frottement), le drive roulerait moins
             }
 
-            _friction[i] = p.Friction;
+            _rollResistance[i] = value;
         }
 
         _version = _terrain.SurfaceVersion;

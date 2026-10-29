@@ -348,6 +348,7 @@ public class SaveTests
     [InlineData(4)] // C14 lot 1 : grand livre et paramètres de l'économie
     [InlineData(5)] // C14 lot 2 : annulation du dernier coup de pinceau, genre des retouches en file
     [InlineData(6)] // C21 lot 2 : note scratch trou par trou
+    [InlineData(7)] // C21 lot 3 : journée de 9 min, durées en ticks
     public void Load_OlderVersion_SaysItIsAnOlderVersion(byte version)
     {
         var bytes = Save(Build(1, "proto", "start"));

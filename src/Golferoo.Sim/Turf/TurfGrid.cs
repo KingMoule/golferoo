@@ -105,18 +105,23 @@ public sealed class TurfGrid
             cuts[k] = IsMowedOn((Surface)k, dayIndex) ? cuts[k] : 255;
         }
 
+        // Tables par surface (C21 : le changement de jour parcourt toute la carte, valeurs de pousse et de coupe lues dans des tables, sans test par cellule).
+        Span<int> growth = stackalloc int[4];
+        growth[(int)Surface.Tee] = growth[(int)Surface.Green] = growth[(int)Surface.Fairway] = fineGrowth;
+        growth[(int)Surface.Rough] = roughGrowth;
         var surfaces = _terrain.Surfaces;
-        for (var i = 0; i < _height.Length; i++)
+        var height = _height.AsSpan();
+        var wear = _wear.AsSpan();
+        for (var i = 0; i < height.Length; i++)
         {
-            var s = surfaces[i];
-            if (s > Surface.Rough)
+            var s = (int)surfaces[i];
+            if (s > (int)Surface.Rough)
             {
                 continue;
             }
 
-            _wear[i] = (byte)Math.Max(_wear[i] - repair, 0);
-            var h = _height[i] + (s == Surface.Rough ? roughGrowth : fineGrowth);
-            _height[i] = (byte)Math.Min(Math.Min(h, cuts[(int)s]), 255);
+            wear[i] = (byte)Math.Max(wear[i] - repair, 0);
+            height[i] = (byte)Math.Min(Math.Min(height[i] + growth[s], cuts[s]), 255);
         }
 
         Version++;

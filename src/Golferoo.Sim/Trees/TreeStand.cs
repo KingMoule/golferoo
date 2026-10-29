@@ -49,6 +49,9 @@ public sealed class TreeStand
     /// <summary>Arbres dans l'ordre d'ajout.</summary>
     public IReadOnlyList<Tree> Trees => _trees;
 
+    /// <summary>Les arbres en lecture seule sans passer par l'interface (parcours chauds, comme le changement de jour).</summary>
+    internal ReadOnlySpan<Tree> AsSpan() => System.Runtime.InteropServices.CollectionsMarshal.AsSpan(_trees);
+
     /// <summary>Ajoute un arbre et lui donne un identifiant.</summary>
     public Tree Add(double x, double z, TreeSpeciesId species, int ageMonths, bool remarkable = false)
     {
