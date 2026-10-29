@@ -1,5 +1,5 @@
 # Finitions reportées (C21)
-Statut : proposé
+Statut : validé
 Créé : 2026-10-28
 
 ## But
@@ -7,7 +7,7 @@ Les défauts relevés depuis C08 et que Guillaume remarquera dès la première s
 
 Ce qui prouve la réussite : les captures `c21-*` montrent des contours lisses ; les golfeurs touchent fairways et greens dans les proportions d'amateurs réels de leur niveau et se trompent parfois de façon plausible ; une journée de ligue de 18 trous tient entre deux journées ; la CI garde de la marge sur le banc.
 
-## Décisions de Guillaume (cadrage du 2026-10-28, rondes 1 et 2)
+## Décisions de Guillaume (cadrage du 2026-10-28, rondes 1 et 2 ; spec validée le 2026-10-29)
 1. **Dispersion plus regroupée** : un coup très loin du centre reste possible mais rare, et la dispersion se resserre avec le niveau. Calée sur des statistiques réelles d'amateurs, pour les golfeurs comme pour votre pro.
 2. **Bordures lissées au rendu** (fairway, green, bunker et autres surfaces), avec une bande de transition ; la sim garde sa grille.
 3. **Eau lissée** de la même façon, avec une rive en pente douce.
