@@ -735,6 +735,17 @@ public partial class Captures : Node
         main.Camera.SetFreeView(200f, 40f, 60f, new Vector3((float)pond.X, (float)grid.Sample(pond.X, pond.Z), (float)pond.Z));
         await Frames(SettleFrames);
         Save("c21-eau");
+        // DIAG
+        main.TerrainView.GetNodeOrNull<Node3D>("Puddles")?.Hide();
+        await Frames(SettleFrames);
+        Save("c21-diag-sanspuddles");
+        foreach (var c in main.TerrainView.GetChildren().OfType<Node3D>().Where(c => c.Name.ToString().StartsWith("Water_")))
+        {
+            c.Hide();
+        }
+
+        await Frames(SettleFrames);
+        Save("c21-diag-sanseau");
         main.Camera.SetMode(CameraMode.Iso, instant: true);
 
         for (var i = 0; i < 5; i++)
