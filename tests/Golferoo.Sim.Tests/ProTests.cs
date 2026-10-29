@@ -80,7 +80,8 @@ public class ProTests(ITestOutputHelper output)
     [Fact]
     public void ManualPro_NeverPuttsFromInsideTwoMeters_TheGimmeHolesTheBall()
     {
-        var w = ManualWorld(7);
+        // Graine 1 : le joueur simple finit le trou (C23 : avec le geste de 23 ticks, la graine 7 le menait au ramassage).
+        var w = ManualWorld(1);
         var group = w.StartProRound();
         for (var i = 0; i < 60_000 && !group.Finished; i++)
         {
