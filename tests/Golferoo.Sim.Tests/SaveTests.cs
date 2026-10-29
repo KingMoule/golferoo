@@ -376,7 +376,7 @@ public class SaveTests
     public void Load_UnknownVersion_Throws()
     {
         var bytes = Save(Build(1, "proto", "start"));
-        bytes[4] = 9;
+        bytes[4] = 10;
 
         Assert.Throws<InvalidDataException>(() => Load(bytes));
     }
@@ -388,6 +388,7 @@ public class SaveTests
     [InlineData(5)] // C14 lot 2 : annulation du dernier coup de pinceau, genre des retouches en file
     [InlineData(6)] // C21 lot 2 : note scratch trou par trou
     [InlineData(7)] // C25 lot 1 : XP des 17 habiletés en centièmes
+    [InlineData(8)] // C21 lot 3 : journée de 9 min, durées en ticks
     public void Load_OlderVersion_SaysItIsAnOlderVersion(byte version)
     {
         var bytes = Save(Build(1, "proto", "start"));

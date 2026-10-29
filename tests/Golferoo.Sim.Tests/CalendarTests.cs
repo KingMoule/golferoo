@@ -101,4 +101,26 @@ public class CalendarTests
         Assert.Equal(Run(3), Run(3));
         Assert.NotEqual(Run(3), Run(4));
     }
+
+    /// <summary>C21 lot 3 : la journée passe à 9 min, mais ce qui se règle en jours garde sa durée en jours.</summary>
+    [Fact]
+    public void DayLength_IsNineMinutes_ButSeasonsGrowthAndMonthsKeepTheirLengthInDays()
+    {
+        Assert.Equal(9 * 60 * World.TicksPerSecond, Calendar.TicksPerDay);
+
+        // Saison : le printemps (avril, mai) dure 20 jours, puis l'été commence.
+        Assert.Equal(Season.Spring, Calendar.At((20L * Day) - 1, 0).Season);
+        Assert.Equal(Season.Summer, Calendar.At(20L * Day, 0).Season);
+
+        // Croissance des arbres et mois : un mois est 10 jours, quel que soit le nombre de ticks par jour.
+        var world = new World(3, HoleLoader.Load(TerrainTests.HolePath(), 2));
+        world.Trees.Add(0.0, 0.0, TreeSpeciesId.Oak, 0);
+        var age0 = world.Trees.Trees[^1].AgeMonths;
+        world.Step((Calendar.DaysPerMonth * Day) - 1);
+        Assert.Equal(4, world.Date.Month);
+        Assert.Equal(age0, world.Trees.Trees[^1].AgeMonths);
+        world.Step(1);
+        Assert.Equal(5, world.Date.Month);
+        Assert.Equal(age0 + Calendar.TreeMonthsPerMonth, world.Trees.Trees[^1].AgeMonths);
+    }
 }

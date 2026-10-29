@@ -5,8 +5,10 @@ namespace Golferoo.Sim.Pathing;
 /// <summary>
 /// Cache de champs de flux par cellule de destination. Après une édition des surfaces (une retouche de relief seule ne coûte rien) (<see cref="TerrainGrid.SurfaceVersion"/>),
 /// les champs en cache sont à refaire : <see cref="Get(int, int)"/> refait tout de suite celui qu'on demande, <see cref="Refresh"/> tous.
-/// Les marcheurs du monde passent par <see cref="TryGet(Point2)"/> : au plus <see cref="RebuildsPerTick"/> champs refaits par tick, et un
-/// marcheur dont le champ attend son tour reste sur place ce tick-là. Les destinations qui attendent (<see cref="Pending"/>) sont un état du monde
+/// Les marcheurs du monde passent par <see cref="TryGet(Point2)"/> : un marcheur dont le champ attend son tour reste sur place ce tick-là.
+/// Au début de chaque tick (<see cref="BeginTick"/>), les <see cref="RebuildsPerTick"/> plus anciennes destinations en attente sont refaites, dans l'ordre,
+/// qu'on les demande ou non : chacune passe donc au bout de <c>capacité / RebuildsPerTick</c> ticks au plus, même si le pinceau tenu change la carte
+/// à chaque tick et que les marcheurs de devant redemandent sans cesse le leur (C21). Les destinations qui attendent (<see cref="Pending"/>) sont un état du monde
 /// (somme de contrôle, sauvegarde) ; les champs eux-mêmes se recalculent depuis le terrain.
 /// Capacité bornée : au-delà, le plus ancien est évincé (ordre d'insertion, donc déterministe).
 /// </summary>
@@ -22,7 +24,6 @@ public sealed class FlowFieldCache
     private readonly List<int> _pending = []; // destinations dont le champ est à refaire, dans l'ordre où elles étaient en cache
     private long _version;
     private float[] _costs;
-    private int _rebuildsLeft = RebuildsPerTick;
 
     public FlowFieldCache(TerrainGrid terrain, int capacity = 64, IEnumerable<int>? pending = null, IEnumerable<int>? cached = null)
     {
@@ -54,11 +55,16 @@ public sealed class FlowFieldCache
     /// <summary>Destinations des champs en cache, du plus ancien au plus récent : écrites dans la sauvegarde (pas dans la somme de contrôle, elles se déduisent de l'historique).</summary>
     internal IReadOnlyList<int> CachedKeys => _order;
 
-    /// <summary>Début d'un tick du monde : constate une retouche des surfaces et rend son budget de reconstructions.</summary>
+    /// <summary>Début d'un tick du monde : constate une retouche des surfaces et refait, dans l'ordre d'attente, les plus anciennes destinations en attente.</summary>
     internal void BeginTick()
     {
         Sync();
-        _rebuildsLeft = RebuildsPerTick;
+        for (var n = 0; n < RebuildsPerTick && _pending.Count > 0; n++)
+        {
+            var key = _pending[0];
+            _pending.RemoveAt(0);
+            Store(key);
+        }
     }
 
     /// <summary>Champ vers la cellule franchissable la plus proche du point (la même instance tant que le terrain ne change pas).</summary>
@@ -67,8 +73,8 @@ public sealed class FlowFieldCache
     public FlowField Get(int cx, int cz) => Resolve(cx, cz, budgeted: false)!;
 
     /// <summary>
-    /// Comme <see cref="Get(Point2)"/>, mais un champ à refaire après une retouche n'est refait que s'il reste du budget ce tick-ci (<see cref="RebuildsPerTick"/>) ;
-    /// sinon nul : le marcheur attend. Une destination jamais vue se calcule tout de suite.
+    /// Comme <see cref="Get(Point2)"/>, mais un champ à refaire après une retouche n'est jamais refait ici : nul, le marcheur attend que
+    /// <see cref="BeginTick"/> le refasse à son tour. Une destination jamais vue se calcule tout de suite.
     /// </summary>
     internal FlowField? TryGet(Point2 destination) => Resolve(_terrain.CellXOf(destination.X), _terrain.CellZOf(destination.Z), budgeted: true);
 
@@ -89,26 +95,27 @@ public sealed class FlowFieldCache
         var waiting = _pending.IndexOf(key);
         if (waiting >= 0)
         {
-            if (budgeted && _rebuildsLeft <= 0)
-            {
-                return null;
-            }
-
             if (budgeted)
             {
-                _rebuildsLeft--;
+                return null;
             }
 
             _pending.RemoveAt(waiting);
         }
 
+        return Store(key);
+    }
+
+    /// <summary>Calcule le champ vers la cellule de clé <paramref name="key"/> et le met en cache (évince le plus ancien si le cache est plein).</summary>
+    private FlowField Store(int key)
+    {
         if (_order.Count >= _capacity)
         {
             _fields.Remove(_order[0]);
             _order.RemoveAt(0);
         }
 
-        field = FlowField.Build(_terrain, _costs, nx, nz);
+        var field = FlowField.Build(_terrain, _costs, key % _terrain.CellsX, key / _terrain.CellsX);
         _fields[key] = field;
         _order.Add(key);
         return field;

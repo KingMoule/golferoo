@@ -9,8 +9,8 @@ public readonly record struct Date(int Day, int Month, int Year, Season Season, 
 /// <summary>Calendrier déduit du tick et d'un décalage de jours (commande de debug) : aucun état à recalculer.</summary>
 public static class Calendar
 {
-    /// <summary>Une journée de 6 minutes réelles en vitesse x1.</summary>
-    public const int TicksPerDay = 6 * 60 * World.TicksPerSecond;
+    /// <summary>Une journée de 9 minutes réelles en vitesse x1 (C21 : assez pour que la ligue joue tous les trous du parcours).</summary>
+    public const int TicksPerDay = 9 * 60 * World.TicksPerSecond;
 
     public const int DaysPerMonth = 10;
     public const int MonthsPerYear = 12;

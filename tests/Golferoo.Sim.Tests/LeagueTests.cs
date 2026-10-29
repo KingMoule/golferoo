@@ -98,6 +98,7 @@ public class LeagueTests(ITestOutputHelper output)
         Assert.Null(season.OnNewDay(4, storm: true, 0));
         Assert.Null(season.OnNewDay(5, storm: true, 0));
         var round = season.OnNewDay(6, false, 0);
+        Finish(season, round!, 0);
 
         Assert.NotNull(round);
         Assert.Equal(6, round.StartDay);
@@ -148,7 +149,7 @@ public class LeagueTests(ITestOutputHelper output)
         var season = new LeagueSeason(1, Members(8));
         for (var i = 0; i < 2; i++)
         {
-            season.OnNewDay(4 + (10 * i), false, 0);
+            Finish(season, season.OnNewDay(4 + (10 * i), false, 0)!, i);
         }
 
         var round = season.OnNewDay(24, false, 0)!;
@@ -176,6 +177,55 @@ public class LeagueTests(ITestOutputHelper output)
         var other = pair[0] == id ? pair[1] : pair[0];
         var r = MatchResult.Play(round.Cards[id], round.Cards[other]);
         return r.Won > r.Lost ? 0 : r.Won < r.Lost ? 2 : 1;
+    }
+
+    /// <summary>Clôt une journée en rendant une carte de 4 coups pour chaque joueur (sans note de parcours).</summary>
+    private static void Finish(LeagueSeason season, LeagueRound round, int number)
+    {
+        foreach (var pair in round.Pairs)
+        {
+            season.GroupFinished(number, [.. pair.Select(id => (id, Card(4)))], null, 50);
+        }
+
+        Assert.True(round.Closed);
+    }
+
+    [Fact]
+    public void NextRound_StartsOnlyWhenThePreviousOneIsClosed_EvenPastItsNominalDay()
+    {
+        var season = new LeagueSeason(1, Members(20));
+        var first = season.OnNewDay(4, false, 0)!;
+
+        // Le jour prévu de la deuxième journée est passé, la première court encore : rien ne démarre, jour après jour.
+        Assert.Null(season.OnNewDay(14, false, 0));
+        Assert.Null(season.OnNewDay(15, false, 0));
+        Assert.False(first.Closed);
+
+        Finish(season, first, 0);
+        var second = season.OnNewDay(16, false, 0);
+
+        Assert.NotNull(second);
+        Assert.Equal(1, second.Number);
+        Assert.Equal(16, second.StartDay);
+    }
+
+    [Fact]
+    public void GroupFinished_CardWithNoHolePlayed_GivesNoDifferential_InsteadOfThrowing()
+    {
+        var season = new LeagueSeason(1, Members(7));
+        var round = season.OnNewDay(4, false, 0)!;
+        var rating = new CourseRating(1, 4, 4.0, 5.0);
+        var closedHole = new ScoreCard([4]);   // aucun coup : le seul trou était fermé
+
+        Assert.Throws<ArgumentOutOfRangeException>(() => Handicap.Differential(closedHole, rating));
+        foreach (var pair in round.Pairs)
+        {
+            season.GroupFinished(0, [.. pair.Select(id => (id, id == 0 ? closedHole : Card(4)))], rating, 10);
+        }
+
+        Assert.True(round.Closed);
+        Assert.Null(season.Members[0].Cards[0].Differential);
+        Assert.NotNull(season.Members[1].Cards[0].Differential);
     }
 
     private static ScoreCard Card(int strokes)
@@ -267,6 +317,27 @@ public class LeagueTests(ITestOutputHelper output)
         Assert.True(round.Pairs.Count >= 11);
         // Mesuré sur main avant C12 : 1,33 jour de jeu. Depuis C12 lot 2, les groupes s'attendent (le groupe suivant ne joue pas son approche avant que celui de devant ait fini le trou) : 4,11 jours. Les journées sont à un mois d'écart.
         Assert.True(round.EndTick - round.StartTick < 5L * Calendar.TicksPerDay);
+    }
+
+    /// <summary>C21 lot 3, critère 9 : sur 18 trous et 12 groupes, la journée finit avant le jour prévu de la suivante (la journée fait 9 min).</summary>
+    [Fact]
+    public void FirstRound_On18HolesWith12Groups_EndsBeforeTheNextRoundIsDue()
+    {
+        var seed = Enumerable.Range(1, 500).First(x => new LeagueSeason((ulong)x, LeagueSeason.GenerateMembers((ulong)x)).Divisions.Sum(d => d.Count) >= 23);
+        var course = Path.Combine(Path.GetDirectoryName(TerrainTests.HolePath())!, "..", "..", "tests", "Golferoo.Sim.Bench", "Courses", "dix-huit.json");
+        var world = new World((ulong)seed, CourseLoader.Load(course, 2), league: true) { Climate = Climate.Calm };
+        while (!world.League!.Rounds[0].Closed && world.DayIndex < 30)
+        {
+            world.Step(Calendar.TicksPerDay / 4);
+        }
+
+        var round = world.League.Rounds[0];
+        var days = (round.EndTick - round.StartTick) / (double)Calendar.TicksPerDay;
+        output.WriteLine($"{round.Pairs.Count} groupes sur 18 trous : {days:F2} jour(s) de jeu");
+        Assert.True(round.Closed);
+        Assert.True(round.Pairs.Count >= 11);
+        Assert.True(round.EndTick < (long)world.League.Rounds[1].NominalDay * Calendar.TicksPerDay);
+        Assert.Equal(-1, world.League.Rounds[1].StartDay);
     }
 
     [Fact]

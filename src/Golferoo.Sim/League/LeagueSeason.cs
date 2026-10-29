@@ -157,7 +157,8 @@ public sealed class LeagueSeason
             Adjust();
         }
 
-        if (_next > RoundCount || day < _due || (_next == RoundCount && !Rounds.All(r => r.Closed)))
+        // Garde-fou (C21) : une journée ne commence jamais avant la fin de la précédente, même si elle déborde ; la suivante attend.
+        if (_next > RoundCount || day < _due || (_next == RoundCount && !Rounds.All(r => r.Closed)) || (_next > 0 && _next <= RoundCount && !RoundAt(_next - 1).Closed))
         {
             return null;
         }
@@ -239,7 +240,8 @@ public sealed class LeagueSeason
         var round = RoundAt(roundNumber);
         foreach (var (id, card) in cards)
         {
-            var differential = rating is null ? (double?)null : Handicap.Differential(card, rating);
+            // Une carte sans aucun trou joué (tous fermés) ne dit rien du niveau : pas d'écart, plutôt qu'une exception de Differential.
+            var differential = rating is null || !PlayedAny(card) ? (double?)null : Handicap.Differential(card, rating);
             _byId[id].AddCard(new LeagueCard(round.Number, card.Gross, differential));
             round.Cards[id] = card;
         }
@@ -249,6 +251,19 @@ public sealed class LeagueSeason
             round.EndTick = tick;
             Close(round);
         }
+    }
+
+    private static bool PlayedAny(ScoreCard card)
+    {
+        for (var h = 0; h < card.HoleCount; h++)
+        {
+            if (card.Strokes(h) > 0)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private void Close(LeagueRound round)
