@@ -13,7 +13,7 @@ uniform float cut_band = 0.6;
 uniform float lip_band = 0.35;
 uniform float bank_band = 0.8;
 // Rive en pente douce : sous l'eau, le fond s'enfonce au rendu jusqu'à cette profondeur (la sim garde ses hauteurs).
-uniform float shore_depth = 0.8;
+uniform float shore_depth = 1.0;
 // Teinte de saison de l'herbe (l'été vaut 1) ; ni le sable, ni l'eau, ni le chemin.
 uniform vec3 season_tint = vec3(1.0);
 // Sol mouillé : assombrit tout le terrain (0 sec, 1 pluie du jour).
@@ -60,7 +60,7 @@ void vertex() {
 		float ang = float(k) * 0.785398;
 		water += textureLod(weights_b, uv + vec2(cos(ang), sin(ang)) * (blur_meters * 0.5) / grid_size, 0.0).g;
 	}
-	VERTEX.y -= shore_depth * smoothstep(0.55, 0.95, water / 10.0);
+	VERTEX.y -= shore_depth * smoothstep(0.4, 0.9, water / 10.0);
 	wpos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
 }
 

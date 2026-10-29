@@ -323,7 +323,7 @@ public partial class TerrainRenderer : Node3D
     }
 
     /// <summary>
-    /// Niveau de chaque étang (cellules d'eau reliées par un côté) : le plus haut centre de ses cellules, plus 5 cm ; NaN hors de l'eau.
+    /// Niveau de chaque étang (cellules d'eau reliées par un côté) : le plus haut centre de ses cellules, plus 10 cm (le shader d'eau coupe la rive, le plan peut dépasser un peu du sol) ; NaN hors de l'eau.
     /// Un seul niveau par étang, même à cheval sur plusieurs blocs : sinon la rive suit les marches du fond. Rend les blocs dont le niveau a changé.
     /// </summary>
     private HashSet<(int I, int J)> UpdatePondLevels()
@@ -358,7 +358,7 @@ public partial class TerrainRenderer : Node3D
 
             foreach (var c in pond)
             {
-                levels[c] = (float)top + 0.05f;
+                levels[c] = (float)top + 0.1f;
             }
         }
 

@@ -732,7 +732,7 @@ public partial class Captures : Node
         await Frames(SettleFrames);
         Save("c21-bordures");
         var pond = new Point2(262, 130);
-        main.Camera.SetFreeView(20f, 35f, 55f, new Vector3((float)pond.X, (float)grid.Sample(pond.X, pond.Z), (float)pond.Z));
+        main.Camera.SetFreeView(200f, 40f, 60f, new Vector3((float)pond.X, (float)grid.Sample(pond.X, pond.Z), (float)pond.Z));
         await Frames(SettleFrames);
         Save("c21-eau");
         main.Camera.SetMode(CameraMode.Iso, instant: true);
