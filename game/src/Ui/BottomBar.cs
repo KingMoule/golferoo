@@ -29,6 +29,7 @@ public partial class BottomBar : Control
     private UiToolButton _views = null!;
     private Button _league = null!;
     private Button _pro = null!;
+    private Button _birdie = null!;
     private Button _camera = null!;
     private Button _pause = null!;
     private Panel _clockFill = null!;
@@ -123,6 +124,7 @@ public partial class BottomBar : Control
         _views.Chosen = _main.TurfOverlay;
         _league.SetPressedNoSignal(_main.League?.IsOpen == true);
         _pro.SetPressedNoSignal(_main.ProPanel?.IsOpen == true);
+        _birdie.SetPressedNoSignal(_main.Birdie?.IsOpen == true);
         _camera.SetPressedNoSignal(_main.Camera.Mode == CameraMode.Free);
         _pause.SetPressedNoSignal(_main.Paused);
         foreach (var (speed, button) in _speeds)
@@ -208,7 +210,7 @@ public partial class BottomBar : Control
         _league = Round(round, UiIds.Round.League, "trophy", "Ligue", () => _main.League?.Toggle(), enabled: _main.League is not null);
         _pro = Round(round, UiIds.Round.Pro, "figurine", "Votre pro", () => _main.ProPanel?.Toggle(), enabled: _main.ProPanel is not null);
         Round(round, UiIds.Round.Finances, "coin", "Finances : bientôt", null, enabled: false);
-        Round(round, UiIds.Round.Birdie, "birdie", "Birdie : bientôt", null, enabled: false);
+        _birdie = Round(round, UiIds.Round.Birdie, "birdie", "Birdie : les nouvelles du club", () => _main.Birdie.Toggle(), enabled: true);
         _camera = Round(round, UiIds.Round.Camera, "video", "Caméra libre (clic du milieu glissé pour tourner et incliner)", () => _main.Camera.ToggleMode(), enabled: true);
         return Tier("BarTop", UiTheme.BarTop, 0f, TopHeight, row);
     }
