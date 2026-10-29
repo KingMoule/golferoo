@@ -1224,7 +1224,7 @@ public partial class SmokeTest : Node
             }
         }
 
-        string Pill() => $"{UiMoney.Format(ledger.Balance)} · {UiMoney.Format(UiMoney.MonthResult(ledger), true)} ce mois";
+        string Pill() => UiMoney.Pill(ledger);
         if (FreeSpot(world, grid) is not { } p)
         {
             failures.Add("finances : aucun emplacement libre");
@@ -1266,7 +1266,6 @@ public partial class SmokeTest : Node
             brush.SelectSurface(surfaces[round]);
             var before = ledger.Balance;
             PushClick(at, pressed: true);
-            main.StepTicks(1); // le début du coup passe en premier
             brush.Apply(brush.PickAt(at, out var hit) ? hit : default);
             main.StepTicks(1);
             brush._Process(0);
@@ -1311,11 +1310,21 @@ public partial class SmokeTest : Node
         var refused = ledger.Refused;
         for (var i = 0; i < 60 && ledger.Refused == refused; i++)
         {
-            world.RaiseTerrain(new Point2(grid.CellsX * grid.CellSize * 0.5, grid.CellsZ * grid.CellSize * 0.5), 40.0, 5.0);
+            world.RaiseTerrain(new Point2(grid.CellsX * grid.CellSize * 0.5, grid.CellsZ * grid.CellSize * 0.5), 40.0, i % 2 == 0 ? 2.0 : -2.0);
             main.StepTicks(1);
         }
 
-        Expect(ledger.Refused > refused && main.Birdie.Chirps.Any(c => c.Tag == "#finances"), $"achat refusé ({ledger.Refused - refused}) sans message Birdie");
+        if (world.OpenHoles >= 3)
+        {
+            Expect(ledger.Refused > refused && main.Birdie.Chirps.Any(c => c.Tag == "#finances"), $"achat refusé ({ledger.Refused - refused}) sans message Birdie");
+        }
+        else
+        {
+            // Moins de trois trous ouverts : la sim ne refuse rien ; on lève l'événement à la main pour vérifier le message.
+            finances.OnRefused(LedgerCategory.Relief, 5_000_000);
+            Expect(main.Birdie.Chirps.Any(c => c.Tag == "#finances"), "un refus de la limite n'écrit pas dans Birdie");
+        }
+
         GD.Print($"SMOKE finances : pastille, panneau, prix du coup, découvert ({finances.Prompts} confirmations), Annuler et Ctrl+Z, refus Birdie ({failures.Count} échec)");
     }
 

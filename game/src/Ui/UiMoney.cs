@@ -25,6 +25,9 @@ public static class UiMoney
         return sign + text + " $";
     }
 
+    /// <summary>Le texte de la pastille d'argent : le solde, puis le résultat du mois (« 149 520 $ · -480 »).</summary>
+    public static string Pill(Ledger ledger) => $"{Format(ledger.Balance)} · {Format(MonthResult(ledger), true).Replace(" $", string.Empty)}";
+
     /// <summary>Résultat du mois en cours : la somme des catégories du grand livre.</summary>
     public static long MonthResult(Ledger ledger) => Enum.GetValues<LedgerCategory>().Sum(ledger.Current);
 }

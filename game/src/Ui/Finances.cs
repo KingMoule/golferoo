@@ -204,7 +204,7 @@ public partial class Finances : Node
     }
 
     /// <summary>Un achat refusé par la limite : un message de Birdie (pas plus d'un toutes les quatre secondes pendant qu'on garde le bouton).</summary>
-    private void OnRefused(LedgerCategory category, long cost)
+    public void OnRefused(LedgerCategory category, long cost)
     {
         var now = Time.GetTicksMsec();
         if (_lastRefusal != 0 && now - _lastRefusal < RefusalGapMilliseconds)

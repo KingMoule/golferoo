@@ -146,7 +146,7 @@ public partial class BottomBar : Control
         _weather.SetText($"{UiNames.Capitalized(UiNames.Skies[(int)world.Weather.Sky])} · — °C · {UiNames.Capitalized(UiNames.Seasons[(int)date.Season])} · demain : {UiNames.Skies[(int)world.Forecast(1)]}");
         _members.SetText(world.League is { } league ? league.Members.Count.ToString(System.Globalization.CultureInfo.InvariantCulture) : "—");
         var ledger = world.Ledger;
-        _money.SetText($"{UiMoney.Format(ledger.Balance)} · {UiMoney.Format(UiMoney.MonthResult(ledger), true)} ce mois");
+        _money.SetText(UiMoney.Pill(ledger));
         if (_debt != ledger.Balance < 0)
         {
             _debt = ledger.Balance < 0;
@@ -268,7 +268,7 @@ public partial class BottomBar : Control
         _members.TooltipText = "Membres de la ligue du club";
         row.AddChild(_members);
         _money = UiPill.Create(UiIds.Hud.Money, "—", "coin", UiTheme.Grass);
-        _money.TooltipText = "Argent : le solde du club et le résultat du mois en cours. Le bouton Finances donne le détail.";
+        _money.TooltipText = "Argent : le solde du club, puis le résultat du mois en cours. Le bouton Finances donne le détail.";
         row.AddChild(_money);
         var mood = UiPill.Create(UiIds.Hud.Mood, "—");
         mood.Visible = false; // C16 : visages d'humeur.

@@ -35,6 +35,7 @@ public partial class Brush : Node3D
     private Vector2? _cursor;
     private MouseButton _stroke;
     private ulong _strokeEnded;
+    private bool _strokeBegun;
 
     /// <summary>Combien de temps réel le dernier coup de pinceau reste annulable (C14).</summary>
     public const ulong UndoWindowMilliseconds = 5000;
@@ -180,10 +181,7 @@ public partial class Brush : Node3D
         {
             _stroke = press.ButtonIndex;
             _strokeEnded = 0;
-            if (ReliefMode || press.ButtonIndex == MouseButton.Left)
-            {
-                _main!.World.BeginStroke();
-            }
+            _strokeBegun = false;
         }
     }
 
@@ -281,6 +279,11 @@ public partial class Brush : Node3D
         }
 
         var center = new Point2(hit.X, hit.Z);
+        if (!ReliefMode && _stroke != MouseButton.Left)
+        {
+            return false;
+        }
+
         if (ReliefMode)
         {
             if (!_main.Finances.Allow(ReliefPrice(world, center, _stroke == MouseButton.Left ? ReliefStepMeters : -ReliefStepMeters)))
@@ -288,13 +291,9 @@ public partial class Brush : Node3D
                 return false;
             }
 
+            BeginStroke(world);
             world.RaiseTerrain(center, Radius, _stroke == MouseButton.Left ? ReliefStepMeters : -ReliefStepMeters);
             return true;
-        }
-
-        if (_stroke != MouseButton.Left)
-        {
-            return false;
         }
 
         if (!_main.Finances.Allow(PaintPrice(world, center, BulldozerMode ? Surface.Rough : PaintedSurface)))
@@ -302,6 +301,7 @@ public partial class Brush : Node3D
             return false;
         }
 
+        BeginStroke(world);
         if (BulldozerMode)
         {
             world.PaintSurface(center, Radius, Surface.Rough);
@@ -311,6 +311,16 @@ public partial class Brush : Node3D
 
         world.PaintSurface(center, Radius, PaintedSurface);
         return true;
+    }
+
+    /// <summary>Le premier geste d'un trait ouvre le coup de pinceau annulable, dans la même file que la retouche qui le suit.</summary>
+    private void BeginStroke(World world)
+    {
+        if (!_strokeBegun)
+        {
+            _strokeBegun = true;
+            world.BeginStroke();
+        }
     }
 
     /// <summary>Ce que coûterait la peinture, au centime près comme la sim (cellules qui changent réellement).</summary>
