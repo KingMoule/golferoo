@@ -435,11 +435,12 @@ public sealed partial class World
         }
     }
 
-    /// <summary>Inscrit sur la carte de chaque golfeur du groupe le trou qui vient de finir (balle ramassée = 12 coups).</summary>
-    private static void RecordHole(Group group)
+    /// <summary>Inscrit sur la carte de chaque golfeur du groupe le trou qui vient de finir (balle ramassée = 12 coups) ; chacun paie son green fee.</summary>
+    private void RecordHole(Group group)
     {
         foreach (var g in group.Golfers)
         {
+            Ledger.Post(LedgerCategory.GreenFees, GreenFee(g));
             if (g.PickedUp)
             {
                 g.Card!.PickUp(group.Hole - 1);
@@ -620,6 +621,7 @@ public sealed partial class World
         }
 
         MixPendingEdits(ref hash);
+        MixStroke(ref hash);
         MixTreeCommands(ref hash);
         MixHoleCommands(ref hash);
         MixHeldCards(ref hash);
