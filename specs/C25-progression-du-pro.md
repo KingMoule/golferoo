@@ -16,6 +16,7 @@ Ce qui prouve la réussite : un draw long et bien visé au fer long fait progres
 6. **Vent et green par l'aperçu** : à bas niveau, la trajectoire prévue (vent) et la ligne prévue du putt (pente) sont faussées, et deviennent de plus en plus justes en montant. La physique du coup ne change pas.
 7. **Plafond : un pro du circuit**. Au niveau 50 de toutes ses habiletés, le pro joue comme un handicap +4. Au niveau 0, comme un handicap 36.
 8. Reprises de C08 sans changement : la ligue compte double, sans plafond ; l'entraînement est plafonné par habileté et par année (remise à zéro au 1er avril) ; un gimme ne rapporte rien ; aucune rouille.
+9. **Backspin selon le bâton, pour tous les golfeurs** (précision de Guillaume le 2026-10-29, après le lot 1) : le wedge a le plus de backspin, surtout depuis un bon lie (fairway, départ) ; le backspin diminue en remontant les fers et devient pratiquement nul aux fers longs.
 
 ## Périmètre et hors périmètre
 - Dans le périmètre :
@@ -26,7 +27,7 @@ Ce qui prouve la réussite : un draw long et bien visé au fer long fait progres
 
 ## Conception
 
-**Habiletés** (`ProSkill`, 18 valeurs ; l'ordre entre dans la somme de contrôle)
+**Habiletés** (`ProSkill`, 17 valeurs ; l'ordre entre dans la somme de contrôle)
 
 D = distance visée (du départ au point visé). L'écart est mesuré entre l'arrêt de la balle et le point visé : écart latéral par rapport à la ligne de visée, écart en profondeur le long de cette ligne. Chaque seuil vit dans un fichier de données (`data/pro/progression.json`) et se calibre au lot 4.
 
@@ -56,7 +57,8 @@ D = distance visée (du départ au point visé). L'écart est mesuré entre l'ar
 **Pénalité de lie (tous les golfeurs)**
 - Depuis le rough ou le bunker : la vitesse de balle perd un pourcentage, et les écarts types sont multipliés par un facteur. Les deux valeurs dépendent du niveau du golfeur, ou, pour le pro, de son habileté « sortie de… ». Elles sont en données.
 - Le choix du coup (C09) prévoit déjà ces lies ; il doit maintenant voir la vitesse perdue dans son espérance.
-- Les cibles de C21 (critère 4 : fairways et greens en régulation par niveau) restent vraies : les écarts types de base sont recalés.
+- **Backspin selon le club et le lie, pour tous les golfeurs** (décision 9). Aujourd'hui, seul le coup droit du pro a le backspin du club (C08), ce qui lui coûte environ 3 coups par partie face à un golfeur du même niveau (mesuré au lot 1, PR #127). Le backspin vient du club (`Club`, dernier paramètre) : le plus fort au wedge, décroissant en remontant les fers, quasi nul aux fers longs, au bois et au driver (fer 5 ≤ 0,05, contre 0,25 aujourd'hui). Le plein backspin se prend depuis le départ ou le fairway ; le rough et le bunker le réduisent (part en données).
+- Les cibles de C21 (critère 4 : fairways et greens en régulation par niveau) restent vraies : les écarts types de base sont recalés, avec le lie et le backspin à la fois.
 
 **Aperçus (jeu)**
 - Le biais de l'aperçu est déterministe par coup : il est tiré d'un hachage du tick et du numéro de coup, sans toucher au RNG du monde, et son amplitude décroît linéairement avec le niveau.
@@ -65,7 +67,7 @@ D = distance visée (du départ au point visé). L'écart est mesuré entre l'ar
 - Niveau 50 : biais nul.
 
 **Jeu**
-- La fiche du pro (`ProPanel`) montre les 18 habiletés en quatre groupes. Pour chacune : le niveau, la barre d'XP du niveau, l'effet actuel et celui du niveau suivant.
+- La fiche du pro (`ProPanel`) montre les 17 habiletés en quatre groupes. Pour chacune : le niveau, la barre d'XP du niveau, l'effet actuel et celui du niveau suivant.
 - Un niveau gagné publie un message Birdie (« Fers longs : niveau 13, dispersion −13 % »).
 
 **Sauvegarde** : XP et XP d'entraînement de l'année par habileté. Ces données entrent dans `World.Save` et `World.Checksum`, avec un cas `SaveTests`, et la version de sauvegarde augmente. L'XP de C08 n'est pas convertie.
@@ -73,8 +75,8 @@ D = distance visée (du départ au point visé). L'écart est mesuré entre l'ar
 ## Lots
 | Lot | Contenu | Contrôle |
 |---|---|---|
-| 1 | Sim : 18 habiletés, qualité par habileté, attribution, plancher, ligue et plafond d'entraînement, niveaux et coût, effets des clubs, Précision, Dosage, Distance, trajectoires ; `FromHandicap` jusqu'à +4 ; Save et Checksum | complet |
-| 2 | Sim : pénalité de lie pour tous, Sortie de rough et Sortie de bunker, espérance du choix, recalage de C21 critère 4 | complet |
+| 1 | Sim : 17 habiletés, qualité par habileté, attribution, plancher, ligue et plafond d'entraînement, niveaux et coût, effets des clubs, Précision, Dosage, Distance, trajectoires ; `FromHandicap` jusqu'à +4 ; Save et Checksum | complet |
+| 2 | Sim : pénalité de lie, et backspin selon le club et le lie, pour tous ; Sortie de rough et Sortie de bunker, espérance du choix, recalage de C21 critère 4 | complet |
 | 3 | Jeu : aperçus faussés (vent, pente), Jeu dans le vent et Lecture du green, fiche du pro, avis Birdie ; captures `c25-fiche` et `c25-apercu` | léger |
 | 4 | Calibrage : saisons simulées, a et b, seuils et plafond d'entraînement en données | complet |
 
@@ -88,8 +90,8 @@ Aucun : la grille et la spec ont été validées le 2026-10-29 (« go »). Les s
 2. Test : la qualité suit (1 − écart / seuil)² pour chaque habileté (valeurs à 0, à la moitié et au seuil) ; un coup complètement raté donne 0,5 XP au club et 0 aux autres ; aucune XP n'est négative.
 3. Test : un coup de ligue compte double ; l'entraînement s'arrête au plafond de l'année et repart au 1er avril ; un gimme ne donne rien.
 4. Test : une saison simulée de draws seulement fait progresser Draw et pas Fade ; même graine, même XP au centième.
-5. Test : chaque niveau d'une habileté de club réduit sa dispersion mesurée (2 000 coups) du même pas, à ± 1 point près ; au niveau 50, le pro joue comme un +4 sur « Le neuf » (note de parcours de C06, ± 1,5) ; au niveau 0, comme un 36 (± 2).
-6. Test : depuis le rough, un golfeur perd de la portée et disperse davantage qu'au fairway, d'autant moins que son niveau est bon ; au niveau 50 de Sortie de rough, la pénalité du pro est au moins réduite de moitié ; le critère 4 de C21 passe toujours.
+5. Test : chaque niveau d'une habileté de club réduit sa dispersion mesurée (2 000 coups) du même pas, à ± 1 point près (lot 1). Au lot 2, une fois le backspin le même pour tous, le pro joue comme un +4 au niveau 50 sur « Le neuf » (note de parcours de C06, ± 1,5), et comme un 36 au niveau 0 (± 2). Ce test est absolu, en différentiels convertis en handicap. Mesure du lot 1 (audit de #127) : niveau 50 ≈ +1,4, niveau 0 ≈ 41.
+6. Test : depuis le rough, un golfeur perd de la portée et disperse davantage qu'au fairway, d'autant moins que son niveau est bon ; au niveau 50 de Sortie de rough, la pénalité du pro est au moins réduite de moitié. Depuis le fairway, la distance de roulement après le point de chute croît dans cet ordre : wedge, fer 9, fer 7 ; le fer 5 roule autant que le bois 3 (± 10 %). Depuis le rough, un wedge roule plus que depuis le fairway. Le pro au niveau 0 et un golfeur ordinaire de 36 jouent la même partie, à ± 1 coup en moyenne. Le critère 4 de C21 passe toujours.
 7. Test du lot 4 : une habileté travaillée à chaque coup d'une saison type (ligue et entraînement au plafond) termine la saison entre les niveaux 22 et 28 ; il faut au moins dix saisons types pour atteindre le niveau 50 ; un test du lot 1 vérifie que le coût d'un niveau double tous les 7 niveaux (± 1 %) et que le niveau 43 cumule 50 % ± 2 de l'XP du niveau 50.
 8. Fumée : au niveau 0, l'écart entre l'aperçu et le coup joué sans dispersion, par vent de 8 m/s, dépasse un seuil ; il est nul au niveau 50 ; l'aperçu ne consomme pas le RNG du monde (même somme de contrôle avec ou sans aperçu).
 9. Fumée : un niveau gagné publie un message Birdie, et la fiche affiche le niveau, la barre d'XP et l'effet actuel ; captures `c25-fiche` et `c25-apercu`.
