@@ -79,8 +79,8 @@ public static class UiTheme
     /// Hauteur d'une liste défilante de panneau (ligue, Birdie), réglée à l'ouverture : 340 px si l'écran logique le permet, moins en 720p
     /// ou à l'échelle 150 % (1280×720 logiques), pour que la colonne tiroir et panneau tienne au-dessus de la barre.
     /// </summary>
-    public static void FitList(ScrollContainer list) =>
-        list.CustomMinimumSize = new Vector2(0f, Mathf.Clamp(list.GetViewportRect().Size.Y - 520f, 160f, 340f));
+    public static void FitList(ScrollContainer list, float max = 340f) =>
+        list.CustomMinimumSize = new Vector2(0f, Mathf.Clamp(list.GetViewportRect().Size.Y - 520f, 160f, max));
 
     /// <summary>Fond de verre dépoli (flou de l'écran) à placer en premier enfant d'un panneau : il se dessine derrière son StyleBox.</summary>
     public static ColorRect GlassBackdrop(int radius = GlassRadius)

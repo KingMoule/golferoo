@@ -30,6 +30,8 @@ public partial class Birdie : Node
     private PanelContainer _peek = null!;
     private Container _peekSlot = null!;
     private Label _unread = null!;
+    private static bool _muted; // statique : la sourdine survit au rechargement de la scène (F9), sans toucher à la sauvegarde
+    private Button _mute = null!;
     private ulong _peekUntil;
 
     /// <summary>Les messages gardés, du plus ancien au plus récent.</summary>
@@ -38,6 +40,12 @@ public partial class Birdie : Node
     public int Unread { get; private set; }
 
     public bool IsOpen => _panel.Visible;
+
+    /// <summary>
+    /// Apparitions coupées : un nouveau message n'ouvre plus l'aperçu en haut à gauche, mais s'ajoute au fil et au compteur. Préférence
+    /// d'interface de la session, pas un état de partie : elle n'entre ni dans la sauvegarde ni dans la somme de contrôle.
+    /// </summary>
+    public bool Muted => _muted;
 
     /// <summary>Le panneau dans la pile (fermé), l'aperçu en haut à gauche (caché) et le compteur sur le bouton rond de la barre.</summary>
     public void Init(Main main)
@@ -48,6 +56,11 @@ public partial class Birdie : Node
         _feed.AddThemeConstantOverride("separation", 0);
         _scroll = new ScrollContainer { HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled };
         _scroll.AddChild(_feed);
+        var mute = new Button { Name = UiIds.Hud.BirdieMute, ToggleMode = true, FocusMode = Control.FocusModeEnum.None, CustomMinimumSize = new Vector2(0f, 32f) };
+        mute.Pressed += () => SetMuted(!Muted);
+        _panel.Content.AddChild(mute);
+        _mute = mute;
+        SetMuted(_muted);
         _panel.Content.AddChild(_scroll);
         main.Panels.Add(_panel);
 
@@ -89,10 +102,28 @@ public partial class Birdie : Node
         }
 
         SetUnread(Unread + 1);
+        if (Muted)
+        {
+            return;
+        }
+
         Drop(_peekSlot);
         _peekSlot.AddChild(Row(chirp));
         _peek.Visible = true;
         _peekUntil = Time.GetTicksMsec() + PeekMilliseconds;
+    }
+
+    /// <summary>Coupe (ou rétablit) les apparitions ; couper cache l'aperçu en cours.</summary>
+    public void SetMuted(bool muted)
+    {
+        _muted = muted;
+        _mute.SetPressedNoSignal(muted);
+        _mute.Text = muted ? "Apparitions coupées" : "Couper les apparitions";
+        _mute.TooltipText = muted ? "Un nouveau message n'ouvre plus l'aperçu ; il s'ajoute au fil et au compteur. Cliquer pour rétablir." : "Un nouveau message n'ouvre plus l'aperçu en haut à gauche.";
+        if (muted && _peek is not null)
+        {
+            _peek.Visible = false;
+        }
     }
 
     /// <summary>Bouton rond : ouvre le fil (les messages sont lus, l'aperçu disparaît) ou le ferme.</summary>

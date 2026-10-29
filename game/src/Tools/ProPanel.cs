@@ -27,6 +27,7 @@ public partial class ProPanel : Node
     private ProSkills _skills = null!;
     private UiPanel _panel = null!;
     private Label _level = null!;
+    private ScrollContainer _scroll = null!;
     private readonly UiGauge[] _gauges = new UiGauge[Skills.Length];
     private readonly int[] _seen = new int[Skills.Length];
 
@@ -46,15 +47,21 @@ public partial class ProPanel : Node
             ThemeTypeVariation = "UiCaption",
             AutowrapMode = TextServer.AutowrapMode.WordSmart,
         });
+        // Les jauges défilent quand l'écran logique est bas (150 % : 720 px), pour que le panneau ne passe pas sous la barre.
+        var list = new VBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
+        list.AddThemeConstantOverride("separation", 8);
+        _scroll = new ScrollContainer { HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled };
+        _scroll.AddChild(list);
+        content.AddChild(_scroll);
         for (var i = 0; i < Skills.Length; i++)
         {
             if (i == 4)
             {
-                content.AddChild(new Label { Text = "Spécialisées : coups réussis.", ThemeTypeVariation = "UiCaption" });
+                list.AddChild(new Label { Text = "Spécialisées : coups réussis.", ThemeTypeVariation = "UiCaption" });
             }
 
             _gauges[i] = UiGauge.Create($"ProSkill{Skills[i].Skill}", Skills[i].Name, 0.0, "");
-            content.AddChild(_gauges[i]);
+            list.AddChild(_gauges[i]);
             _seen[i] = Whole(Skills[i].Skill);
         }
 
@@ -66,6 +73,7 @@ public partial class ProPanel : Node
 
     public void Toggle()
     {
+        UiTheme.FitList(_scroll, 600f);
         _main.Panels.Toggle(_panel);
         Refresh();
     }

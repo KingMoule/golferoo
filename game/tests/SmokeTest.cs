@@ -111,6 +111,12 @@ public partial class SmokeTest : Node
     {
         var failures = new List<string>();
         var main = _tutorial!;
+        if (!_main!.Birdie.Muted || !main.Birdie.Muted)
+        {
+            failures.Add("birdie : la sourdine ne survit pas à une nouvelle scène");
+        }
+
+        GD.Print($"SMOKE birdie sourdine rechargée : {(main.Birdie.Muted ? "toujours coupée" : "perdue")}");
         var world = main.World;
         var grid = world.Terrain!;
         var tutorial = main.Tutorial;
@@ -1143,6 +1149,38 @@ public partial class SmokeTest : Node
         CheckBirdie(failures);
         CheckUiScale(failures);
         CheckNoKeys(main, failures, []);
+        CheckBirdieDays(failures);
+    }
+
+    /// <summary>
+    /// Décision de Guillaume : Birdie publie un message au changement de saison et un message de météo chaque matin. Placé en dernier, car
+    /// <c>SkipToNextMonth</c> (F10) avance le monde d'un mois à chaque appel.
+    /// </summary>
+    private void CheckBirdieDays(List<string> failures)
+    {
+        var main = _main!;
+        var birdie = main.Birdie;
+        var season = main.World.Season;
+        var (morning, seasonal) = (birdie.Chirps.Count(c => c.Tag == "#météo"), birdie.Chirps.Count(c => c.Tag == "#saison"));
+        main.SkipToNextMonth();
+        if (birdie.Chirps[^1].Tag != "#météo" || birdie.Chirps.Count(c => c.Tag == "#météo") != morning + 1)
+        {
+            failures.Add("birdie : un nouveau matin ne publie pas la météo");
+        }
+
+        for (var i = 0; i < 4 && main.World.Season == season; i++)
+        {
+            main.SkipToNextMonth();
+        }
+
+        var latest = birdie.Chirps.TakeLast(2).Select(c => c.Tag).ToList();
+        if (main.World.Season == season || birdie.Chirps.Count(c => c.Tag == "#saison") != seasonal + 1 || !latest.SequenceEqual(["#saison", "#météo"]))
+        {
+            failures.Add($"birdie : saison {season} puis {main.World.Season}, derniers messages {string.Join(",", latest)}");
+        }
+
+        Press(UiIds.Hud.BirdieMute, failures); // la sourdine doit survivre à un nouveau Main (F9 recharge la scène) : voir CheckTutorial
+        GD.Print($"SMOKE birdie jours : météo au matin, saison {season} puis {main.World.Season} annoncée (derniers messages {string.Join(",", latest)})");
     }
 
     /// <summary>
@@ -1220,6 +1258,18 @@ public partial class SmokeTest : Node
         Expect(golfer is null || main.Camera.FollowedId == golfer.Id, "le clic sur l'avis ne suit pas le golfeur du membre");
         Press(UiIds.Round.Birdie, failures);
         Expect(!birdie.IsOpen, "le bouton ne referme pas le fil");
+
+        // Bouton « couper les apparitions » : le message s'ajoute au fil et au compteur sans ouvrir l'aperçu ; rétabli, l'aperçu revient.
+        var peek = main.Ui.Find(UiIds.Hud.BirdiePeek)!;
+        Press(UiIds.Hud.BirdieMute, failures);
+        var (count, before) = (birdie.Chirps.Count, birdie.Unread);
+        Expect(birdie.Muted && !peek.Visible, "le bouton ne coupe pas les apparitions ou l'aperçu reste");
+        birdie.Post(Birdie.Club, "Message muet", "#test");
+        Expect(!peek.Visible && birdie.Unread == before + 1 && birdie.Chirps.Count == count + 1, "un message muet ouvre l'aperçu ou ne compte pas");
+        Press(UiIds.Hud.BirdieMute, failures);
+        birdie.Post(Birdie.Club, "Message audible", "#test");
+        Expect(!birdie.Muted && peek.Visible && birdie.Unread == before + 2, "le bouton ne rétablit pas les apparitions");
+        GD.Print($"SMOKE birdie muet : aperçu fermé et compteur {before + 1} en sourdine, aperçu rétabli ensuite ({failures.Count} échec)");
         GD.Print($"SMOKE birdie : sauvegarde et avis de ligue reçus, compteur remis à zéro, suivi {(golfer is null ? "sans golfeur membre" : "vérifié")} ({failures.Count} échec)");
     }
 
@@ -1247,6 +1297,47 @@ public partial class SmokeTest : Node
         GD.Print($"SMOKE echelle 1,5 : écran {screen}, étages {string.Join(" / ", tiers)}, colonne {dock}");
         main.Birdie.Toggle();
         main.League.Toggle();
+
+        // Décision de Guillaume : à 150 %, Gazon 240 + trois panneaux de 380 ne tiennent pas dans 1 248 px ; le plus ancien se replie, les autres restent dépliés.
+        Press(UiIds.Tool.Turf, failures);
+        Press(UiIds.Round.League, failures);
+        Press(UiIds.Round.Pro, failures);
+        Press(UiIds.Round.Birdie, failures);
+        var opened = main.Panels.Opened;
+        var folded = opened.Where(p => p.Folded).Select(p => p.Name.ToString()).ToList();
+        var column = main.Panels.Dock.GetCombinedMinimumSize();
+        var offscreen = column.X > screen.X - 32f ? 1 : 0; // la hauteur se juge sur la mise en page réelle, dans la capture (hors_ecran)
+        if (opened.Count != 4 || !folded.SequenceEqual([UiIds.Panel.Turf]) || offscreen != 0)
+        {
+            failures.Add($"repli : {opened.Count} panneaux, repliés {string.Join(",", folded)}, colonne {column}");
+        }
+
+        GD.Print($"SMOKE repli 1,5 : {opened.Count} panneaux, repliés [{string.Join(",", folded)}], colonne {column.X} px sur {screen.X - 32f}, hors_ecran={offscreen}");
+        var turf = opened[0];
+        turf.EmitSignal(UiPanel.SignalName.UnfoldRequested);
+        if (turf.Folded || opened.Count(p => p.Folded) != 1 || opened.Single(p => p.Folded).Name != UiIds.Panel.League)
+        {
+            failures.Add("repli : un clic sur l'onglet ne le déplie pas en repliant le plus ancien des autres");
+        }
+
+        // Fermer un seul panneau redonne la place : la Ligue, repliée, se déplie.
+        main.Panels.Close(opened[^1]);
+        if (opened.Count != 3 || opened.Any(p => p.Folded))
+        {
+            failures.Add($"repli : fermer Birdie ne déplie pas la Ligue ({opened.Count(p => p.Folded)} replié)");
+        }
+
+        GD.Print($"SMOKE repli fermeture : un panneau fermé, {opened.Count(p => p.Folded)} replié");
+        foreach (var panel in opened.ToList())
+        {
+            main.Panels.Close(panel);
+        }
+
+        if (opened.Count != 0 || turf.Folded)
+        {
+            failures.Add("repli : fermer ne remet pas les panneaux dépliés");
+        }
+
         main.Bar.Select(ToolFamily.None, toggle: false);
         (window.ContentScaleSize, window.ContentScaleMode, window.ContentScaleFactor) = (oldSize, oldMode, oldFactor);
     }

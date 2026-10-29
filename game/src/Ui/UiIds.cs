@@ -48,6 +48,7 @@ public static class UiIds
         public const string BirdiePeek = "BirdiePeek";
         public const string BirdieUnread = "BirdieUnread";
         public const string BirdieFeed = "BirdieFeed";
+        public const string BirdieMute = "BirdieMute";
 
         /// <summary>Bouton de vitesse ×<paramref name="speed"/> (1, 2, 4, 8 ou 16).</summary>
         public static string Speed(int speed) => $"HudSpeed{speed}";
