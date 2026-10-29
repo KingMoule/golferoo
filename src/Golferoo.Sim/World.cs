@@ -1054,7 +1054,7 @@ public sealed partial class World
                 if (g.Plan is { IsDone: false } job && g.State == GolferState.Swinging)
                 {
                     var request = new ShotRequest(g.Ball, terrain.Course[group.Hole].Hole, g.Strokes, g.Skill, g.Profile);
-                    budget = physical.Advance(job, request, terrain, budget).Left;
+                    budget = physical.Advance(job, request, terrain, budget, _rng).Left;
                 }
             }
         }
