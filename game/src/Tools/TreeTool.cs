@@ -190,14 +190,66 @@ public partial class TreeTool : Node3D
             return false;
         }
 
+        if (!_main.Finances.Allow(_main.World.Economy.RazeCost(t)))
+        {
+            return false;
+        }
+
         _main.World.RazeTree(SelectedId);
         SelectedId = -1;
         return true;
     }
 
-    public void RazeAreaAt(Point2 center) => _main!.World.RazeArea(center, _main.Brush.Radius, KeepRemarkable);
+    public void RazeAreaAt(Point2 center)
+    {
+        var world = _main!.World;
+        var radius = _main.Brush.Radius;
+        if (_main.Finances.Allow(RazePrice(world, center, radius, KeepRemarkable)))
+        {
+            world.RazeArea(center, radius, KeepRemarkable);
+        }
+    }
 
-    public void PlantAt(Point2 position, TreePlantStage stage) => _main!.World.PlantTree(position.X, position.Z, Species, stage);
+    /// <summary>Ce que débiterait <see cref="World.RazeArea"/> : arbres debout et troncs sous le pinceau, plus le sous-bois, comme la sim.</summary>
+    public static long RazePrice(World world, Point2 center, double radius, bool keepRemarkable)
+    {
+        var economy = world.Economy;
+        var near = new List<Tree>();
+        world.Trees.Query(center.X, center.Z, radius, near);
+        var cost = 0L;
+        foreach (var t in near)
+        {
+            if (keepRemarkable && t.Remarkable)
+            {
+                continue;
+            }
+
+            cost += t.State switch
+            {
+                TreeState.Standing => economy.RazeCost(t),
+                TreeState.Fallen => economy.TreeClearFallen,
+                _ => 0,
+            };
+        }
+
+        var grid = world.Terrain!;
+        return cost + (grid.CountPaint(center, radius, Surface.Rough, Surface.Trees) * (long)Math.Round(grid.CellSize * grid.CellSize * economy.TreeClearPerM2));
+    }
+
+    public void PlantAt(Point2 position, TreePlantStage stage)
+    {
+        // Une cellule où la sim refuserait la plantation ne demande pas de confirmation (l'écart minimum entre arbres reste jugé par la sim).
+        if (_main!.World.Terrain!.SurfaceAt(position.X, position.Z) is Surface.Water or Surface.Green or Surface.Tee or Surface.Bunker or Surface.Trees)
+        {
+            _main.World.PlantTree(position.X, position.Z, Species, stage);
+            return;
+        }
+
+        if (_main!.Finances.Allow(_main.World.Economy.PlantCost(stage)))
+        {
+            _main.World.PlantTree(position.X, position.Z, Species, stage);
+        }
+    }
 
     /// <summary>Fait tomber l'arbre sélectionné vers la droite de l'écran (direction de la caméra), pour être bien vu.</summary>
     public bool FellSelected()
@@ -215,6 +267,11 @@ public partial class TreeTool : Node3D
     public bool ClearSelected()
     {
         if (SelectedId < 0 || !_main!.World.Trees.TryGet(SelectedId, out var t) || t.State != TreeState.Fallen)
+        {
+            return false;
+        }
+
+        if (!_main.Finances.Allow(_main.World.Economy.TreeClearFallen))
         {
             return false;
         }

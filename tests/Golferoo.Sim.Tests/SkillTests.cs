@@ -56,7 +56,8 @@ public class SkillTests
         Assert.Equal((SkillLevels.Scratch + SkillLevels.Bogey) / 2.0, SkillLevels.FromHandicap(10), 12);
         Assert.True(SkillLevels.FromHandicap(36) > SkillLevels.Bogey);
         Assert.Equal(SkillLevels.FromHandicap(54), SkillLevels.FromHandicap(80));
-        Assert.Equal(SkillLevels.Scratch, SkillLevels.FromHandicap(-3));
+        Assert.True(SkillLevels.FromHandicap(-3) < SkillLevels.Scratch); // C25 : jusqu'à +4
+        Assert.Equal(SkillLevels.FromHandicap(-4), SkillLevels.FromHandicap(-9));
     }
 
     [Fact]

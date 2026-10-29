@@ -4,6 +4,7 @@ namespace Golferoo.Game.Ui;
 public static class UiNames
 {
     public static readonly string[] Months = ["janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août", "septembre", "octobre", "novembre", "décembre"];
+    public static readonly string[] MonthsShort = ["jan", "fév", "mars", "avr", "mai", "juin", "juil", "août", "sept", "oct", "nov", "déc"];
     public static readonly string[] Seasons = ["printemps", "été", "automne", "hiver"];
     public static readonly string[] Skies = ["soleil", "nuages", "pluie", "forte pluie"];
 

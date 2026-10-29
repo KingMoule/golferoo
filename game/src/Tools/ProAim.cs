@@ -265,11 +265,11 @@ public partial class ProAim : Node3D
         _shapeRow!.Visible = !putting;
         _force!.Editable = !putting;
         var skills = world.Pro!;
-        var general = ProSkills.General(Club);
+        var general = ProSkills.OfClub(Club);
         _label!.Text = $"Votre pro : {(putting ? "putting" : $"{ClubName(Club)}, {ShapeNames[Array.IndexOf(Shapes, Shape)].ToLowerInvariant()}")} | " +
                        $"cible à {Dist(pro.Ball, Target):F0} m, balle prévue à {Dist(pro.Ball, Preview.Ball):F0} m ({OutcomeName(Preview.Outcome)})\n" +
-                       $"Niveau {SkillName(general)} : handicap {skills.Handicap(general):F0} | clic au sol : viser";
-        Draw(pro.Ball, Preview, skills.Dispersion(Club));
+                       $"{SkillName(general)} : niveau {skills.Level(general)} | clic au sol : viser";
+        Draw(pro.Ball, Preview, skills.DirectionFactor(Club));
     }
 
     /// <summary>Trajectoire prévue (jaune) et ellipse de dispersion au point d'arrivée (blanche).</summary>
@@ -317,10 +317,13 @@ public partial class ProAim : Node3D
 
     private static string SkillName(ProSkill skill) => skill switch
     {
-        ProSkill.LongGame => "long jeu",
-        ProSkill.Irons => "fers",
-        ProSkill.ShortGame => "petit jeu",
-        _ => "putting",
+        ProSkill.Driver => "Driver",
+        ProSkill.Wood => "Bois",
+        ProSkill.LongIrons => "Fers longs",
+        ProSkill.MidIrons => "Fers moyens",
+        ProSkill.ShortIrons => "Fers courts",
+        ProSkill.Wedge => "Wedge",
+        _ => "Putter",
     };
 
     private static string OutcomeName(ShotOutcome outcome) => outcome switch

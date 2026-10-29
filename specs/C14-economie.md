@@ -18,6 +18,12 @@ Ce qui prouve la réussite : en jeu, chaque coup de pinceau débite son prix, af
 8. Le prix de l'action suit le curseur pendant qu'on peint ou qu'on pose, en plus de la vignette.
 9. Tous les paramètres sont proposés ci-dessous (« Paramètres de Facile »), tranchés avec Guillaume ; ils vivent en données, pas en code.
 
+Décisions de Guillaume du 2026-10-29 (lot 3, jeu) :
+10. Panneau Finances, douze derniers mois : deux barres par mois (revenus en vert, dépenses en brique) et la ligne du solde par-dessus.
+11. Détail par catégorie : deux colonnes, mois courant et mois précédent, puis une ligne Résultat.
+12. Annulation : bouton « Annuler » dans le tiroir de l'outil ET Ctrl+Z, pendant la même fenêtre de 5 secondes réelles après un coup de pinceau.
+13. Birdie : le message météo du matin remplace celui de la veille (un seul dans le fil) et ne compte pas comme non lu.
+
 ## Périmètre et hors périmètre
 **Dans le périmètre**
 - Portefeuille et grand livre par catégorie et par mois dans la sim ; fichier de paramètres de difficulté `data/economy/facile.json`.

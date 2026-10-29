@@ -2,6 +2,7 @@ using Golferoo.Sim.Golfers;
 using Golferoo.Sim.Pro;
 using Golferoo.Sim.Shots;
 using Golferoo.Sim.Terrain;
+using Golferoo.Sim.Time;
 
 namespace Golferoo.Sim;
 
@@ -14,6 +15,12 @@ public sealed partial class World
 
     /// <summary>Compétences de votre pro (nul sans ligue).</summary>
     public ProSkills? Pro { get; }
+
+    /// <summary>Réglages de la progression du pro (C25), sauvegardés avec la partie.</summary>
+    public ProgressionParams Progression { get; }
+
+    /// <summary>Année de jeu du plafond d'entraînement : elle change le 1er avril, début de la saison (et non le 1er janvier).</summary>
+    public int PlayYear => Date.Month < Calendar.StartMonth ? Date.Year - 1 : Date.Year;
 
     /// <summary>
     /// Vrai dans le jeu : à son tour, votre pro attend le coup du joueur (<see cref="GolferState.AwaitingShot"/>) et ne joue jamais seul.
@@ -123,20 +130,15 @@ public sealed partial class World
     private Point2 PinOf(TerrainGrid terrain, Golfer g) =>
         terrain.Course[_groups.First(group => group.Golfers.Contains(g)).Hole].Hole;
 
-    private ShotResult Execute(PhysicalShotResolver resolver, TerrainGrid terrain, Point2 ball, ProShot shot, DeterministicRng? rng, Point2 pin)
-    {
-        var skills = Pro!;
-        var dispersion = skills.Dispersion(shot.Club);
-        if (shot.Club.IsPutter)
-        {
-            return resolver.PuttTo(ball, shot.Target, terrain, rng, dispersion, pin);
-        }
+    private ShotResult Execute(PhysicalShotResolver resolver, TerrainGrid terrain, Point2 ball, ProShot shot, DeterministicRng? rng, Point2 pin) =>
+        Pro!.Execute(resolver, terrain, ball, shot, rng, pin);
 
-        var dx = shot.Target.X - ball.X;
-        var dz = shot.Target.Z - ball.Z;
-        var d = Math.Sqrt((dx * dx) + (dz * dz));
-        var (ux, uz) = d < 1e-9 ? (1.0, 0.0) : (dx / d, dz / d);
-        return resolver.ExecuteShaped(ball, shot.Club, ux, uz, shot.Force * skills.ForceBonus, shot.Shape, terrain, rng, dispersion, 1.0, skills.ShapeSigma(shot.Shape), pin);
+    /// <summary>Le coup prévu sans hasard, depuis la balle : le point visé qui sert de mesure à la qualité du coup (C25).</summary>
+    private ShotResult AimedResult(TerrainGrid terrain, Golfer g, ProShot shot)
+    {
+        var resolver = (PhysicalShotResolver)_resolver;
+        resolver.Wind = Wind;
+        return Execute(resolver, terrain, g.Ball, shot, null, PinOf(terrain, g));
     }
 
     private void MixPro(ref ulong hash)
@@ -147,6 +149,11 @@ public sealed partial class World
         }
 
         Mix(ref hash, Pro.Hash() ^ (_manualPro ? 1UL : 0UL));
+        foreach (var v in Progression.Values())
+        {
+            Mix(ref hash, (ulong)v);
+        }
+
         foreach (var s in _proShots)
         {
             MixShot(ref hash, s);
