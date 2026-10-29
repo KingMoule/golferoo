@@ -448,7 +448,7 @@ public partial class Captures : Node
 
         main.ProPanel!.Toggle();
         await Frames(SettleFrames);
-        GD.Print($"PRO long-jeu={world.Pro!.Experience(Golferoo.Sim.Pro.ProSkill.LongGame)} draw={world.Pro.Experience(Golferoo.Sim.Pro.ProSkill.Draw)}");
+        GD.Print($"PRO driver={world.Pro!.Experience(Golferoo.Sim.Pro.ProSkill.Driver)} draw={world.Pro.Experience(Golferoo.Sim.Pro.ProSkill.Draw)}");
         Save("pro-sheet");
         return main;
     }

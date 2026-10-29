@@ -12,15 +12,23 @@ public partial class ProPanel : Node
 {
     private static readonly (ProSkill Skill, string Name)[] Skills =
     [
-        (ProSkill.LongGame, "Long jeu"),
-        (ProSkill.Irons, "Fers"),
-        (ProSkill.ShortGame, "Petit jeu"),
-        (ProSkill.Putting, "Putting"),
-        (ProSkill.Distance, "Distance"),
+        (ProSkill.Driver, "Driver"),
+        (ProSkill.Wood, "Bois"),
+        (ProSkill.LongIrons, "Fers longs"),
+        (ProSkill.MidIrons, "Fers moyens"),
+        (ProSkill.ShortIrons, "Fers courts"),
+        (ProSkill.Wedge, "Wedge"),
+        (ProSkill.Putter, "Putter"),
         (ProSkill.Precision, "Précision"),
+        (ProSkill.Dosage, "Dosage"),
+        (ProSkill.Distance, "Distance"),
         (ProSkill.Draw, "Draw"),
         (ProSkill.Fade, "Fade"),
         (ProSkill.Chip, "Chip"),
+        (ProSkill.RoughExit, "Sortie de rough"),
+        (ProSkill.BunkerExit, "Sortie de bunker"),
+        (ProSkill.Wind, "Jeu dans le vent"),
+        (ProSkill.GreenReading, "Lecture du green"),
     ];
 
     private Main _main = null!;
@@ -43,7 +51,7 @@ public partial class ProPanel : Node
         content.AddChild(_level);
         content.AddChild(new Label
         {
-            Text = $"Générales : chaque coup compte (ligue ×2, entraînement {ProSkills.TrainingCapPerYear} points par an au plus).",
+            Text = $"Chaque coup nourrit les habiletés sollicitées selon sa qualité (ligue ×2, entraînement {_skills.TrainingCap / 100} XP par an au plus).",
             ThemeTypeVariation = "UiCaption",
             AutowrapMode = TextServer.AutowrapMode.WordSmart,
         });
@@ -86,7 +94,7 @@ public partial class ProPanel : Node
             if (whole < _seen[i])
             {
                 _seen[i] = whole;
-                _main.Birdie.Post(Birdie.Pro, $"Mon entraînement paie : {Skills[i].Name.ToLowerInvariant()}, handicap {whole}.", "#progrès", _main.World.League?.Members.FirstOrDefault(m => m.IsPro)?.Id ?? -1);
+                _main.Birdie.Post(Birdie.Pro, $"Mon entraînement paie : {Skills[i].Name.ToLowerInvariant()}, niveau {-whole}.", "#progrès", _main.World.League?.Members.FirstOrDefault(m => m.IsPro)?.Id ?? -1);
                 Refresh();
             }
         }
@@ -104,10 +112,10 @@ public partial class ProPanel : Node
         for (var i = 0; i < Skills.Length; i++)
         {
             var s = Skills[i].Skill;
-            _gauges[i].SetValue(_skills.Progress(s), $"{LeaguePanel.Decimal(_skills.Handicap(s))} · {_skills.Experience(s)} pts · entraînement {_skills.TrainingThisYear(s, year)}/{ProSkills.TrainingCapPerYear}");
+            _gauges[i].SetValue(_skills.LevelProgress(s), $"niv. {_skills.Level(s)} · {_skills.Experience(s) / 100} XP · entraînement {_skills.TrainingThisYear(s, year) / 100}/{_skills.TrainingCap / 100}");
         }
     }
 
-    /// <summary>Handicap arrondi au point entier supérieur : l'avis tombe quand il baisse.</summary>
-    private int Whole(ProSkill skill) => (int)Math.Ceiling(_skills.Handicap(skill) - 1e-9);
+    /// <summary>Moins le niveau : l'avis tombe quand elle baisse, donc quand un niveau est gagné.</summary>
+    private int Whole(ProSkill skill) => -_skills.Level(skill);
 }

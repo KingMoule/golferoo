@@ -9,6 +9,8 @@
     <InternalsVisibleTo Include="Golferoo.Sim.Tests" />
     <!-- Paramètres de Facile (C14) : source de vérité dans data/economy/, embarqués pour le jeu exporté comme pour les tests. -->
     <EmbeddedResource Include="..\..\data\economy\facile.json" LogicalName="facile.json" />
+    <!-- Progression du pro (C25) : source de vérité dans data/pro/. -->
+    <EmbeddedResource Include="..\..\data\pro\progression.json" LogicalName="progression.json" />
   </ItemGroup>
 
 </Project>

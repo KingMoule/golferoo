@@ -1097,7 +1097,7 @@ public sealed partial class World
         var result = g.Pending;
         if (g.PlannedShot is { } shot && Terrain is { } played)
         {
-            Pro!.Record(played, g.Ball, shot, result, g.InLeague, Date.Year);
+            Pro!.Record(played, g.Ball, shot, AimedResult(played, g, shot), result, g.InLeague, Date.Year);
             g.PlannedShot = null;
         }
 

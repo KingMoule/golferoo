@@ -123,20 +123,15 @@ public sealed partial class World
     private Point2 PinOf(TerrainGrid terrain, Golfer g) =>
         terrain.Course[_groups.First(group => group.Golfers.Contains(g)).Hole].Hole;
 
-    private ShotResult Execute(PhysicalShotResolver resolver, TerrainGrid terrain, Point2 ball, ProShot shot, DeterministicRng? rng, Point2 pin)
-    {
-        var skills = Pro!;
-        var dispersion = skills.Dispersion(shot.Club);
-        if (shot.Club.IsPutter)
-        {
-            return resolver.PuttTo(ball, shot.Target, terrain, rng, dispersion, pin);
-        }
+    private ShotResult Execute(PhysicalShotResolver resolver, TerrainGrid terrain, Point2 ball, ProShot shot, DeterministicRng? rng, Point2 pin) =>
+        Pro!.Execute(resolver, terrain, ball, shot, rng, pin);
 
-        var dx = shot.Target.X - ball.X;
-        var dz = shot.Target.Z - ball.Z;
-        var d = Math.Sqrt((dx * dx) + (dz * dz));
-        var (ux, uz) = d < 1e-9 ? (1.0, 0.0) : (dx / d, dz / d);
-        return resolver.ExecuteShaped(ball, shot.Club, ux, uz, shot.Force * skills.ForceBonus, shot.Shape, terrain, rng, dispersion, 1.0, skills.ShapeSigma(shot.Shape), pin);
+    /// <summary>Le coup prévu sans hasard, depuis la balle : le point visé qui sert de mesure à la qualité du coup (C25).</summary>
+    private ShotResult AimedResult(TerrainGrid terrain, Golfer g, ProShot shot)
+    {
+        var resolver = (PhysicalShotResolver)_resolver;
+        resolver.Wind = Wind;
+        return Execute(resolver, terrain, g.Ball, shot, null, PinOf(terrain, g));
     }
 
     private void MixPro(ref ulong hash)
