@@ -312,7 +312,7 @@ jobs:
           cd build/windows
           printf '@echo off\r\ncd /d "%%~dp0"\r\nstart "" Golferoo.exe\r\n' > Lancer.bat
           printf '@echo off\r\ncd /d "%%~dp0"\r\nstart "" Golferoo.exe -- --tutorial\r\n' > Tutoriel.bat
-          printf '@echo off\r\ncd /d "%%~dp0"\r\nGolferoo.exe -- --fps-bench\r\nGolferoo.exe -- --fps-bench-low\r\necho.\r\ntype fps-result.txt\r\necho.\r\ntype fps-result-low.txt\r\npause\r\n' > "Mesurer FPS.bat"
+          printf '@echo off\r\ncd /d "%%~dp0"\r\nGolferoo.exe -- --fps-bench\r\nGolferoo.exe -- --fps-bench-low\r\nGolferoo.exe -- --fps-bench-golfers 100\r\nGolferoo.exe -- --fps-bench-golfers 200\r\necho.\r\ntype fps-result.txt\r\necho.\r\ntype fps-result-low.txt\r\necho.\r\ntype fps-result-golfers-100.txt\r\necho.\r\ntype fps-result-golfers-200.txt\r\npause\r\n' > "Mesurer FPS.bat"
           printf '%s\r\n' \
             "GOLFEROO - prototype d'un trou (version ${GITHUB_SHA::7})" \
             "1. Dezippez tout le dossier (ne lancez pas le jeu depuis le zip)." \
