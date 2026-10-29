@@ -178,6 +178,11 @@ public sealed partial class World
             return;
         }
 
+        if (_courseCommands.Count > 0 || _holeCommands.Count > 0)
+        {
+            ForgetStroke(); // une autre commande de terrain : le dernier coup de pinceau ne s'annule plus
+        }
+
         ApplyCourseCommands(terrain);
         while (_holeCommands.Count > 0)
         {

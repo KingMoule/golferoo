@@ -18,9 +18,9 @@ public sealed partial class World
 
     /// <summary>
     /// Met en file la peinture de <paramref name="surface"/> sur les cellules dont le centre est dans le rayon (mètres, coordonnées monde).
-    /// Appliquée au début du tick suivant, sans annulation, débitée selon les cellules qui changent réellement (<see cref="EconomyParams.PaintCost"/>)
+    /// Appliquée au début du tick suivant, débitée selon les cellules qui changent réellement (<see cref="EconomyParams.PaintCost"/>)
     /// ou refusée entière par la limite de découvert (<see cref="Ledger.PurchaseRefused"/>). Une peinture qui ne laisserait aucune cellule
-    /// franchissable sur la carte est ignorée. Golfeurs et balles au repos dans une cellule devenue infranchissable sont
+    /// franchissable sur la carte est ignorée. Annulable avec le reste du coup de pinceau (<see cref="UndoStroke"/>). Golfeurs et balles au repos dans une cellule devenue infranchissable sont
     /// reposés sur la cellule franchissable la plus proche, sans pénalité ; une balle en vol qui retombe dans une telle
     /// cellule est reposée de même à l'atterrissage.
     /// </summary>
@@ -32,14 +32,14 @@ public sealed partial class World
             throw new ArgumentOutOfRangeException(nameof(radius), radius, "Le rayon doit être fini et positif.");
         }
 
-        _edits.Enqueue(new TerrainEdit(center, radius, surface, 0.0, IsPaint: true));
+        _edits.Enqueue(new TerrainEdit(center, radius, surface, 0.0, EditKind.Paint));
     }
 
     /// <summary>
     /// Met en file une montée (ou baisse si négatif) du relief, profil en cosinus dans le rayon. Delta borné par appel
     /// (<see cref="TerrainGrid.MaxRaiseDelta"/>), hauteur bornée (<see cref="TerrainGrid.MinHeight"/> à <see cref="TerrainGrid.MaxHeight"/>).
     /// Appliquée au début du tick suivant, débitée selon le volume réellement déplacé (<see cref="TerrainGrid.RaiseVolume"/>) ou refusée entière
-    /// par la limite de découvert.
+    /// par la limite de découvert. Annulable avec le reste du coup de pinceau (<see cref="UndoStroke"/>).
     /// </summary>
     public void RaiseTerrain(Point2 center, double radius, double deltaMeters)
     {
@@ -54,7 +54,7 @@ public sealed partial class World
             throw new ArgumentOutOfRangeException(nameof(deltaMeters), deltaMeters, "Le delta doit être fini.");
         }
 
-        _edits.Enqueue(new TerrainEdit(center, radius, Surface.Rough, deltaMeters, IsPaint: false));
+        _edits.Enqueue(new TerrainEdit(center, radius, Surface.Rough, deltaMeters, EditKind.Raise));
     }
 
     private void ApplyPendingEdits()
@@ -69,18 +69,30 @@ public sealed partial class World
         {
             var e = _edits.Dequeue();
             CellRect? rect;
-            if (e.IsPaint)
+            if (e.Kind == EditKind.BeginStroke)
+            {
+                ForgetStroke();
+                continue;
+            }
+
+            if (e.Kind == EditKind.UndoStroke)
+            {
+                rect = UndoStrokeNow(terrain);
+            }
+            else if (e.Kind == EditKind.Paint)
             {
                 // Prix : cellules qui changent réellement, au tarif de la surface d'arrivée. Refusée par la limite de découvert, rien ne change.
-                if (!terrain.KeepsWalkableCell(e.Center, e.Radius, e.Surface)
-                    || !TrySpend(LedgerCategory.Surfaces, Price(terrain.CountPaint(e.Center, e.Radius, e.Surface) * terrain.CellSize * terrain.CellSize, Economy.PaintCost(e.Surface))))
+                var cost = PerCell(terrain, terrain.CountPaint(e.Center, e.Radius, e.Surface), Economy.PaintCost(e.Surface));
+                if (!terrain.KeepsWalkableCell(e.Center, e.Radius, e.Surface) || !TrySpend(LedgerCategory.Surfaces, cost))
                 {
                     continue;
                 }
 
+                _strokeSurfacesCost += cost;
+
                 // Arbres posés sur du sous-bois dans la zone : ceux qui perdent leur sous-bois sont retirés.
                 var onUnderbrush = e.Surface == Surface.Trees ? null : TreesOnUnderbrush(terrain, e.Center, e.Radius);
-                rect = terrain.PaintDisc(e.Center, e.Radius, e.Surface);
+                rect = terrain.PaintDisc(e.Center, e.Radius, e.Surface, _strokeSurfaces);
                 if (rect is { } painted)
                 {
                     if (e.Surface == Surface.Trees)
@@ -95,12 +107,14 @@ public sealed partial class World
             }
             else
             {
-                if (!TrySpend(LedgerCategory.Relief, Price(terrain.RaiseVolume(e.Center, e.Radius, e.Delta), Economy.ReliefPerM3)))
+                var cost = ReliefPrice(terrain.RaiseVolume(e.Center, e.Radius, e.Delta));
+                if (!TrySpend(LedgerCategory.Relief, cost))
                 {
                     continue;
                 }
 
-                rect = terrain.RaiseDisc(e.Center, e.Radius, e.Delta);
+                _strokeReliefCost += cost;
+                rect = terrain.RaiseDisc(e.Center, e.Radius, e.Delta, _strokeHeights);
                 if (rect is { } raised)
                 {
                     // Le sol sous les troncs a bougé : les cimes avec lui.
@@ -110,7 +124,7 @@ public sealed partial class World
 
             if (rect is { } r)
             {
-                if (e.IsPaint)
+                if (e.Kind != EditKind.Raise)
                 {
                     RelocateStranded(terrain, r);
                 }
@@ -189,9 +203,18 @@ public sealed partial class World
             Mix(ref hash, (ulong)BitConverter.DoubleToInt64Bits(e.Radius));
             Mix(ref hash, (ulong)BitConverter.DoubleToInt64Bits(e.Delta));
             Mix(ref hash, (ulong)e.Surface);
-            Mix(ref hash, e.IsPaint ? 1UL : 0UL);
+            Mix(ref hash, (ulong)e.Kind);
         }
     }
 
-    private readonly record struct TerrainEdit(Point2 Center, double Radius, Surface Surface, double Delta, bool IsPaint);
+    private readonly record struct TerrainEdit(Point2 Center, double Radius, Surface Surface, double Delta, EditKind Kind);
+
+    /// <summary>Genre d'une retouche en file. Les valeurs entrent dans la sauvegarde et la somme de contrôle : ne pas réordonner.</summary>
+    private enum EditKind : byte
+    {
+        Raise,
+        Paint,
+        BeginStroke,
+        UndoStroke,
+    }
 }

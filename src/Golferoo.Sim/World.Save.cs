@@ -90,8 +90,9 @@ public sealed partial class World
             w.Double(e.Radius);
             w.Byte((byte)e.Surface);
             w.Double(e.Delta);
-            w.Bool(e.IsPaint);
+            w.Byte((byte)e.Kind);
         });
+        WriteStroke(w);
         w.List(_treeCommands, c =>
         {
             w.Byte((byte)c.Kind);
@@ -181,10 +182,12 @@ public sealed partial class World
         _groups.AddRange(r.List(() => Group.Read(r)));
         _roamers.AddRange(r.List(() => Golfer.Read(r)));
 
-        foreach (var e in r.List(() => new TerrainEdit(r.Point(), r.Double(), (Surface)r.Byte(), r.Double(), r.Bool())))
+        foreach (var e in r.List(() => new TerrainEdit(r.Point(), r.Double(), (Surface)r.Byte(), r.Double(), (EditKind)r.Byte())))
         {
-            _edits.Enqueue(e);
+            _edits.Enqueue(e.Kind <= EditKind.UndoStroke ? e : throw new InvalidDataException("Sauvegarde incohérente : retouche de genre inconnu."));
         }
+
+        ReadStroke(r);
 
         foreach (var c in r.List(() => new TreeCommand((TreeCommandKind)r.Byte(), r.Int(), r.Double(), r.Double(), r.Double(), r.Bool(), (TreeSpeciesId)r.Byte(), (TreePlantStage)r.Byte())))
         {
