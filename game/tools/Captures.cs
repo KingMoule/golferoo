@@ -728,7 +728,7 @@ public partial class Captures : Node
 
         // C21 : de près, les contours lissés du green 1 et de ses bunkers, puis la rive de l'étang voisin.
         var green1 = grid.Course[1].Green;
-        main.Camera.SetView(45f, 70f, new Vector3((float)green1.X, (float)grid.Sample(green1.X, green1.Z), (float)green1.Z));
+        main.Camera.SetView(225f, 70f, new Vector3((float)green1.X, (float)grid.Sample(green1.X, green1.Z), (float)green1.Z));
         await Frames(SettleFrames);
         Save("c21-bordures");
         var pond = new Point2(262, 130);
