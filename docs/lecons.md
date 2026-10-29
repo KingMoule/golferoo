@@ -38,3 +38,4 @@ Ajouter sans relire tout le fichier : `echo "- ..." >> docs/lecons.md`. `/amelio
 - Le job Captures dépassait le timeout de 300 s aux facteurs 3 et 4 à mesure que les chantiers ajoutent des vues : ces passes s'arrêtent maintenant à 5 images (`--limit`).
 - Un `git add -A` d'agent a embarqué les `.import` et `.uid` générés par Godot : à ajouter au `.gitignore` si ce n'est pas voulu.
 - La fumée comptait les coups du pro par son score : une pénalité d'eau la faisait échouer au hasard du vent (#116). Un test de fumée vérifie un évènement, pas un compteur qu'autre chose peut bouger.
+- Dans un worktree isolé, les agents voient refuser les commandes gh/git composées (jq select, && enchaînés, sed à variables) : ils attendent la CI par un script du scratchpad (C14 lot 2, C13 lot 4).
