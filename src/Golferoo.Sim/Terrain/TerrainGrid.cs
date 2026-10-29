@@ -206,6 +206,10 @@ public sealed class TerrainGrid
     public CellRect? PaintDisc(Point2 center, double radius, Surface surface, Surface? only, out int changed) =>
         PaintCells(center, radius, surface, only, apply: true, out changed);
 
+    /// <summary>Peint le disque comme <see cref="PaintDisc(Point2, double, Surface)"/> et note dans <paramref name="before"/> la surface d'origine de chaque cellule changée (index de cellule ; une cellule déjà notée garde sa première valeur).</summary>
+    internal CellRect? PaintDisc(Point2 center, double radius, Surface surface, Dictionary<int, Surface> before) =>
+        PaintCells(center, radius, surface, null, apply: true, out _, before);
+
     /// <summary>Nombre de cellules que <see cref="PaintDisc(Point2, double, Surface, Surface?, out int)"/> changerait, sans rien changer (prix d'une commande).</summary>
     public int CountPaint(Point2 center, double radius, Surface surface, Surface? only = null)
     {
@@ -213,7 +217,7 @@ public sealed class TerrainGrid
         return changed;
     }
 
-    private CellRect? PaintCells(Point2 center, double radius, Surface surface, Surface? only, bool apply, out int changed)
+    private CellRect? PaintCells(Point2 center, double radius, Surface surface, Surface? only, bool apply, out int changed, Dictionary<int, Surface>? before = null)
     {
         changed = 0;
         ValidateRadius(radius);
@@ -245,6 +249,7 @@ public sealed class TerrainGrid
                 {
                     if (apply)
                     {
+                        before?.TryAdd((cz * CellsX) + cx, current);
                         _surfaces[(cz * CellsX) + cx] = surface;
                     }
 
@@ -271,6 +276,34 @@ public sealed class TerrainGrid
     /// </summary>
     public CellRect? RaiseDisc(Point2 center, double radius, double deltaMeters) => RaiseCorners(center, radius, deltaMeters, apply: true, out _);
 
+    /// <summary>Monte le disque comme <see cref="RaiseDisc(Point2, double, double)"/> et note dans <paramref name="before"/> la hauteur d'origine de chaque coin changé (index <c>j × (CellsX + 1) + i</c>, première valeur gardée).</summary>
+    internal CellRect? RaiseDisc(Point2 center, double radius, double deltaMeters, Dictionary<int, double> before) => RaiseCorners(center, radius, deltaMeters, apply: true, out _, before);
+
+    /// <summary>
+    /// Remet les cellules et les coins notés par <see cref="PaintDisc(Point2, double, Surface, Dictionary{int, Surface})"/> et
+    /// <see cref="RaiseDisc(Point2, double, double, Dictionary{int, double})"/> à leur valeur d'origine. Rend le rectangle des cellules touchées, ou null.
+    /// </summary>
+    internal CellRect? Restore(IReadOnlyDictionary<int, Surface> surfaces, IReadOnlyDictionary<int, double> corners)
+    {
+        CellRect? rect = null;
+        foreach (var (index, surface) in surfaces)
+        {
+            var (cx, cz) = (index % CellsX, index / CellsX);
+            PaintCell(cx, cz, surface);
+            rect = rect is { } r ? r.Include(cx, cz) : new CellRect(cx, cz, cx, cz);
+        }
+
+        foreach (var (index, height) in corners)
+        {
+            var (i, j) = (index % (CellsX + 1), index / (CellsX + 1));
+            SetCornerHeight(i, j, height);
+            var cell = new CellRect(Math.Max(0, i - 1), Math.Max(0, j - 1), Math.Min(CellsX - 1, i), Math.Min(CellsZ - 1, j));
+            rect = rect is { } r ? r.Union(cell) : cell;
+        }
+
+        return rect;
+    }
+
     /// <summary>
     /// Volume de terre, en m³, que <see cref="RaiseDisc"/> déplacerait, sans rien changer (prix d'une commande) : somme des variations absolues
     /// de hauteur des coins, chaque coin comptant pour une cellule (<see cref="CellSize"/>²).
@@ -281,7 +314,7 @@ public sealed class TerrainGrid
         return volume;
     }
 
-    private CellRect? RaiseCorners(Point2 center, double radius, double deltaMeters, bool apply, out double volume)
+    private CellRect? RaiseCorners(Point2 center, double radius, double deltaMeters, bool apply, out double volume, Dictionary<int, double>? before = null)
     {
         volume = 0;
         ValidateRadius(radius);
@@ -319,6 +352,7 @@ public sealed class TerrainGrid
                 volume += Math.Abs(value - old) * CellSize * CellSize;
                 if (apply)
                 {
+                    before?.TryAdd((j * (CellsX + 1)) + i, old);
                     Heights.SetCornerHeight(i, j, value);
                 }
 

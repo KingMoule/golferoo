@@ -1140,6 +1140,8 @@ public partial class SmokeTest : Node
         Expect(!brush.Active && !trees.Active && !place.Active && !ui.Find(UiIds.Drawer.Root)!.Visible, "rien de pris : le tiroir reste ouvert");
         GD.Print($"SMOKE barre : outils, vignettes, actions, vitesses, caméra par leurs boutons ({failures.Count} échec)");
         CheckPanels(failures);
+        CheckBirdie(failures);
+        CheckUiScale(failures);
         CheckNoKeys(main, failures, []);
     }
 
@@ -1180,6 +1182,73 @@ public partial class SmokeTest : Node
         PushKey(Key.Escape);
         Expect(stack.Opened.Count == 0 && !main.Turf.IsOpen && main.ProPanel?.IsOpen != true, "la croix du Gazon puis Échap ne vident pas la pile");
         GD.Print($"SMOKE panneaux : trois empilés, Échap et croix ({failures.Count} échec)");
+    }
+
+    /// <summary>
+    /// C13 critère 10 : Birdie reçoit le message de sauvegarde (F5) et un avis de fin de saison de la ligue ; le compteur de non lus du bouton
+    /// monte à chacun et retombe à zéro quand le bouton ouvre le fil ; un clic sur l'avis d'un membre sur le parcours suit son golfeur.
+    /// </summary>
+    private void CheckBirdie(List<string> failures)
+    {
+        var main = _main!;
+        var birdie = main.Birdie;
+        void Expect(bool ok, string what)
+        {
+            if (!ok)
+            {
+                failures.Add($"birdie : {what} (non lus {birdie.Unread}, messages {birdie.Chirps.Count})");
+            }
+        }
+
+        var unread = birdie.Unread;
+        var badge = (Label)main.Ui.Find(UiIds.Hud.BirdieUnread)!;
+        Expect(!birdie.IsOpen && main.Ui.Find(UiIds.Round.Birdie) is BaseButton { Disabled: false }, "fil ouvert ou bouton grisé au départ");
+        PushKey(Key.F5);
+        Expect(birdie.Chirps[^1].Text.Contains("sauvegardée") && birdie.Unread == unread + 1, "F5 ne poste pas la sauvegarde");
+
+        var league = main.World.League!;
+        var golfer = main.World.Groups.SelectMany(g => g.Golfers).FirstOrDefault(g => g.MemberId >= 0);
+        var member = league.Members[golfer?.MemberId ?? 0];
+        main.League!.Announce(new Golferoo.Sim.League.LeagueEvent(league.Year, Golferoo.Sim.League.LeagueEventType.Champion, member.Id, 0));
+        Expect(birdie.Chirps[^1].Text.Contains("Champion") && birdie.Chirps[^1].MemberId == member.Id && birdie.Unread == unread + 2, "l'avis de champion manque");
+        Expect(badge.Visible && badge.Text == (unread + 2).ToString(CultureInfo.InvariantCulture) && main.Ui.Find(UiIds.Hud.BirdiePeek)!.Visible, "compteur ou aperçu absent");
+
+        Press(UiIds.Round.Birdie, failures);
+        Expect(birdie.IsOpen && main.Panels.Opened.Contains(main.Ui.Find(UiIds.Panel.Birdie)) && birdie.Unread == 0 && !badge.Visible, "l'ouverture ne remet pas le compteur à zéro");
+        var row = (Control)main.Ui.Find(UiIds.Hud.BirdieFeed)!.GetChild(0);
+        row.EmitSignal(Control.SignalName.GuiInput, new InputEventMouseButton { ButtonIndex = MouseButton.Left, Pressed = true });
+        Expect(golfer is null || main.Camera.FollowedId == golfer.Id, "le clic sur l'avis ne suit pas le golfeur du membre");
+        Press(UiIds.Round.Birdie, failures);
+        Expect(!birdie.IsOpen, "le bouton ne referme pas le fil");
+        GD.Print($"SMOKE birdie : sauvegarde et avis de ligue reçus, compteur remis à zéro, suivi {(golfer is null ? "sans golfeur membre" : "vérifié")} ({failures.Count} échec)");
+    }
+
+    /// <summary>
+    /// C13 critère 11 : à l'échelle 1,5 en 1080p, l'écran logique fait 1280×720 ; les deux étages de la barre, le tiroir Terrain et deux
+    /// panneaux ouverts (Ligue, Birdie) y tiennent sans déborder.
+    /// </summary>
+    private void CheckUiScale(List<string> failures)
+    {
+        var main = _main!;
+        var window = GetTree().Root;
+        var (oldSize, oldMode, oldFactor) = (window.ContentScaleSize, window.ContentScaleMode, window.ContentScaleFactor);
+        (window.ContentScaleSize, window.ContentScaleMode, window.ContentScaleFactor) = (new Vector2I(1920, 1080), Window.ContentScaleModeEnum.CanvasItems, 1.5f);
+        main.Bar.Select(ToolFamily.Terrain, toggle: false);
+        main.League!.Toggle();
+        main.Birdie.Toggle();
+        var screen = GetViewport().GetVisibleRect().Size;
+        var tiers = new[] { "BarTop", "BarBottom" }.Select(n => main.Bar.GetNode<Control>(n).GetCombinedMinimumSize().X).ToArray();
+        var dock = main.Panels.Dock.GetCombinedMinimumSize();
+        if (screen.DistanceTo(new Vector2(1280f, 720f)) > 1f || tiers.Any(w => w > screen.X) || dock.X > screen.X - 32f || dock.Y > screen.Y - BottomBar.Height - 28f)
+        {
+            failures.Add($"échelle 1,5 : écran {screen}, étages {string.Join(" / ", tiers)}, colonne {dock}");
+        }
+
+        GD.Print($"SMOKE echelle 1,5 : écran {screen}, étages {string.Join(" / ", tiers)}, colonne {dock}");
+        main.Birdie.Toggle();
+        main.League.Toggle();
+        main.Bar.Select(ToolFamily.None, toggle: false);
+        (window.ContentScaleSize, window.ContentScaleMode, window.ContentScaleFactor) = (oldSize, oldMode, oldFactor);
     }
 
     /// <summary>C13 critère 7 : aucun libellé, info-bulle ou texte de l'interface (et du tutoriel, <paramref name="extra"/>) ne cite une touche.</summary>

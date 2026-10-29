@@ -9,15 +9,15 @@ namespace Golferoo.Game.Tools;
 
 /// <summary>
 /// La ligue à l'écran (bouton Ligue) : classement de chaque division, carte de score d'un joueur au clic sur son nom,
-/// avis temporaires de fin de saison et ligne du pro pour le HUD. Rafraîchi à l'ouverture et au changement de jour, jamais par image.
+/// avis de journée et de fin de saison dans Birdie, et ligne du pro pour le HUD. Rafraîchi à l'ouverture et au changement de jour, jamais par image.
 /// </summary>
 public partial class LeaguePanel : Node
 {
-    private const ulong NoticeMilliseconds = 6000;
-
     private static readonly string[] FormatNames = ["stroke play", "stableford", "match play", "contre le par"];
     /// <summary>Style de jeu d'un membre (C09), dans l'ordre de <see cref="Archetype"/> ; le neutre n'est attribué à personne.</summary>
     private static readonly string[] StyleNames = ["", "prudent", "long frappeur", "joueur de draw", "joueur de fade", "artiste", "fonceur"];
+
+    private static readonly Color[] Avatars = [UiTheme.SkyDeep, UiTheme.Flag, UiTheme.Brick, UiTheme.Grass];
 
     private Main _main = null!;
     private LeagueSeason _league = null!;
@@ -26,10 +26,9 @@ public partial class LeaguePanel : Node
     private Label _title = null!;
     private Label _rating = null!;
     private VBoxContainer _divisions = null!;
+    private ScrollContainer _scroll = null!;
     private Label _champion = null!;
     private VBoxContainer _cardBody = null!;
-    private Label _notice = null!;
-    private ulong _noticeUntil;
     private int _eventsSeen;
     private Member? _shown;
     private ((int Cards, int Division, int Year) Key, string Text) _pro = ((-1, -1, -1), string.Empty);
@@ -40,7 +39,7 @@ public partial class LeaguePanel : Node
 
     public bool IsOpen => _panel.Visible;
 
-    /// <summary>Construit le panneau et la carte de score dans la pile, fermés, et l'avis (en haut au centre), caché.</summary>
+    /// <summary>Construit le panneau et la carte de score dans la pile, fermés.</summary>
     public void Init(Main main)
     {
         _main = main;
@@ -54,11 +53,11 @@ public partial class LeaguePanel : Node
         _rating = new Label { ThemeTypeVariation = "UiCaption", AutowrapMode = TextServer.AutowrapMode.WordSmart };
         _champion = new Label { ThemeTypeVariation = "UiCaption", AutowrapMode = TextServer.AutowrapMode.WordSmart };
         _divisions = new VBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
-        var scroll = new ScrollContainer { CustomMinimumSize = new Vector2(0f, 340f), HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled };
-        scroll.AddChild(_divisions);
+        _scroll = new ScrollContainer { HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled };
+        _scroll.AddChild(_divisions);
         box.AddChild(_title);
         box.AddChild(_rating);
-        box.AddChild(scroll);
+        box.AddChild(_scroll);
         box.AddChild(_champion);
         _panel.Closed += () => main.Panels.Close(_cardPanel);
         main.Panels.Add(_panel);
@@ -66,12 +65,6 @@ public partial class LeaguePanel : Node
         _cardPanel = UiPanel.Create(UiIds.Panel.LeagueCard, "Carte de score", "flag", CardWidth);
         _cardBody = _cardPanel.Content;
         main.Panels.Add(_cardPanel);
-
-        _notice = new Label { Name = "LeagueNotice", Visible = false, AnchorLeft = 0.5f, AnchorRight = 0.5f, OffsetLeft = -300f, OffsetRight = 300f, OffsetTop = 90f, HorizontalAlignment = HorizontalAlignment.Center };
-        _notice.AddThemeColorOverride("font_outline_color", Colors.Black);
-        _notice.AddThemeConstantOverride("outline_size", 6);
-        _notice.AddThemeFontSizeOverride("font_size", 22);
-        main.Ui.AddChild(_notice);
     }
 
     /// <summary>Décimale à la française : « 31,4 ».</summary>
@@ -86,41 +79,27 @@ public partial class LeaguePanel : Node
         }
 
         _main.Panels.Open(_panel);
+        UiTheme.FitList(_scroll);
         Refresh();
     }
 
-    public override void _Process(double delta)
-    {
-        if (_notice.Visible && Time.GetTicksMsec() >= _noticeUntil)
-        {
-            _notice.Visible = false;
-        }
-    }
-
-    /// <summary>Nouveau jour : avis (journée commencée, événements de fin de saison) puis rafraîchissement si le panneau est ouvert.</summary>
+    /// <summary>Nouveau jour : avis dans Birdie (journée commencée, événements de fin de saison) puis rafraîchissement si le panneau est ouvert.</summary>
     public void OnDayChanged()
     {
         var today = _league.Rounds.Append(_league.Final).FirstOrDefault(r => r.StartDay == _main.World.DayIndex);
         if (today is not null)
         {
-            Notify(today == _league.Final ? $"Finale de la ligue : {FormatNames[(int)today.Format]}" : $"Journée de ligue : {FormatNames[(int)today.Format]}");
+            _main.Birdie.Post(
+                Birdie.Club,
+                today == _league.Final
+                    ? $"Finale de la ligue aujourd'hui, en {FormatNames[(int)today.Format]}. Les meilleurs de chaque division sont au départ."
+                    : $"Journée de ligue aujourd'hui, en {FormatNames[(int)today.Format]}. Les membres partent du 1.",
+                today == _league.Final ? "#finale" : "#ligue");
         }
 
         for (; _eventsSeen < _league.Events.Count; _eventsSeen++)
         {
-            var e = _league.Events[_eventsSeen];
-            var who = _league.Members[e.MemberId];
-            var text = e.Type switch
-            {
-                LeagueEventType.Champion => who.IsPro ? "Votre pro est champion du club !" : $"{who.Name} est champion du club",
-                LeagueEventType.Promoted when who.IsPro => $"Votre pro monte en division {e.Division + 1}",
-                LeagueEventType.Relegated when who.IsPro => $"Votre pro descend en division {e.Division + 1}",
-                _ => null,
-            };
-            if (text is not null)
-            {
-                Notify(text);
-            }
+            Announce(_league.Events[_eventsSeen]);
         }
 
         if (_panel.Visible)
@@ -148,11 +127,35 @@ public partial class LeaguePanel : Node
         return _pro.Text;
     }
 
-    public void Notify(string text)
+    /// <summary>Fin de saison dans Birdie, à la voix du membre : le champion, et la montée ou la descente de votre pro. Un clic suit son golfeur.</summary>
+    public void Announce(LeagueEvent e)
     {
-        _notice.Text = text;
-        _notice.Visible = true;
-        _noticeUntil = Time.GetTicksMsec() + NoticeMilliseconds;
+        var who = _league.Members[e.MemberId];
+        var (text, tag) = e.Type switch
+        {
+            LeagueEventType.Champion when who.IsPro => ("Champion du club ! Je n'y crois pas encore. Merci à vous tous.", "#champion"),
+            LeagueEventType.Champion => ($"Champion du club, an {e.Year + 1} ! La tournée est pour moi au chalet.", "#champion"),
+            LeagueEventType.Promoted when who.IsPro => ($"Je monte en division {e.Division + 1}. La saison prochaine sera plus relevée.", "#promotion"),
+            LeagueEventType.Relegated when who.IsPro => ($"Je descends en division {e.Division + 1}. On se reprend la saison prochaine.", "#relégation"),
+            _ => (null, null),
+        };
+        if (text is not null)
+        {
+            _main.Birdie.Post(Voice(who), text, tag!, who.Id);
+        }
+    }
+
+    /// <summary>L'auteur d'un message de membre : votre pro, ou le membre et un pseudo tiré de son nom (« @ginette_lacasse »).</summary>
+    public static Birdie.Author Voice(Member member)
+    {
+        if (member.IsPro)
+        {
+            return Birdie.Pro;
+        }
+
+        var handle = new string(member.Name.ToLowerInvariant().Normalize(System.Text.NormalizationForm.FormD)
+            .Where(c => char.IsAsciiLetterOrDigit(c) || c == ' ').Select(c => c == ' ' ? '_' : c).ToArray());
+        return new Birdie.Author(member.Name, "@" + handle, Avatars[member.Id % Avatars.Length]);
     }
 
     private int DivisionOf(Member member)

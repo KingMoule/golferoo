@@ -26,6 +26,8 @@ public partial class TerrainRenderer : Node3D
     private ulong _turfUploadMs;
     private ShaderMaterial? _terrainMaterial;
     private ShaderMaterial? _waterMaterial;
+    private ShaderMaterial? _puddleMaterial;
+    private float[] _pondLevels = [];
     private TreeLayer? _trees;
 
     /// <summary>Sommets par cellule dans chaque direction (plus fin que la grille).</summary>
@@ -65,6 +67,8 @@ public partial class TerrainRenderer : Node3D
         _imageA = Image.CreateEmpty(grid.CellsX, grid.CellsZ, false, Image.Format.Rgba8);
         _imageB = Image.CreateEmpty(grid.CellsX, grid.CellsZ, false, Image.Format.Rgba8);
         UpdateWeights(0, 0, grid.CellsX, grid.CellsZ);
+        _pondLevels = new float[grid.CellsX * grid.CellsZ];
+        UpdatePondLevels();
         _textureA = ImageTexture.CreateFromImage(_imageA);
         _textureB = ImageTexture.CreateFromImage(_imageB);
         _turfTexture = ImageTexture.CreateFromImage(TurfImage());
@@ -72,11 +76,18 @@ public partial class TerrainRenderer : Node3D
         _turfUploadMs = Time.GetTicksMsec();
 
         _terrainMaterial = new ShaderMaterial { Shader = GD.Load<Shader>("res://shaders/terrain.gdshader") };
-        _terrainMaterial.SetShaderParameter("weights_a", _textureA);
-        _terrainMaterial.SetShaderParameter("weights_b", _textureB);
         _terrainMaterial.SetShaderParameter("turf_state", _turfTexture);
-        _terrainMaterial.SetShaderParameter("grid_size", new Vector2((float)(grid.CellsX * grid.CellSize), (float)(grid.CellsZ * grid.CellSize)));
-        _waterMaterial = new ShaderMaterial { Shader = GD.Load<Shader>("res://shaders/water.gdshader") };
+        var water = GD.Load<Shader>("res://shaders/water.gdshader");
+        _waterMaterial = new ShaderMaterial { Shader = water };
+        _waterMaterial.SetShaderParameter("shore_mask", true);
+        _puddleMaterial = new ShaderMaterial { Shader = water };
+        foreach (var material in new[] { _terrainMaterial, _waterMaterial })
+        {
+            // Terrain et plans d'eau lisent le même champ des surfaces : la rive de l'un est celle de l'autre.
+            material.SetShaderParameter("weights_a", _textureA);
+            material.SetShaderParameter("weights_b", _textureB);
+            material.SetShaderParameter("grid_size", new Vector2((float)(grid.CellsX * grid.CellSize), (float)(grid.CellsZ * grid.CellSize)));
+        }
 
         for (var j = 0; j < ChunksZ; j++)
         {
@@ -148,7 +159,7 @@ public partial class TerrainRenderer : Node3D
         PuddleCells = cells.Count;
         if (cells.Count > 0)
         {
-            _puddles = new MeshInstance3D { Name = "Puddles", Mesh = Quads(_grid, cells), MaterialOverride = _waterMaterial, CastShadow = GeometryInstance3D.ShadowCastingSetting.Off };
+            _puddles = new MeshInstance3D { Name = "Puddles", Mesh = Quads(_grid, cells), MaterialOverride = _puddleMaterial, CastShadow = GeometryInstance3D.ShadowCastingSetting.Off };
             AddChild(_puddles);
         }
 
@@ -253,6 +264,12 @@ public partial class TerrainRenderer : Node3D
             }
         }
 
+        // Un étang à cheval sur plusieurs blocs change de niveau partout à la fois.
+        foreach (var (i, j) in UpdatePondLevels())
+        {
+            BuildWater(i, j);
+        }
+
         RebuiltChunks += rebuilt;
         _trees?.RebuildCells(x0, z0, x1, z1);
         Flowers?.Invalidate();
@@ -292,7 +309,92 @@ public partial class TerrainRenderer : Node3D
         var nz = Math.Min(ChunkCells, grid.CellsZ - cz0);
 
         ReplaceChunk(_terrainChunks, ci, cj, $"Terrain_{ci}_{cj}", BuildTerrainMesh(grid, cx0, cz0, nx, nz), _terrainMaterial!);
-        ReplaceChunk(_waterChunks, ci, cj, $"Water_{ci}_{cj}", BuildWaterMesh(grid, cx0, cz0, nx, nz), _waterMaterial!);
+        BuildWater(ci, cj);
+    }
+
+    private void BuildWater(int ci, int cj)
+    {
+        var grid = _grid!;
+        var cx0 = ci * ChunkCells;
+        var cz0 = cj * ChunkCells;
+        var nx = Math.Min(ChunkCells, grid.CellsX - cx0);
+        var nz = Math.Min(ChunkCells, grid.CellsZ - cz0);
+        ReplaceChunk(_waterChunks, ci, cj, $"Water_{ci}_{cj}", BuildWaterMesh(grid, _pondLevels, cx0, cz0, nx, nz), _waterMaterial!);
+    }
+
+    /// <summary>
+    /// Niveau de chaque étang (cellules d'eau reliées par un côté) : le plus haut centre de ses cellules, plus 10 cm (le shader d'eau coupe la rive, le plan peut dépasser un peu du sol) ; NaN hors de l'eau.
+    /// Un seul niveau par étang, même à cheval sur plusieurs blocs : sinon la rive suit les marches du fond. Rend les blocs dont le niveau a changé.
+    /// </summary>
+    private HashSet<(int I, int J)> UpdatePondLevels()
+    {
+        var grid = _grid!;
+        var (w, h) = (grid.CellsX, grid.CellsZ);
+        var levels = new float[w * h];
+        Array.Fill(levels, float.NaN);
+        var pond = new List<int>();
+        var stack = new Stack<int>();
+        for (var start = 0; start < levels.Length; start++)
+        {
+            if (!float.IsNaN(levels[start]) || grid.GetCellSurface(start % w, start / w) != Surface.Water)
+            {
+                continue;
+            }
+
+            pond.Clear();
+            levels[start] = 0f;
+            stack.Push(start);
+            var top = double.MinValue;
+            while (stack.TryPop(out var c))
+            {
+                pond.Add(c);
+                var center = grid.CellCenter(c % w, c / w);
+                top = Math.Max(top, grid.Sample(center.X, center.Z));
+                Visit(c % w > 0 ? c - 1 : -1);
+                Visit(c % w < w - 1 ? c + 1 : -1);
+                Visit(c - w);
+                Visit(c + w);
+            }
+
+            foreach (var c in pond)
+            {
+                levels[c] = (float)top + 0.1f;
+            }
+        }
+
+        void Visit(int n)
+        {
+            if (n >= 0 && n < levels.Length && float.IsNaN(levels[n]) && grid.GetCellSurface(n % w, n / w) == Surface.Water)
+            {
+                levels[n] = 0f;
+                stack.Push(n);
+            }
+        }
+
+        var changed = new HashSet<(int I, int J)>();
+        for (var c = 0; c < levels.Length; c++)
+        {
+            if (levels[c].Equals(_pondLevels[c]))
+            {
+                continue;
+            }
+
+            // Le plan déborde d'une cellule : la voisine peut tomber dans le bloc d'à côté.
+            for (var dz = -1; dz <= 1; dz++)
+            {
+                for (var dx = -1; dx <= 1; dx++)
+                {
+                    var (x, z) = ((c % w) + dx, (c / w) + dz);
+                    if (x >= 0 && z >= 0 && x < w && z < h)
+                    {
+                        changed.Add((x / ChunkCells, z / ChunkCells));
+                    }
+                }
+            }
+        }
+
+        _pondLevels = levels;
+        return changed;
     }
 
     private void ReplaceChunk(MeshInstance3D?[,] store, int ci, int cj, string name, ArrayMesh? mesh, Material material)
@@ -357,22 +459,35 @@ public partial class TerrainRenderer : Node3D
         return MakeMesh(vertices, normals, indices);
     }
 
-    private static ArrayMesh? BuildWaterMesh(TerrainGrid grid, int cx0, int cz0, int nx, int nz)
+    /// <summary>
+    /// Plan d'eau du bloc : les cellules d'eau et celles qui les bordent, car la rive lissée du shader passe en dehors des cellules
+    /// d'eau aux coins rentrants. Le shader d'eau découpe la rive ; chaque cellule prend le niveau de l'étang voisin (<paramref name="levels"/>).
+    /// </summary>
+    private static ArrayMesh? BuildWaterMesh(TerrainGrid grid, float[] levels, int cx0, int cz0, int nx, int nz)
     {
-        var cells = new List<(int X, int Z)>();
-        var level = double.MinValue;
+        var cells = new List<(int X, int Z, float Y)>();
         for (var cz = cz0; cz < cz0 + nz; cz++)
         {
             for (var cx = cx0; cx < cx0 + nx; cx++)
             {
-                if (grid.GetCellSurface(cx, cz) != Surface.Water)
+                var level = float.NaN;
+                for (var dz = -1; dz <= 1; dz++)
                 {
-                    continue;
+                    for (var dx = -1; dx <= 1; dx++)
+                    {
+                        var (x, z) = (cx + dx, cz + dz);
+                        var y = x >= 0 && z >= 0 && x < grid.CellsX && z < grid.CellsZ ? levels[(z * grid.CellsX) + x] : float.NaN;
+                        if (!float.IsNaN(y) && !(y <= level))
+                        {
+                            level = y;
+                        }
+                    }
                 }
 
-                var c = grid.CellCenter(cx, cz);
-                level = Math.Max(level, grid.Sample(c.X, c.Z));
-                cells.Add((cx, cz));
+                if (!float.IsNaN(level))
+                {
+                    cells.Add((cx, cz, level));
+                }
             }
         }
 
@@ -381,8 +496,7 @@ public partial class TerrainRenderer : Node3D
             return null;
         }
 
-        var y = (float)level + 0.05f;
-        return Quads(grid, cells.Select(c => (c.X, c.Z, y)).ToList());
+        return Quads(grid, cells);
     }
 
     /// <summary>Un carré horizontal par cellule, à la hauteur donnée.</summary>

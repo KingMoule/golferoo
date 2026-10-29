@@ -78,7 +78,7 @@ public partial class ProPanel : Node
             if (whole < _seen[i])
             {
                 _seen[i] = whole;
-                _main.League?.Notify($"{Skills[i].Name} : handicap {whole}");
+                _main.Birdie.Post(Birdie.Pro, $"Mon entraînement paie : {Skills[i].Name.ToLowerInvariant()}, handicap {whole}.", "#progrès", _main.World.League?.Members.FirstOrDefault(m => m.IsPro)?.Id ?? -1);
                 Refresh();
             }
         }
