@@ -846,7 +846,7 @@ public partial class Captures : Node
 
     /// <summary>
     /// C13 lot 4 : trois messages du jeu dans Birdie, l'aperçu du dernier en haut à gauche et le compteur sur son bouton (<c>c13-birdie</c>) ;
-    /// puis l'interface à 150 % (l'écran logique fait 1280×720) avec le tiroir Terrain, la Ligue et le fil ouverts (<c>c13-echelle-150</c>).
+    /// puis l'interface à 150 % (l'écran logique fait 1280×720) avec le tiroir Terrain et quatre panneaux (Gazon, Ligue, Votre pro, Birdie) dont le plus ancien se replie (<c>c13-echelle-150</c>).
     /// </summary>
     private async Task BirdieViews(Main main)
     {
@@ -864,13 +864,15 @@ public partial class Captures : Node
         var window = GetTree().Root;
         window.ContentScaleFactor = 1.5f;
         main.Bar.Select(ToolFamily.Terrain, toggle: false);
+        main.Turf.Toggle();
         main.League?.Toggle();
+        main.ProPanel?.Toggle();
         main.Birdie.Toggle();
         await Frames(SettleFrames);
         var screen = window.GetVisibleRect();
         var outside = main.Ui.FindChildren("*", "Control", recursive: true, owned: false).OfType<Control>()
             .Count(c => c.IsVisibleInTree() && c.Size.X > 0f && !screen.Grow(1f).Encloses(c.GetGlobalRect()));
-        GD.Print($"ECHELLE 1,5 ecran={screen.Size} hors_ecran={outside}");
+        GD.Print($"ECHELLE 1,5 ecran={screen.Size} hors_ecran={outside} replies={string.Join(",", main.Panels.Opened.Where(p => p.Folded).Select(p => p.Name))}");
         Save("c13-echelle-150");
         foreach (var panel in main.Panels.Opened.ToList())
         {

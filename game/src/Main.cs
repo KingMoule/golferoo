@@ -58,6 +58,7 @@ public partial class Main : Node3D
     private DirectionalLight3D? _sun;
     private int _month;
     private int _day;
+    private Golferoo.Sim.Trees.Season _season;
     private bool _turfOverlay;
     private RatingJob? _ratingJob;
     private int _ratedHoles;
@@ -355,6 +356,7 @@ public partial class Main : Node3D
         WeatherView.Init(environment.Environment, _sun);
         _month = World.Date.Month;
         _day = World.DayIndex;
+        _season = World.Season;
         ResetSnapshots();
         UpdateHud(0);
 
@@ -827,6 +829,7 @@ public partial class Main : Node3D
         _day = World.DayIndex;
         AutoSave();
         _league?.OnDayChanged();
+        AnnounceDay();
         var newMonth = World.Date.Month != _month;
         _month = World.Date.Month;
         // Un changement de feuillage refait déjà tous les blocs, croissance comprise.
@@ -834,6 +837,18 @@ public partial class Main : Node3D
         {
             TerrainView.Trees?.Regrow();
         }
+    }
+
+    /// <summary>Birdie au matin : un message au changement de saison, puis la météo du jour et la prévision du lendemain.</summary>
+    private void AnnounceDay()
+    {
+        if (World.Season != _season)
+        {
+            _season = World.Season;
+            Birdie.Post(Birdie.Club, $"{UiNames.Capitalized(UiNames.Seasons[(int)_season])} sur le parcours : le gazon et le feuillage changent.", "#saison");
+        }
+
+        Birdie.Post(Birdie.Club, $"Ce matin : {UiNames.Skies[(int)World.Weather.Sky]}. Demain : {UiNames.Skies[(int)World.Forecast(1)]}.", "#météo");
     }
 
     private void StepOnce()

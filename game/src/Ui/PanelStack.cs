@@ -37,6 +37,11 @@ public partial class PanelStack : HBoxContainer
         panel.Visible = false;
         panel.SizeFlagsVertical = SizeFlags.ShrinkEnd;
         panel.Closed += () => Close(panel);
+        panel.UnfoldRequested += () =>
+        {
+            panel.Folded = false;
+            Fit(panel);
+        };
         AddChild(panel);
     }
 
@@ -62,12 +67,35 @@ public partial class PanelStack : HBoxContainer
 
         _open.Add(panel);
         MoveChild(panel, 0);
+        panel.Folded = false;
         panel.Visible = true;
+        Fit(panel);
+    }
+
+    /// <summary>
+    /// Quand les panneaux ouverts ne tiennent plus en largeur (150 % : 1 248 px), le plus ancien se replie en onglet, puis le suivant,
+    /// jusqu'à ce que la pile tienne ; <paramref name="keep"/>, le panneau qu'on vient d'ouvrir ou de déplier, ne se replie jamais.
+    /// </summary>
+    private void Fit(UiPanel keep)
+    {
+        var separation = GetThemeConstant("separation");
+        var available = GetViewportRect().Size.X - 32f;
+        float Needed() => _open.Sum(p => p.Folded ? UiPanel.FoldedWidth : p.FullWidth) + (separation * (_open.Count - 1));
+        foreach (var old in _open.Where(p => p != keep && !p.Folded).ToList())
+        {
+            if (Needed() <= available)
+            {
+                break;
+            }
+
+            old.Folded = true;
+        }
     }
 
     public void Close(UiPanel panel)
     {
         panel.Visible = false;
+        panel.Folded = false;
         _open.Remove(panel);
     }
 

@@ -8,15 +8,41 @@ public partial class UiPanel : PanelContainer
     [Signal]
     public delegate void ClosedEventHandler();
 
+    /// <summary>Largeur d'un panneau replié : l'icône ronde de l'en-tête, rien d'autre.</summary>
+    public const float FoldedWidth = 56f;
+
+    /// <summary>Un clic sur l'en-tête d'un panneau replié le demande déplié.</summary>
+    [Signal]
+    public delegate void UnfoldRequestedEventHandler();
+
+    private Control _body = null!;
+    private float _width;
+
     public Label Title { get; private set; } = null!;
     public Button CloseButton { get; private set; } = null!;
 
     /// <summary>Le contenu du panneau, à remplir par l'appelant.</summary>
     public VBoxContainer Content { get; private set; } = null!;
 
+    /// <summary>La largeur du panneau déplié.</summary>
+    public float FullWidth => _width;
+
+    /// <summary>Replié (pile trop large) : seule l'icône de l'en-tête reste, le contenu et la croix se cachent ; un clic sur l'icône le déplie.</summary>
+    public bool Folded
+    {
+        get => !_body.Visible;
+        set
+        {
+            _body.Visible = !value;
+            Title.Visible = CloseButton.Visible = !value;
+            CustomMinimumSize = new Vector2(value ? FoldedWidth : _width, 0f);
+            TooltipText = value ? Title.Text : string.Empty;
+        }
+    }
+
     public static UiPanel Create(string id, string title, string icon, float width)
     {
-        var panel = new UiPanel { Name = id, ThemeTypeVariation = "UiPanel", CustomMinimumSize = new Vector2(width, 0f) };
+        var panel = new UiPanel { Name = id, ThemeTypeVariation = "UiPanel", CustomMinimumSize = new Vector2(width, 0f), _width = width };
         panel.AddChild(UiTheme.GlassBackdrop());
         var body = new VBoxContainer();
         body.AddThemeConstantOverride("separation", 0);
@@ -30,6 +56,13 @@ public partial class UiPanel : PanelContainer
         var header = new PanelContainer { Name = "Header" };
         header.AddThemeStyleboxOverride("panel", headerStyle);
         body.AddChild(header);
+        header.GuiInput += e =>
+        {
+            if (panel.Folded && e is InputEventMouseButton { ButtonIndex: MouseButton.Left, Pressed: true })
+            {
+                panel.EmitSignal(SignalName.UnfoldRequested);
+            }
+        };
         var row = new HBoxContainer();
         row.AddThemeConstantOverride("separation", 10);
         header.AddChild(row);
@@ -56,6 +89,7 @@ public partial class UiPanel : PanelContainer
         margin.AddThemeConstantOverride("margin_top", 10);
         margin.AddThemeConstantOverride("margin_bottom", 14);
         body.AddChild(margin);
+        panel._body = margin;
         panel.Content = new VBoxContainer();
         panel.Content.AddThemeConstantOverride("separation", 8);
         margin.AddChild(panel.Content);
