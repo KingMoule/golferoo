@@ -23,14 +23,14 @@ public class CourseTests
     // C21 lot 2 : les six sommes de coups changent (écarts types et niveaux recalés, vraie loi normale par Box-Muller, tirage d'un choix non
     // optimal par coup au RNG du monde) ; les trois de « blank-coude », sans coup joué, non.
     // C25 lot 2 : les six sommes de coups changent ; cause unique = la pénalité de lie (rough, bunker) et le backspin selon le club, pour tous les
-    // golfeurs (les écarts types de base sont recalés) ; les trois de « blank-coude », sans coup, non.
+    // golfeurs, les écarts types de base recalés de Club.cs (irons -8 %, driver et bois +4 %) et BeautyDispersion 0,4 → 0,22 (artiste) ; les trois de « blank-coude », sans coup, non.
     // C21 lot 3 : les six sommes de coups changent encore, cause unique = la journée de 9 min (le vent suit la fraction de journée, donc
     // les mêmes 2000 ticks tombent plus tôt dans la journée et les coups voient un autre vent) ; les trois de « blank-coude », sans coup, non.
-    [InlineData("proto-par4", 1UL, 10588964417231300836UL)]
+    [InlineData("proto-par4", 1UL, 7934645025154228227UL)]
     [InlineData("proto-par4", 2UL, 9463886516495917249UL)]
     [InlineData("proto-par4", 3UL, 17651672777512016224UL)]
     [InlineData("dogleg-par4", 1UL, 1906927319446745666UL)]
-    [InlineData("dogleg-par4", 2UL, 14126008461882208105UL)]
+    [InlineData("dogleg-par4", 2UL, 11357720872183965507UL)]
     [InlineData("dogleg-par4", 3UL, 15568084582046407330UL)]
     [InlineData("blank-coude", 1UL, 6977119086498316254UL)]
     [InlineData("blank-coude", 2UL, 6838184519777748364UL)]
