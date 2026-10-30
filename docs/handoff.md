@@ -16,7 +16,7 @@ Journal des commandes et rejeu ; sauvegardes nommées ; migration de format à l
 - Fusion : une PR prête (quatre jobs de CI verts sur le dernier commit, audit prévu par la spec sans bloquant, aucun commentaire de revue ouvert) est fusionnée par la session elle-même, méthode merge, épinglée au commit de tête (`gh pr merge N --merge --match-head-commit <sha>`, autorisé par `.claude/settings.local.json`, fichier local). On ne supprime pas la branche. Une PR qui touche `CLAUDE.md`, `.claude/` ou `docs/workflow.md` attend Guillaume.
 - Chantiers de l'alpha et nouveaux chantiers : Guillaume veut être interrogé avant chaque spec ; rondes de questions numérotées avec recommandation, maquette quand c'est visuel, spec validée par lui (« go ») avant les lots.
 - Orchestration sans Threads : la session principale orchestre et délègue chaque chantier ou audit à un agent du dépôt (`codeur`, `auditeur`) en arrière-plan, `isolation: worktree`, plusieurs en parallèle sur des zones disjointes ; un correctif se renvoie au même agent par `SendMessage`.
-- Environnement local Windows (`C:\dev\golferoo`) : .NET 10 et `gh` installés, pas de Godot (la CI fait foi). Le lanceur de tests échoue sur les chemins trop longs des worktrees (Win32 87) : copier dans `C:\t\...`. `core.autocrlf=true` : `dotnet format` signale des ENDOFLINE partout en local, à filtrer.
+- Environnement local Windows (`C:\dev\golferoo`) : .NET 10 et `gh` installés, pas de Godot (la CI fait foi). Les astuces Windows (chemins courts, Release) sont dans `CLAUDE.md` ; `.gitattributes` force LF sur les `.cs` (plus d'ENDOFLINE après un nouveau checkout).
 - Assets 3D : partir du catalogue `catalogue-assets/` ; filières dans `docs/assets-3d.md`.
 
 ## Décisions récentes

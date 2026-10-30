@@ -1,0 +1,7 @@
+# Fins de ligne LF dans la copie de travail, même sous Windows (core.autocrlf=true) :
+# sans ça, `dotnet format --verify-no-changes` signale des ENDOFLINE sur tout le dépôt.
+*.cs text eol=lf
+*.csproj text eol=lf
+*.sln text eol=lf
+*.json text eol=lf
+*.md text eol=lf
