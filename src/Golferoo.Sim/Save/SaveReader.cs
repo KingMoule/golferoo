@@ -11,11 +11,15 @@ internal sealed class SaveReader
     private readonly MemoryStream _body;
     private readonly BinaryReader _in;
 
-    internal SaveReader(MemoryStream body)
+    internal SaveReader(MemoryStream body, int version = SaveFormat.Version)
     {
+        Version = version;
         _body = body;
         _in = new BinaryReader(body, Encoding.UTF8, leaveOpen: true);
     }
+
+    /// <summary>Version du format du fichier lu.</summary>
+    internal int Version { get; }
 
     /// <summary>Octets restant à lire.</summary>
     internal long Remaining => _body.Length - _body.Position;

@@ -1,4 +1,5 @@
 using System.IO.Compression;
+using Golferoo.Sim.Buildings;
 using Golferoo.Sim.Economy;
 using Golferoo.Sim.Golfers;
 using Golferoo.Sim.Pro;
@@ -376,7 +377,7 @@ public class SaveTests
     public void Load_UnknownVersion_Throws()
     {
         var bytes = Save(Build(1, "proto", "start"));
-        bytes[4] = 12;
+        bytes[4] = 13;
 
         Assert.Throws<InvalidDataException>(() => Load(bytes));
     }
@@ -953,5 +954,82 @@ public class SaveTests
         }
 
         return false;
+    }
+
+    /// <summary>C15 lot 1 (v12) : le pavillon se sauve, se relit et entre dans la somme de contrôle ; un pavillon déplacé se relit à sa nouvelle place.</summary>
+    [Fact]
+    public void Clubhouse_IsSavedLoadedAndChecksummed()
+    {
+        var world = new World(3, ClubhouseTests.LeNeuf(), league: true, placeClubhouse: true);
+        var bare = new World(3, ClubhouseTests.LeNeuf(), league: true);
+        Assert.NotEqual(bare.Checksum(), world.Checksum());
+
+        var loaded = Load(Save(world));
+        Assert.Equal(world.Clubhouse, loaded.Clubhouse);
+        Assert.Equal(world.Checksum(), loaded.Checksum());
+        Assert.Equal(Save(world), Save(loaded));
+
+        // Déplacé puis rechargé : même position, mêmes champs en attente, mêmes pas ensuite.
+        var t = world.Terrain!;
+        var placed = world.Clubhouse;
+        var moved = Enumerable.Range(0, t.CellsX / 4)
+            .Select(k => new Point2(((k * 4) + 0.5) * t.CellSize, ((placed!.Footprint.MinZ + 4) + 0.5) * t.CellSize))
+            .Any(p => world.TryMoveClubhouse(p, DoorSide.West));
+        Assert.True(moved);
+        Assert.NotEqual(placed, world.Clubhouse);
+        var reloaded = Load(Save(world));
+        Assert.Equal(world.Clubhouse, reloaded.Clubhouse);
+        Assert.Equal(world.Checksum(), reloaded.Checksum());
+        world.Step(200);
+        reloaded.Step(200);
+        Assert.Equal(world.Checksum(), reloaded.Checksum());
+    }
+
+    /// <summary>
+    /// Une sauvegarde v11 (sans pavillon, 8 catégories au grand livre, sans clubhouseMove) se charge, avec un pavillon placé automatiquement.
+    /// Le fichier v11 est fabriqué en retirant ces trois ajouts d'une sauvegarde v12 de monde frais.
+    /// </summary>
+    [Fact]
+    public void Load_V11_PlacesTheClubhouseAutomatically()
+    {
+        var world = new World(5, ClubhouseTests.LeNeuf(), league: true);
+        var v12 = Save(world);
+        var raw = Unpack(v12);
+
+        byte[] Bytes(Action<Golferoo.Sim.Save.SaveWriter> write)
+        {
+            var w = new Golferoo.Sim.Save.SaveWriter();
+            write(w);
+            return w.Written.ToArray();
+        }
+
+        byte[] Replace(byte[] all, byte[] what, byte[] with)
+        {
+            var at = all.AsSpan().IndexOf(what);
+            Assert.True(at >= 0, "section introuvable dans le corps");
+            return [.. all[..at], .. with, .. all[(at + what.Length)..]];
+        }
+
+        var legacyJson = System.Text.Json.Nodes.JsonNode.Parse(world.Economy.ToJson())!.AsObject();
+        Assert.True(legacyJson.Remove("clubhouseMove"));
+        raw = Replace(raw, Bytes(w => w.String(world.Economy.ToJson())), Bytes(w => w.String(legacyJson.ToJsonString())));
+
+        var ledger = Bytes(w => world.Ledger.Write(w));
+        var categories = Enum.GetValues<LedgerCategory>().Length;
+        var legacyLedger = ledger[..(20 + (8 * (categories - 1)))].Concat(ledger[(20 + (8 * categories))..]).ToArray();
+        raw = Replace(raw, ledger, legacyLedger);
+
+        Assert.Equal(0, raw[^1]); // pas de pavillon
+        raw = raw[..^1];
+
+        var file = (byte[])v12.Clone();
+        file[4] = 11;
+        var loaded = Load(Pack(file, raw, Golferoo.Sim.Save.SaveFormat.Hash(raw)));
+
+        Assert.NotNull(loaded.Clubhouse);
+        Assert.Equal(world.Economy.ClubhouseMove, loaded.Economy.ClubhouseMove);
+        Assert.Equal(world.Ledger.Balance, loaded.Ledger.Balance);
+        Assert.NotNull(loaded.ClubhouseField);
+        Assert.Equal(new World(5, ClubhouseTests.LeNeuf(), league: true, placeClubhouse: true).Clubhouse, loaded.Clubhouse);
     }
 }

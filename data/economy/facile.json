@@ -47,5 +47,8 @@
 
   // Humeur à la fin du trou : facteur du green fee de ×0,5 (humeur −10) à ×1,2 (humeur +10), ×1 à humeur neutre
   "moodFactorMinBasisPoints": 5000,
-  "moodFactorMaxBasisPoints": 12000
+  "moodFactorMaxBasisPoints": 12000,
+
+  // Bâtiments (C15) : déplacer le pavillon
+  "clubhouseMove": 500000
 }
