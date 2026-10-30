@@ -74,6 +74,9 @@ public sealed class VisitorPool
         return v;
     }
 
+    /// <summary>Retire les visiteurs arrivés depuis le numéro <paramref name="count"/> (un groupe refusé n'a pas laissé de trace).</summary>
+    internal void TruncateTo(int count) => _visitors.RemoveRange(count, _visitors.Count - count);
+
     /// <summary>
     /// Les visiteurs qui peuvent revenir le jour <paramref name="day"/> : libres, pas venus ce jour-là, envie de revenir d'au moins
     /// <paramref name="threshold"/>. Dans l'ordre du vivier.

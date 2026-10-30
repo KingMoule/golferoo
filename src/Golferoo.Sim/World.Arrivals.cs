@@ -71,16 +71,22 @@ public sealed partial class World
     private void Arrive()
     {
         var day = DayIndex;
+        var firstNew = Visitors.Next;
         var visitors = Compose(Arrivals.GroupSize(_arrivalRng.NextDouble()));
         if (QueueLength >= Arrivals.QueueCapacity)
         {
-            // File pleine : le groupe repart, mauvaise sortie.
+            // File pleine : le groupe repart, mauvaise sortie. Un nouveau visiteur refusé n'entre pas dans le vivier.
             foreach (var v in visitors)
             {
                 v.InPlay = false;
-                v.LastVisitDay = day;
-                v.Desire = Math.Max(0.0, v.Desire - Arrivals.DesireRefused);
+                if (v.Id < firstNew)
+                {
+                    v.LastVisitDay = day;
+                    v.Desire = Math.Max(0.0, v.Desire - Arrivals.DesireRefused);
+                }
             }
+
+            Visitors.TruncateTo(firstNew);
 
             Reputation += (0.0 - Reputation) * Arrivals.ReputationWeight;
             GroupTurnedAway?.Invoke(visitors);

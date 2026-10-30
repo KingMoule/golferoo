@@ -100,24 +100,52 @@ public class ArrivalTests(ITestOutputHelper output)
     }
 
     /// <summary>
-    /// Critère 4 (version du lot 2, en attente de la décision sur la capacité) : 30 jours de printemps et d'été sur « Le neuf » ouvert, météo naturelle de la graine de référence.
-    /// Le parcours n'absorbe qu'environ 1 à 1,5 départ par jour (un tour de 9 trous dure 3 à 4 jours de jeu) : voir le rapport du lot.
+    /// Critère 4, part du lot 2 : 30 jours de printemps et d'été sur « Le neuf » ouvert, météo naturelle de la graine de référence
+    /// (résolveur simplifié : l'arrivée ne dépend pas de la physique du vol).
     /// </summary>
     [Fact]
     public void LeNeuf_AttractsBetween15And25GroupsADay()
     {
-        var world = NewWorld(1, physical: true);
+        var world = NewWorld(1);
         var counter = new Counter(world);
-        var departed = new HashSet<int>();
-        for (var i = 0; i < 30 * Day; i += 100)
-        {
-            world.Step(100);
-            departed.UnionWith(world.Groups.Where(g => g.FromArrivals && g.Released).Select(g => g.Id));
-        }
-
-        output.WriteLine($"{counter.Total} arrivées en 30 jours ({counter.Total / 30.0:0.0} par jour), {departed.Count} départs ({departed.Count / 30.0:0.0} par jour), {counter.TurnedAway} refusées, réputation {world.Reputation:0.00}");
+        world.Step(30 * Day);
+        output.WriteLine($"{counter.Total} arrivées en 30 jours ({counter.Total / 30.0:0.0} par jour), {counter.TurnedAway} refusées, réputation {world.Reputation:0.00}");
 
         Assert.InRange(counter.Total / 30.0, 15.0, 25.0);
+    }
+
+    /// <summary>Débit : un golfeur qui marche vers la porte après le trou 9 ne retient pas le groupe suivant, donc le parcours chargé se vide et les tours ne s'allongent pas au fil des groupes.</summary>
+    [Fact]
+    public void LoadedCourse_KeepsFlowing_RoundsDoNotGrowLonger()
+    {
+        var world = NewWorld(1, ArrivalParams.Default.AtMaxAttraction());
+        var started = new Dictionary<int, long>();
+        var rounds = new List<(int Id, double Days)>();
+        var left = 0;
+        world.GroupLeft += _ => left++;
+        for (var i = 0; i < 30 * Day; i += 50)
+        {
+            world.Step(50);
+            foreach (var g in world.Groups.Where(g => g.FromArrivals && g.Released && !g.Leaving))
+            {
+                started.TryAdd(g.Id, world.Tick);
+            }
+
+            foreach (var g in world.Groups.Where(g => g.FromArrivals && g.Leaving && started.ContainsKey(g.Id)))
+            {
+                if (!rounds.Any(r => r.Id == g.Id))
+                {
+                    rounds.Add((g.Id, (world.Tick - started[g.Id]) / (double)Day));
+                }
+            }
+        }
+
+        var mean = rounds.Count == 0 ? 0.0 : rounds.Average(r => r.Days);
+        var late = rounds.Skip(rounds.Count / 2).DefaultIfEmpty().Average(r => r.Days);
+        output.WriteLine($"{left} groupes sortis en 30 jours, {rounds.Count} tours finis, tour moyen {mean:0.0} j, seconde moitié {late:0.0} j, max {rounds.Max(r => r.Days):0.0} j");
+
+        Assert.True(left >= 40, $"{left} groupes sortis");
+        Assert.True(late <= 1.5 * rounds.Take(rounds.Count / 2).Average(r => r.Days), "les tours s'allongent");
     }
 
     [Fact]
@@ -173,37 +201,43 @@ public class ArrivalTests(ITestOutputHelper output)
     }
 
     [Fact]
-    public void TurnedAwayGroup_PaysNothing_AndItsVisitorsLoseDesire()
+    public void TurnedAwayGroup_PaysNothing_NewVisitorsLeaveNoTrace_AndReturningOnesLoseDesire()
     {
         var world = NewWorld(7, ArrivalParams.Default.AtMaxAttraction());
         IReadOnlyList<Visitor>? seen = null;
         var before = new List<double>();
         var balance = 0L;
         var groups = 0;
+        var pool = 0;
         world.GroupTurnedAway += v =>
         {
             if (seen is null)
             {
                 seen = v;
                 before = [.. v.Select(x => x.Desire)];
+                Assert.Equal(pool, world.Visitors.Visitors.Count); // un nouveau visiteur refusé n'entre pas au vivier
                 Assert.Equal(groups, world.Groups.Count); // aucun groupe de plus dans le monde
             }
         };
         for (var i = 0; i < 2 * Day && seen is null; i++)
         {
             groups = world.Groups.Count;
+            pool = world.Visitors.Visitors.Count;
             balance = world.Ledger.Balance;
             world.Step();
         }
 
         Assert.NotNull(seen);
         Assert.Equal(balance, world.Ledger.Balance);
+        Assert.Equal(pool, world.Visitors.Visitors.Count);
         for (var i = 0; i < seen.Count; i++)
         {
-            Assert.True(seen[i].Desire <= before[i]);
+            if (seen[i].Id < pool)
+            {
+                Assert.True(seen[i].Desire <= before[i]);
+                Assert.Equal(world.DayIndex, seen[i].LastVisitDay);
+            }
         }
-
-        Assert.All(seen, v => Assert.Equal(world.DayIndex, v.LastVisitDay));
     }
 
     [Fact]

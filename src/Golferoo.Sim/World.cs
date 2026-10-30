@@ -1034,7 +1034,7 @@ public sealed partial class World
             foreach (var o in ahead.Golfers)
             {
                 // Un golfeur parti n'est plus sur le parcours (le dernier trou le laisse au point de sortie).
-                if (o.State != GolferState.Done && Math.Sqrt(Dist2(o.Position, hole.Hole)) >= limit)
+                if (o.State is not (GolferState.Done or GolferState.Leaving) && Math.Sqrt(Dist2(o.Position, hole.Hole)) >= limit)
                 {
                     return true;
                 }
