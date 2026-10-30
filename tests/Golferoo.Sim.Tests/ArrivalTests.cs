@@ -318,7 +318,7 @@ public class ArrivalTests(ITestOutputHelper output)
         Assert.Throws<InvalidDataException>(() => ArrivalParams.Parse("{}"));
         var text = File.ReadAllText(Path.Combine(Path.GetDirectoryName(TerrainTests.HolePath())!, "..", "golfers", "arrivals.json"));
         Assert.True(ArrivalParams.Parse(text).AiWalkSpeedFactor > 1.0);
-        Assert.Throws<InvalidDataException>(() => ArrivalParams.Parse(text.Replace("\"groupsPerDay\": 8", "\"groupsPerDay\": 8, \"inconnu\": 1")));
+        Assert.Throws<InvalidDataException>(() => ArrivalParams.Parse(text.Replace("\"groupsPerDay\": 4", "\"groupsPerDay\": 4, \"inconnu\": 1")));
     }
 
     [Fact]

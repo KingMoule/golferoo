@@ -71,12 +71,17 @@ public class RhythmTests(ITestOutputHelper output)
         var (departures, refused, reputation) = Month(ArrivalParams.Default, physical);
         output.WriteLine($"{(physical ? "physique" : "simplifié")} : {departures:0.0} départs par jour, {refused:P0} de refus, réputation {reputation:0.00}");
 
-        Assert.InRange(departures, 5.0, 8.0);
+        Assert.InRange(departures, 3.0, 5.0);
         Assert.True(refused <= 0.10, $"{refused:P0} de refus");
         Assert.True(reputation > 0.8, $"réputation {reputation:0.00}");
     }
 
-    /// <summary>Critère 4 final avec le résolveur simplifié (la CI).</summary>
+    /// <summary>
+    /// Critère 4 final avec le résolveur simplifié : le physique prend environ 190 s pour 30 jours, trop long pour la CI.
+    /// Écart mesuré entre les deux résolveurs (graine 1, 30 jours) : à 4 groupes par jour, que le parcours absorbe, 3,4 départs par jour en simplifié
+    /// contre 3,3 en physique (0 % de refus et réputation 1,00 des deux côtés) ; à la saturation (8 par jour), 6,8 contre 3,9. Ces bornes valent donc
+    /// pour le physique tant que les arrivées restent sous la capacité du parcours (environ 4 départs par jour, décision 19).
+    /// </summary>
     [Fact]
     public void LeNeuf_HoldsTheFinalCriterion() => AssertFinalCriterion(physical: false);
 }

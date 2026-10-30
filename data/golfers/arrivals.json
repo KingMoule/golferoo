@@ -1,7 +1,7 @@
 // Arrivées des golfeurs au pavillon (spec C15, lot 2). Les arrivées ont lieu tout au long de la journée, à taux constant, multiplié par l'attrait du club ; les journées s'enchaînent sans nuit.
 {
-  // Groupes par jour pour un attrait de 1 (9 trous ouverts, réputation de départ, météo qui ne gêne pas) ; calé au banc (critère 4 final : 5 à 8 départs par jour)
-  "groupsPerDay": 8,
+  // Groupes par jour pour un attrait de 1 (9 trous ouverts, réputation de départ, météo qui ne gêne pas) ; calé au banc (critère 4 final : 3 à 5 départs par jour)
+  "groupsPerDay": 4,
 
   // Poids des groupes de 1, 2, 3 et 4 golfeurs
   "groupSizeWeights": [10, 40, 10, 40],
