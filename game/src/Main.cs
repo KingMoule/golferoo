@@ -99,6 +99,11 @@ public partial class Main : Node3D
 
     public ActorLayer Actors { get; private set; } = null!;
 
+    public ClubhouseView Clubhouse { get; private set; } = null!;
+
+    /// <summary>Groupe de la file choisi d'un clic (aucun : −1).</summary>
+    public int ChosenGroupId { get; private set; } = -1;
+
     public MowerLayer Mowers { get; private set; } = null!;
 
     public CameraRig Camera { get; private set; } = null!;
@@ -257,7 +262,7 @@ public partial class Main : Node3D
         {
             grid = LoadTerrain(Factor);
             GD.Print($"HOLE source={HoleSource}");
-            World = new World(seed: 1, grid, league: !grid.Blank);
+            World = new World(seed: 1, grid, league: !grid.Blank, placeClubhouse: true);
             if (FpsBench.Active)
             {
                 FpsBench.FillTrees(World.Trees, grid);
@@ -289,6 +294,11 @@ public partial class Main : Node3D
         Actors = new ActorLayer { Name = "Actors" };
         AddChild(Actors);
         Actors.Build(grid);
+
+        Clubhouse = new ClubhouseView { Name = "Clubhouse" };
+        AddChild(Clubhouse);
+        Clubhouse.Build(grid);
+        Clubhouse.Update(World.Clubhouse);
 
         Mowers = new MowerLayer { Name = "Mowers" };
         AddChild(Mowers);
@@ -456,6 +466,8 @@ public partial class Main : Node3D
                 break;
             case InputEventMouseButton { Pressed: true, ButtonIndex: MouseButton.Left } click when PlaceTool.HandleClick(click.Position):
                 break;
+            case InputEventMouseButton { Pressed: true, ButtonIndex: MouseButton.Left } click when !Brush.Active && !TreeTool.Active && ChooseQueuedGroupAt(click.Position):
+                break;
             case InputEventMouseButton when Brush.Active || TreeTool.Active:
                 // Le pinceau garde les clics : la caméra ne reçoit plus que la molette et le clic du milieu.
                 if (@event is InputEventMouseButton { Pressed: true, ButtonIndex: MouseButton.WheelUp })
@@ -492,7 +504,41 @@ public partial class Main : Node3D
         }
     }
 
-    /// <summary>Lance une paire de golfeurs sur le trou (touche G).</summary>
+    /// <summary>Un clic sur un golfeur de la file le plus proche (à 2,5 m du sol visé) choisit son groupe : la caméra le suit. Faux si le clic ne tombe sur aucun.</summary>
+    private bool ChooseQueuedGroupAt(Vector2 screen)
+    {
+        var view = Camera.View;
+        if (view is null || !view.IsInsideTree() || World.Terrain is not { } grid
+            || !Brush.TryPick(grid, view.ProjectRayOrigin(screen), view.ProjectRayNormal(screen), view.Far, out var hit))
+        {
+            return false;
+        }
+
+        var best = (Group: (Golferoo.Sim.Golfers.Group?)null, Golfer: -1, Distance: 2.5 * 2.5);
+        foreach (var group in World.Groups.Where(g => g.FromArrivals && !g.Released))
+        {
+            foreach (var golfer in group.Golfers)
+            {
+                var d = ((golfer.Position.X - hit.X) * (golfer.Position.X - hit.X)) + ((golfer.Position.Z - hit.Z) * (golfer.Position.Z - hit.Z));
+                if (d < best.Distance)
+                {
+                    best = (group, golfer.Id, d);
+                }
+            }
+        }
+
+        if (best.Group is null)
+        {
+            return false;
+        }
+
+        ChosenGroupId = best.Group.Id;
+        Camera.Follow(best.Golfer);
+        ShowMessage($"Groupe de {best.Group.Golfers.Count} choisi dans la file.");
+        return true;
+    }
+
+    /// <summary>Lance une paire de golfeurs sur le trou (touche G, en mode débogage seulement).</summary>
     public void SpawnGroup()
     {
         if (!World.HoleOpen)
@@ -571,8 +617,8 @@ public partial class Main : Node3D
                 }
 
                 break;
-            case Key.G:
-                SpawnGroup();
+            case Key.G when _hud!.Visible:
+                SpawnGroup(); // débogage seulement : les groupes arrivent d'eux-mêmes par le pavillon
                 break;
             case Key.L:
                 ToggleLoadMode();
@@ -896,6 +942,7 @@ public partial class Main : Node3D
         var alpha = (float)Math.Clamp(_accumulator / World.TickSeconds, 0.0, 1.0);
         FlushTerrainEdits();
         Actors.Update(_current, _previous, alpha, _previousChanged);
+        Clubhouse.Update(World.Clubhouse);
         Mowers.Update(World.DayIndex, SunDayFraction ?? World.Date.DayFraction, _current);
         _previousChanged = false;
     }

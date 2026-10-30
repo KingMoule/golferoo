@@ -93,6 +93,7 @@ public static class UiIds
         public const string HolePose = "ActionHolesPose";
         public const string HoleNew = "ActionHolesNew";
         public const string HoleRemove = "ActionHolesRemove";
+        public const string ClubhouseMove = "ActionHolesClubhouseMove";
         public const string HolePrevious = "ActionHolesPrevious";
         public const string HoleNext = "ActionHolesNext";
         public const string Undo = "ActionUndo";

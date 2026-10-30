@@ -212,6 +212,7 @@ public partial class ToolDrawer : PanelContainer
         page.AddChild(Action(UiIds.Action.HolePose, "Poser départ et trou", "Un clic sur un départ le pose, un clic sur le green place le drapeau.", place.BeginPose, toggle: true));
         page.AddChild(Action(UiIds.Action.HoleNew, "Nouveau trou", $"Un clic sur un départ, puis un clic sur un green : un trou de plus, {UiMoney.Format(_main.World.Economy.NewHole)}. Une fois ouvert, il coûte {UiMoney.Format(_main.World.Economy.MaintenancePerHole)} d'entretien par mois.", place.BeginNewHole, toggle: true));
         page.AddChild(Action(UiIds.Action.HoleRemove, "Supprimer", "Retire le dernier trou du parcours.", place.RemoveLastHole));
+        page.AddChild(Action(UiIds.Action.ClubhouseMove, $"Déplacer le pavillon ({UiMoney.Format(_main.World.Economy.ClubhouseMove)})", "Un clic sur le nouvel emplacement : l'aperçu est vert s'il convient, rouge sinon.", place.BeginMoveClubhouse, toggle: true));
         page.AddChild(Action(UiIds.Action.HolePrevious, "Trou précédent", "La caméra va au trou d'avant.", () => _main.CameraStepHole(-1)));
         page.AddChild(Action(UiIds.Action.HoleNext, "Trou suivant", "La caméra va au trou d'après.", () => _main.CameraStepHole(1)));
         return page;
@@ -286,7 +287,8 @@ public partial class ToolDrawer : PanelContainer
         _actions[UiIds.Action.TreeSelect].SetPressedNoSignal(trees.Mode == TreeTool.ClickMode.Select);
         _actions[UiIds.Action.TreeRazeArea].SetPressedNoSignal(trees.Mode == TreeTool.ClickMode.RazeArea);
         _actions[UiIds.Action.TreeKeepRemarkable].SetPressedNoSignal(trees.KeepRemarkable);
-        _actions[UiIds.Action.HolePose].SetPressedNoSignal(!place.NewHole);
+        _actions[UiIds.Action.HolePose].SetPressedNoSignal(!place.NewHole && !place.MovingClubhouse);
+        _actions[UiIds.Action.ClubhouseMove].SetPressedNoSignal(place.MovingClubhouse);
         _actions[UiIds.Action.HoleNew].SetPressedNoSignal(place.NewHole);
 
         var status = family switch

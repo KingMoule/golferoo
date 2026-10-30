@@ -17,7 +17,7 @@ public partial class Finances : Node
     private static readonly LedgerCategory[] Revenues = [LedgerCategory.GreenFees, LedgerCategory.Dues];
     private static readonly LedgerCategory[] Expenses =
     [
-        LedgerCategory.Surfaces, LedgerCategory.Relief, LedgerCategory.Holes, LedgerCategory.Trees, LedgerCategory.Maintenance, LedgerCategory.Interest,
+        LedgerCategory.Surfaces, LedgerCategory.Relief, LedgerCategory.Holes, LedgerCategory.Trees, LedgerCategory.Maintenance, LedgerCategory.Interest, LedgerCategory.Buildings,
     ];
 
     private Main _main = null!;
@@ -57,6 +57,7 @@ public partial class Finances : Node
         LedgerCategory.Maintenance => "Entretien",
         LedgerCategory.Interest => "Intérêts",
         LedgerCategory.GreenFees => "Green fees",
+        LedgerCategory.Buildings => "Bâtiments",
         _ => "Cotisations",
     };
 

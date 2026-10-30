@@ -1,4 +1,5 @@
 using Godot;
+using Golferoo.Game.Ui;
 using Golferoo.Sim;
 using Golferoo.Sim.Terrain;
 
@@ -23,8 +24,13 @@ public partial class PlaceTool : Node
     /// <summary>Vrai entre « Nouveau trou » et la pose de son drapeau.</summary>
     public bool NewHole => _newHole;
 
+    /// <summary>Vrai entre « Déplacer le pavillon » et le clic qui le pose.</summary>
+    public bool MovingClubhouse { get; private set; }
+
     /// <summary>Ce que fera le prochain clic, pour le tiroir.</summary>
-    public string Status => !_newHole
+    public string Status => MovingClubhouse
+        ? $"Déplacer le pavillon : clic sur le nouvel emplacement (vert : valide), {UiMoney.Format(_main!.World.Economy.ClubhouseMove)}."
+        : !_newHole
         ? $"Trou {_main?.CameraHole ?? 1} : clic sur un départ pour le poser, sur le green pour placer le drapeau."
         : _pendingTee is null ? "Nouveau trou : clic sur une cellule de départ." : "Nouveau trou : clic sur le green où poser le drapeau.";
 
@@ -33,6 +39,7 @@ public partial class PlaceTool : Node
     /// <summary>Premier temps de « Nouveau trou » : le prochain clic doit tomber sur une cellule de départ.</summary>
     public void BeginNewHole()
     {
+        EndMoveClubhouse();
         _newHole = true;
         _pendingTee = null;
     }
@@ -53,6 +60,54 @@ public partial class PlaceTool : Node
     {
         _newHole = false;
         _pendingTee = null;
+        EndMoveClubhouse();
+    }
+
+    /// <summary>Le prochain clic pose le pavillon (sa porte reste du même côté) ; l'aperçu suit la souris.</summary>
+    public void BeginMoveClubhouse()
+    {
+        _newHole = false;
+        _pendingTee = null;
+        MovingClubhouse = _main!.World.Clubhouse is not null;
+    }
+
+    private void EndMoveClubhouse()
+    {
+        MovingClubhouse = false;
+        _main?.Clubhouse.HidePreview();
+    }
+
+    /// <summary>Le pavillon tel qu'il serait posé avec son centre au plus près de <paramref name="point"/>.</summary>
+    private Golferoo.Sim.Buildings.Building? Target(Point2 point)
+    {
+        var world = _main!.World;
+        if (world.Clubhouse is not { } current || world.Terrain is not { } grid)
+        {
+            return null;
+        }
+
+        return Golferoo.Sim.Buildings.Clubhouse.At(
+            (int)Math.Round((point.X / grid.CellSize) - (Golferoo.Sim.Buildings.Clubhouse.Width / 2.0)),
+            (int)Math.Round((point.Z / grid.CellSize) - (Golferoo.Sim.Buildings.Clubhouse.Depth / 2.0)),
+            current.Side);
+    }
+
+    private void MoveClubhouseClick(Point2 point)
+    {
+        var world = _main!.World;
+        if (Target(point) is not { } target || target == world.Clubhouse || !world.CanPlaceClubhouse(target))
+        {
+            _main.ShowMessage("Le pavillon ne peut pas aller là : il lui faut un sol plat, libre et relié au départ du trou 1.");
+            return;
+        }
+
+        if (!_main.Finances.Allow(world.Economy.ClubhouseMove))
+        {
+            return;
+        }
+
+        _main.ShowMessage(world.TryMoveClubhouse(point, target.Side) ? "Pavillon déplacé." : "Déplacement refusé : solde insuffisant.");
+        EndMoveClubhouse();
     }
 
     private static string Describe(IReadOnlyList<HoleIssue> issues) => issues.Count == 0
@@ -107,6 +162,17 @@ public partial class PlaceTool : Node
             return;
         }
 
+        if (MovingClubhouse)
+        {
+            var view = _main.Camera.View;
+            var grid = world.Terrain!;
+            if (view is not null && view.IsInsideTree() && Brush.TryPick(grid, view.ProjectRayOrigin(GetViewport().GetMousePosition()), view.ProjectRayNormal(GetViewport().GetMousePosition()), view.Far, out var hit)
+                && Target(new Point2(hit.X, hit.Z)) is { } target)
+            {
+                _main.Clubhouse.ShowPreview(target, world.CanPlaceClubhouse(target));
+            }
+        }
+
         if (world.HoleCommandsRefused != _refusedSeen)
         {
             if (world.HoleCommandsRefused > _refusedSeen)
@@ -123,7 +189,7 @@ public partial class PlaceTool : Node
         Active = active;
         if (!active)
         {
-            EndNewHole();
+            EndNewHole(); // referme aussi l'aperçu du pavillon
         }
     }
 
@@ -178,6 +244,12 @@ public partial class PlaceTool : Node
         if (Brush.TryPick(grid, camera.ProjectRayOrigin(mouse), camera.ProjectRayNormal(mouse), camera.Far, out var hit))
         {
             var point = new Point2(hit.X, hit.Z);
+            if (MovingClubhouse)
+            {
+                MoveClubhouseClick(point);
+                return true;
+            }
+
             if (_newHole)
             {
                 NewHoleClick(grid, point);

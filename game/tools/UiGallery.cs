@@ -96,7 +96,7 @@ public partial class UiGallery : Node
         var pills = new HBoxContainer();
         pills.AddThemeConstantOverride("separation", 10);
         pills.AddChild(UiPill.Create("PillSpeed", "×2", "fastForward"));
-        pills.AddChild(UiPill.Create("PillClock", "08:06   3 avril, an 1"));
+        pills.AddChild(UiPill.Create("PillClock", "3 avril, an 1"));
         pills.AddChild(UiPill.Create("PillWeather", "18 °C · Printemps", "cloud", UiTheme.CreamIcon));
         var club = UiPill.Create("PillClub", "Golf de Le neuf");
         club.Label.ThemeTypeVariation = "UiName";
