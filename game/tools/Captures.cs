@@ -465,28 +465,6 @@ public partial class Captures : Node
         await Frames(SettleFrames);
         GD.Print($"PRO driver={world.Pro!.Experience(Golferoo.Sim.Pro.ProSkill.Driver)} draw={world.Pro.Experience(Golferoo.Sim.Pro.ProSkill.Draw)}");
         Save("pro-sheet");
-
-        // C25 : la fiche à 150 % (écran logique de 1280×720) avec des niveaux répartis dans les quatre groupes ; elle doit tenir à l'écran.
-        var pro = world.Pro!;
-        var level = 3;
-        foreach (var skill in Enum.GetValues<Golferoo.Sim.Pro.ProSkill>())
-        {
-            pro.Gain(skill, pro.XpForLevel(level) + (pro.XpForLevel(level + 1) - pro.XpForLevel(level)) / 2 - pro.Experience(skill), league: true, year: world.PlayYear);
-            level = (level * 7 % 23) + 1;
-        }
-
-        var window = GetTree().Root;
-        window.ContentScaleFactor = 1.5f;
-        main.ProPanel.Toggle();
-        main.ProPanel.Toggle();
-        await Frames(SettleFrames);
-        var screen = window.GetVisibleRect();
-        var outside = main.Ui.FindChildren("*", "Control", recursive: true, owned: false).OfType<Control>()
-            .Count(c => c.IsVisibleInTree() && c.Size.X > 0f && !screen.Grow(1f).Encloses(c.GetGlobalRect()));
-        GD.Print($"FICHE 1,5 ecran={screen.Size} hors_ecran={outside} birdie={main.Birdie.Chirps.Count(c => c.Tag == "#progrès")}");
-        Save("c25-fiche");
-        window.ContentScaleFactor = 1f;
-        main.ProPanel.Toggle();
         return main;
     }
 
@@ -915,6 +893,25 @@ public partial class Captures : Node
         foreach (var panel in main.Panels.Opened.ToList())
         {
             main.Panels.Close(panel);
+        }
+
+        // C25 : la fiche du pro seule à 150 % (écran logique de 1280×720), avec des niveaux répartis dans les quatre groupes ; elle doit tenir à l'écran.
+        if (main.ProPanel is { } sheet && main.World.Pro is { } pro)
+        {
+            var level = 3;
+            foreach (var skill in Enum.GetValues<Golferoo.Sim.Pro.ProSkill>())
+            {
+                pro.Gain(skill, pro.XpForLevel(level) + ((pro.XpForLevel(level + 1) - pro.XpForLevel(level)) / 2) - pro.Experience(skill), league: true, year: main.World.PlayYear);
+                level = (level * 7 % 23) + 1;
+            }
+
+            sheet.Toggle();
+            await Frames(SettleFrames);
+            var wide = main.Ui.FindChildren("*", "Control", recursive: true, owned: false).OfType<Control>()
+                .Count(c => c.IsVisibleInTree() && c.Size.X > 0f && !screen.Grow(1f).Encloses(c.GetGlobalRect()));
+            GD.Print($"FICHE 1,5 ecran={screen.Size} hors_ecran={wide} birdie={main.Birdie.Chirps.Count(c => c.Tag == "#progrès")}");
+            Save("c25-fiche");
+            sheet.Toggle();
         }
 
         main.Bar.Select(ToolFamily.None, toggle: false);
