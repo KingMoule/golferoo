@@ -21,8 +21,18 @@ public static class SkillLevels
 
     public const double MistakeAt36 = 0.15;
 
-    public static double FromHandicap(double handicap) =>
-        Scratch + ((Bogey - Scratch) * Math.Clamp(handicap, MinHandicap, MaxHandicap) / 20.0);
+    /// <summary>
+    /// Niveau d'un +4 (C25 lot 2). Sous le scratch la droite plonge plus vite : la note de parcours de C06 est celle d'un scratch, et la pente
+    /// d'un parcours comprime l'écart en différentiel ; mesuré sur « Le neuf », un niveau 0,78 (la droite prolongée) ne jouait que 1,5 point sous le scratch
+    /// quand un +4 en vaut 4. Ne touche que les handicaps négatifs : les golfeurs de 0 à 54 gardent leur droite (C21).
+    /// </summary>
+    public const double PlusFour = 0.55;
+
+    public static double FromHandicap(double handicap)
+    {
+        var h = Math.Clamp(handicap, MinHandicap, MaxHandicap);
+        return h >= 0.0 ? Scratch + ((Bogey - Scratch) * h / 20.0) : Scratch + ((Scratch - PlusFour) * h / -MinHandicap);
+    }
 
     /// <summary>Handicap d'un niveau (inverse de <see cref="FromHandicap"/>, borné à 0 et 54).</summary>
     public static double ToHandicap(double skill) =>

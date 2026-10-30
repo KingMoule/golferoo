@@ -47,10 +47,10 @@ public partial class Captures : Node
     private static readonly Point2 ForestEdge = new(18.5 * 8, 26.5 * 8);
 
     /// <summary>
-    /// Approche de 155 m dans le rough au nord du coude (<c>ProfileTests.Approach</c>) : les six archétypes y visent six points
-    /// de chute écartés de 5 m au moins, trouvés en balayant le dogleg tous les 8 m.
+    /// Approche de 92 m dans le rough (<c>ProfileTests.Approach</c>) : les six archétypes y visent six points
+    /// de chute écartés de 3 m au moins, trouvés en balayant le dogleg tous les 4 m.
     /// </summary>
-    private static readonly Point2 Approach = new(124, 20);
+    private static readonly Point2 Approach = new(328, 128);
 
     /// <summary>Couleur de chaque archétype attribuable dans <c>c09-profils</c> et <c>c09-sortie</c>, dans l'ordre de <see cref="Archetype"/>.</summary>
     private static readonly Color[] ProfileColors =
@@ -496,7 +496,7 @@ public partial class Captures : Node
         var views = new[]
         {
             ("c09-profils", terrain.Tee, "depuis le départ", true, 260f),
-            ("c09-approche", Approach, "approche de 155 m", true, 190f),
+            ("c09-approche", Approach, "approche de 92 m", true, 190f),
             ("c09-sortie", ForestEdge, "depuis la lisière", false, 0f),
         };
         foreach (var (name, ball, title, between, size) in views)

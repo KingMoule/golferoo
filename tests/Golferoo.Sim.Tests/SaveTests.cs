@@ -922,10 +922,10 @@ public class SaveTests
         Assert.True(PlaysOutTheSameFromAFlight(g => g.Pending.PenaltyStrokes > 0), "aucun coup avec pénalité trouvé");
     }
 
-    /// <summary>Cherche (graines 1 à 80) un vol qui vérifie <paramref name="inFlight"/>, le sauve, le recharge et joue la partie jusqu'au bout des deux côtés.</summary>
+    /// <summary>Cherche (graines 1 à 400 : C25 lot 2 a rendu les coups pénalisés plus rares) un vol qui vérifie <paramref name="inFlight"/>, le sauve, le recharge et joue la partie jusqu'au bout des deux côtés.</summary>
     private static bool PlaysOutTheSameFromAFlight(Func<Golfer, bool> inFlight)
     {
-        for (ulong seed = 1; seed <= 80; seed++)
+        for (ulong seed = 1; seed <= 400; seed++)
         {
             var world = new World(seed, Hole("proto"));
             var group = world.SpawnGroup();

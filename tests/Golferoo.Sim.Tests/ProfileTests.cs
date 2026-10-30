@@ -343,11 +343,11 @@ public class ProfileTests(ITestOutputHelper output)
     }
 
     /// <summary>
-    /// Approche de 155 m dans le rough au nord du coude, la balle de la capture <c>c09-approche</c> (<c>Captures.Approach</c>) :
-    /// trouvée en balayant le dogleg tous les 8 m (de 90 à 170 m du trou), c'est l'approche où les six chutes prévues s'écartent le plus
-    /// (5,8 m au moins ; C21 : déplacée de (148, 28), où la dispersion recalée rapproche les chutes).
+    /// Approche dans le rough, la balle de la capture <c>c09-approche</c> (<c>Captures.Approach</c>) :
+    /// trouvée en balayant le dogleg tous les 4 m (de 90 à 170 m du trou), c'est l'approche où les six chutes prévues s'écartent le plus
+    /// (3,0 m au moins ; C21 : déplacée de (148, 28) à (124, 20), C25 lot 2 : à (328, 128), à 92 m du trou, où le lie et le backspin rapprochent les chutes).
     /// </summary>
-    private static readonly Point2 Approach = new(124, 20);
+    private static readonly Point2 Approach = new(328, 128);
 
     /// <summary>Lot 4 (critère 9) : depuis l'approche de la capture, les six archétypes visent six points de chute distincts.</summary>
     [Fact]
