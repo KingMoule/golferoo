@@ -1341,7 +1341,7 @@ public partial class SmokeTest : Node
         var balanceLabel = (Label)main.Ui.Find(UiIds.Finance.Balance)!;
         Expect(spent > 0 && money.Label.Text == Pill() && balanceLabel.Text == UiMoney.Format(ledger.Balance), $"après une dépense de {spent}, pastille « {money.Label.Text} » ou solde « {balanceLabel.Text} » hors du grand livre");
         var rows = TableRows(finances.Table);
-        Expect(rows.Length == 9 && rows[2][0] == "Surfaces" && rows[2][1] == UiMoney.Format(ledger.Current(LedgerCategory.Surfaces), true) && rows[^1][1] == UiMoney.Format(UiMoney.MonthResult(ledger), true), "le détail du mois ne suit pas le grand livre");
+        Expect(rows.Length == 10 && rows[^2][0] == "Bâtiments" && rows[2][0] == "Surfaces" && rows[2][1] == UiMoney.Format(ledger.Current(LedgerCategory.Surfaces), true) && rows[^1][1] == UiMoney.Format(UiMoney.MonthResult(ledger), true), "le détail du mois ne suit pas le grand livre");
         main.SkipToNextMonth();
         main.Bar.Sync();
         var closed = ledger.Months[^1];
