@@ -13,7 +13,7 @@ jobs:
   sim:
     name: Simulation (format, tests, banc)
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 25 # tests 9 à 12 min selon le runner, plus le banc (C15 lot 2)
     steps:
       - uses: actions/checkout@v5
 

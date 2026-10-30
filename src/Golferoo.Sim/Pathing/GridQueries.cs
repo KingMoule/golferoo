@@ -9,13 +9,22 @@ public static class GridQueries
     /// Cellule franchissable la plus proche de (cx, cz) (distance euclidienne entre centres ; à égalité, la première en ordre ligne par ligne).
     /// Renvoie la cellule elle-même si elle est franchissable. Faux si la carte n'a aucune cellule franchissable.
     /// </summary>
-    public static bool TryNearestWalkable(TerrainGrid terrain, int cx, int cz, out int nx, out int nz)
+    public static bool TryNearestWalkable(TerrainGrid terrain, int cx, int cz, out int nx, out int nz) =>
+        TryNearestWalkable(terrain, null, cx, cz, out nx, out nz);
+
+    /// <summary>
+    /// Comme <see cref="TryNearestWalkable(TerrainGrid, int, int, out int, out int)"/>, mais une cellule de coût infini dans <paramref name="costs"/>
+    /// (emprise de bâtiment) n'est pas franchissable : la destination ne tombe jamais dans un obstacle.
+    /// </summary>
+    internal static bool TryNearestWalkable(TerrainGrid terrain, float[]? costs, int cx, int cz, out int nx, out int nz)
     {
+        bool Open(int x, int z) => terrain.IsWalkable(x, z) && (costs is null || !float.IsPositiveInfinity(costs[(z * terrain.CellsX) + x]));
+
         cx = Math.Clamp(cx, 0, terrain.CellsX - 1);
         cz = Math.Clamp(cz, 0, terrain.CellsZ - 1);
         nx = cx;
         nz = cz;
-        if (terrain.IsWalkable(cx, cz))
+        if (Open(cx, cz))
         {
             return true;
         }
@@ -38,7 +47,7 @@ public static class GridQueries
                 var step = edgeRow ? 1 : 2 * r;
                 for (var x = cx - r; x <= cx + r; x += step)
                 {
-                    if (!terrain.IsWalkable(x, z))
+                    if (!Open(x, z))
                     {
                         continue;
                     }

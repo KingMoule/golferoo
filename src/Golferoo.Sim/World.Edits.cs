@@ -81,6 +81,11 @@ public sealed partial class World
             }
             else if (e.Kind == EditKind.Paint)
             {
+                if (TouchesClubhouse(terrain, e.Center, e.Radius))
+                {
+                    continue; // l'emprise du pavillon ne se repeint pas
+                }
+
                 // Prix : cellules qui changent réellement, au tarif de la surface d'arrivée. Refusée par la limite de découvert, rien ne change.
                 var cost = PerCell(terrain, terrain.CountPaint(e.Center, e.Radius, e.Surface), Economy.PaintCost(e.Surface));
                 if (!terrain.KeepsWalkableCell(e.Center, e.Radius, e.Surface) || !TrySpend(LedgerCategory.Surfaces, cost))
@@ -107,6 +112,11 @@ public sealed partial class World
             }
             else
             {
+                if (TouchesClubhouse(terrain, e.Center, e.Radius))
+                {
+                    continue; // ni ne se modèle
+                }
+
                 var cost = ReliefPrice(terrain.RaiseVolume(e.Center, e.Radius, e.Delta));
                 if (!TrySpend(LedgerCategory.Relief, cost))
                 {

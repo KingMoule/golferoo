@@ -13,6 +13,8 @@
     <EmbeddedResource Include="..\..\data\pro\progression.json" LogicalName="progression.json" />
     <!-- Pénalité de lie (C25 lot 2) : source de vérité dans data/shots/. -->
     <EmbeddedResource Include="..\..\data\shots\lie.json" LogicalName="lie.json" />
+    <!-- Arrivées au pavillon (C15 lot 2) : source de vérité dans data/golfers/. -->
+    <EmbeddedResource Include="..\..\data\golfers\arrivals.json" LogicalName="arrivals.json" />
   </ItemGroup>
 
 </Project>

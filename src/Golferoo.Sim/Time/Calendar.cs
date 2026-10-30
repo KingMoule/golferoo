@@ -12,6 +12,11 @@ public static class Calendar
     /// <summary>Une journée de 9 minutes réelles en vitesse x1 (C21 : assez pour que la ligue joue tous les trous du parcours).</summary>
     public const int TicksPerDay = 9 * 60 * World.TicksPerSecond;
 
+    /// <summary>Heures de jeu : la journée (<see cref="Date.DayFraction"/> de 0 à 1) va de l'ouverture à la fermeture.</summary>
+    public const double OpeningHour = 6.0;
+
+    public const double ClosingHour = 18.0;
+
     public const int DaysPerMonth = 10;
     public const int MonthsPerYear = 12;
 

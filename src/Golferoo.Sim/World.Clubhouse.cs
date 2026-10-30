@@ -108,6 +108,20 @@ public sealed partial class World
         return field.IsReachable(terrain.CellXOf(terrain.Tee.X), terrain.CellZOf(terrain.Tee.Z));
     }
 
+    /// <summary>Vrai si le disque (centre, rayon en mètres) touche l'emprise du pavillon : une retouche du sol n'y a pas lieu.</summary>
+    private bool TouchesClubhouse(TerrainGrid terrain, Point2 center, double radius)
+    {
+        if (Clubhouse is not { } c)
+        {
+            return false;
+        }
+
+        var (cs, r) = (terrain.CellSize, c.Footprint);
+        var dx = center.X - Math.Clamp(center.X, r.MinX * cs, (r.MaxX + 1) * cs);
+        var dz = center.Z - Math.Clamp(center.Z, r.MinZ * cs, (r.MaxZ + 1) * cs);
+        return (dx * dx) + (dz * dz) <= radius * radius;
+    }
+
     /// <summary>Place le pavillon au plus près du départ du trou 1 (cellules de centre par anneaux, la porte tournée vers le départ d'abord). Faux s'il n'y a nulle part.</summary>
     private bool PlaceClubhouseNearTee()
     {

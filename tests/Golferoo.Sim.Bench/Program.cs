@@ -45,6 +45,14 @@ const double fullCourseTickMeanLimitMs = 2.0;
 const double fullCourseTickP99LimitMs = 5.0;
 const double fullCourseRetouchLimitMs = 16.0;
 
+// --arrivals-only : seulement le parcours chargé avec arrivées continues (C15 lot 2).
+if (args.Contains("--arrivals-only"))
+{
+    var a = MeasureArrivals(Path.Combine(Path.GetDirectoryName(holePath)!, "..", "..", "tests", "Golferoo.Sim.Bench", "Courses", "dix-huit.json"));
+    Console.WriteLine($"{a.Arrived} groupes en file, {a.TurnedAway} refusés, {a.Left} sortis ; au plus {a.MostOnCourse} groupes sur le parcours (plafond {a.GroupCeiling}), file jusqu'à {a.LongestQueue} ; tick moyen {a.TickMean:F3} ms, p99 {a.TickP99:F3} ms, pire {a.TickMax:F2} ms");
+    return a.MostOnCourse <= a.GroupCeiling && a.TickMean < fullCourseTickMeanLimitMs && a.TickP99 < fullCourseTickP99LimitMs ? 0 : 1;
+}
+
 // --full-only : seulement le parcours chargé (C12 lot 4), pour itérer vite.
 if (args.Contains("--full-only"))
 {
@@ -276,9 +284,16 @@ allPassed &= fullPassed;
 Console.WriteLine($"Parcours chargé (18 trous, {full.Groups} groupes, {full.Trees} arbres, sauvegarde {full.SaveMs:F1} ms / chargement {full.LoadMs:F1} ms / {full.SaveBytes / 1024.0:F0} Ko) : tick moyen {full.TickMean:F3} ms (limite {fullCourseTickMeanLimitMs}), p99 {full.TickP99:F3} ms (limite {fullCourseTickP99LimitMs}), pire {full.TickMax:F2} ms ; retouche {full.Retouch.Median:F2} ms médiane, {full.Retouch.Max:F2} ms pire ({full.CachedFields} champs en cache, limite {fullCourseRetouchLimitMs}) ; mise en place {full.WarmupTicks} ticks ; journée de ligue : {full.LeagueDays:F2} jour(s) de jeu pour {full.LeagueGroups} groupes");
 WriteSummary(full, fullPassed);
 
+// Arrivées continues (C15 lot 2, critère 9) : même parcours chargé, mais les groupes arrivent seuls, attrait forcé au maximum.
+var arrivals = MeasureArrivals(Path.Combine(Path.GetDirectoryName(holePath)!, "..", "..", "tests", "Golferoo.Sim.Bench", "Courses", "dix-huit.json"));
+var arrivalsPassed = arrivals.MostOnCourse <= arrivals.GroupCeiling && arrivals.TickMean < fullCourseTickMeanLimitMs && arrivals.TickP99 < fullCourseTickP99LimitMs;
+allPassed &= arrivalsPassed;
+Console.WriteLine($"Arrivées continues ({arrivals.Holes} trous, {arrivals.Trees} arbres, attrait au maximum, {arrivals.Ticks} ticks) : {arrivals.Arrived} groupes en file, {arrivals.TurnedAway} refusés, {arrivals.Left} sortis ; au plus {arrivals.MostOnCourse} groupes sur le parcours (plafond {arrivals.GroupCeiling}), file jusqu'à {arrivals.LongestQueue} ; tick moyen {arrivals.TickMean:F3} ms (limite {fullCourseTickMeanLimitMs}), p99 {arrivals.TickP99:F3} ms (limite {fullCourseTickP99LimitMs}), pire {arrivals.TickMax:F2} ms");
+
 var report = new
 {
     fullCourse = FullJson(full, fullPassed),
+    arrivals = new { arrivals.Holes, arrivals.Trees, arrivals.Ticks, arrivals.Arrived, arrivals.TurnedAway, arrivals.Left, arrivals.MostOnCourse, ceiling = arrivals.GroupCeiling, arrivals.LongestQueue, tickMeanMs = arrivals.TickMean, tickP99Ms = arrivals.TickP99, tickMaxMs = arrivals.TickMax, passed = arrivalsPassed },
     planProfiles = new { teeMedianMs = planProfiles.ToDictionary(p => p.Profile.ToString(), p => p.Ms), worstRatio = planProfileWorst, limit = planProfileRatioLimit, passed = planProfileWorst <= planProfileRatioLimit },
     playMap = new { doglegMedianMs = mapDogleg.Median, doglegLimitMs = playMapDoglegLimitMs, map512MedianMs = map512.Median, map512LimitMs = playMap512LimitMs, passed = mapDogleg.Median < playMapDoglegLimitMs && map512.Median < playMap512LimitMs },
     tutorial = new { holeCheckMedianMs = holeCheck.Median, stepMedianMs = tutorialStep.Median, limitMs = tutorialLimitMs, passed = holeCheck.Median < tutorialLimitMs && tutorialStep.Median < tutorialLimitMs },
@@ -385,6 +400,68 @@ static void WriteSummary(FullCourseResult r, bool passed)
         """);
 }
 
+// Boisement complété à treeCount arbres en grille sur les cellules de rough et de sous-bois (jamais sur un fairway ou un green, ni près du pavillon).
+static void FillTrees(World world, TerrainGrid terrain, int treeCount)
+{
+    var missing = treeCount - world.Trees.Count;
+    if (missing <= 0)
+    {
+        return;
+    }
+
+    var width = terrain.CellsX * terrain.CellSize;
+    var depth = terrain.CellsZ * terrain.CellSize;
+    var step = Math.Sqrt(width * depth / missing) * 0.8;
+    var zone = world.Clubhouse?.Footprint.Expand(2, terrain.CellsX, terrain.CellsZ);
+    var n = 0;
+    for (var z = step / 2; z < depth && n < missing; z += step)
+    {
+        for (var x = step / 2; x < width && n < missing; x += step)
+        {
+            if (terrain.SurfaceAt(x, z) is Surface.Rough or Surface.Trees && !(zone?.Contains(terrain.CellXOf(x), terrain.CellZOf(z)) ?? false))
+            {
+                world.Trees.Add(x, z, (TreeSpeciesId)(n % 3), 40 * 12);
+                n++;
+            }
+        }
+    }
+}
+
+// Parcours chargé avec arrivées continues (C15 lot 2, critère 9) : 18 trous, pavillon, attrait forcé au maximum, 5 000 arbres, résolveur physique.
+// Les groupes arrivent seuls, font la file, partent et sortent ; après une mise en place de trois jours, 20 000 ticks sont mesurés
+// et on relève le plus grand nombre de groupes en même temps sur le parcours (plafond mesuré à C12 : 36).
+static ArrivalsResult MeasureArrivals(string coursePath)
+{
+    const int treeCount = 5_000;
+    const int measuredTicks = 20_000;
+    const int groupCeiling = 36;
+    var terrain = CourseLoader.Load(coursePath, 2);
+    var world = new World(seed: 1, terrain, placeClubhouse: true, arrivals: ArrivalParams.Default.AtMaxAttraction()) { Climate = Climate.Calm };
+    FillTrees(world, terrain, treeCount);
+    var arrived = 0;
+    var turnedAway = 0;
+    var left = 0;
+    world.GroupArrived += _ => arrived++;
+    world.GroupTurnedAway += _ => turnedAway++;
+    world.GroupLeft += _ => left++;
+    world.Step(3 * Calendar.TicksPerDay);
+
+    var ticks = new double[measuredTicks];
+    var mostOnCourse = 0;
+    var longestQueue = 0;
+    for (var i = 0; i < measuredTicks; i++)
+    {
+        var start = Stopwatch.GetTimestamp();
+        world.Step();
+        ticks[i] = Stopwatch.GetElapsedTime(start).TotalMilliseconds;
+        mostOnCourse = Math.Max(mostOnCourse, world.Groups.Count(g => g.Released && !g.Finished && !g.Leaving));
+        longestQueue = Math.Max(longestQueue, world.QueueLength);
+    }
+
+    Array.Sort(ticks);
+    return new ArrivalsResult(terrain.Course.Count, treeCount, measuredTicks, arrived, turnedAway, left, mostOnCourse, groupCeiling, longestQueue, ticks.Average(), ticks[(int)(measuredTicks * 0.99)], ticks[^1]);
+}
+
 static FullCourseResult MeasureFullCourse(string coursePath)
 {
     const int groups = 36;
@@ -393,26 +470,7 @@ static FullCourseResult MeasureFullCourse(string coursePath)
     var terrain = CourseLoader.Load(coursePath, 2);
     var world = new World(seed: 1, terrain) { Climate = Climate.Calm };
 
-    // Boisement complété à 5 000 arbres en grille sur les cellules de rough et de sous-bois (jamais sur un fairway ou un green).
-    var missing = treeCount - world.Trees.Count;
-    if (missing > 0)
-    {
-        var width = terrain.CellsX * terrain.CellSize;
-        var depth = terrain.CellsZ * terrain.CellSize;
-        var step = Math.Sqrt(width * depth / missing) * 0.8;
-        var n = 0;
-        for (var z = step / 2; z < depth && n < missing; z += step)
-        {
-            for (var x = step / 2; x < width && n < missing; x += step)
-            {
-                if (terrain.SurfaceAt(x, z) is Surface.Rough or Surface.Trees)
-                {
-                    world.Trees.Add(x, z, (TreeSpeciesId)(n % 3), 40 * 12);
-                    n++;
-                }
-            }
-        }
-    }
+    FillTrees(world, terrain, treeCount);
 
     bool AllHolesBusy()
     {
@@ -902,3 +960,5 @@ internal readonly record struct FullCourseResult(
     internal bool Passed(double meanLimit, double p99Limit, double retouchLimit, double saveLimit, double loadLimit, double bytesLimit) =>
         TickMean < meanLimit && TickP99 < p99Limit && Retouch.Median < retouchLimit && SaveMs < saveLimit && LoadMs < loadLimit && SaveBytes < bytesLimit;
 }
+
+internal readonly record struct ArrivalsResult(int Holes, int Trees, int Ticks, int Arrived, int TurnedAway, int Left, int MostOnCourse, int GroupCeiling, int LongestQueue, double TickMean, double TickP99, double TickMax);

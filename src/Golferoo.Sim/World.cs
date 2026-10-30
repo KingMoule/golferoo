@@ -63,12 +63,16 @@ public sealed partial class World
     private readonly List<Point2> _waypoints = [];
     private readonly List<Point2> _beautySources = [];
     private int _nextGolferId;
+    private int _nextGroupId;
     private Point2?[] _exitPoints = [];
     private long _exitPointVersion = -1;
 
-    public World(ulong seed, TerrainGrid? terrain = null, IShotResolver? resolver = null, bool league = false, EconomyParams? economy = null, ProgressionParams? progression = null, bool placeClubhouse = false)
+    public World(ulong seed, TerrainGrid? terrain = null, IShotResolver? resolver = null, bool league = false, EconomyParams? economy = null, ProgressionParams? progression = null, bool placeClubhouse = false, ArrivalParams? arrivals = null)
     {
         Seed = seed;
+        Arrivals = arrivals ?? ArrivalParams.Default;
+        Reputation = Arrivals.ReputationStart;
+        _arrivalRng = new DeterministicRng(seed ^ ArrivalSeedMask);
         Terrain = terrain;
         Economy = economy ?? EconomyParams.Facile;
         Progression = progression ?? ProgressionParams.Default;
@@ -387,7 +391,7 @@ public sealed partial class World
             g.InLeague = leagueRound >= 0;
         }
 
-        var group = new Group(_groups.Count, golfers) { LeagueRound = leagueRound };
+        var group = new Group(_nextGroupId++, golfers) { LeagueRound = leagueRound };
         _groups.Add(group);
         return group;
     }
@@ -514,9 +518,16 @@ public sealed partial class World
             }
 
             Flow!.BeginTick();
+            StepArrivals();
             for (var i = 0; i < _groups.Count; i++)
             {
                 UpdateGroup(Terrain, i);
+            }
+
+            if (_groupLeft)
+            {
+                _groups.RemoveAll(g => g.Left);
+                _groupLeft = false;
             }
 
             AdvancePlans(Terrain);
@@ -540,6 +551,7 @@ public sealed partial class World
             }
 
             RefreshSoil();
+            DismissWaitingArrivals();
             if (League?.OnNewDay(DayIndex, WeatherOn(DayIndex).Sky == Sky.HeavyRain, Tick) is { } round)
             {
                 for (var n = 0; n < round.Pairs.Count; n++)
@@ -632,6 +644,7 @@ public sealed partial class World
         }
 
         MixClubhouse(ref hash);
+        MixArrivals(ref hash);
         MixPendingEdits(ref hash);
         MixStroke(ref hash);
         MixTreeCommands(ref hash);
@@ -704,6 +717,11 @@ public sealed partial class World
         if (g.MemberId >= 0)
         {
             Mix(ref hash, (ulong)g.MemberId);
+        }
+
+        if (g.VisitorId >= 0)
+        {
+            Mix(ref hash, (ulong)g.VisitorId);
         }
 
         Mix(ref hash, (ulong)g.Profile);
@@ -835,6 +853,12 @@ public sealed partial class World
             return;
         }
 
+        if (group.Leaving)
+        {
+            UpdateLeaving(terrain, group);
+            return;
+        }
+
         var hole = terrain.Course[group.Hole];
         var holedOut = false;
         foreach (var g in group.Golfers)
@@ -891,6 +915,13 @@ public sealed partial class World
             {
                 ReturnLeagueCards(group);
             }
+            else if (group.FromArrivals)
+            {
+                foreach (var g in group.Golfers)
+                {
+                    g.State = GolferState.Leaving;
+                }
+            }
 
             return;
         }
@@ -940,7 +971,7 @@ public sealed partial class World
     private bool TryRelease(TerrainGrid terrain, int index)
     {
         var group = _groups[index];
-        if ((group.LeagueRound >= 0 && Tick < group.ReleaseTick) || !HoleOpen || (index > 0 && !TeeCleared(terrain, _groups[index - 1])))
+        if ((group.LeagueRound >= 0 && Tick < group.ReleaseTick) || !HoleOpen || (group.FromArrivals && !CanStartArrival(terrain)) || (index > 0 && !TeeCleared(terrain, _groups[index - 1])))
         {
             return false;
         }
@@ -964,7 +995,7 @@ public sealed partial class World
         var tee = terrain.Course[1].Tee;
         foreach (var g in ahead.Golfers)
         {
-            if (g.State is GolferState.Exiting or GolferState.Done)
+            if (g.State is GolferState.Exiting or GolferState.Done or GolferState.Leaving)
             {
                 continue; // il a fini le trou : sa balle (ramassée, elle peut traîner près du départ) ne bloque plus le départ
             }
@@ -1003,7 +1034,7 @@ public sealed partial class World
             foreach (var o in ahead.Golfers)
             {
                 // Un golfeur parti n'est plus sur le parcours (le dernier trou le laisse au point de sortie).
-                if (o.State != GolferState.Done && Math.Sqrt(Dist2(o.Position, hole.Hole)) >= limit)
+                if (o.State is not (GolferState.Done or GolferState.Leaving) && Math.Sqrt(Dist2(o.Position, hole.Hole)) >= limit)
                 {
                     return true;
                 }
