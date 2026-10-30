@@ -79,6 +79,7 @@ La revue suivante vérifie si les leçons traitées sont revenues : si oui, la c
 
 ### Journal des revues
 - 2026-10-24 · mise en place de la boucle (aucune leçon encore).
+- 2026-10-29 · fin de la vague 1 : 36 leçons traitées en six familles (environnement cloud et Windows, lecture des journaux CI, commandes refusées en worktree, qualité des briefs, qualité des critères de spec, reprise d'agents coupés) ; `.gitattributes`, `.gitignore`, `CLAUDE.md` (solde de lignes nul), skills `deleguer` et `cadrer` ; deux leçons en attente.
 
 ## Pour faire évoluer le workflow
 - Une friction : une ligne dans `docs/lecons.md`. Une revue : `/ameliorer`.

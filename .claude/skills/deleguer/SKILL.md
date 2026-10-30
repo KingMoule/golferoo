@@ -19,6 +19,7 @@ But : un agent qui démarre à froid reçoit exactement ce qu'il lui faut et ren
    - **léger** : écrans de consultation, statistiques, options, outils de développement.
    - **aucun** : libellés, documentation, style. CI verte et relecture de la PR par Guillaume.
 4. Parallélisme : un seul codeur par zone de code. Deux codeurs en même temps seulement sur des zones disjointes, chacun avec `isolation: "worktree"`.
+5. Ce que le brief doit nommer : les fichiers de données du chantier ; pour un critère « inchangé » ou « au bit près », la référence à figer sur `main` d'abord (et le petit test de relevé à commiter) ; pour un audit, le diff `git diff origin/main...origin/<branche>` (jamais `<sha>^1`, faux si la tête est une fusion de main).
 
 ## Le brief (une page au plus)
 ```
@@ -46,4 +47,5 @@ RENDU : 30 lignes au plus (statut, critères, commandes et résultats, écarts, 
 2. Niveau complet ou léger : lance l'`auditeur` avec le même brief et le lien de la PR.
 3. Mets à jour `docs/chantiers.md` en une ligne (statut, PR, constat ouvert).
 4. Une ligne `Friction :` autre que « aucune », ou un aller-retour que tu as dû faire toi-même : ajoute-la à `docs/lecons.md` par `echo "- ..." >> docs/lecons.md`, sans relire le fichier.
-5. Le `relecteur` passe à la fin d'une vague ou avant une publication, pas à chaque chantier ; suis-le de `/ameliorer`.
+5. Agent coupé (limite d'usage) : `SendMessage` le reprend ; s'il refuse, un nouvel agent reprend dans son worktree, où le travail non commité est resté. Un agent qui attend une fusion se termine plutôt que de boucler sur des minuteurs ; on le relance après.
+6. Le `relecteur` passe à la fin d'une vague ou avant une publication, pas à chaque chantier ; suis-le de `/ameliorer`.

@@ -14,6 +14,8 @@ Par rondes courtes et numérotées, avec l'outil de questions structurées s'il 
 Si toutes les réponses plausibles mènent au même build, ne pose pas la question. Si Guillaume dit d'avancer, avance et note les hypothèses.
 
 ## 3. Écrire la spec
+Un critère cite la dernière mesure (FPS), marque « signe à vérifier » un facteur de physique non testé contre le modèle, dit « fumée Godot » quand il faut le moteur, vérifie un évènement plutôt qu'un compteur, teste une règle de calendrier avec la vraie date de `Calendar`, et ne prescrit pas un chiffre physique sans l'avoir mesuré (« le fer 5 roule autant que le bois 3 » était faux).
+
 `specs/<id>-<slug>.md`, une page autant que possible :
 ```
 # <Titre>

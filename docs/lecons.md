@@ -9,39 +9,5 @@ Familles : `contexte`, `délégation`, `vérification`, `règle-ignorée`, `outi
 Ajouter sans relire tout le fichier : `echo "- ..." >> docs/lecons.md`. `/ameliorer` vide la liste une fois les leçons traitées.
 
 ## À traiter
-- 2026-10-24 · outil · conteneur cloud sans .NET ni Godot ; dotnet-install.sh refusé par le proxy, `apt-get install dotnet-sdk-10.0` marche, Godot seulement en CI · quelques minutes · C01 lot 1
-- 2026-10-24 · délégation · les agents du dépôt (codeur, auditeur, relecteur) ne sont pas chargés dans la session cloud de projet : repli sur general-purpose en Sonnet avec renvoi au fichier .claude/agents/<rôle>.md · un appel raté · C01 lot 2
-- 2026-10-24 · outil · branche recréée depuis main + cherry-pick non poussé : le codeur a trouvé l'ancien commit en distant et a dû fusionner · un aller-retour · C01 lot 4
-- Retouche par brief d'une ligne (C01 lot 8) : l'agent a arrondi l'arbre de repli par code alors que le jeu affiche tree.glb (script Blender) ; une source d'asset doit être évidente depuis le code qui l'affiche, ou le brief la nomme.
-- 2026-10-25 · brief · le brief citait FlowField.BuildCosts, interne sans InternalsVisibleTo : le codeur a testé via le cache de champs · aucun aller-retour · C02 lot 1
-- 2026-10-25 · CI · le nombre de captures attendu vivait à deux endroits (Captures.cs et ci.yml) et a cassé la CI deux fois : ci.yml ne vérifie plus que CAPTURES OK, Captures.cs fait foi · deux allers-retours CI · C02 lots 1 et 3
-- 2026-10-25 · brief · un critère « identique au bit près » demande une référence calculée avant le changement : le brief doit dire de la figer d'abord (le codeur a dû monter un worktree) · quelques minutes · C03 lot 2
-- C04 : le critère FPS citait 453,5 (C02, anciens arbres) alors que le pack à 800 triangles était à 302 ; une spec cite la dernière mesure FPS, pas celle du chantier précédent.
-- 2026-10-25 C05 : les agents du dépôt (codeur, auditeur, relecteur) ne sont pas chargés dans une session de projet cloud ; relais par general-purpose (Sonnet) qui lit .claude/agents/<rôle>.md. Et la CI s'est arrêtée net faute de minutes Actions (dépôt privé), dépôt rendu public.
-- 2026-10-25 C05 lot 1 : une spec de physique doit marquer « signe à vérifier au lot » quand elle prescrit un facteur non testé contre le modèle (restitution ×1,15 faisait rouler le drive moins loin).
-- 2026-10-25 : les agents du dépôt (codeur, auditeur) n'étaient pas chargés dans une session de thread ; délégués en general-purpose avec le fichier de rôle à lire (C06).
-- 2026-10-25 : panne du téléchargement .NET de Microsoft (HTTP 409) ; repli apt ajouté à ci.yml (PR #51).
-- Reprendre une branche déjà fusionnée depuis main demande un push --force-with-lease (consigne de la session cloud), contraire à la règle « jamais de --force » : nommer une nouvelle branche pour la suite.
-- 2026-10-26 C08 : le brief d'audit doit citer le chemin des fichiers de données du chantier (le trou de test), l'auditeur a dû le chercher.
-- Journaux CI : le blob est refusé par le proxy ; `mcp__github__get_job_logs` avec `return_content` et `tail_lines` ≤ 700 marche, le journal complet (base64) fait planter le serveur MCP.
-- Agents en worktree : le garde-fou refuse les heredocs, `|` et guillemets français dans Bash ; supprimer le worktree d'un agent l'empêche d'être relancé par SendMessage.
-- C10 lot 1 (codeur) : en conteneur cloud, `apt-get update` avant `apt-get install dotnet-sdk-10.0` ; `dotnet test Golferoo.sln` dure environ 13 min, à lancer en arrière-plan.
-- C10 lot 2 (codeur) : attendre `dotnet test` par `until pgrep -f "dotnet test"` boucle sans fin (pgrep se reconnaît) ; utiliser `wait` ou lire le journal.
-- C10 lot 2 (auditeur) : « test sans Godot si possible » est flou pour la caméra (types Godot) : écrire « fumée Godot » dans la spec.
-- C11 : journaux CI trop gros (JPEG base64 sur une ligne) pour les outils ; gh api …/logs refusé, get_job_logs ne rend que la queue. Écrire les lignes de preuve dans $GITHUB_STEP_SUMMARY.
-- C11 : la suite complète dure 8 à 10 min en session (tests de ligue jusqu'à 35 s par cas).
-- Suite complète et `dotnet format` dépassent les 120 s de l'outil Bash : les lancer en arrière-plan avec un délai long (C12 lot 1).
-- Un critère « somme inchangée » oblige l'auditeur à recalculer les sommes sur main : le codeur commite le petit test de relevé qui les a produites (C12 lot 1).
-- Deux lots parallèles (C12 lots 3 et 4) se gênent sur les données partagées : le lot qui mesure se fabrique ses propres données plutôt que d'attendre celles de l'autre.
-- Les agents de dépôt butent sur la limite d'API en lot long (C12 lot 4) : reprise par SendMessage sans perte, prévoir des lots plus courts pour le banc.
-- 2026-10-28 (C13 lot 1) : `gh api …/jobs/<id>/logs` redirige vers un domaine blob refusé par le proxy du conteneur ; lire les captures avec l'outil MCP `get_job_logs` (tail_lines court) grâce à l'étape CI qui remet les lignes FULL des chantiers récents en fin de journal.
-- Le job Captures dépassait le timeout de 300 s aux facteurs 3 et 4 à mesure que les chantiers ajoutent des vues : ces passes s'arrêtent maintenant à 5 images (`--limit`).
-- Un `git add -A` d'agent a embarqué les `.import` et `.uid` générés par Godot : à ajouter au `.gitignore` si ce n'est pas voulu.
-- La fumée comptait les coups du pro par son score : une pénalité d'eau la faisait échouer au hasard du vent (#116). Un test de fumée vérifie un évènement, pas un compteur qu'autre chose peut bouger.
-- Dans un worktree isolé, les agents voient refuser les commandes gh/git composées (jq select, && enchaînés, sed à variables) : ils attendent la CI par un script du scratchpad (C14 lot 2, C13 lot 4).
-- 2026-10-29 (reprise locale Windows) : `gh run view --log` tronque le journal du job Captures aux séquences d'échappement ; `gh api --allow-escape-sequences repos/KingMoule/golferoo/actions/jobs/<id>/logs` donne les lignes `FULL`.
-- Les worktrees d'agents sous `.claude/worktrees/` dépassent la longueur de chemin du lanceur de tests sous Windows (Win32 87) : copier dans un dossier court (`C:\t\...`).
-- `core.autocrlf=true` sous Windows : `dotnet format --verify-no-changes` sort des dizaines de milliers d'ENDOFLINE ; filtrer `grep -v ENDOFLINE`, la CI Linux fait foi.
-- Un brief d'audit qui donne `git diff <sha>^1...<sha>` sur une tête qui est une fusion de main vise le mauvais parent : donner `git diff origin/main...origin/<branche>` ou le commit de fusion dans main.
-- Les tests sur des années fictives ont caché pendant deux chantiers une remise à zéro au 1er janvier au lieu du 1er avril (C08 → C25) : tester les règles de calendrier avec la vraie date de `Calendar`.
-- Une limite d'usage coupe les agents en arrière-plan sans les rendre reprenables : leurs worktrees gardent le travail non commité, un nouvel agent peut y reprendre.
+- 2026-10-28 · délégation · deux lots parallèles (C12 lots 3 et 4) se gênent sur les données partagées : le lot qui mesure se fabrique ses propres données plutôt que d'attendre celles de l'autre · en attente (une occurrence) · C12
+- 2026-10-29 · outil · la modification de `.claude/settings.json` par la session (allow-list des commandes d'agents) est refusée par le mode auto : à faire par Guillaume s'il la veut · en attente · /ameliorer du 2026-10-29
