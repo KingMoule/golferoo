@@ -35,6 +35,12 @@ public partial class Main : Node3D
 
     /// <summary>Le pro propose le tutoriel au démarrage ; la fumée et les captures l'éteignent pour garder l'écran net.</summary>
     public static bool OfferTutorial { get; set; } = true;
+
+    /// <summary>Une nouvelle partie place le pavillon, donc des groupes y arrivent ; les captures longues l'éteignent (elles avancent des semaines de jeu).</summary>
+    public static bool ClubhouseOnNewGame { get; set; } = true;
+
+    /// <summary>Paramètres d'arrivée de la nouvelle partie à la place de ceux des données (captures).</summary>
+    public static Golferoo.Sim.Golfers.ArrivalParams? ArrivalsOverride { get; set; }
     public const int DefaultFactor = 2;
     public const int LoadModeGolfers = 200;
     public const int MaxTicksPerFrame = 16;
@@ -262,7 +268,7 @@ public partial class Main : Node3D
         {
             grid = LoadTerrain(Factor);
             GD.Print($"HOLE source={HoleSource}");
-            World = new World(seed: 1, grid, league: !grid.Blank, placeClubhouse: true);
+            World = new World(seed: 1, grid, league: !grid.Blank, placeClubhouse: ClubhouseOnNewGame, arrivals: ArrivalsOverride);
             if (FpsBench.Active)
             {
                 FpsBench.FillTrees(World.Trees, grid);

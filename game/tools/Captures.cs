@@ -97,6 +97,9 @@ public partial class Captures : Node
     {
         Main.OfferTutorial = false;
 
+        // Les vues avancent des semaines de jeu : sans pavillon, personne n'arrive (seule la vue du pavillon, à la fin, le place).
+        Main.ClubhouseOnNewGame = false;
+
         // Les vues d'avant C12 sont réglées sur le dogleg (lisière, approche) : elles gardent ce trou seul ; « Le neuf » vient à la fin.
         Main.CourseOverride = "data/holes/dogleg-par4.json";
         _outDir = Main.CommandLineOption("--out") ?? "captures";
@@ -793,6 +796,8 @@ public partial class Captures : Node
         }
 
         await Frames(2);
+        Main.ClubhouseOnNewGame = true;
+        Main.ArrivalsOverride = Golferoo.Sim.Golfers.ArrivalParams.Default.AtMaxAttraction();
         var main = GD.Load<PackedScene>("res://Main.tscn").Instantiate<Main>();
         AddChild(main);
         main.Paused = true;
@@ -803,9 +808,9 @@ public partial class Captures : Node
         main.Actors.Range = float.PositiveInfinity;
         main.SpawnGroup();
         main.SpawnGroup();
-        for (var i = 0; i < 1500 && main.World.QueueLength < 3; i++)
+        for (var i = 0; i < 60 && main.World.QueueLength < 3; i++)
         {
-            main.StepTicks(20);
+            main.StepTicks(100);
         }
 
         var grid = main.World.Terrain!;
