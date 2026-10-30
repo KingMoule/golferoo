@@ -46,6 +46,8 @@ public partial class ProPanel : Node
         _level = new Label
         {
             ThemeTypeVariation = "UiName",
+            ClipText = true,
+            TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis,
             SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
             MouseFilter = Control.MouseFilterEnum.Stop,
             TooltipText = $"Chaque coup nourrit les habiletés sollicitées selon sa qualité (ligue ×2, entraînement {_skills.TrainingCap / 100} XP par an au plus).",
@@ -140,7 +142,7 @@ public partial class ProPanel : Node
         }
 
         var year = _main.World.PlayYear;
-        _level.Text = $"Niveau de jeu : handicap {LeaguePanel.Decimal(_skills.OverallHandicap)}";
+        _level.Text = $"Handicap {LeaguePanel.Decimal(_skills.OverallHandicap)}";
         for (var i = 0; i < Skills.Length; i++)
         {
             var s = Skills[i];
