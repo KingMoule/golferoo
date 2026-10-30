@@ -5,9 +5,9 @@ Simulateur de golf moderne. Langue de travail : français (code et identifiants 
 ## Stack et commandes
 Godot 4.7 (.NET) pour le rendu, l'UI et les outils ; toute la simulation dans `Golferoo.Sim`, bibliothèque C# pure sans dépendance à Godot (`docs/adr/0001-moteur.md`). Commandes vérifiées aux lots 1 et 8 de C01 (PR #6, #14).
 - Installer : SDK .NET 10 (conteneur cloud : `apt-get install dotnet-sdk-10.0`) et Godot 4.7.2 .NET ; `dotnet restore Golferoo.sln`
-- Test rapide (ciblé, pendant le travail) : `dotnet test tests/Golferoo.Sim.Tests --filter <Nom>`
+- Test rapide (ciblé, pendant le travail) : `dotnet test tests/Golferoo.Sim.Tests --filter <Nom>` ; les tests statistiques longs (dispersion, parties sur « Le neuf ») en `-c Release`, et un calage par balayage de paramètres plutôt qu'un essai par réglage. Sous Windows, si le lanceur échoue (Win32 87, chemin trop long d'un worktree), copier dans un dossier court (`C:\t\…`)
 - Suite complète : `dotnet test Golferoo.sln` ; banc `dotnet run -c Release --project tests/Golferoo.Sim.Bench` ; Godot (en CI, `.github/workflows/ci.yml`) : `dotnet build game/Golferoo.Game.csproj`, `godot --headless --path game --import`, puis `godot --headless --path game res://tests/Smoke.tscn` qui doit écrire `SMOKE OK`
-- Captures : `godot --path game res://tools/Captures.tscn -- --out dossier [--factor n] [--thumbs] [--full]` (en CI : lignes `THUMB`/`FULL` en JPEG base64 dans le journal du job « Captures », lisibles sans télécharger l'artefact) ; export Windows : job CI « Export Windows », artefact `golferoo-windows` (`Mesurer FPS.bat` = `-- --fps-bench`)
+- Captures : `godot --path game res://tools/Captures.tscn -- --out dossier [--factor n] [--thumbs] [--full]` (en CI : lignes `THUMB`/`FULL` en JPEG base64 du job « Captures », par `gh api --allow-escape-sequences repos/KingMoule/golferoo/actions/jobs/<id>/logs` ; `gh run view --log` tronque) ; export Windows : job CI « Export Windows », artefact `golferoo-windows` (`Mesurer FPS.bat` = `-- --fps-bench`)
 - Assets : `pip install bpy==5.2.3` (Python 3.13) puis `python -I tools/blender/tree_lowpoly.py` régénère `game/assets/trees/tree.glb`
 - Lint / format : `dotnet format Golferoo.sln --verify-no-changes` (le hook `post-edit-format.sh` formate les `.cs` si `dotnet` est présent)
 - Jamais de `using Godot` dans `src/Golferoo.Sim/`. Aucun fichier d'OpenSGolf ni d'EA n'est copié dans le dépôt : leurs docs et chiffres se citent.
@@ -40,8 +40,8 @@ Less is more. You see elegance in simplicity. You favour concise, clean solution
 - Sortie de commande longue : filtre-la (`| tail -n 40`, `grep -E 'FAIL|Error'`) ou délègue-la à un agent qui rend un résumé.
 - Un agent coûte un démarrage à froid : ne délègue que si le travail inline dépasserait environ 30 000 tokens ou doit être isolé.
 - Cite les fichiers au lieu de les recopier dans un brief ; un brief tient sur une page.
-- Après deux corrections ratées sur le même point : `/clear` et un meilleur prompt plutôt qu'une troisième.
-- `/clear` entre deux sujets sans rapport ; `/btw` pour une question qui ne doit pas rester en contexte.
+- `/clear` entre deux sujets sans rapport, ou après deux corrections ratées sur le même point (avec un meilleur prompt).
+- Dans un worktree d'agent, les commandes composées (heredoc, `&&` avec `git` ou `gh`, boucles) sont souvent refusées : une commande par appel, les scripts écrits avec l'outil Write puis lancés.
 
 ## État du projet
 - `docs/handoff.md` : où on en est (40 lignes au plus). À lire avant de reprendre un chantier, inutile si la demande nomme déjà la tâche.

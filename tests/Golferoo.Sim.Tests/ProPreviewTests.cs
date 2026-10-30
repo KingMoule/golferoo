@@ -200,6 +200,7 @@ public class ProPreviewTests
         Assert.StartsWith("niv. 12 : dispersion −", line);
         Assert.Contains(", niv. 13 : −", line);
         Assert.EndsWith("(maximum)", ProEffects.Line(ProSkill.LongIrons, 50));
+        Assert.Matches(@"^−\d+ % roulement$", ProEffects.Compact(ProSkill.Chip, 12));
         Assert.Matches(@"^niv\. 3 : −\d+ % roulement, niv\. 4 : −\d+ %$", ProEffects.Line(ProSkill.Chip, 3));
     }
 

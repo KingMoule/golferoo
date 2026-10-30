@@ -149,7 +149,7 @@ public partial class ProPanel : Node
             var level = _skills.Level(s);
             _levels[i].Text = $"niv. {level}";
             _bars[i].Value = _skills.LevelProgress(s);
-            _effects[i].Text = ProEffects.Text(s, level);
+            _effects[i].Text = ProEffects.Compact(s, level);
             _rows[i].TooltipText = $"{ProEffects.Name(s)} · {ProEffects.Line(s, level)}\n{_skills.Experience(s) / 100} XP · entraînement {_skills.TrainingThisYear(s, year) / 100}/{_skills.TrainingCap / 100}";
         }
     }

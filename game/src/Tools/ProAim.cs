@@ -269,7 +269,7 @@ public partial class ProAim : Node3D
         _label!.Text = $"Votre pro : {(putting ? "putting" : $"{ClubName(Club)}, {ShapeNames[Array.IndexOf(Shapes, Shape)].ToLowerInvariant()}")} | " +
                        $"cible à {Dist(pro.Ball, Target):F0} m, balle prévue à {Dist(pro.Ball, Preview.Ball):F0} m ({OutcomeName(Preview.Outcome)})\n" +
                        $"{SkillName(general)} : niveau {skills.Level(general)} | clic au sol : viser\n" +
-                       ReadingNote(skills, putting, world.Progression, world.Wind);
+                       ReadingNote(skills, putting, world.Progression);
         Draw(pro.Ball, Preview, skills.DirectionFactor(Club, Shape));
     }
 
@@ -315,7 +315,7 @@ public partial class ProAim : Node3D
     }
 
     /// <summary>Ce que l'aperçu vaut (C25) : le vent ou la pente sont lus avec une erreur qui s'efface avec le niveau de l'habileté.</summary>
-    private static string ReadingNote(ProSkills skills, bool putting, ProgressionParams p, Vec3 wind)
+    private static string ReadingNote(ProSkills skills, bool putting, ProgressionParams p)
     {
         var skill = putting ? ProSkill.GreenReading : ProSkill.Wind;
         var level = skills.Level(skill);
@@ -325,9 +325,9 @@ public partial class ProAim : Node3D
         }
 
         var amplitude = ProSkills.BiasAmplitude(level);
-        var error = putting
-            ? $"pente lue à ±{amplitude * p.SlopeBiasScale * 100.0:F0} % et ±{amplitude * p.SlopeBiasAngle * 180.0 / Math.PI:F0}°"
-            : $"vent lu à ±{amplitude * p.WindBiasForce * Math.Sqrt((wind.X * wind.X) + (wind.Z * wind.Z)):F1} m/s (vent réel {Math.Sqrt((wind.X * wind.X) + (wind.Z * wind.Z)):F1}) et ±{amplitude * p.WindBiasAngle * 180.0 / Math.PI:F0}°";
+        var degrees = amplitude * (putting ? p.SlopeBiasAngle : p.WindBiasAngle) * 180.0 / Math.PI;
+        var share = amplitude * (putting ? p.SlopeBiasScale : p.WindBiasForce) * 100.0;
+        var error = putting ? $"pente lue à ±{share:F0} % et ±{degrees:F0}°" : $"vent lu à ±{share:F0} % de force et ±{degrees:F0}°";
         return $"{ProEffects.Name(skill)} : niveau {level}, écart possible de l'aperçu : {error}";
     }
 
