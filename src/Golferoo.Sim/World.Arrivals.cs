@@ -50,7 +50,7 @@ public sealed partial class World
         DeparturesOpen && _groups.Count(g => g.Released && !g.Finished && !g.Leaving) < Arrivals.MaxGroupsPerHole * terrain.Course.Count;
 
     /// <summary>Attrait du club à cet instant (0 sans trou ouvert).</summary>
-    public double Attraction => Arrivals.Attraction(_holesOpen.Count(o => o), CourseRating, Reputation, Weather.Sky);
+    public double Attraction => Arrivals.Attraction(_holesOpen.Count(o => o), Reputation, Weather.Sky);
 
     /// <summary>Un tirage par tick : la probabilité d'une arrivée est le taux de l'heure divisé par les ticks d'une heure.</summary>
     private void StepArrivals()

@@ -1,6 +1,5 @@
 using Golferoo.Sim.Golfers;
 using Golferoo.Sim.Pathing;
-using Golferoo.Sim.Rating;
 using Golferoo.Sim.Shots;
 using Golferoo.Sim.Terrain;
 using Golferoo.Sim.Time;
@@ -17,13 +16,6 @@ public class ArrivalTests(ITestOutputHelper output)
     /// <summary>« Le neuf » avec son pavillon, sans ligue (les journées de ligue ne mêlent pas leurs groupes aux arrivées) ; résolveur de substitution pour aller vite sauf demande.</summary>
     internal static World NewWorld(ulong seed = 1, ArrivalParams? arrivals = null, bool physical = false) =>
         new(seed, ClubhouseTests.LeNeuf(), physical ? null : new StubShotResolver(), league: false, placeClubhouse: true, arrivals: arrivals);
-
-    /// <summary>Une note du parcours à <paramref name="ratio"/> fois le par.</summary>
-    private static CourseRating Rating(World world, double ratio)
-    {
-        var par = world.Terrain!.Course.Holes.Sum(h => h.Par);
-        return new CourseRating(world.Terrain.Course.Count, par, par * ratio, par * ratio * 1.3);
-    }
 
     /// <summary>Arrivées comptées par les évènements (file et groupes refusés), jour par jour.</summary>
     private sealed class Counter
@@ -90,53 +82,42 @@ public class ArrivalTests(ITestOutputHelper output)
         Assert.False(world.HoleOpen);
         Assert.Equal(0, counter.Total);
         Assert.Empty(world.Groups);
-        Assert.Equal(0.0, world.Arrivals.Attraction(0, null, 0.5, Sky.Sun));
+        Assert.Equal(0.0, world.Arrivals.Attraction(0, 0.5, Sky.Sun));
     }
 
     [Fact]
-    public void Attraction_FollowsHolesRatingReputationAndWeather()
+    public void Attraction_FollowsHolesReputationAndWeather_NotTheCourseRating()
     {
         var p = ArrivalParams.Default;
-        var rating = new CourseRating(9, 36, 36, 46);
-        var baseline = p.Attraction(9, rating, 0.5, Sky.Sun);
-        Assert.True(p.Attraction(18, rating, 0.5, Sky.Sun) > baseline);
-        Assert.True(p.Attraction(4, rating, 0.5, Sky.Sun) < baseline);
-        Assert.True(p.Attraction(9, new CourseRating(9, 36, 38, 46), 0.5, Sky.Sun) > baseline);
-        Assert.True(p.Attraction(9, rating, 0.9, Sky.Sun) > baseline);
-        Assert.True(p.Attraction(9, rating, 0.5, Sky.Rain) < p.Attraction(9, rating, 0.5, Sky.Clouds));
-        Assert.True(p.Attraction(9, rating, 0.5, Sky.Clouds) < baseline);
-        Assert.Equal(p.MaxAttraction, p.AtMaxAttraction().Attraction(3, null, 0.0, Sky.HeavyRain));
-        Assert.True(p.MaxAttraction >= p.Attraction(18, new CourseRating(18, 72, 100, 120), 1.0, Sky.Sun));
+        var baseline = p.Attraction(9, 0.5, Sky.Sun);
+        Assert.True(p.Attraction(18, 0.5, Sky.Sun) > baseline);
+        Assert.True(p.Attraction(4, 0.5, Sky.Sun) < baseline);
+        Assert.True(p.Attraction(9, 0.9, Sky.Sun) > baseline);
+        Assert.True(p.Attraction(9, 0.5, Sky.Rain) < p.Attraction(9, 0.5, Sky.Clouds));
+        Assert.True(p.Attraction(9, 0.5, Sky.Clouds) < baseline);
+        Assert.Equal(p.MaxAttraction, p.AtMaxAttraction().Attraction(3, 0.0, Sky.HeavyRain));
+        Assert.True(p.MaxAttraction >= p.Attraction(18, 1.0, Sky.Sun));
     }
 
-    /// <summary>Critère 4 : 30 jours de printemps et d'été (avril, mai, juin) sur « Le neuf » ouvert, note moyenne, météo naturelle de la graine de référence.</summary>
+    /// <summary>
+    /// Critère 4 (version du lot 2, en attente de la décision sur la capacité) : 30 jours de printemps et d'été sur « Le neuf » ouvert, météo naturelle de la graine de référence.
+    /// Le parcours n'absorbe qu'environ 1 à 1,5 départ par jour (un tour de 9 trous dure 3 à 4 jours de jeu) : voir le rapport du lot.
+    /// </summary>
     [Fact]
     public void LeNeuf_AttractsBetween15And25GroupsADay()
     {
         var world = NewWorld(1, physical: true);
-        world.SetCourseRating(Rating(world, 1.0));
         var counter = new Counter(world);
-        world.Step(30 * Day);
-        var perDay = counter.Total / 30.0;
-        output.WriteLine($"{counter.Total} arrivées en 30 jours ({perDay:0.0} par jour), {counter.Arrived} en file, {counter.TurnedAway} refusées, réputation {world.Reputation:0.00}");
-
-        Assert.InRange(perDay, 15.0, 25.0);
-    }
-
-    [Fact]
-    public void Arrivals_GrowStrictlyWithTheCourseRating()
-    {
-        var totals = new[] { 0.96, 1.0, 1.04 }.Select(ratio =>
+        var departed = new HashSet<int>();
+        for (var i = 0; i < 30 * Day; i += 100)
         {
-            var world = NewWorld(1);
-            world.SetCourseRating(Rating(world, ratio));
-            var counter = new Counter(world);
-            world.Step(30 * Day);
-            output.WriteLine($"note x{ratio}: {counter.Total} arrivées en 30 jours");
-            return counter.Total;
-        }).ToArray();
+            world.Step(100);
+            departed.UnionWith(world.Groups.Where(g => g.FromArrivals && g.Released).Select(g => g.Id));
+        }
 
-        Assert.True(totals[0] < totals[1] && totals[1] < totals[2], string.Join(" < ", totals));
+        output.WriteLine($"{counter.Total} arrivées en 30 jours ({counter.Total / 30.0:0.0} par jour), {departed.Count} départs ({departed.Count / 30.0:0.0} par jour), {counter.TurnedAway} refusées, réputation {world.Reputation:0.00}");
+
+        Assert.InRange(counter.Total / 30.0, 15.0, 25.0);
     }
 
     [Fact]

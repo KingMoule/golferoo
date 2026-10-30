@@ -1,6 +1,5 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using Golferoo.Sim.Rating;
 using Golferoo.Sim.Time;
 using Golferoo.Sim.Weather;
 
@@ -34,13 +33,6 @@ public sealed record ArrivalParams
 
     public required int HolesCap { get; init; }
 
-    /// <summary>Pente du facteur de note par rapport à l'écart relatif de la note du scratch au par.</summary>
-    public required double NoteGain { get; init; }
-
-    public required double NoteMin { get; init; }
-
-    public required double NoteMax { get; init; }
-
     public required double ReputationMinFactor { get; init; }
 
     public required double ReputationMaxFactor { get; init; }
@@ -71,11 +63,11 @@ public sealed record ArrivalParams
 
     public required string[] FirstNames { get; init; }
 
-    /// <summary>Banc et tests : attrait imposé, sans regard aux trous, à la note, à la réputation ni à la météo.</summary>
+    /// <summary>Banc et tests : attrait imposé, sans regard aux trous, à la réputation ni à la météo.</summary>
     public double? ForcedAttraction { get; init; }
 
     /// <summary>Attrait le plus haut : toutes les composantes au maximum.</summary>
-    public double MaxAttraction => HolesFactor(HolesCap) * NoteMax * ReputationMaxFactor * WeatherFactors.Max();
+    public double MaxAttraction => HolesFactor(HolesCap) * ReputationMaxFactor * WeatherFactors.Max();
 
     /// <summary>Même attrait que le défaut, imposé à son maximum (banc P1).</summary>
     public ArrivalParams AtMaxAttraction() => this with { ForcedAttraction = MaxAttraction };
@@ -86,15 +78,11 @@ public sealed record ArrivalParams
     /// <summary>Facteur de trous ouverts : nul sans trou ouvert, au plus <see cref="HolesCap"/> comptés.</summary>
     public double HolesFactor(int openHoles) => Math.Pow(Math.Min(openHoles, HolesCap) / HolesReference, HolesExponent);
 
-    /// <summary>Facteur de note du parcours (1 sans note) : monte avec l'écart relatif du scratch au par.</summary>
-    public double NoteFactor(CourseRating? rating) =>
-        rating is null ? 1.0 : Math.Clamp(1.0 + (NoteGain * ((rating.ScratchStrokes / rating.Par) - 1.0)), NoteMin, NoteMax);
-
     public double ReputationFactor(double reputation) => ReputationMinFactor + ((ReputationMaxFactor - ReputationMinFactor) * Math.Clamp(reputation, 0.0, 1.0));
 
-    /// <summary>Attrait du club : trous ouverts × note × réputation × météo du jour (la saison n'a pas d'effet en soi).</summary>
-    public double Attraction(int openHoles, CourseRating? rating, double reputation, Sky sky) =>
-        openHoles <= 0 ? 0.0 : ForcedAttraction ?? (HolesFactor(openHoles) * NoteFactor(rating) * ReputationFactor(reputation) * WeatherFactors[(int)sky]);
+    /// <summary>Attrait du club : trous ouverts × réputation × météo du jour (la saison n'a pas d'effet en soi).</summary>
+    public double Attraction(int openHoles, double reputation, Sky sky) =>
+        openHoles <= 0 ? 0.0 : ForcedAttraction ?? (HolesFactor(openHoles) * ReputationFactor(reputation) * WeatherFactors[(int)sky]);
 
     /// <summary>Groupes attendus par heure à l'heure <paramref name="hourIndex"/> (0 pour 6 h) d'attrait <paramref name="attraction"/>.</summary>
     public double RatePerHour(int hourIndex, double attraction) => GroupsPerDay * HourProfile[hourIndex] / HourProfile.Sum() * attraction;
