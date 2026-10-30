@@ -13,5 +13,17 @@
   "dosageFraction": 0.08,
   "distanceFloor": 0.85,
   "fullForce": 0.9,
-  "curveFraction": 1.0
+  "curveFraction": 1.0,
+  // Jeu dans le vent : vent (m/s) à partir duquel le coup nourrit l'habileté, et vent qui donne la qualité pleine du club.
+  "windMin": 3.0,
+  "windFull": 10.0,
+  // Lecture du green : écart latéral au trou où la qualité tombe à 0 (le plus grand de ces deux seuils), et pente minimale (m/m) qui compte.
+  "greenMeters": 0.5,
+  "greenFraction": 0.1,
+  "greenMinSlope": 0.01,
+  // Aperçu faussé au niveau 0 (nul au niveau 50) : force du vent (part), rotation du vent (rad), rotation de la pente lue (rad) et sa part.
+  "windBiasForce": 0.5,
+  "windBiasAngle": 0.6,
+  "slopeBiasAngle": 0.7,
+  "slopeBiasScale": 0.5
 }

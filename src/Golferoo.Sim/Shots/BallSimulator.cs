@@ -85,10 +85,15 @@ public static class BallSimulator
     /// <param name="curve">Effet latéral : vitesse de rotation de la vitesse horizontale en vol, en rad/s (positif : draw, vers la gauche d'un droitier ; 0 : aucun).</param>
     /// <param name="backspin">Part de la vitesse horizontale perdue au premier rebond (0 : aucune).</param>
     /// <param name="pin">Drapeau visé (défaut : celui du trou 1 du terrain).</param>
+    /// <param name="slopeAngle">Aperçu faussé (C25) : angle dont la pente lue tourne dans le roulement, en radians (0 : la vraie pente).</param>
+    /// <param name="slopeScale">Aperçu faussé (C25) : facteur de la pente lue (1 : la vraie pente).</param>
     /// <param name="expectation">Mode espérance (planification) : les couronnes ne tirent pas au hasard, elles cumulent leur probabilité d'arrêt ici ; les troncs agissent comme à l'exécution. Sans <paramref name="rng"/>.</param>
-    public static SimulationResult Run(TerrainGrid terrain, Point2 start, Vec3 velocity, bool rolling, double drag, bool recordPath, double startHeight = 0.0, TreeStand? trees = null, Season season = Season.Summer, DeterministicRng? rng = null, Vec3 wind = default, double curve = 0.0, double backspin = 0.0, TreeCollision.Expectation? expectation = null, Point2? pin = null)
+    public static SimulationResult Run(TerrainGrid terrain, Point2 start, Vec3 velocity, bool rolling, double drag, bool recordPath, double startHeight = 0.0, TreeStand? trees = null, Season season = Season.Summer, DeterministicRng? rng = null, Vec3 wind = default, double curve = 0.0, double backspin = 0.0, TreeCollision.Expectation? expectation = null, Point2? pin = null, double slopeAngle = 0.0, double slopeScale = 1.0)
     {
         var hole = pin ?? terrain.Hole;
+        var slopeCos = slopeScale * Math.Cos(slopeAngle);
+        var slopeSin = slopeScale * Math.Sin(slopeAngle);
+        var slopeRead = slopeAngle != 0.0 || slopeScale != 1.0;
         if (trees is not null && rng is null && expectation is null)
         {
             throw new ArgumentNullException(nameof(rng), "Des arbres exigent le RNG du coup.");
@@ -258,6 +263,11 @@ public static class BallSimulator
                 var r = terrain.Soil.RollResistanceAt(x, z) * Gravity;
                 var sx = Gravity * n.Y * n.X;
                 var sz = Gravity * n.Y * n.Z;
+                if (slopeRead)
+                {
+                    (sx, sz) = ((slopeCos * sx) - (slopeSin * sz), (slopeSin * sx) + (slopeCos * sz));
+                }
+
                 var speed = Math.Sqrt((vx * vx) + (vz * vz));
                 if (speed < 1e-9)
                 {

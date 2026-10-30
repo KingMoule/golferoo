@@ -42,6 +42,7 @@ public partial class Captures : Node
     private const int CourseViewCount = 11;
     private const int GalleryViewCount = 1;
     private const int FinanceViewCount = 1;
+    private const int ProViewCount = 2;
 
     /// <summary>Lisière sud de la forêt du coude, la balle de <c>ForestExitTests.Edge</c> (tuile 18,5 / 26,5 de 8 m).</summary>
     private static readonly Point2 ForestEdge = new(18.5 * 8, 26.5 * 8);
@@ -317,7 +318,7 @@ public partial class Captures : Node
         await SaveViews(await FreeViews(await TutorialViews(await ProfileViews(await AimView(await LeagueViews(main))))));
         await CourseViews();
         await GalleryView();
-        if (_failures == 0 && _index == expected + LeagueViewCount + TutorialViewCount + ProfileViewCount + FreeViewCount + SaveViewCount + CourseViewCount + GalleryViewCount + FinanceViewCount)
+        if (_failures == 0 && _index == expected + LeagueViewCount + TutorialViewCount + ProfileViewCount + FreeViewCount + SaveViewCount + CourseViewCount + GalleryViewCount + FinanceViewCount + ProViewCount)
         {
             GD.Print($"CAPTURES OK {_index} images");
             return 0;
@@ -438,6 +439,19 @@ public partial class Captures : Node
         await Frames(SettleFrames);
         GD.Print($"AIM actif={main.ProAim.Active} prevue={main.ProAim.Preview.Ball} issue={main.ProAim.Preview.Outcome}");
         Save("pro-aim");
+
+        // C25 : l'aperçu faussé, un fer long avec la note de lecture du vent (niveau 0 : l'aperçu peut se tromper de la moitié de la force du vent).
+        main.ProAim.SetClub(Clubs.Iron5);
+        main.ProAim.SetShape(ShotShape.Straight);
+        main.ProAim.SetForce(0.8);
+        main.ProAim.Sync();
+        await Frames(SettleFrames);
+        GD.Print($"APERCU club={main.ProAim.Club} prevue={main.ProAim.Preview.Ball} vent={world.Wind}");
+        Save("c25-apercu");
+        main.ProAim.SetClub(Clubs.Driver);
+        main.ProAim.SetShape(ShotShape.Draw);
+        main.ProAim.SetForce(1.0);
+        main.ProAim.Sync();
 
         // Le coup joué, la fiche du pro avec sa première expérience.
         main.ProAim.Play();
@@ -879,6 +893,45 @@ public partial class Captures : Node
         foreach (var panel in main.Panels.Opened.ToList())
         {
             main.Panels.Close(panel);
+        }
+
+        // C25 : la fiche du pro seule à 150 % (écran logique de 1280×720), avec des niveaux répartis dans les quatre groupes ; elle doit tenir à l'écran.
+        if (main.ProPanel is { } sheet && main.World.Pro is { } pro)
+        {
+            var level = 3;
+            foreach (var skill in Enum.GetValues<Golferoo.Sim.Pro.ProSkill>())
+            {
+                pro.Gain(skill, pro.XpForLevel(level) + ((pro.XpForLevel(level + 1) - pro.XpForLevel(level)) / 2) - pro.Experience(skill), league: true, year: main.World.PlayYear);
+                level = (level * 7 % 23) + 1;
+            }
+
+            sheet.Toggle();
+            await Frames(SettleFrames);
+            var wide = main.Ui.FindChildren("*", "Control", recursive: true, owned: false).OfType<Control>()
+                .Count(c => c.IsVisibleInTree() && c.Size.X > 0f && !screen.Grow(1f).Encloses(c.GetGlobalRect()));
+            var rows150 = sheet.VisibleRows();
+            GD.Print($"FICHE 1,5 ecran={screen.Size} lignes_visibles={rows150} hors_ecran={wide} birdie={main.Birdie.Chirps.Count(c => c.Tag == "#progrès")}");
+            if (rows150 < 8)
+            {
+                GD.PrintErr($"CAPTURES FAIL fiche du pro : {rows150} habiletés visibles à 150 % avec le tiroir ouvert, 8 au moins attendues");
+                _failures++;
+            }
+
+            Save("c25-fiche");
+            sheet.Toggle();
+            window.ContentScaleFactor = 1f;
+            sheet.Toggle();
+            await Frames(SettleFrames);
+            var rows100 = sheet.VisibleRows();
+            GD.Print($"FICHE 1,0 lignes_visibles={rows100}");
+            if (rows100 != Golferoo.Sim.Pro.ProSkills.Count)
+            {
+                GD.PrintErr($"CAPTURES FAIL fiche du pro : {rows100} habiletés visibles à 100 % sur {Golferoo.Sim.Pro.ProSkills.Count}");
+                _failures++;
+            }
+
+            sheet.Toggle();
+            window.ContentScaleFactor = 1.5f;
         }
 
         main.Bar.Select(ToolFamily.None, toggle: false);

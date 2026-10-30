@@ -78,14 +78,24 @@ public sealed partial class World
         _proShots.Enqueue(shot);
     }
 
-    /// <summary>Coup prévu, sans hasard ni arbres : ce que le mode visée dessine. Le vent du moment est compris.</summary>
+    /// <summary>Coup prévu, sans hasard ni arbres : ce que le mode visée dessine. Le vent du moment est compris, lu avec le biais de Jeu dans le vent, et la pente d'un putt avec
+    /// celui de Lecture du green (<see cref="ProSkills.BiasFor"/>). Ne touche ni au RNG ni à l'état du monde.</summary>
     public ShotResult PreviewProShot(ProShot shot)
     {
         var terrain = RequireTerrain();
         var golfer = AwaitingPro ?? throw new InvalidOperationException("Le pro n'attend pas de coup.");
         var resolver = (PhysicalShotResolver)_resolver;
-        resolver.Wind = Wind;
-        return Execute(resolver, terrain, golfer.Ball, shot, null, PinOf(terrain, golfer));
+        var bias = Pro!.BiasFor(Tick, golfer.Strokes, Wind);
+        var trueWind = resolver.Wind;
+        resolver.Wind = bias.Wind;
+        try
+        {
+            return Pro.Execute(resolver, terrain, golfer.Ball, shot, null, PinOf(terrain, golfer), bias);
+        }
+        finally
+        {
+            resolver.Wind = trueWind;
+        }
     }
 
     /// <summary>Distance au trou sous laquelle le putt du pro est donné (« gimme ») : un coup, balle au trou.</summary>

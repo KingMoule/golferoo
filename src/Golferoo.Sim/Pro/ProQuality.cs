@@ -25,7 +25,7 @@ internal static class ProQuality
     internal static int Hundredths(double quality) => (int)Math.Round(FullHundredths * quality, MidpointRounding.AwayFromZero);
 
     /// <summary>Les habiletés nourries par ce coup, avec leur XP en centièmes (jamais négative).</summary>
-    internal static List<(ProSkill Skill, int Hundredths)> Awards(ProgressionParams p, TerrainGrid terrain, Point2 start, in ProShot shot, in ShotResult aimed, in ShotResult result)
+    internal static List<(ProSkill Skill, int Hundredths)> Awards(ProgressionParams p, TerrainGrid terrain, Point2 start, in ProShot shot, in ShotResult aimed, in ShotResult result, double windSpeed = 0.0)
     {
         var awards = new List<(ProSkill, int)>();
         var putt = shot.Club.IsPutter;
@@ -58,6 +58,18 @@ internal static class ProQuality
         if (penalty)
         {
             return awards;
+        }
+
+        // Jeu dans le vent : la qualité du club (sans plancher), pondérée par la force du vent.
+        if (!putt && windSpeed >= p.WindMin)
+        {
+            awards.Add((ProSkill.Wind, Hundredths(clubQuality * Math.Min(1.0, windSpeed / p.WindFull))));
+        }
+
+        // Lecture du green : un putt sur une pente, mesuré à l'écart latéral au trou.
+        if (putt && !tiny && SlopeAlong(terrain, start, (ux, uz), d) >= p.GreenMinSlope)
+        {
+            awards.Add((ProSkill.GreenReading, Hundredths(holed ? 1.0 : Quality(lateral, Math.Max(p.GreenMeters, p.GreenFraction * d)))));
         }
 
         var partial = shot.Force < p.FullForce;
@@ -101,6 +113,21 @@ internal static class ProQuality
         }
 
         return awards;
+    }
+
+    /// <summary>Pente la plus forte (m/m) sur la ligne du départ vers la cible, échantillonnée tous les 2 m.</summary>
+    private static double SlopeAlong(TerrainGrid terrain, Point2 start, (double X, double Z) u, double d)
+    {
+        var steps = Math.Max(2, (int)Math.Ceiling(d / 2.0));
+        var best = 0.0;
+        for (var i = 0; i <= steps; i++)
+        {
+            var t = d * i / steps;
+            var n = terrain.SampleNormal(start.X + (u.X * t), start.Z + (u.Z * t));
+            best = Math.Max(best, Math.Sqrt((n.X * n.X) + (n.Z * n.Z)) / Math.Max(n.Y, 1e-9));
+        }
+
+        return best;
     }
 
     private static double Dist(Point2 a, Point2 b) => Math.Sqrt(((a.X - b.X) * (a.X - b.X)) + ((a.Z - b.Z) * (a.Z - b.Z)));

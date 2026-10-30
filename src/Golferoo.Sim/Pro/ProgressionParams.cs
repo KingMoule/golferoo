@@ -15,7 +15,16 @@ public sealed record ProgressionParams(
     double DosageFraction,
     double DistanceFloor,
     double FullForce,
-    double CurveFraction)
+    double CurveFraction,
+    double WindMin,
+    double WindFull,
+    double GreenMeters,
+    double GreenFraction,
+    double GreenMinSlope,
+    double WindBiasForce,
+    double WindBiasAngle,
+    double SlopeBiasAngle,
+    double SlopeBiasScale)
 {
     public const int MaxLevel = 50;
 
@@ -42,7 +51,10 @@ public sealed record ProgressionParams(
         [BitConverter.DoubleToInt64Bits(CostScale), BitConverter.DoubleToInt64Bits(TrainingCapPerYear), BitConverter.DoubleToInt64Bits(ClubFraction),
          BitConverter.DoubleToInt64Bits(ClubFloor), BitConverter.DoubleToInt64Bits(PutterMeters), BitConverter.DoubleToInt64Bits(PutterFraction),
          BitConverter.DoubleToInt64Bits(PrecisionFraction), BitConverter.DoubleToInt64Bits(DosageFraction), BitConverter.DoubleToInt64Bits(DistanceFloor),
-         BitConverter.DoubleToInt64Bits(FullForce), BitConverter.DoubleToInt64Bits(CurveFraction)];
+         BitConverter.DoubleToInt64Bits(FullForce), BitConverter.DoubleToInt64Bits(CurveFraction), BitConverter.DoubleToInt64Bits(WindMin),
+         BitConverter.DoubleToInt64Bits(WindFull), BitConverter.DoubleToInt64Bits(GreenMeters), BitConverter.DoubleToInt64Bits(GreenFraction),
+         BitConverter.DoubleToInt64Bits(GreenMinSlope), BitConverter.DoubleToInt64Bits(WindBiasForce), BitConverter.DoubleToInt64Bits(WindBiasAngle),
+         BitConverter.DoubleToInt64Bits(SlopeBiasAngle), BitConverter.DoubleToInt64Bits(SlopeBiasScale)];
 
     /// <summary>XP, en centièmes entiers, pour passer du niveau <paramref name="n"/> au suivant : a × (n + 1 + 300 × 2^((n + 1) / 7)) / 4.</summary>
     public long CostHundredths(int n) =>

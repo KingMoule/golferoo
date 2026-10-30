@@ -914,6 +914,7 @@ public partial class SmokeTest : Node
         }
 
         CheckProAim(failures);
+        CheckProSheet(failures);
         CheckUi(failures);
         CheckBar(failures);
         if (_main.GetNodeOrNull<Label>("TickLabel") is { Visible: true } && PushKey(Key.F12) && _main.GetNode<Label>("TickLabel").Visible)
@@ -1734,6 +1735,41 @@ public partial class SmokeTest : Node
         }
 
         layer.QueueFree();
+    }
+
+    /// <summary>
+    /// C25 critère 9 : la fiche du pro montre pour les 17 habiletés le niveau, la barre d'XP et l'effet actuel et suivant ; un niveau gagné
+    /// publie un avis Birdie qui nomme l'habileté, le niveau et l'effet.
+    /// </summary>
+    private void CheckProSheet(List<string> failures)
+    {
+        var main = _main!;
+        var panel = main.ProPanel;
+        if (panel is null || main.World.Pro is not { } skills)
+        {
+            failures.Add("fiche du pro : absente");
+            return;
+        }
+
+        panel.Toggle();
+        var shown = Enum.GetValues<Golferoo.Sim.Pro.ProSkill>()
+            .Count(s => main.Ui.Find($"ProSkill{s}") is { TooltipText: var tip } && tip.Contains("niv. ", StringComparison.Ordinal) && main.Ui.Find($"ProEffect{s}") is Label { Text: var effect } && (s == Golferoo.Sim.Pro.ProSkill.Chip ? effect.Length > 0 : System.Text.RegularExpressions.Regex.IsMatch(effect, @"^[−+]?\d+ % ")));
+        if (shown != Golferoo.Sim.Pro.ProSkills.Count)
+        {
+            failures.Add($"fiche du pro : {shown} habiletés sur {Golferoo.Sim.Pro.ProSkills.Count} avec ligne, effet et info-bulle (le nombre de lignes visibles se compte dans les captures, où la mise en page est faite)");
+        }
+
+        var before = main.Birdie.Chirps.Count;
+        skills.Gain(Golferoo.Sim.Pro.ProSkill.LongIrons, skills.XpForLevel(1), league: false, year: main.World.PlayYear);
+        panel._Process(0.0);
+        var level = skills.Level(Golferoo.Sim.Pro.ProSkill.LongIrons);
+        var expected = Golferoo.Sim.Pro.ProEffects.LevelMessage(Golferoo.Sim.Pro.ProSkill.LongIrons, level);
+        if (level < 1 || main.Birdie.Chirps.Count != before + 1 || main.Birdie.Chirps[^1].Text != expected)
+        {
+            failures.Add($"fiche du pro : pas d'avis Birdie au niveau gagné (niveau {level}, attendu « {expected} »)");
+        }
+
+        panel.Toggle();
     }
 
     /// <summary>C08 : le pro attend son coup, le mode visée s'ouvre en pause avec une trajectoire prévue, et « Jouer » envoie le coup.</summary>

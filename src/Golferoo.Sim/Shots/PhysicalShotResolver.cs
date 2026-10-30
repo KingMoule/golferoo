@@ -210,9 +210,9 @@ public sealed class PhysicalShotResolver : IShotResolver
 
     /// <summary>
     /// Putt choisi (votre pro) : vers <paramref name="target"/>, à la vitesse qui l'y amènerait sur un green plat ; la pente est au
-    /// joueur de la lire. Sans <paramref name="rng"/>, sans hasard (trajectoire prévue).
+    /// joueur de la lire. Sans <paramref name="rng"/>, sans hasard (trajectoire prévue). <paramref name="slopeAngle"/> et <paramref name="slopeScale"/> faussent la pente lue (aperçu du pro, C25).
     /// </summary>
-    public ShotResult PuttTo(Point2 ball, Point2 target, TerrainGrid terrain, DeterministicRng? rng, double dispersion = 1.0, Point2? pin = null)
+    public ShotResult PuttTo(Point2 ball, Point2 target, TerrainGrid terrain, DeterministicRng? rng, double dispersion = 1.0, Point2? pin = null, double slopeAngle = 0.0, double slopeScale = 1.0)
     {
         var ex = target.X - ball.X;
         var ez = target.Z - ball.Z;
@@ -229,7 +229,7 @@ public sealed class PhysicalShotResolver : IShotResolver
         var eps = rng is null ? 0.0 : DirectionSigmaAt(club, dist) * dispersion * Gauss(rng);
         speed *= rng is null ? 1.0 : 1.0 + (club.SpeedSigma * dispersion * Gauss(rng));
         Rotate(ex / dist, ez / dist, eps, 1.0 - (eps * eps / 2.0), out var dx, out var dz);
-        return BallSimulator.Run(terrain, ball, new Vec3(dx * speed, 0, dz * speed), rolling: true, _drag, recordPath: true, pin: pin).Shot;
+        return BallSimulator.Run(terrain, ball, new Vec3(dx * speed, 0, dz * speed), rolling: true, _drag, recordPath: true, pin: pin, slopeAngle: slopeAngle, slopeScale: slopeScale).Shot;
     }
 
     private static void Rotate(double ux, double uz, double sin, double cos, out double rx, out double rz)
