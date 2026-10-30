@@ -1,5 +1,5 @@
 # Votre pro : jouer ses coups et progresser par l'expérience
-Statut : livré
+Statut : livré ; la progression par l'expérience est remplacée par C25 (`specs/C25-progression-du-pro.md`)
 Créé : 2026-10-26
 
 ## But
