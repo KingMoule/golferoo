@@ -1,5 +1,5 @@
 # Pavillon et arrivée des golfeurs
-Statut : proposé
+Statut : validé (go de Guillaume le 2026-10-30)
 Créé : 2026-10-30
 
 ## But
