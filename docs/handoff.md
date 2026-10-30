@@ -4,7 +4,7 @@ Mis à jour : 2026-10-30 (compte de G. St-Arnaud, session de bureau Windows)
 Vague 1 finie : C00 à C14, C21 et C25 livrés. C25 (progression du pro par l'expérience) : lots 1 à 4 fusionnés (#127, #128, #132, #134, #135), audits complets sans bloquant. Sauvegarde en v11.
 
 ## À signaler à Guillaume (C25)
-- Lot 4 : `distanceFloor` de Distance passé de 85 % à 75 % (hors brief, une ligne de la grille validée ; sans lui, Distance ne progressait presque pas au niveau 0). À confirmer ou à remettre.
+- Lot 4 : `distanceFloor` de Distance à 75 % au lieu de 85 %, confirmé par Guillaume le 2026-10-30.
 - Lot 3 : le vent réel est retiré de la note de visée (l'aperçu faussé suffit).
 - Recalage : niveau 24 environ après la saison 1, 47–48 en saison 10, 50 en saison 12–13 (`costScale` 0,085).
 - Putt : le pro simulé vise 0,5 m après le trou ; sur pente lue, Putter reste vers 0,47 de qualité au niveau 50 (putts ratés à plus de 1,6 m), c'est le jeu et non la notation.
