@@ -15,6 +15,8 @@
     <EmbeddedResource Include="..\..\data\shots\lie.json" LogicalName="lie.json" />
     <!-- Arrivées au pavillon (C15 lot 2) : source de vérité dans data/golfers/. -->
     <EmbeddedResource Include="..\..\data\golfers\arrivals.json" LogicalName="arrivals.json" />
+    <!-- Humeur (C16 lot 1) : source de vérité dans data/golfers/. -->
+    <EmbeddedResource Include="..\..\data\golfers\mood.json" LogicalName="mood.json" />
   </ItemGroup>
 
 </Project>

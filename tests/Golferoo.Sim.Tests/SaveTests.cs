@@ -380,7 +380,7 @@ public class SaveTests
     public void Load_UnknownVersion_Throws()
     {
         var bytes = Save(Build(1, "proto", "start"));
-        bytes[4] = 14;
+        bytes[4] = 15;
 
         Assert.Throws<InvalidDataException>(() => Load(bytes));
     }
@@ -1022,6 +1022,7 @@ public class SaveTests
         var legacyLedger = ledger[..(20 + (8 * (categories - 1)))].Concat(ledger[(20 + (8 * categories))..]).ToArray();
         raw = Replace(raw, ledger, legacyLedger);
 
+        raw = raw[..^Bytes(w => world.Reactions.Write(w)).Length]; // ni compteurs de réactions (v14)
         raw = raw[..^Bytes(world.WriteArrivals).Length]; // ni vivier, ni réputation (v13)
         Assert.Equal(0, raw[^1]); // pas de pavillon
         raw = raw[..^1];
@@ -1085,12 +1086,81 @@ public class SaveTests
         var raw = Unpack(file);
         var tail = new Golferoo.Sim.Save.SaveWriter();
         world.WriteArrivals(tail);
-        raw = raw[..^tail.Written.Length];
+        var reactions = new Golferoo.Sim.Save.SaveWriter();
+        world.Reactions.Write(reactions);
+        raw = raw[..^(tail.Written.Length + reactions.Written.Length)];
         file[4] = 12;
         var loaded = Load(Pack(file, raw, Golferoo.Sim.Save.SaveFormat.Hash(raw)));
 
         Assert.Equal(world.Clubhouse, loaded.Clubhouse);
         Assert.Empty(loaded.Visitors.Visitors);
         Assert.Equal(loaded.Arrivals.ReputationStart, loaded.Reputation);
+    }
+
+    /// <summary>C16 lot 1 (v14) : humeur, abandon, compteurs d'événements, attente, arrivée du groupe et réactions se sauvent, se relisent et entrent dans la somme de contrôle.</summary>
+    [Fact]
+    public void Mood_IsSavedLoadedAndChecksummed()
+    {
+        var world = ArrivalTests.NewWorld(3);
+        world.Step(3 * Calendar.TicksPerDay);
+        while (!world.Groups.Any(g => g.FromArrivals && g.Released) && world.Tick < 30 * Calendar.TicksPerDay)
+        {
+            world.Step(100);
+        }
+
+        var group = world.Groups.First(g => g.FromArrivals && g.Released);
+        var golfer = group.Golfers[0];
+        golfer.Mood = 3;
+        golfer.Quit = true;
+        golfer.Occurrences[(int)Golferoo.Sim.Golfers.MoodEvent.Water] = 2;
+        golfer.WaitTicks = 77;
+        world.Reactions.Add(1, Golferoo.Sim.Golfers.MoodEvent.Water);
+        world.Reactions.CloseMonth();
+        world.Reactions.Add(2, Golferoo.Sim.Golfers.MoodEvent.Bunker);
+
+        var loaded = World.Load(new MemoryStream(Save(world)), new StubShotResolver());
+        var copy = loaded.Groups.First(g => g.Id == group.Id).Golfers[0];
+        Assert.Equal((3, true, 2, 77), (copy.Mood, copy.Quit, copy.Occurrences[(int)Golferoo.Sim.Golfers.MoodEvent.Water], copy.WaitTicks));
+        Assert.Equal(group.ArrivedTick, loaded.Groups.First(g => g.Id == group.Id).ArrivedTick);
+        Assert.Equal(1, loaded.Reactions.Previous(1, Golferoo.Sim.Golfers.MoodEvent.Water));
+        Assert.Equal(1, loaded.Reactions.Count(2, Golferoo.Sim.Golfers.MoodEvent.Bunker));
+        Assert.Equal(world.Checksum(), loaded.Checksum());
+        Assert.Equal(Save(world), Save(loaded));
+
+        // Chaque état compte dans la somme : en changer un seul la change.
+        void Changes(Action change, Action undo)
+        {
+            var before = world.Checksum();
+            change();
+            Assert.NotEqual(before, world.Checksum());
+            undo();
+            Assert.Equal(before, world.Checksum());
+        }
+
+        Changes(() => golfer.Mood++, () => golfer.Mood--);
+        Changes(() => golfer.Quit = false, () => golfer.Quit = true);
+        Changes(() => golfer.Occurrences[0]++, () => golfer.Occurrences[0]--);
+        Changes(() => golfer.WaitTicks++, () => golfer.WaitTicks--);
+        Changes(() => group.ArrivedTick++, () => group.ArrivedTick--);
+        var reactionsBefore = world.Checksum();
+        world.Reactions.Add(3, Golferoo.Sim.Golfers.MoodEvent.Water);
+        Assert.NotEqual(reactionsBefore, world.Checksum());
+    }
+
+    /// <summary>Une sauvegarde v13 (sans compteurs de réactions) se charge avec des compteurs vides et l'humeur de départ des visiteurs.</summary>
+    [Fact]
+    public void Load_V13_StartsWithEmptyReactions()
+    {
+        var world = ArrivalTests.NewWorld(3);
+        var file = Save(world);
+        var raw = Unpack(file);
+        var reactions = new Golferoo.Sim.Save.SaveWriter();
+        world.Reactions.Write(reactions);
+        raw = raw[..^reactions.Written.Length];
+        file[4] = 13;
+        var loaded = Load(Pack(file, raw, Golferoo.Sim.Save.SaveFormat.Hash(raw)));
+
+        Assert.True(loaded.Reactions.Untouched);
+        Assert.Equal(world.Visitors.Visitors.Count, loaded.Visitors.Visitors.Count);
     }
 }

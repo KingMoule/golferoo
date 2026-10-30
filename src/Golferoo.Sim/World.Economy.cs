@@ -33,11 +33,13 @@ public sealed partial class World
     private long ReliefPrice(double cubicMeters) => (long)Math.Round(cubicMeters * Economy.ReliefPerM3);
 
     /// <summary>
-    /// Green fee d'un trou joué : tarif visiteur (sans membre) ou Member (tous les membres jusqu'à C16), rien pour votre pro.
-    /// Le facteur d'humeur vaut ×1 tant que l'humeur n'existe pas (C16).
+    /// Green fee d'un trou joué : tarif visiteur (sans membre) ou Member (tous les membres jusqu'à C16 lot 2), rien pour votre pro.
+    /// Celui d'un visiteur suit son humeur à la fin du trou (×0,5 à −10, ×1 à zéro, ×1,2 à +10).
     /// </summary>
     internal long GreenFee(Golfer g) =>
-        g.MemberId < 0 ? Economy.GreenFeeVisitor : League!.Members[g.MemberId].IsPro ? 0 : Economy.GreenFeeMember;
+        g.MemberId < 0
+            ? Economy.GreenFeeVisitor * (g.VisitorId < 0 ? 10_000 : MoodParams.FeeBasisPoints(g.Mood, Economy.MoodFactorMinBasisPoints, Economy.MoodFactorMaxBasisPoints)) / 10_000
+            : League!.Members[g.MemberId].IsPro ? 0 : Economy.GreenFeeMember;
 
     /// <summary>Membres qui paient la cotisation : ceux du club, sans votre pro (tous au niveau Member jusqu'à C16).</summary>
     private int PayingMembers => League?.Members.Count(m => !m.IsPro) ?? 0;
@@ -59,6 +61,7 @@ public sealed partial class World
         Ledger.Post(LedgerCategory.Dues, PayingMembers * Economy.DuesMember / Calendar.MonthsPerYear);
 
         Ledger.CloseMonth(month);
+        Reactions.CloseMonth();
         ForgetStroke(); // un mois clos ne se rembourse plus dans le suivant
     }
 

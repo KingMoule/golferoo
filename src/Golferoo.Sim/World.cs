@@ -67,10 +67,11 @@ public sealed partial class World
     private Point2?[] _exitPoints = [];
     private long _exitPointVersion = -1;
 
-    public World(ulong seed, TerrainGrid? terrain = null, IShotResolver? resolver = null, bool league = false, EconomyParams? economy = null, ProgressionParams? progression = null, bool placeClubhouse = false, ArrivalParams? arrivals = null)
+    public World(ulong seed, TerrainGrid? terrain = null, IShotResolver? resolver = null, bool league = false, EconomyParams? economy = null, ProgressionParams? progression = null, bool placeClubhouse = false, ArrivalParams? arrivals = null, MoodParams? mood = null)
     {
         Seed = seed;
         Arrivals = arrivals ?? ArrivalParams.Default;
+        Moods = mood ?? MoodParams.Default;
         Reputation = Arrivals.ReputationStart;
         _arrivalRng = new DeterministicRng(seed ^ ArrivalSeedMask);
         Terrain = terrain;
@@ -450,10 +451,14 @@ public sealed partial class World
         }
     }
 
-    /// <summary>Inscrit sur la carte de chaque golfeur du groupe le trou qui vient de finir (balle ramassée = 12 coups) ; chacun paie son green fee.</summary>
+    /// <summary>
+    /// Inscrit sur la carte de chaque golfeur du groupe le trou qui vient de finir (balle ramassée = 12 coups) ; chacun paie son green fee, selon son humeur
+    /// à la fin du trou. Un golfeur qui a abandonné avant ne paie plus (C14).
+    /// </summary>
     private void RecordHole(Group group)
     {
-        foreach (var g in group.Golfers)
+        AfterHole(group);
+        foreach (var g in group.Active)
         {
             Ledger.Post(LedgerCategory.GreenFees, GreenFee(g));
             if (g.PickedUp)
@@ -486,9 +491,10 @@ public sealed partial class World
     private static void MoveToHole(Group group, CourseHole next)
     {
         group.Hole = next.Number;
-        foreach (var g in group.Golfers)
+        foreach (var g in group.Active)
         {
             g.Strokes = 0;
+            g.WaitTicks = 0;
             g.Holed = false;
             g.PickedUp = false;
             g.Ball = next.Tee;
@@ -651,6 +657,7 @@ public sealed partial class World
 
         MixClubhouse(ref hash);
         MixArrivals(ref hash);
+        MixMood(ref hash);
         MixPendingEdits(ref hash);
         MixStroke(ref hash);
         MixTreeCommands(ref hash);
@@ -702,6 +709,11 @@ public sealed partial class World
                 Mix(ref hash, ((ulong)group.Hole << 1) | (group.Released ? 1UL : 0UL));
             }
 
+            if (group.FromArrivals)
+            {
+                Mix(ref hash, (ulong)group.ArrivedTick);
+            }
+
             foreach (var g in group.Golfers)
             {
                 MixGolfer(ref hash, g);
@@ -728,6 +740,15 @@ public sealed partial class World
         if (g.VisitorId >= 0)
         {
             Mix(ref hash, (ulong)g.VisitorId);
+        }
+
+        if (g.VisitorId >= 0)
+        {
+            Mix(ref hash, (ulong)(uint)(g.Mood - MoodParams.Min) | (g.Quit ? 1UL << 8 : 0UL) | ((ulong)(uint)g.WaitTicks << 16));
+            foreach (var o in g.Occurrences)
+            {
+                Mix(ref hash, (ulong)o);
+            }
         }
 
         Mix(ref hash, (ulong)g.Profile);
@@ -859,7 +880,7 @@ public sealed partial class World
             return;
         }
 
-        if (group.Leaving)
+        if (group.Leaving || (group.FromArrivals && group.Finished))
         {
             UpdateLeaving(terrain, group);
             return;
@@ -884,7 +905,14 @@ public sealed partial class World
                     if (Walk(terrain, g, ExitPointOf(group.Hole)))
                     {
                         g.State = GolferState.Done;
-                        holedOut = group.Finished;
+                        holedOut = group.Active.All(o => o.State == GolferState.Done);
+                    }
+
+                    break;
+                case GolferState.Quitting:
+                    if (Walk(terrain, g, Clubhouse?.DoorPosition(terrain.CellSize) ?? ExitPoint))
+                    {
+                        g.State = GolferState.Done;
                     }
 
                     break;
@@ -893,7 +921,7 @@ public sealed partial class World
                     // Le geste dure SwingTicksCount ticks jusqu'à l'impact ; le coup ne part pas avant que sa planification soit finie.
                     if (--g.SwingTicks <= 0 && g.Plan is not { IsDone: false })
                     {
-                        Hit(terrain, g, hole.Hole);
+                        Hit(terrain, group, g, hole.Hole);
                     }
 
                     break;
@@ -901,7 +929,7 @@ public sealed partial class World
                     g.FlightIndex += FlightStep(g);
                     if (g.FlightIndex >= g.FlightPath!.Count - 1)
                     {
-                        Land(g);
+                        Land(group, g);
                     }
 
                     break;
@@ -914,9 +942,15 @@ public sealed partial class World
         {
             // Tout le groupe a fini le trou : il marche vers le prochain trou ouvert, ou la partie est finie.
             RecordHole(group);
-            if (NextOpenHole(group) is > 0 and var next)
+            var next = NextOpenHole(group);
+            if (next > 0)
             {
-                MoveToHole(group, terrain.Course[next]);
+                ResolveQuits(group); // il reste des trous : celui qui est sous zéro rentre au pavillon, les autres continuent
+                if (group.Active.Any())
+                {
+                    BeforeMove(group, terrain.Course[next]);
+                    MoveToHole(group, terrain.Course[next]);
+                }
             }
             else if (group.LeagueRound >= 0)
             {
@@ -924,7 +958,7 @@ public sealed partial class World
             }
             else if (group.FromArrivals)
             {
-                foreach (var g in group.Golfers)
+                foreach (var g in group.Active)
                 {
                     g.State = GolferState.Leaving;
                 }
@@ -943,7 +977,7 @@ public sealed partial class World
                 return;
             }
 
-            if (g.Holed || g.PickedUp || g.State == GolferState.Exiting || g.State == GolferState.Done)
+            if (g.Holed || g.PickedUp || g.Quit || g.State == GolferState.Exiting || g.State == GolferState.Done)
             {
                 continue;
             }
@@ -958,7 +992,11 @@ public sealed partial class World
             }
         }
 
-        if (shooter is not null && shooter.State == GolferState.WaitingTurn && !MustWait(index, hole, shooter))
+        if (shooter is not null && shooter.State == GolferState.WaitingTurn && MustWait(index, hole, shooter))
+        {
+            Waiting(group, shooter);
+        }
+        else if (shooter is not null && shooter.State == GolferState.WaitingTurn)
         {
             group.Started = true;
             shooter.State = terrain.SurfaceAt(shooter.Ball.X, shooter.Ball.Z) == Surface.Green ? GolferState.Putting : GolferState.Swinging;
@@ -984,6 +1022,7 @@ public sealed partial class World
         }
 
         group.Released = true;
+        AfterRelease(group);
         return true;
     }
 
@@ -1002,7 +1041,7 @@ public sealed partial class World
         var tee = terrain.Course[1].Tee;
         foreach (var g in ahead.Golfers)
         {
-            if (g.State is GolferState.Exiting or GolferState.Done or GolferState.Leaving)
+            if (g.State is GolferState.Exiting or GolferState.Done or GolferState.Leaving or GolferState.Quitting)
             {
                 continue; // il a fini le trou : sa balle (ramassée, elle peut traîner près du départ) ne bloque plus le départ
             }
@@ -1041,7 +1080,7 @@ public sealed partial class World
             foreach (var o in ahead.Golfers)
             {
                 // Un golfeur parti n'est plus sur le parcours (le dernier trou le laisse au point de sortie).
-                if (o.State is not (GolferState.Done or GolferState.Leaving) && Math.Sqrt(Dist2(o.Position, hole.Hole)) >= limit)
+                if (o.State is not (GolferState.Done or GolferState.Leaving or GolferState.Quitting) && Math.Sqrt(Dist2(o.Position, hole.Hole)) >= limit)
                 {
                     return true;
                 }
@@ -1112,8 +1151,9 @@ public sealed partial class World
         }
     }
 
-    private void Hit(TerrainGrid terrain, Golfer g, Point2 pin)
+    private void Hit(TerrainGrid terrain, Group group, Golfer g, Point2 pin)
     {
+        BeforeHit(group, g);
         if (terrain.SurfaceAt(g.Ball.X, g.Ball.Z) is Surface.Fairway or Surface.Tee)
         {
             terrain.Turf.AddWear(terrain.CellXOf(g.Ball.X), terrain.CellZOf(g.Ball.Z), TurfGrid.DivotWear);
@@ -1129,7 +1169,7 @@ public sealed partial class World
         g.FlightIndex = 0;
         if (result.Trajectory is null || result.Trajectory.Count <= 1)
         {
-            Land(g);
+            Land(group, g);
             return;
         }
 
@@ -1137,9 +1177,11 @@ public sealed partial class World
         g.State = GolferState.BallInFlight;
     }
 
-    private void Land(Golfer g)
+    private void Land(Group group, Golfer g)
     {
         var result = g.Pending;
+        var from = g.Ball;
+        var putt = Terrain is { } played0 && played0.SurfaceAt(from.X, from.Z) == Surface.Green;
         if (g.PlannedShot is { } shot && Terrain is { } played)
         {
             Pro!.Record(played, g.Ball, shot, AimedResult(played, g, shot), result, g.InLeague, PlayYear, Math.Sqrt((Wind.X * Wind.X) + (Wind.Z * Wind.Z)), PinOf(played, g));
@@ -1164,6 +1206,11 @@ public sealed partial class World
         g.FlightPath = null;
         g.FlightIndex = 0;
         g.Pending = default;
+        if (Terrain is not null)
+        {
+            AfterShot(group, g, from, putt, result);
+        }
+
         if (result.Holed || g.Strokes >= MaxStrokes)
         {
             g.Holed = result.Holed;

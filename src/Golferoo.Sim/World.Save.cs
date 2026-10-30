@@ -149,6 +149,7 @@ public sealed partial class World
         w.Bool(Clubhouse is not null);
         Clubhouse?.Write(w);
         WriteArrivals(w);
+        Reactions.Write(w);
     }
 
     private static void WriteRating(SaveWriter w, CourseRating r)
@@ -197,7 +198,7 @@ public sealed partial class World
         _waypoints.AddRange(r.List(r.Point));
         Terrain = r.Bool() ? TerrainGrid.Read(r) : null;
         Trees = Terrain is null ? TreeStand.Read(r, 1.0, 1.0, null) : TreeStand.Read(r, Terrain.CellsX * Terrain.CellSize, Terrain.CellsZ * Terrain.CellSize, Terrain);
-        _groups.AddRange(r.List(() => Group.Read(r)));
+        _groups.AddRange(r.List(() => Group.Read(r, Tick)));
         _roamers.AddRange(r.List(() => Golfer.Read(r)));
 
         foreach (var e in r.List(() => new TerrainEdit(r.Point(), r.Double(), (Surface)r.Byte(), r.Double(), (EditKind)r.Byte())))
@@ -280,6 +281,7 @@ public sealed partial class World
         }
 
         Arrivals = ArrivalParams.Default;
+        Moods = MoodParams.Default;
         if (r.Version >= 13)
         {
             _arrivalRng = DeterministicRng.Read(r);
@@ -298,6 +300,11 @@ public sealed partial class World
         if (!double.IsFinite(Reputation) || Reputation is < 0.0 or > 1.0 || _groups.Any(g => g.Golfers.Any(o => o.VisitorId >= Visitors.Next)))
         {
             throw new InvalidDataException("Sauvegarde incohérente : réputation ou visiteur hors du vivier.");
+        }
+
+        if (r.Version >= 14)
+        {
+            Reactions = Reactions.Read(r);
         }
 
         _resolver = resolver ?? (Terrain is null ? new StubShotResolver() : new PhysicalShotResolver());

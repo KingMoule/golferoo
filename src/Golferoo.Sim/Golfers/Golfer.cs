@@ -43,6 +43,9 @@ public enum GolferState : byte
 
     /// <summary>Groupe de visiteurs qui a fini sa partie : marche vers la porte du pavillon, puis quitte le monde (C15).</summary>
     Leaving = 11,
+
+    /// <summary>A abandonné la partie (C16) : marche vers la porte du pavillon, puis <see cref="Done"/> ; ses partenaires continuent sans lui.</summary>
+    Quitting = 12,
 }
 
 public sealed class Golfer
@@ -105,6 +108,18 @@ public sealed class Golfer
     /// <summary>Numéro du visiteur du vivier (<see cref="VisitorPool"/>) que ce golfeur incarne (−1 : ni visiteur arrivé au pavillon, ni membre).</summary>
     public int VisitorId { get; internal set; } = -1;
 
+    /// <summary>Humeur de −10 à +10 (<see cref="MoodParams"/>) ; ne vit que chez les visiteurs du vivier (<see cref="VisitorId"/> ≥ 0).</summary>
+    public int Mood { get; internal set; }
+
+    /// <summary>A abandonné la partie : il ne joue plus et ne paie plus les trous restants (C14).</summary>
+    public bool Quit { get; internal set; }
+
+    /// <summary>Combien de fois chaque événement a touché ce golfeur (<see cref="MoodEvent"/>), contrariétés mineures isolées comprises.</summary>
+    internal int[] Occurrences { get; } = new int[MoodParams.EventCount];
+
+    /// <summary>Ticks passés à attendre le groupe devant sur le trou en cours ; remis à zéro au départ du trou suivant.</summary>
+    internal int WaitTicks { get; set; }
+
     /// <summary>Le golfeur joue une journée de ligue.</summary>
     internal bool InLeague { get; set; }
 
@@ -149,11 +164,15 @@ public sealed class Golfer
         w.Bool(Card is not null);
         Card?.Write(w);
         w.Int(VisitorId);
+        w.Int(Mood);
+        w.Bool(Quit);
+        w.List(Occurrences, w.Int);
+        w.Int(WaitTicks);
     }
 
     internal static Golfer Read(SaveReader r)
     {
-        // Le numéro de visiteur (v13) vient en dernier : on le lit après la carte.
+        // Le numéro de visiteur (v13) puis l'humeur (v14) viennent en dernier : on les lit après la carte.
 
         var golfer = new Golfer(r.Int(), default, default)
         {
@@ -180,6 +199,24 @@ public sealed class Golfer
         if (r.Version >= 13)
         {
             golfer.VisitorId = r.Int();
+        }
+
+        if (r.Version >= 14)
+        {
+            golfer.Mood = r.Int();
+            golfer.Quit = r.Bool();
+            var occurrences = r.List(r.Int);
+            golfer.WaitTicks = r.Int();
+            if (occurrences.Count != MoodParams.EventCount || golfer.Mood is < MoodParams.Min or > MoodParams.Max || occurrences.Any(o => o < 0) || golfer.WaitTicks < 0)
+            {
+                throw new InvalidDataException("Sauvegarde incohérente : humeur d'un golfeur.");
+            }
+
+            occurrences.CopyTo(golfer.Occurrences);
+        }
+        else if (golfer.VisitorId >= 0)
+        {
+            golfer.Mood = MoodParams.Default.Start; // sauvegarde v13 : les visiteurs en jeu repartent avec l'humeur de départ
         }
 
         return golfer;
