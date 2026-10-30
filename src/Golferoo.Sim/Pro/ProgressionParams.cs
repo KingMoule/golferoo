@@ -24,7 +24,8 @@ public sealed record ProgressionParams(
     double WindBiasForce,
     double WindBiasAngle,
     double SlopeBiasAngle,
-    double SlopeBiasScale)
+    double SlopeBiasScale,
+    double ChipSigma)
 {
     public const int MaxLevel = 50;
 
@@ -54,7 +55,7 @@ public sealed record ProgressionParams(
          BitConverter.DoubleToInt64Bits(FullForce), BitConverter.DoubleToInt64Bits(CurveFraction), BitConverter.DoubleToInt64Bits(WindMin),
          BitConverter.DoubleToInt64Bits(WindFull), BitConverter.DoubleToInt64Bits(GreenMeters), BitConverter.DoubleToInt64Bits(GreenFraction),
          BitConverter.DoubleToInt64Bits(GreenMinSlope), BitConverter.DoubleToInt64Bits(WindBiasForce), BitConverter.DoubleToInt64Bits(WindBiasAngle),
-         BitConverter.DoubleToInt64Bits(SlopeBiasAngle), BitConverter.DoubleToInt64Bits(SlopeBiasScale)];
+         BitConverter.DoubleToInt64Bits(SlopeBiasAngle), BitConverter.DoubleToInt64Bits(SlopeBiasScale), BitConverter.DoubleToInt64Bits(ChipSigma)];
 
     /// <summary>XP, en centièmes entiers, pour passer du niveau <paramref name="n"/> au suivant : a × (n + 1 + 300 × 2^((n + 1) / 7)) / 4.</summary>
     public long CostHundredths(int n) =>

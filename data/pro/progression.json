@@ -1,7 +1,7 @@
 {
-  // Progression de votre pro (C25). Provisoire : le lot 4 calibre l'échelle des coûts, le plafond d'entraînement et les seuils.
+  // Progression de votre pro (C25). Calibré au lot 4 par saisons simulées (ProSeasonTests) : l'habileté la plus travaillée finit la saison 1 aux niveaux 23 à 26 et atteint 50 vers la saison 13.
   // XP pour passer du niveau n au niveau n + 1 : costScale × (n + 1 + 300 × 2^((n + 1) / 7)) / 4.
-  "costScale": 0.06,
+  "costScale": 0.09,
   // XP d'entraînement au plus, par habileté et par année (remise à zéro au 1er avril).
   "trainingCapPerYear": 300,
   // Seuils de qualité : l'écart (en part de la distance visée D) où la qualité tombe à 0.
@@ -25,5 +25,7 @@
   "windBiasForce": 0.5,
   "windBiasAngle": 0.6,
   "slopeBiasAngle": 0.7,
-  "slopeBiasScale": 0.5
+  "slopeBiasScale": 0.5,
+  // Chip : écart type de l'abaissement au niveau 0 (comme 0,15 pour la courbure d'un draw), réduit par niveau comme la dispersion.
+  "chipSigma": 0.15
 }

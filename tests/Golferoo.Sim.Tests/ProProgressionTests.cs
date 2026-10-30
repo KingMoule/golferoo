@@ -371,6 +371,46 @@ public class ProProgressionTests(ITestOutputHelper output)
         }
     }
 
+    /// <summary>Décision 11 : Chip réduit l'erreur sur l'abaissement (donc sur le roulement) et resserre la dispersion des chips ; sans effet sur un coup droit.</summary>
+    [Fact]
+    public void ChipLevel50_RollsCloserToTheWantedRoll_AndSpreadsLess_ThanLevel0()
+    {
+        var resolver = new PhysicalShotResolver();
+        var chip = new ProShot(Clubs.Wedge, new Point2(60, 240), ShotShape.Chip, 0.6);
+        (double Roll, double Lateral) Measure(int level)
+        {
+            var p = new ProSkills();
+            p.SetLevel(ProSkill.Chip, level);
+            var aimed = p.Execute(resolver, Fairway, Start, chip, null, new Point2(500, 500));
+            var rng = new DeterministicRng(2024);
+            double roll = 0.0, lateral = 0.0;
+            const int N = 3000;
+            for (var i = 0; i < N; i++)
+            {
+                var r = p.Execute(resolver, Fairway, Start, chip, rng, new Point2(500, 500));
+                roll += Math.Abs(r.Ball.X - aimed.Ball.X);
+                lateral += Math.Abs(r.Ball.Z - aimed.Ball.Z);
+            }
+
+            return (roll / N, lateral / N);
+        }
+
+        var (zeroRoll, zeroLateral) = Measure(0);
+        var (fiftyRoll, fiftyLateral) = Measure(50);
+        output.WriteLine($"chip : écart de roulement {zeroRoll:F2} m -> {fiftyRoll:F2} m ; latéral {zeroLateral:F2} m -> {fiftyLateral:F2} m");
+        Assert.True(fiftyRoll < 0.8 * zeroRoll);
+        Assert.True(fiftyLateral < 0.8 * zeroLateral);
+
+        // Un coup droit ne change pas avec Chip.
+        var straight = new ProShot(Clubs.Wedge, new Point2(60, 240), ShotShape.Straight, 0.6);
+        var a = new ProSkills();
+        var b = new ProSkills();
+        b.SetLevel(ProSkill.Chip, 50);
+        Assert.Equal(
+            a.Execute(resolver, Fairway, Start, straight, new DeterministicRng(5), new Point2(500, 500)).Ball,
+            b.Execute(resolver, Fairway, Start, straight, new DeterministicRng(5), new Point2(500, 500)).Ball);
+    }
+
     private const int Rounds = 160;
 
     /// <summary>

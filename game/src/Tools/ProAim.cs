@@ -270,7 +270,7 @@ public partial class ProAim : Node3D
                        $"cible à {Dist(pro.Ball, Target):F0} m, balle prévue à {Dist(pro.Ball, Preview.Ball):F0} m ({OutcomeName(Preview.Outcome)})\n" +
                        $"{SkillName(general)} : niveau {skills.Level(general)} | clic au sol : viser\n" +
                        ReadingNote(skills, putting, world.Progression, world.Wind);
-        Draw(pro.Ball, Preview, skills.DirectionFactor(Club));
+        Draw(pro.Ball, Preview, skills.DirectionFactor(Club, Shape));
     }
 
     /// <summary>Trajectoire prévue (jaune) et ellipse de dispersion au point d'arrivée (blanche).</summary>

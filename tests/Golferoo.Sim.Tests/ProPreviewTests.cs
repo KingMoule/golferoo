@@ -172,7 +172,7 @@ public class ProPreviewTests
     [Fact]
     public void Effects_AreZeroAtLevel0_AndGrowWithTheLevel()
     {
-        foreach (var skill in Enum.GetValues<ProSkill>().Where(s => s != ProSkill.Chip))
+        foreach (var skill in Enum.GetValues<ProSkill>())
         {
             Assert.Equal(0.0, Math.Round(ProEffects.Of(skill, 0).Percent));
             Assert.True(Math.Abs(ProEffects.Of(skill, 20).Percent) > 1.0, skill.ToString());
@@ -190,7 +190,7 @@ public class ProPreviewTests
         var message = ProEffects.LevelMessage(ProSkill.LongIrons, 13);
         Assert.StartsWith("Fers longs : niveau 13, dispersion −", message);
         Assert.EndsWith(" %", message);
-        Assert.Equal("Chip : niveau 4, effet à venir", ProEffects.LevelMessage(ProSkill.Chip, 4));
+        Assert.Matches(@"^Chip : niveau 4, −\d+ % roulement$", ProEffects.LevelMessage(ProSkill.Chip, 4));
     }
 
     [Fact]
@@ -200,7 +200,7 @@ public class ProPreviewTests
         Assert.StartsWith("niv. 12 : dispersion −", line);
         Assert.Contains(", niv. 13 : −", line);
         Assert.EndsWith("(maximum)", ProEffects.Line(ProSkill.LongIrons, 50));
-        Assert.Equal("niv. 3 : effet à venir", ProEffects.Line(ProSkill.Chip, 3));
+        Assert.Matches(@"^niv\. 3 : −\d+ % roulement, niv\. 4 : −\d+ %$", ProEffects.Line(ProSkill.Chip, 3));
     }
 
     [Fact]
