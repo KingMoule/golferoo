@@ -1,5 +1,5 @@
 # Pavillon et arrivée des golfeurs
-Statut : validé (go de Guillaume le 2026-10-30)
+Statut : livré (go de Guillaume le 2026-10-30)
 Créé : 2026-10-30
 
 ## But
@@ -76,6 +76,7 @@ Hors périmètre :
 17. La marche des golfeurs IA est accélérée pour qu'elle fasse environ 50 % de leur temps (mesure : un groupe de 2 isolé sur « Le neuf », 73 % avant). Le facteur est `aiWalkSpeedFactor` dans `data/golfers/arrivals.json` ; avec le vol de la décision 18, 3,0 donne 51 % (la marche des deux golfeurs se chevauche, donc ×2,7 ne suffisait pas). Le pro joué par le joueur garde sa marche.
 18. Le vol de balle des golfeurs IA est plus rapide, environ ×1,5 (`aiFlightSpeedFactor`, déterministe : la trajectoire et le point de chute ne changent pas, seule la cadence de lecture change). Le vol du pro joué ne change pas.
 19. La cible devient la capacité réelle du parcours. Diagnostic de « Le neuf » en physique (graine 1, 10 jours, groupsPerDay 8) : 49 coups par golfeur et par tour contre 32 en simplifié, des tours de 24 500 ticks contre 11 300, et 3,6 départs par jour contre 5,3. Les trous longs (330 à 470 m) ne laissent le groupe suivant tirer que lorsque le précédent est près du green, donc les par 3 et le départ du trou 1 fixent la cadence : le groupe de tête de la file attend dans la zone du départ pendant 41 % du temps. Les réglages essayés n'ont rien changé : budget de planification ×4 (+1 départ par jour mais le tick passe à 2,85 ms), `DepartureGap` 80 m (3,6), `AimReach` 200 m (3,8) et 120 m (3,9), vol IA jusqu'à ×2 (4,2). Marche ×3 et vol ×1,5 sont gardés ; le critère 4 final vise 3 à 5 départs par jour.
+20. Le choix d'un groupe de la file pour le pro est reporté à C16 : en C15, le clic sélectionne le groupe et la caméra le suit, mais le groupe ne passe pas en tête (`Main.ChosenGroupId` n'est pas encore lu par la sim).
 
 Hypothèses de l'orchestrateur, réglables en données :
 - file de 8 groupes ;
@@ -107,5 +108,5 @@ Hypothèses de l'orchestrateur, réglables en données :
 Complet (lots 1 et 2), léger (lot 3).
 
 ## Clôture
-- [ ] Critères vérifiés
-- [ ] Statut passé à « livré », ligne mise à jour dans docs/chantiers.md
+- [x] Critères vérifiés (audits complets des lots 1, 2 et 2b, audit léger du lot 3 sans bloquant ; le choix du groupe de la file est reporté, décision 20)
+- [x] Statut passé à « livré », ligne mise à jour dans docs/chantiers.md

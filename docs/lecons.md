@@ -11,3 +11,5 @@ Ajouter sans relire tout le fichier : `echo "- ..." >> docs/lecons.md`. `/amelio
 ## À traiter
 - 2026-10-28 · délégation · deux lots parallèles (C12 lots 3 et 4) se gênent sur les données partagées : le lot qui mesure se fabrique ses propres données plutôt que d'attendre celles de l'autre · en attente (une occurrence) · C12
 - 2026-10-29 · outil · la modification de `.claude/settings.json` par la session (allow-list des commandes d'agents) est refusée par le mode auto : à faire par Guillaume s'il la veut · en attente · /ameliorer du 2026-10-29
+- Codeur en worktree : commandes composées (heredoc + &&) refusées, un script lancé deux fois a laissé un doublon (C15 lot 1).
+- Banc ou CI lancés en tâche de fond par un agent : CPU étranglé (~5 %), 70 min sans fin ; les lancer au premier plan (C15 lot 2).
