@@ -439,7 +439,14 @@ public class ProProgressionTests(ITestOutputHelper output)
         var rating = CourseRater.Rate(terrain, 7, 30);
         var pro0 = Differential(null, AtLevel(0), rating, terrain, world);
         var pro50 = Differential(null, AtLevel(50), rating, terrain, world);
-        output.WriteLine($"pro niveau 0 : {pro0:F2} ; pro niveau 50 : {pro50:F2}");
+        var ordinary36 = Differential(SkillLevels.FromHandicap(36.0), null, rating, terrain, world);
+        var ordinaryPlus4 = Differential(SkillLevels.FromHandicap(-4.0), null, rating, terrain, world);
+        output.WriteLine($"pro niveau 0 : {pro0:F2} ; pro niveau 50 : {pro50:F2} ; ordinaire 36 : {ordinary36:F2} ; ordinaire +4 : {ordinaryPlus4:F2}");
+
+        // Le pro joue la même partie que le golfeur ordinaire de son niveau, à un coup près en moyenne (un coup = 2 x 113 / pente en différentiel, pour 9 trous).
+        var oneStroke = 2.0 * CourseRating.Reference / rating.Slope;
+        Assert.InRange(pro0 - ordinary36, -oneStroke, oneStroke);
+        Assert.InRange(pro50 - ordinaryPlus4, -oneStroke, oneStroke);
 
         // Critère 5 de C25 (absolu, lot 2) : le backspin et le lie étant les mêmes pour tous, le pro joue au niveau 50 comme un +4 (± 1,5)
         // et au niveau 0 comme un 36 (± 2). Différentiels moyens lus comme un handicap (l'index WHS borne à 0 : on prend l'écart tel quel).

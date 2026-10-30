@@ -14,7 +14,7 @@ Ce qui prouve la réussite : les captures `c21-*` montrent des contours lisses ;
 4. **La ligue joue tous les trous**, et **la journée passe de 6 à 9 min réelles à ×1** pour que la journée de ligue tienne avant la suivante.
 5. **Profils de C09** : le fonceur prend plus de pénalités que le neutre ; l'artiste gagne environ 15 % de régularité dans un bel endroit.
 6. **Décisions non optimales** : une part de hasard dans le choix du coup, d'autant plus grande que le golfeur est faible, et toujours plausible.
-7. Rien d'autre à ajouter. Corrigés sans question : scintillement du drapeau, bannière du champion, légende de `c09-profils`, handicap faussé par un trou fermé, marge du banc du changement de jour. L'accueil des membres par le pro va en C16.
+7. Rien d'autre à ajouter. Corrigés sans question : scintillement du drapeau, légende de `c09-profils`, handicap faussé par un trou fermé, marge du banc du changement de jour. L'accueil des membres par le pro va en C16. La bannière du champion est retirée (Guillaume, le 2026-10-29 : défaut introuvable, la fiche C13 est saine).
 
 ## Périmètre et hors périmètre
 **Dans le périmètre** : les sept points ci-dessus, et l'attente des marcheurs pendant une retouche continue (constat ouvert de C12).
@@ -46,7 +46,7 @@ Ce qui prouve la réussite : les captures `c21-*` montrent des contours lisses ;
 | Lot | Contenu | Contrôle |
 |---|---|---|
 | 1 | Rendu : bordures lissées, eau et rive, drapeau ; captures `c21-bordures` et `c21-eau` | léger |
-| 2 | Jeu : dispersion recalée, décisions non optimales, fonceur et artiste, handicap, bannière et légende | complet |
+| 2 | Jeu : dispersion recalée, décisions non optimales, fonceur et artiste, handicap, légende | complet |
 | 3 | Temps : journée de 9 min, ligue sur tous les trous ; performance : changement de jour, attente des champs de flux | complet |
 
 Les trois lots touchent des fichiers disjoints et peuvent avancer en parallèle ; le lot 3 fusionne en dernier (il relève les sommes de référence).

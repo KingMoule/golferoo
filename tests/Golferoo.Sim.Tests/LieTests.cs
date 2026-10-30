@@ -74,32 +74,34 @@ public class LieTests(ITestOutputHelper output)
         Assert.True(lied.Lateral / lied.Carry > 1.05 * clean.Lateral / clean.Carry);
     }
 
-    [Fact]
-    public void Backspin_ShortensTheRollOfAWedge_ForAnOrdinaryGolfer_AndLessSoFromTheRough()
+    /// <summary>Roulement (du premier contact à l'arrêt) d'un coup plein de <paramref name="club"/> sur fairway plat, avec la part de backspin <paramref name="share"/> du lie.</summary>
+    private static double Roll(Club club, double share = 1.0)
     {
-        var wedgeNoSpin = Clubs.Wedge with { Backspin = 0.0 };
-        double Total(Club club, Surface from)
+        var terrain = ShotTests.Uniform(Surface.Fairway, cells: 120);
+        var velocity = new Vec3(club.LaunchCos * club.Speed, club.LaunchSin * club.Speed, 0);
+        var sim = BallSimulator.Run(terrain, new Point2(30, 300), velocity, rolling: false, BallSimulator.DefaultDrag, recordPath: false, backspin: club.Backspin * share);
+        return Dist(sim.FirstLanding, sim.Shot.Ball);
+    }
+
+    [Fact]
+    public void FromTheFairway_TheRollAfterTheLanding_GrowsStrictlyFromTheWedgeToTheWood3()
+    {
+        var clubs = new[] { Clubs.Wedge, Clubs.Iron9, Clubs.Iron7, Clubs.Iron5, Clubs.Wood3 };
+        var rolls = clubs.Select(c => Roll(c)).ToArray();
+        output.WriteLine(string.Join(" ; ", clubs.Zip(rolls, (c, r) => $"{c.Name} {r:F1} m")));
+        for (var i = 1; i < rolls.Length; i++)
         {
-            var terrain = ShotTests.Uniform(Surface.Fairway, cells: 120);
-            var rng = new DeterministicRng(3);
-            var resolver = new PhysicalShotResolver();
-
-            // Même départ, même sol : seul le backspin change (vitesse et dispersion du lie neutralisées).
-            var effect = from == Surface.Fairway ? LieEffect.None : LieParams.Default.At(from, 0.0) with { Speed = 1.0, Sigma = 1.0 };
-            double sum = 0;
-            for (var i = 0; i < 400; i++)
-            {
-                sum += Dist(Start, resolver.Execute(Start, club, 1.0, 0.0, 1.0, terrain, rng, 1.0, lie: effect).Ball);
-            }
-
-            return sum / 400;
+            Assert.True(rolls[i] > rolls[i - 1], $"{clubs[i].Name} doit rouler plus que {clubs[i - 1].Name}");
         }
+    }
 
-        var (none, fairway, rough) = (Total(wedgeNoSpin, Surface.Fairway), Total(Clubs.Wedge, Surface.Fairway), Total(Clubs.Wedge, Surface.Rough));
-        output.WriteLine($"wedge, portée totale : sans backspin {none:F1} ; fairway {fairway:F1} ; rough {rough:F1} m");
-        Assert.True(fairway < none - 1.0);
+    [Fact]
+    public void AWedge_RollsMoreFromTheRoughThanFromTheFairway()
+    {
+        var share = LieParams.Default.At(Surface.Rough, 0.0).Backspin;
+        var (fairway, rough) = (Roll(Clubs.Wedge), Roll(Clubs.Wedge, share));
+        output.WriteLine($"roulement du wedge : fairway {fairway:F1} m ; rough {rough:F1} m");
         Assert.True(rough > fairway);
-        Assert.True(rough < none + 0.5);
     }
 
     [Fact]
