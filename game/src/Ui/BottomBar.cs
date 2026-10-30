@@ -18,10 +18,6 @@ public partial class BottomBar : Control
     private const float CrestGutter = 128f;
     private const double RefreshSeconds = 0.25;
 
-    // Heures affichées : la journée de jeu va de l'ouverture (7 h) à la fermeture (19 h). Convention d'affichage, sans état de sim.
-    private const double OpenHour = 7.0;
-    private const double DayHours = 12.0;
-
     private readonly Dictionary<ToolFamily, UiToolButton> _families = [];
     private readonly Dictionary<int, Button> _speeds = [];
     private Main _main = null!;
@@ -36,7 +32,6 @@ public partial class BottomBar : Control
     private Button _camera = null!;
     private Button _pause = null!;
     private Panel _clockFill = null!;
-    private Label _clockTime = null!;
     private Label _clockDate = null!;
     private UiPill _weather = null!;
     private UiPill _members = null!;
@@ -139,8 +134,6 @@ public partial class BottomBar : Control
 
         var world = _main.World;
         var date = world.Date;
-        var hours = OpenHour + (Math.Clamp(date.DayFraction, 0.0, 1.0) * DayHours);
-        SetText(_clockTime, $"{(int)hours:00}:{(int)((hours - Math.Floor(hours)) * 60):00}");
         SetText(_clockDate, $"{date.Day} {UiNames.Months[date.Month - 1]}, an {date.Year}");
         _clockFill.Size = new Vector2(Mathf.Max(18f, _clockFill.GetParentControl().Size.X * (float)date.DayFraction), UiTheme.PillHeight);
         _weather.SetText($"{UiNames.Capitalized(UiNames.Skies[(int)world.Weather.Sky])} · {UiNames.Capitalized(UiNames.Seasons[(int)date.Season])} · demain : {UiNames.Skies[(int)world.Forecast(1)]}");
@@ -282,10 +275,10 @@ public partial class BottomBar : Control
         return Tier("BarBottom", UiTheme.BarBottom, TopHeight, BottomHeight, row);
     }
 
-    /// <summary>Heure et date sur l'avancée du jour (aplat bleu ciel de gauche à droite).</summary>
+    /// <summary>Jour et avancée de la journée, sans heures (aplat bleu ciel de gauche à droite, façon Cities: Skylines).</summary>
     private Control Clock()
     {
-        var pill = new Panel { Name = UiIds.Hud.Clock, CustomMinimumSize = new Vector2(170f, UiTheme.PillHeight), SizeFlagsVertical = SizeFlags.ShrinkCenter, ClipContents = true, TooltipText = "Heure et date ; l'aplat montre l'avancée du jour" };
+        var pill = new Panel { Name = UiIds.Hud.Clock, CustomMinimumSize = new Vector2(170f, UiTheme.PillHeight), SizeFlagsVertical = SizeFlags.ShrinkCenter, ClipContents = true, TooltipText = "Date ; l'aplat montre l'avancée du jour" };
         pill.AddThemeStyleboxOverride("panel", PillStyle(0f));
         var fillStyle = UiTheme.Box(new Color(UiTheme.Sky, 0.22f), 0);
         fillStyle.CornerRadiusTopLeft = fillStyle.CornerRadiusBottomLeft = UiTheme.PillHeight / 2;
@@ -295,10 +288,7 @@ public partial class BottomBar : Control
         var row = new HBoxContainer { Alignment = BoxContainer.AlignmentMode.Center, MouseFilter = MouseFilterEnum.Ignore };
         row.AddThemeConstantOverride("separation", 6);
         row.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
-        _clockTime = new Label { ThemeTypeVariation = "UiValue", VerticalAlignment = VerticalAlignment.Center };
-        _clockTime.AddThemeColorOverride("font_color", UiTheme.Sky);
         _clockDate = new Label { VerticalAlignment = VerticalAlignment.Center };
-        row.AddChild(_clockTime);
         row.AddChild(_clockDate);
         pill.AddChild(row);
         return pill;

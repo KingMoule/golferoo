@@ -922,7 +922,60 @@ public partial class SmokeTest : Node
             failures.Add("débogage : F12 ne cache pas le libellé");
         }
 
+        CheckClubhouse(failures);
         return failures;
+    }
+
+    /// <summary>C15 lot 3 : le pavillon est rendu à la position de la sim, la file se tient devant la porte, G est muette hors débogage, Finances nomme Buildings.</summary>
+    private void CheckClubhouse(List<string> failures)
+    {
+        var main = _main!;
+        var world = main.World;
+        if (world.Clubhouse is not { } club || world.Terrain is not { } grid)
+        {
+            failures.Add("C15 : pas de pavillon dans le monde du jeu");
+            return;
+        }
+
+        var center = club.Position(grid.CellSize);
+        var model = main.Clubhouse.ModelCenter;
+        if (main.Clubhouse.Shown != club || Math.Abs(model.X - center.X) > 0.05 || Math.Abs(model.Z - center.Z) > 0.05)
+        {
+            failures.Add($"C15 : le pavillon n'est pas rendu à la position de la sim (modèle {model}, sim {center})");
+        }
+
+        var count = world.Groups.Count;
+        PushKey(Key.G);
+        if (world.Groups.Count != count)
+        {
+            failures.Add("C15 : la touche G lance un groupe hors du mode débogage");
+        }
+
+        if (Finances.CategoryName(LedgerCategory.Buildings) != "Bâtiments")
+        {
+            failures.Add("C15 : Finances n'étiquette pas Buildings « Bâtiments »");
+        }
+
+        Group? arrived = null;
+        world.GroupArrived += g => arrived ??= g;
+        for (var i = 0; i < 3000 && arrived is null; i++)
+        {
+            main.StepTicks(20);
+        }
+
+        var door = club.DoorPosition(grid.CellSize);
+        if (arrived is null)
+        {
+            failures.Add("C15 : aucun groupe n'est arrivé au pavillon en 60 000 ticks");
+        }
+        else if (arrived.Golfers.Any(g => Math.Abs(g.Position.X - door.X) + Math.Abs(g.Position.Z - door.Z) > 25.0))
+        {
+            failures.Add("C15 : le groupe arrivé n'est pas devant la porte");
+        }
+        else if (main.Actors.VisibleGolfers < arrived.Golfers.Count)
+        {
+            failures.Add($"C15 : la file n'est pas rendue ({main.Actors.VisibleGolfers} golfeurs visibles pour {arrived.Golfers.Count} arrivés)");
+        }
     }
 
     /// <summary>Pousse une touche (appui puis relâché) dans la fenêtre, comme le clavier ; rend vrai pour s'enchaîner dans une condition.</summary>
@@ -1288,7 +1341,7 @@ public partial class SmokeTest : Node
         var balanceLabel = (Label)main.Ui.Find(UiIds.Finance.Balance)!;
         Expect(spent > 0 && money.Label.Text == Pill() && balanceLabel.Text == UiMoney.Format(ledger.Balance), $"après une dépense de {spent}, pastille « {money.Label.Text} » ou solde « {balanceLabel.Text} » hors du grand livre");
         var rows = TableRows(finances.Table);
-        Expect(rows.Length == 9 && rows[2][0] == "Surfaces" && rows[2][1] == UiMoney.Format(ledger.Current(LedgerCategory.Surfaces), true) && rows[^1][1] == UiMoney.Format(UiMoney.MonthResult(ledger), true), "le détail du mois ne suit pas le grand livre");
+        Expect(rows.Length == 10 && rows[^2][0] == "Bâtiments" && rows[2][0] == "Surfaces" && rows[2][1] == UiMoney.Format(ledger.Current(LedgerCategory.Surfaces), true) && rows[^1][1] == UiMoney.Format(UiMoney.MonthResult(ledger), true), "le détail du mois ne suit pas le grand livre");
         main.SkipToNextMonth();
         main.Bar.Sync();
         var closed = ledger.Months[^1];
@@ -1764,7 +1817,8 @@ public partial class SmokeTest : Node
         panel._Process(0.0);
         var level = skills.Level(Golferoo.Sim.Pro.ProSkill.LongIrons);
         var expected = Golferoo.Sim.Pro.ProEffects.LevelMessage(Golferoo.Sim.Pro.ProSkill.LongIrons, level);
-        if (level < 1 || main.Birdie.Chirps.Count != before + 1 || main.Birdie.Chirps[^1].Text != expected)
+        // Le pro joue pendant la fumée : un autre niveau gagné au même moment poste aussi son avis, d'où « parmi les nouveaux ».
+        if (level < 1 || !main.Birdie.Chirps.Skip(before).Any(c => c.Text == expected))
         {
             failures.Add($"fiche du pro : pas d'avis Birdie au niveau gagné (niveau {level}, attendu « {expected} »)");
         }

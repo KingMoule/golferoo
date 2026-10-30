@@ -39,7 +39,7 @@ public partial class Captures : Node
     private const int ProfileViewCount = 3;
     private const int FreeViewCount = 4;
     private const int SaveViewCount = 2;
-    private const int CourseViewCount = 11;
+    private const int CourseViewCount = 12;
     private const int GalleryViewCount = 1;
     private const int FinanceViewCount = 1;
     private const int ProViewCount = 2;
@@ -96,6 +96,9 @@ public partial class Captures : Node
     private async Task<int> Run()
     {
         Main.OfferTutorial = false;
+
+        // Les vues avancent des semaines de jeu : sans pavillon, personne n'arrive (seule la vue du pavillon, à la fin, le place).
+        Main.ClubhouseOnNewGame = false;
 
         // Les vues d'avant C12 sont réglées sur le dogleg (lisière, approche) : elles gardent ce trou seul ; « Le neuf » vient à la fin.
         Main.CourseOverride = "data/holes/dogleg-par4.json";
@@ -781,6 +784,45 @@ public partial class Captures : Node
         await CloseUp(main, "c23-swing", g => g.State == GolferState.Swinging, rig => rig.Clip == GolferModel.Swing && Math.Abs(rig.Time - SwingTopSeconds) < 0.03);
         main.Actors.Range = ActorLayer.AnimatedRange;
         await InterfaceView(main, placed[0].Id);
+        await PavilionView();
+    }
+
+    /// <summary>C15 lot 3 : le pavillon et une file de golfeurs devant sa porte (deux groupes lancés bloquent le départ, les arrivées font la file), soleil en début de matinée.</summary>
+    private async Task PavilionView()
+    {
+        foreach (var old in GetChildren().OfType<Main>())
+        {
+            old.QueueFree();
+        }
+
+        await Frames(2);
+        Main.ClubhouseOnNewGame = true;
+        Main.ArrivalsOverride = Golferoo.Sim.Golfers.ArrivalParams.Default.AtMaxAttraction();
+        var main = GD.Load<PackedScene>("res://Main.tscn").Instantiate<Main>();
+        AddChild(main);
+        main.Paused = true;
+        main.World.ManualPro = false;
+        main.SunDayFraction = 0.3;
+        main.Brush.SetProcess(false);
+        main.TerrainView.Trees?.SetFocus(TreeLayer.CursorSlot, null, 0f);
+        main.Actors.Range = float.PositiveInfinity;
+        main.SpawnGroup();
+        main.SpawnGroup();
+        for (var i = 0; i < 60 && main.World.QueueLength < 3; i++)
+        {
+            main.StepTicks(100);
+        }
+
+        var grid = main.World.Terrain!;
+        var club = main.World.Clubhouse!;
+        var door = club.DoorPosition(grid.CellSize);
+        var middle = club.Position(grid.CellSize);
+        var focus = new Vector3((float)(door.X + middle.X) / 2f, (float)grid.Sample(door.X, door.Z), (float)(door.Z + middle.Z) / 2f);
+        GD.Print($"C15 pavillon={club.Footprint} porte={club.Side} file={main.World.QueueLength} groupes={main.World.Groups.Count}");
+        main.Camera.SetMode(CameraMode.Iso, instant: true);
+        main.Camera.SetView(45f, 60f, focus);
+        await Frames(SettleFrames);
+        Save("c15-pavillon");
     }
 
     /// <summary>Sommet du swing de golf_swing_2s (image 23 sur 61 à 30 images/s).</summary>
