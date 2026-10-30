@@ -1,13 +1,18 @@
-Mis à jour : 2026-10-29 (reprise sur le compte de G. St-Arnaud, session de bureau Windows)
+Mis à jour : 2026-10-30 (compte de G. St-Arnaud, session de bureau Windows)
 
 ## État
-C00 à C14 et C21 livrés ; les audits après coup de #117, #118 et #119 sont faits et leurs constats corrigés (#122, #123, #124). C25 (progression du pro par l'expérience, nouveau chantier cadré aujourd'hui) : lot 1 livré (#127), lot 2 en cours.
+Vague 1 finie : C00 à C14, C21 et C25 livrés. C25 (progression du pro par l'expérience) : lots 1 à 4 fusionnés (#127, #128, #132, #134, #135), audits complets sans bloquant. Sauvegarde en v11.
+
+## À signaler à Guillaume (C25)
+- Lot 4 : `distanceFloor` de Distance passé de 85 % à 75 % (hors brief, une ligne de la grille validée ; sans lui, Distance ne progressait presque pas au niveau 0). À confirmer ou à remettre.
+- Lot 3 : le vent réel est retiré de la note de visée (l'aperçu faussé suffit).
+- Recalage : niveau 24 environ après la saison 1, 47–48 en saison 10, 50 en saison 12–13 (`costScale` 0,085).
+- Putt : le pro simulé vise 0,5 m après le trou ; sur pente lue, Putter reste vers 0,47 de qualité au niveau 50 (putts ratés à plus de 1,6 m), c'est le jeu et non la notation.
 
 ## En cours
-- **C25 lot 2** (pénalité de lie et backspin selon le club et le lie, pour tous) : branche `claude/c25-lot2-lie`, codeur lancé, pas de PR encore. Audit *complet* à faire. Brief : décisions 5 et 9, critères 5 (absolu : le pro joue comme un +4 au niveau 50 et comme un 36 au niveau 0 ; le lot 1 mesurait +1,4 et 41) et 6, critère 4 de C21 à garder, correction du latéral du putt qui dépend du Dosage (réserve du contre-audit de #127). Sauvegarde en v9 : un nouvel état la fait passer en v10. [agent]
-- **C25 lot 3** (jeu : aperçus faussés pour le vent et le green, fiche du pro, avis Birdie) : après le lot 2, car les deux touchent `Pro/`. **Lot 4** (calibrage) en dernier ; l'effet de Chip est encore nul, à définir au lot 4. [agent]
+- **Petit correctif de test** (réserve de l'audit de #135) : `ProSeasonSim` appelle `ProQuality.Awards(...)` sans le trou ; passer `hole.Hole` puis régénérer le tableau de qualité de la spec C25. Ne change ni le jeu ni les saisons. [agent]
 - **C23 lot 2** : attend les animations de Guillaume (marche, putt, attente, réactions). [guillaume]
-- À vérifier par Guillaume : mesure FPS avec `Mesurer FPS.bat` (C13 critère 13, C23 critère 8, C21 critère 2) ; drapeau sans scintillement en jeu ; pente de la rive (`shore_depth`, `blur_meters`, si elle reste trop raide). [guillaume]
+- À vérifier par Guillaume : mesure FPS avec `Mesurer FPS.bat` (C13 critère 13, C23 critère 8, C21 critère 2) ; drapeau sans scintillement en jeu ; pente de la rive (`shore_depth`, `blur_meters`) ; liste d'autorisations de `.claude/settings.json` proposée dans #133 (facultatif). [guillaume]
 
 ## Reporté
 Journal des commandes et rejeu ; sauvegardes nommées ; migration de format à la première version publique ; accueil des membres par le pro (C16) ; abandon en cours de partie (la règle « un abandon ne paie pas » de C14 est sans objet tant qu'il n'existe pas) ; tampons des champs de flux avant les grands parcours ; une journée de ligue qui ne se clôt jamais gèle la ligue (garde-fou de C21 lot 3, à surveiller en C22).
@@ -20,10 +25,9 @@ Journal des commandes et rejeu ; sauvegardes nommées ; migration de format à l
 - Assets 3D : partir du catalogue `catalogue-assets/` ; filières dans `docs/assets-3d.md`.
 
 ## Décisions récentes
-- C14 (Guillaume) : cotisations pour tous les membres sauf le pro ; un golfeur qui ramasse sa balle paie le trou ; une clôture de mois fige l'annulation ; finances en deux barres par mois et ligne du solde, détail mois courant et précédent ; Annuler et Ctrl+Z ; un seul message météo dans Birdie, sans non-lu.
-- C13 (Guillaume) : à 150 %, le panneau le plus ancien se replie ; bouton pour couper Birdie ; messages de saison et de météo ; la pastille de l'outil Trous reste.
-- C25 (Guillaume) : 17 habiletés, XP = 10 × (1 − écart/seuil)², plancher de 5 % au club, niveaux 0 à 50 à gain fixe du 36 au +4, courbe d'XP façon OSRS (le coût double tous les 7 niveaux), pénalité de lie et backspin selon le bâton pour tous, aperçus faussés pour le vent et le green.
-- C21 : bannière du champion retirée (Guillaume) ; `Gauss` remplacé par Box-Muller (orchestrateur).
+- C25 (Guillaume) : 17 habiletés, XP = 10 × (1 − écart/seuil)², plancher de 5 % au club, niveaux 0 à 50 à gain fixe du 36 au +4, courbe d'XP façon OSRS (le coût double tous les 7 niveaux), pénalité de lie et backspin selon le bâton pour tous, aperçus faussés pour le vent et le green ; Chip = contrôle du roulement et dispersion.
+- C14 (Guillaume) : cotisations pour tous sauf le pro ; un golfeur qui ramasse paie le trou ; une clôture de mois fige l'annulation ; Annuler et Ctrl+Z.
+- C13 (Guillaume) : à 150 %, le panneau le plus ancien se replie ; bouton pour couper Birdie ; messages de saison et de météo.
 
 ## Prochaine étape
-Auditer C25 lot 2 dès sa PR et le fusionner, puis lancer C25 lot 3 puis le lot 4. Ensuite, `/ameliorer` sur `docs/lecons.md` (fin de vague 1), puis cadrer la vague 2 de `docs/plan-alpha.md` avec Guillaume (C15, C16, C17).
+Cadrer la vague 2 de `docs/plan-alpha.md` avec Guillaume (C15 pavillon et arrivée, C16 humeur et adhésion, C17 bâtiments), une ronde de questions par chantier. Rien n'est lancé avant ses réponses.
