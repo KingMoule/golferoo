@@ -287,7 +287,7 @@ public class ProProgressionTests(ITestOutputHelper output)
     {
         var p = new ProSkills();
         Assert.Equal(0, p.Level(ProSkill.Draw));
-        p.Gain(ProSkill.Draw, p.XpForLevel(13) / 2, league: true, year: 1); // la ligue double
+        p.Gain(ProSkill.Draw, (p.XpForLevel(13) + 1) / 2, league: true, year: 1); // la ligue double
         Assert.Equal(13, p.Level(ProSkill.Draw));
         Assert.InRange(p.LevelProgress(ProSkill.Draw), 0.0, 0.01);
         var q = new ProSkills();

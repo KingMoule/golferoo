@@ -376,7 +376,7 @@ public class SaveTests
     public void Load_UnknownVersion_Throws()
     {
         var bytes = Save(Build(1, "proto", "start"));
-        bytes[4] = 11;
+        bytes[4] = 12;
 
         Assert.Throws<InvalidDataException>(() => Load(bytes));
     }

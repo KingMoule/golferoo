@@ -1,5 +1,5 @@
 # Progression de votre pro par l'expérience (C25)
-Statut : validé (go de Guillaume le 2026-10-29)
+Statut : livré (lots 1 à 4)
 Créé : 2026-10-29
 
 ## But
@@ -18,6 +18,7 @@ Ce qui prouve la réussite : un draw long et bien visé au fer long fait progres
 8. Reprises de C08 sans changement : la ligue compte double, sans plafond ; l'entraînement est plafonné par habileté et par année (remise à zéro au 1er avril) ; un gimme ne rapporte rien ; aucune rouille.
 9. **Backspin selon le bâton, pour tous les golfeurs** (précision de Guillaume le 2026-10-29, après le lot 1) : le wedge a le plus de backspin, surtout depuis un bon lie (fairway, départ) ; le backspin diminue en remontant les fers et devient pratiquement nul aux fers longs.
 10. **Le gain fixe par niveau vaut en handicap équivalent jusqu'au scratch** (décision de Guillaume, 2026-10-29) : sous le scratch, la courbe `FromHandicap` plus raide (+4 = 0,55) rend les niveaux 45 à 50 environ deux fois plus forts en coups : choix assumé par Guillaume.
+11. **Chip fait les deux à la fois** (décision de Guillaume, 2026-10-29, au lot 4) : chaque niveau réduit l'erreur sur l'abaissement et le roulement voulus (comme Draw et Fade pour la courbure, `chipSigma` au niveau 0) et resserre la dispersion des chips (Chip entre à un tiers dans la direction et la force d'un chip, avec le club et Précision ou Dosage). Au niveau 0, les écarts types du chip sont ceux d'un golfeur de 36, au niveau 50 ceux d'un +4. La fiche donne une ligne chiffrée, chiffre en tête (« −24 % roulement »).
 
 ## Périmètre et hors périmètre
 - Dans le périmètre :
@@ -102,6 +103,12 @@ Aucun : la grille et la spec ont été validées le 2026-10-29 (« go »). Les s
 Complet pour les lots 1, 2 et 4 (simulation et état de partie), léger pour le lot 3 (écran).
 
 ## Clôture
-- [ ] Critères vérifiés
-- [ ] Statut passé à « livré », ligne mise à jour dans `docs/chantiers.md`
-- [ ] `specs/C08-pro-jouable.md` renvoie à C25 pour la progression
+- [x] Critères vérifiés (lot 4 : `ProSeasonTests`, voir le calibrage ci-dessous)
+- [x] Statut passé à « livré », ligne mise à jour dans `docs/chantiers.md`
+- [x] `specs/C08-pro-jouable.md` renvoie à C25 pour la progression
+
+## Calibrage (lot 4)
+- **Échelle et plafond** : `costScale` 0,09 et `trainingCapPerYear` 300 (`data/pro/progression.json`). Saisons simulées (`ProSeasonSim`, « Le neuf » : 5 journées de ligue et l'entraînement jusqu'au plafond sur Précision et Putter, putts de moins de 2 m donnés, pro qui lit la pente) : Putter, Précision et Dosage, les plus travaillés, finissent la saison 1 aux niveaux 22 à 26 (3 graines), 30 à 32 en saison 2, 46 à 48 en saison 10 ; le niveau 50 vient vers la saison 13. L'entraînement pèse environ 40 % de l'XP de la saison 1.
+- **Qualités moyennes par habileté** (pro dont toutes les habiletés sont au niveau indiqué, coups mêlés de draw, fade et chip, vent de 5 m/s ; niveaux 0 / 25 / 50) : Driver 0,16 / 0,21 / 0,44 ; Bois 0,12 / 0,16 / 0,39 ; Fers longs 0,27 / 0,31 / 0,60 ; Fers moyens 0,27 / 0,34 / 0,64 ; Fers courts 0,28 / 0,35 / 0,67 ; Wedge 0,29 / 0,35 / 0,67 ; Putter 0,44 / 0,44 / 0,45 ; Précision 0,22 / 0,27 / 0,46 ; Dosage 0,30 / 0,32 / 0,40 ; Distance 0,10 / 0,14 / 0,24 ; Draw 0,26 / 0,31 / 0,48 ; Fade 0,28 / 0,34 / 0,58 ; Chip 0,20 / 0,27 / 0,62 ; Sortie de rough 0,24 / 0,31 / 0,61 ; Sortie de bunker 0,18 / 0,26 / 0,63 ; Vent 0,10 / 0,13 / 0,26 ; Lecture du green 0,43 / 0,41 / 0,44. Aucune n'est dégénérée : les seuils ne changent pas. Putter et Lecture du green restent plats d'un niveau à l'autre (la qualité d'un putt dépend surtout de sa longueur, dont le seuil est relatif) ; c'est la seule réserve, sans effet sur le rythme.
+- **Biais des aperçus** (inchangés : vent force ± 25 à 50 %, direction ± 0,3 à 0,6 rad ; pente angle ± 0,35 à 0,7 rad, échelle ± 25 à 50 %) : au niveau 0, avec un vent de 3 à 9 m/s, l'aperçu se trompe en moyenne de 5,8 m pour un effet du vent de 9,5 m (coup moyen de 114 m) ; 4,8 m au niveau 10 et 3,2 m au niveau 25. Sensible, sans être absurde.
+- **Sauvegarde** v11 (`chipSigma` ajouté aux réglages, v10 dans `OlderVersion`).
