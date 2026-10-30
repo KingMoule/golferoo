@@ -86,7 +86,7 @@ public sealed class FlowField
 
     internal static FlowField Build(TerrainGrid terrain, float[] costs, int destX, int destZ)
     {
-        if (!GridQueries.TryNearestWalkable(terrain, destX, destZ, out var dx, out var dz))
+        if (!GridQueries.TryNearestWalkable(terrain, costs, destX, destZ, out var dx, out var dz))
         {
             throw new InvalidOperationException("Le terrain n'a aucune cellule franchissable.");
         }

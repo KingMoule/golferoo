@@ -1,0 +1,48 @@
+// Arrivées des golfeurs au pavillon (spec C15, lot 2). Les arrivées suivent un profil horaire (de 6 h à 18 h) multiplié par l'attrait du club.
+{
+  // Groupes par jour pour un attrait de 1 (9 trous ouverts, note moyenne, réputation de départ, météo qui ne gêne pas) ; calé au banc (critère 4 : 15 à 25 par jour)
+  "groupsPerDay": 35,
+
+  // Poids des 12 heures de 6 h à 18 h : une pointe le matin
+  "hourProfile": [2, 4, 5, 4, 3, 3, 3, 3, 2.5, 1.5, 1, 0.5],
+
+  // Poids des groupes de 1, 2, 3 et 4 golfeurs
+  "groupSizeWeights": [10, 40, 10, 40],
+
+  // File devant la porte, en groupes ; au-delà, le groupe repart (GroupTurnedAway)
+  "queueCapacity": 8,
+
+  // Groupes de visiteurs sur le parcours au plus, par trou du parcours (36 sur 18 trous, le plafond mesuré à C12) : au-delà, le groupe de tête de la file attend
+  "maxGroupsPerHole": 2,
+
+  // Aucun départ à partir de cette heure (les groupes encore en file repartent le soir)
+  "lastDepartureHour": 16,
+
+  // Attrait = trous × note × réputation × météo
+  "holesReference": 9,
+  "holesExponent": 0.5,
+  "holesCap": 18,
+  "noteGain": 4,
+  "noteMin": 0.5,
+  "noteMax": 1.5,
+  "reputationMinFactor": 0.7,
+  "reputationMaxFactor": 1.3,
+  "weatherFactors": [1, 0.9, 0.4, 0.1],
+
+  // Réputation : moyenne glissante des sorties (1 bonne, 0 mauvaise)
+  "reputationStart": 0.5,
+  "reputationWeight": 0.1,
+
+  // Vivier : part des places d'un groupe tentées avec un visiteur qui veut revenir, envie de départ, gain d'une bonne sortie, perte d'un refus
+  "returnShare": 0.6,
+  "returnThreshold": 0.6,
+  "desireStart": 0.5,
+  "desireGood": 0.15,
+  "desireRefused": 0.3,
+
+  // Niveau des nouveaux visiteurs (handicap)
+  "handicapMin": 8,
+  "handicapMax": 30,
+
+  "firstNames": ["Alice", "Bruno", "Chloé", "David", "Émile", "Fanny", "Gabriel", "Hélène", "Ivan", "Jade", "Karim", "Léa", "Marc", "Nadia", "Olivier", "Pauline", "Quentin", "Rita", "Samuel", "Thérèse", "Ulysse", "Vera", "William", "Yasmine"]
+}

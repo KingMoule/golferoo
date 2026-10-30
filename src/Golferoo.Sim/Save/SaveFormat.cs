@@ -10,9 +10,9 @@ namespace Golferoo.Sim.Save;
 /// </summary>
 internal static class SaveFormat
 {
-    internal const int Version = 12;
+    internal const int Version = 13;
 
-    /// <summary>La v11 se relit encore (pavillon placé au chargement) ; avant, plus.</summary>
+    /// <summary>La v11 se relit encore (pavillon placé au chargement), la v12 aussi (sans vivier ni file) ; avant, plus.</summary>
     internal const int OldestReadable = 11;
 
     /// <summary>Plafond du corps, compressé comme décompressé, à la lecture.</summary>

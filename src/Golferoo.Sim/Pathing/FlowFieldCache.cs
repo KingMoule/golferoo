@@ -83,7 +83,7 @@ public sealed class FlowFieldCache
     private FlowField? Resolve(int cx, int cz, bool budgeted)
     {
         Sync();
-        if (!GridQueries.TryNearestWalkable(_terrain, cx, cz, out var nx, out var nz))
+        if (!GridQueries.TryNearestWalkable(_terrain, _costs, cx, cz, out var nx, out var nz))
         {
             throw new InvalidOperationException("Le terrain n'a aucune cellule franchissable.");
         }

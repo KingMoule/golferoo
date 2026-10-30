@@ -40,6 +40,9 @@ public enum GolferState : byte
 
     /// <summary>Marche du green qu'il vient de finir vers le départ du trou suivant.</summary>
     ToNextTee = 10,
+
+    /// <summary>Groupe de visiteurs qui a fini sa partie : marche vers la porte du pavillon, puis quitte le monde (C15).</summary>
+    Leaving = 11,
 }
 
 public sealed class Golfer
@@ -99,6 +102,9 @@ public sealed class Golfer
     /// <summary>Coup choisi par le joueur (votre pro), joué au prochain geste.</summary>
     internal Pro.ProShot? PlannedShot { get; set; }
 
+    /// <summary>Numéro du visiteur du vivier (<see cref="VisitorPool"/>) que ce golfeur incarne (−1 : ni visiteur arrivé au pavillon, ni membre).</summary>
+    public int VisitorId { get; internal set; } = -1;
+
     /// <summary>Le golfeur joue une journée de ligue.</summary>
     internal bool InLeague { get; set; }
 
@@ -142,10 +148,13 @@ public sealed class Golfer
         w.Int(WaypointIndex);
         w.Bool(Card is not null);
         Card?.Write(w);
+        w.Int(VisitorId);
     }
 
     internal static Golfer Read(SaveReader r)
     {
+        // Le numéro de visiteur (v13) vient en dernier : on le lit après la carte.
+
         var golfer = new Golfer(r.Int(), default, default)
         {
             MemberId = r.Int(),
@@ -168,6 +177,11 @@ public sealed class Golfer
         golfer.InLeague = r.Bool();
         golfer.WaypointIndex = r.Int();
         golfer.Card = r.Bool() ? ScoreCard.Read(r) : null;
+        if (r.Version >= 13)
+        {
+            golfer.VisitorId = r.Int();
+        }
+
         return golfer;
     }
 }

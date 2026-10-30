@@ -148,6 +148,7 @@ public sealed partial class World
         w.Bool(_manualPro);
         w.Bool(Clubhouse is not null);
         Clubhouse?.Write(w);
+        WriteArrivals(w);
     }
 
     private static void WriteRating(SaveWriter w, CourseRating r)
@@ -276,6 +277,27 @@ public sealed partial class World
             {
                 throw new InvalidDataException("Sauvegarde incohérente : pavillon hors de la carte.");
             }
+        }
+
+        Arrivals = ArrivalParams.Default;
+        if (r.Version >= 13)
+        {
+            _arrivalRng = DeterministicRng.Read(r);
+            Reputation = r.Double();
+            Visitors = VisitorPool.Read(r);
+            _nextGroupId = r.Int();
+        }
+        else
+        {
+            _arrivalRng = new DeterministicRng(Seed ^ ArrivalSeedMask);
+            Reputation = Arrivals.ReputationStart;
+            Visitors = new VisitorPool();
+            _nextGroupId = _groups.Count;
+        }
+
+        if (!double.IsFinite(Reputation) || Reputation is < 0.0 or > 1.0 || _groups.Any(g => g.Golfers.Any(o => o.VisitorId >= Visitors.Next)))
+        {
+            throw new InvalidDataException("Sauvegarde incohérente : réputation ou visiteur hors du vivier.");
         }
 
         _resolver = resolver ?? (Terrain is null ? new StubShotResolver() : new PhysicalShotResolver());

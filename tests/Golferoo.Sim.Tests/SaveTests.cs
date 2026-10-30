@@ -227,9 +227,12 @@ public class SaveTests
     [Fact]
     public void Load_ManualProWithoutALeague_Throws()
     {
-        var bytes = Save(Build(1, "proto", "start"));
+        var world = Build(1, "proto", "start");
+        var bytes = Save(world);
         var raw = Unpack(bytes);
-        raw[^1] = 1; // _manualPro, dernier octet d'un monde sans ligue
+        var tail = new Golferoo.Sim.Save.SaveWriter();
+        world.WriteArrivals(tail);
+        raw[raw.Length - tail.Written.Length - 2] = 1; // _manualPro : l'octet avant celui du pavillon et le bloc des arrivées, dans un monde sans ligue
 
         Assert.Throws<InvalidDataException>(() => Load(Pack(bytes, raw, Golferoo.Sim.Save.SaveFormat.Hash(raw))));
     }
@@ -377,7 +380,7 @@ public class SaveTests
     public void Load_UnknownVersion_Throws()
     {
         var bytes = Save(Build(1, "proto", "start"));
-        bytes[4] = 13;
+        bytes[4] = 14;
 
         Assert.Throws<InvalidDataException>(() => Load(bytes));
     }
@@ -986,7 +989,7 @@ public class SaveTests
     }
 
     /// <summary>
-    /// Une sauvegarde v11 (sans pavillon, 8 catégories au grand livre, sans clubhouseMove) se charge, avec un pavillon placé automatiquement.
+    /// Une sauvegarde v11 (sans pavillon, sans vivier, 8 catégories au grand livre, sans clubhouseMove) se charge, avec un pavillon placé automatiquement.
     /// Le fichier v11 est fabriqué en retirant ces trois ajouts d'une sauvegarde v12 de monde frais.
     /// </summary>
     [Fact]
@@ -1019,6 +1022,7 @@ public class SaveTests
         var legacyLedger = ledger[..(20 + (8 * (categories - 1)))].Concat(ledger[(20 + (8 * categories))..]).ToArray();
         raw = Replace(raw, ledger, legacyLedger);
 
+        raw = raw[..^Bytes(world.WriteArrivals).Length]; // ni vivier, ni réputation (v13)
         Assert.Equal(0, raw[^1]); // pas de pavillon
         raw = raw[..^1];
 
@@ -1031,5 +1035,57 @@ public class SaveTests
         Assert.Equal(world.Ledger.Balance, loaded.Ledger.Balance);
         Assert.NotNull(loaded.ClubhouseField);
         Assert.Equal(new World(5, ClubhouseTests.LeNeuf(), league: true, placeClubhouse: true).Clubhouse, loaded.Clubhouse);
+    }
+
+    /// <summary>C15 lot 2 (v13) : le vivier, la file, les groupes en sortie, la réputation et le générateur des arrivées se sauvent, se relisent et entrent dans la somme de contrôle.</summary>
+    [Fact]
+    public void Arrivals_AreSavedLoadedAndChecksummed()
+    {
+        var world = ArrivalTests.NewWorld(3);
+        world.Step((3 * Calendar.TicksPerDay) + 4000);
+        Assert.NotEmpty(world.Visitors.Visitors);
+        Assert.NotEqual(world.Arrivals.ReputationStart, world.Reputation);
+        Assert.True(world.QueueLength > 0);
+        Assert.Contains(world.Groups, g => g.Released);
+        Assert.Contains(world.Groups, g => g.FromArrivals);
+
+        var loaded = World.Load(new MemoryStream(Save(world)), new StubShotResolver());
+        Assert.Equal(world.Checksum(), loaded.Checksum());
+        Assert.Equal(Save(world), Save(loaded));
+        Assert.Equal(world.Reputation, loaded.Reputation);
+        Assert.Equal(world.QueueLength, loaded.QueueLength);
+        Assert.Equal(world.Visitors.Visitors.Select(v => (v.Id, v.Name, v.Handicap, v.Profile, v.Desire, v.LastVisitDay, v.InPlay)),
+            loaded.Visitors.Visitors.Select(v => (v.Id, v.Name, v.Handicap, v.Profile, v.Desire, v.LastVisitDay, v.InPlay)));
+        Assert.Equal(world.Groups.Select(g => (g.Id, string.Join(",", g.Golfers.Select(o => o.VisitorId)))).ToArray(),
+            loaded.Groups.Select(g => (g.Id, string.Join(",", g.Golfers.Select(o => o.VisitorId)))).ToArray());
+
+        // Le vivier, la réputation et la file comptent dans la somme de contrôle : en changer un seul change la somme.
+        var before = world.Checksum();
+        world.Visitors.Visitors[0].Desire += 0.01;
+        Assert.NotEqual(before, world.Checksum());
+        world.Visitors.Visitors[0].Desire -= 0.01;
+        Assert.Equal(before, world.Checksum());
+
+        world.Step(2000);
+        loaded.Step(2000);
+        Assert.Equal(world.Checksum(), loaded.Checksum());
+    }
+
+    /// <summary>Une sauvegarde v12 (pavillon, sans vivier ni réputation) se charge avec un vivier vide et la réputation de départ.</summary>
+    [Fact]
+    public void Load_V12_StartsWithAnEmptyPool()
+    {
+        var world = new World(5, ClubhouseTests.LeNeuf(), league: true, placeClubhouse: true);
+        var file = Save(world);
+        var raw = Unpack(file);
+        var tail = new Golferoo.Sim.Save.SaveWriter();
+        world.WriteArrivals(tail);
+        raw = raw[..^tail.Written.Length];
+        file[4] = 12;
+        var loaded = Load(Pack(file, raw, Golferoo.Sim.Save.SaveFormat.Hash(raw)));
+
+        Assert.Equal(world.Clubhouse, loaded.Clubhouse);
+        Assert.Empty(loaded.Visitors.Visitors);
+        Assert.Equal(loaded.Arrivals.ReputationStart, loaded.Reputation);
     }
 }

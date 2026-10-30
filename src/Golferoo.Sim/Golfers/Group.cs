@@ -13,6 +13,15 @@ public sealed class Group
 
     public int Id { get; }
 
+    /// <summary>Groupe de visiteurs arrivés au pavillon (file, départ, sortie par la porte) ; les autres (ligue, touche G) n'y passent pas.</summary>
+    public bool FromArrivals => Golfers[0].VisitorId >= 0;
+
+    /// <summary>Un golfeur au moins marche vers la porte pour sortir.</summary>
+    public bool Leaving => Golfers.Any(g => g.State == GolferState.Leaving);
+
+    /// <summary>Le groupe a quitté le monde ce tick : il sort de la liste en fin de tick (jamais sauvé).</summary>
+    internal bool Left { get; set; }
+
     /// <summary>Journée de ligue de ce groupe (−1 hors ligue).</summary>
     public int LeagueRound { get; internal init; } = -1;
 

@@ -28,7 +28,7 @@ Hors périmètre :
   - Il entre dans `World.Checksum` et `World.Save` (v11 → v12), avec un cas `SaveTests`.
   - À la nouvelle partie, il est placé automatiquement sur un terrain plat et libre, au plus près du départ du trou 1.
   - Le joueur peut le déplacer : coût en données dans `data/economy/`, écriture au grand livre.
-  - L'emprise bloque le passage et les arbres. Le champ de flux vers la porte est mis en cache, et seuls les blocs touchés sont invalidés (règle de C12 lot 4).
+  - L'emprise bloque le passage et les arbres. Le champ de flux vers la porte est mis en cache, et seule l'invalidation par champ touché s'applique (règle de C12 lot 4).
 - **Attrait et arrivées** (`Golfers/Arrivals.cs`) : chaque heure de jeu, on tire un nombre de groupes qui arrivent.
   - Le taux suit un profil horaire : les arrivées vont de 6 h à 18 h, avec une pointe le matin. Aucun départ après 16 h, pour finir avant la nuit.
   - Le taux est multiplié par l'attrait, qui combine :
@@ -73,7 +73,7 @@ Hypothèses de l'orchestrateur, réglables en données :
 
 ## Critères d'acceptation
 1. Le pavillon (position, emprise, porte), le vivier, la file et la réputation entrent dans `Checksum` et `Save` (v12). Un cas `SaveTests` échoue si l'un d'eux est oublié. Une sauvegarde v11 se charge avec un pavillon placé automatiquement.
-2. Nouvelle partie sur « Le neuf » : le pavillon est sur des cellules libres et plates, et il existe un chemin de la porte au départ du trou 1. Le déplacer débite son coût au grand livre ; un emplacement invalide est refusé sans débit. Un test vérifie que seuls les blocs du champ de flux touchés par le déplacement sont invalidés.
+2. Nouvelle partie sur « Le neuf » : le pavillon est sur des cellules libres et plates, et il existe un chemin de la porte au départ du trou 1. Le déplacer débite son coût au grand livre ; un emplacement invalide est refusé sans débit. Un test vérifie que seuls les champs de flux touchés par le déplacement sont invalidés.
 3. Avec la vraie date de `Calendar`, aucun groupe n'arrive avant 6 h ni après 18 h, et aucun ne part après 16 h. Sans trou ouvert, aucun groupe n'arrive.
 4. « Le neuf » ouvert, note moyenne, graine de référence, 30 jours de printemps et d'été à météo normale : entre 15 et 25 groupes par jour en moyenne. Le nombre d'arrivées croît strictement avec la note, mesurée à trois notes (`-c Release`).
 5. La taille des groupes reste entre 1 et 4, et la distribution observée sur 1 000 groupes suit celle des données à ±5 points.
