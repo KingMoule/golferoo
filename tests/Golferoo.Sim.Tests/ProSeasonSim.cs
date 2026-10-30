@@ -81,7 +81,7 @@ internal static class ProSeasonSim
                 resolver.Wind = new Vec3(wind, 0.0, 0.0);
                 var aimed = pro.Execute(resolver, terrain, ball, shot, null, hole.Hole);
                 var r = pro.Execute(resolver, terrain, ball, shot, exec, hole.Hole);
-                pro.Record(terrain, ball, shot, aimed, r, league, year, wind);
+                pro.Record(terrain, ball, shot, aimed, r, league, year, wind, hole.Hole);
                 if (onAwards is not null)
                 {
                     onAwards(ProQuality.Awards(ProgressionParams.Default, terrain, ball, shot, aimed, r, wind));

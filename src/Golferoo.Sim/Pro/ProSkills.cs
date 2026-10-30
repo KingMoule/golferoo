@@ -273,9 +273,9 @@ public sealed class ProSkills
     }
 
     /// <summary>XP d'un coup joué : chaque habileté sollicitée reçoit la sienne, selon la qualité (voir <see cref="ProQuality"/>).</summary>
-    public void Record(TerrainGrid terrain, Point2 start, in ProShot shot, in ShotResult aimed, in ShotResult result, bool league, int year, double windSpeed = 0.0)
+    public void Record(TerrainGrid terrain, Point2 start, in ProShot shot, in ShotResult aimed, in ShotResult result, bool league, int year, double windSpeed = 0.0, Point2? pin = null)
     {
-        foreach (var (skill, hundredths) in ProQuality.Awards(_params, terrain, start, shot, aimed, result, windSpeed))
+        foreach (var (skill, hundredths) in ProQuality.Awards(_params, terrain, start, shot, aimed, result, windSpeed, pin))
         {
             Gain(skill, hundredths, league, year);
         }

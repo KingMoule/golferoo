@@ -15,7 +15,7 @@ public enum ProGroup : byte
 /// <summary>Effet d'un niveau : ce qui change (<see cref="Label"/>) et de combien par rapport au niveau 0 (<see cref="Percent"/>, signé).</summary>
 public readonly record struct SkillEffect(string Label, double Percent, bool ValueFirst = false)
 {
-    /// <summary>« dispersion −13 % » ; chiffre en tête pour le chip : « −24 % roulement ».</summary>
+    /// <summary>« dispersion −13 % » ; chiffre en tête pour le chip : « −24 % erreur d'abaissement ».</summary>
     public override string ToString() => ValueFirst ? $"{Value} {Label}" : $"{Label} {Value}";
 
     /// <summary>« −13 % », « +4 % » ou « 0 % ».</summary>
@@ -85,7 +85,7 @@ public static class ProEffects
             case ProSkill.Draw or ProSkill.Fade:
                 return new SkillEffect("erreur de courbure", Ratio());
             case ProSkill.Chip:
-                return new SkillEffect("roulement", Ratio(), ValueFirst: true); // l'erreur d'abaissement ; la dispersion des chips baisse avec
+                return new SkillEffect("erreur d'abaissement", Ratio(), ValueFirst: true); // la dispersion des chips baisse aussi, moins
             case ProSkill.RoughExit or ProSkill.BunkerExit:
                 {
                     var surface = skill == ProSkill.RoughExit ? Surface.Rough : Surface.Bunker;
@@ -101,7 +101,7 @@ public static class ProEffects
         }
     }
 
-    /// <summary>Effet en une ligne courte de la fiche, chiffre en tête pour qu'il reste lisible tronqué : « −24 % courbure », « +3 % vitesse », « −24 % roulement » pour le chip.</summary>
+    /// <summary>Effet en une ligne courte de la fiche, chiffre en tête pour qu'il reste lisible tronqué : « −24 % courbure », « +3 % vitesse », « −24 % erreur d'abaissement » pour le chip.</summary>
     public static string Compact(ProSkill skill, int level)
     {
         var effect = Of(skill, level);
@@ -118,7 +118,7 @@ public static class ProEffects
         return $"{effect.Value} {word}";
     }
 
-    /// <summary>« dispersion −13 % » ; « −24 % roulement » pour le chip.</summary>
+    /// <summary>« dispersion −13 % » ; « −24 % erreur d'abaissement » pour le chip.</summary>
     public static string Text(ProSkill skill, int level) => Of(skill, level).ToString();
 
     /// <summary>Ligne de la fiche : « niv. 12 : dispersion −12 %, niv. 13 : −13 % » ; au niveau maximal, « niv. 50 : dispersion −31 % (maximum) ».</summary>

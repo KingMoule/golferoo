@@ -61,7 +61,7 @@ public class ProSeasonTests(ITestOutputHelper output)
             {
                 if (count[i] >= 30)
                 {
-                    Assert.InRange(sum[i] / count[i], 0.03, 0.85);
+                    Assert.InRange(sum[i] / count[i], 0.05, 0.85);
                 }
             }
         }
