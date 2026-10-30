@@ -39,7 +39,7 @@ public class RhythmTests(ITestOutputHelper output)
     [Fact]
     public void IsolatedGroup_WalksAboutHalfOfItsRound()
     {
-        var before = WalkShare(ArrivalParams.Default with { AiWalkSpeedFactor = 1.0 });
+        var before = WalkShare(ArrivalParams.Default with { AiWalkSpeedFactor = 1.0, AiFlightSpeedFactor = 1.0 });
         var after = WalkShare();
         output.WriteLine($"facteur 1 : marche {before.Walk:P0}, vol {before.Flight:P0}, {before.Ticks} ticks ; facteur {ArrivalParams.Default.AiWalkSpeedFactor} : marche {after.Walk:P0}, vol {after.Flight:P0}, {after.Ticks} ticks");
 
@@ -47,14 +47,14 @@ public class RhythmTests(ITestOutputHelper output)
     }
 
     /// <summary>« Le neuf » ouvert, graine 1, 30 jours de printemps et d'été : départs de visiteurs par jour, part de refus, réputation finale.</summary>
-    internal static (double DeparturesPerDay, double RefusedShare, double Reputation) Month(ArrivalParams arrivals, bool physical)
+    internal static (double DeparturesPerDay, double RefusedShare, double Reputation) Month(ArrivalParams arrivals, bool physical, int days = 30)
     {
         var world = ArrivalTests.NewWorld(1, arrivals, physical);
         int arrived = 0, refused = 0;
         world.GroupArrived += _ => arrived++;
         world.GroupTurnedAway += _ => refused++;
         var released = new HashSet<int>();
-        for (var i = 0; i < 30 * Day; i++)
+        for (var i = 0; i < days * Day; i++)
         {
             world.Step();
             foreach (var g in world.Groups.Where(g => g.FromArrivals && g.Released))
@@ -63,7 +63,7 @@ public class RhythmTests(ITestOutputHelper output)
             }
         }
 
-        return (released.Count / 30.0, refused / (double)(arrived + refused), world.Reputation);
+        return (released.Count / (double)days, refused / (double)(arrived + refused), world.Reputation);
     }
 
     private void AssertFinalCriterion(bool physical)

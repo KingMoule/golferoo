@@ -608,6 +608,13 @@ public sealed partial class World
         return snap;
     }
 
+    /// <summary>Points de trajectoire lus ce tick : la cadence de lecture du vol d'un golfeur IA est <see cref="ArrivalParams.AiFlightSpeedFactor"/>, la trajectoire et le point de chute ne changent pas. Fonction du tick seul, donc déterministe.</summary>
+    private int FlightStep(Golfer g)
+    {
+        var f = IsManualPro(g) ? 1.0 : Arrivals.AiFlightSpeedFactor;
+        return (int)(Math.Floor(f * (Tick + 1)) - Math.Floor(f * Tick));
+    }
+
     private Vec3 BallPosition(Golfer g)
     {
         if (g.State == GolferState.BallInFlight && g.FlightPath is { } path && path.Count > 0)
@@ -891,7 +898,8 @@ public sealed partial class World
 
                     break;
                 case GolferState.BallInFlight:
-                    if (++g.FlightIndex >= g.FlightPath!.Count - 1)
+                    g.FlightIndex += FlightStep(g);
+                    if (g.FlightIndex >= g.FlightPath!.Count - 1)
                     {
                         Land(g);
                     }

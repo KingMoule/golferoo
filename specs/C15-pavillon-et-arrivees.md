@@ -73,7 +73,8 @@ Hors périmètre :
 14. On cesse de s'arrimer à une journée réelle : plus d'heures affichées, une journée suit l'autre sans nuit, et une ronde continue sur le jour suivant.
 15. Les arrivées ont lieu tout au long de la journée : plus de fenêtre 6 h – 18 h, plus de dernier départ à 16 h, plus de vidage de la file à minuit.
 16. Le soleil avance pendant la journée, sans nuit (lot 3).
-17. La marche des golfeurs IA est accélérée pour qu'elle fasse environ 50 % de leur temps (mesure : un groupe de 2 isolé sur « Le neuf », 73 % avant). Le facteur est `aiWalkSpeedFactor` dans `data/golfers/arrivals.json` : 2,2 donne 51 %, alors que ×2,7 ne donne que 45 % (la marche des deux golfeurs se chevauche). Le vol de balle et le pro joué par le joueur gardent leur vitesse.
+17. La marche des golfeurs IA est accélérée pour qu'elle fasse environ 50 % de leur temps (mesure : un groupe de 2 isolé sur « Le neuf », 73 % avant). Le facteur est `aiWalkSpeedFactor` dans `data/golfers/arrivals.json` ; avec le vol de la décision 18, 3,0 donne 51 % (la marche des deux golfeurs se chevauche, donc ×2,7 ne suffisait pas). Le pro joué par le joueur garde sa marche.
+18. Le vol de balle des golfeurs IA est plus rapide, environ ×1,5 (`aiFlightSpeedFactor`, déterministe : la trajectoire et le point de chute ne changent pas, seule la cadence de lecture change). Le vol du pro joué ne change pas.
 
 Hypothèses de l'orchestrateur, réglables en données :
 - file de 8 groupes ;

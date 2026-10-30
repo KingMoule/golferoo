@@ -24,6 +24,9 @@ public sealed record ArrivalParams
     /// <summary>Facteur sur la vitesse de marche des golfeurs IA (pas le vol de balle, ni le pro joué par le joueur).</summary>
     public required double AiWalkSpeedFactor { get; init; }
 
+    /// <summary>Cadence de lecture du vol de balle des golfeurs IA (trajectoire et point de chute inchangés ; pas le pro joué par le joueur).</summary>
+    public required double AiFlightSpeedFactor { get; init; }
+
     public required double HolesReference { get; init; }
 
     public required double HolesExponent { get; init; }
@@ -125,7 +128,7 @@ public sealed record ArrivalParams
             throw new InvalidDataException($"arrivals.json illisible : {e.Message}", e);
         }
 
-        return p.AiWalkSpeedFactor > 0 && p.GroupsPerDay >= 0
+        return p.AiWalkSpeedFactor > 0 && p.AiFlightSpeedFactor >= 1 && p.GroupsPerDay >= 0
             && p.GroupSizeWeights.Length == 4 && p.GroupSizeWeights.All(w => w >= 0) && p.GroupSizeWeights.Sum() > 0
             && p.WeatherFactors.Length == 4 && p.FirstNames.Length > 0 && p.QueueCapacity > 0 && p.MaxGroupsPerHole > 0 && p.HolesReference > 0 && p.HolesCap > 0
             && p.HandicapMax >= p.HandicapMin
