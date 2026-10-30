@@ -101,6 +101,24 @@ public static class ProEffects
         }
     }
 
+    /// <summary>Effet en une ligne courte de la fiche, chiffre en tête pour qu'il reste lisible tronqué : « −24 % courbure », « +3 % vitesse », « à venir » pour le chip.</summary>
+    public static string Compact(ProSkill skill, int level)
+    {
+        var effect = Of(skill, level);
+        var word = effect.Label switch
+        {
+            "" => "",
+            "erreur de direction" => "direction",
+            "erreur de force" => "force",
+            "vitesse de balle" => "vitesse",
+            "erreur de courbure" => "courbure",
+            "erreur de l'aperçu" => "aperçu",
+            "pénalité de lie" => "pénalité",
+            var other => other,
+        };
+        return effect.Label.Length == 0 ? "à venir" : $"{effect.Value} {word}";
+    }
+
     /// <summary>« dispersion −13 % », ou « effet à venir » pour le chip.</summary>
     public static string Text(ProSkill skill, int level) => Of(skill, level) is { Label.Length: > 0 } effect ? effect.ToString() : "effet à venir";
 
