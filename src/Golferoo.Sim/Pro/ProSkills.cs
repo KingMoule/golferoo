@@ -27,7 +27,7 @@ public enum ProSkill : byte
     Fade = 11,
     Chip = 12,
 
-    // Les situations. Sortie de rough et de bunker : XP seulement (leur effet vient au lot 2) ; Vent et Green : au lot 3.
+    // Les situations. Sortie de rough et de bunker : pénalité de lie (lot 2) ; Vent et Green : au lot 3.
     RoughExit = 13,
     BunkerExit = 14,
     Wind = 15,
@@ -160,14 +160,15 @@ public sealed class ProSkills
     internal ShotResult Execute(PhysicalShotResolver resolver, TerrainGrid terrain, Point2 ball, in ProShot shot, DeterministicRng? rng, Point2 pin)
     {
         var club = shot.Club;
-        var direction = DirectionFactor(club);
-        var force = ForceFactor(club, shot.Force);
+        var lie = club.IsPutter ? LieEffect.None : LieOf(terrain.SurfaceAt(ball.X, ball.Z));
+        var direction = DirectionFactor(club) * lie.Sigma;
+        var force = ForceFactor(club, shot.Force) * lie.Sigma;
         var dx = shot.Target.X - ball.X;
         var dz = shot.Target.Z - ball.Z;
         var d = Math.Sqrt((dx * dx) + (dz * dz));
         var (ux, uz) = d < 1e-9 ? (1.0, 0.0) : (dx / d, dz / d);
         var common = Math.Min(direction, force);
-        var speed = shot.Force * SpeedFactor;
+        var speed = shot.Force * SpeedFactor * lie.Speed;
         var speedNoise = 0.0;
         if (rng is not null)
         {
@@ -175,7 +176,8 @@ public sealed class ProSkills
             var extraForce = Math.Sqrt((force * force) - (common * common));
             if (extraDirection > 0.0)
             {
-                var eps = club.DirectionSigma * extraDirection * Gauss(rng);
+                // Même écart type de base que le résolveur (pour un putt, avec son terme par mètre) : le latéral ne dépend que de la direction.
+                var eps = PhysicalShotResolver.DirectionSigmaAt(club, d) * extraDirection * Gauss(rng);
                 (ux, uz) = ((ux * Math.Cos(eps)) - (uz * Math.Sin(eps)), (ux * Math.Sin(eps)) + (uz * Math.Cos(eps)));
             }
 
@@ -193,8 +195,19 @@ public sealed class ProSkills
             return resolver.PuttTo(ball, new Point2(ball.X + (ux * aimed), ball.Z + (uz * aimed)), terrain, rng, common, pin);
         }
 
-        return resolver.ExecuteShaped(ball, club, ux, uz, speed, shot.Shape, terrain, rng, common, 1.0, ShapeSigma(shot.Shape), pin);
+        return resolver.ExecuteShaped(ball, club, ux, uz, speed, shot.Shape, terrain, rng, common, 1.0, ShapeSigma(shot.Shape), pin, lie);
     }
+
+    /// <summary>
+    /// Pénalité du lie de départ pour le pro (C25 lot 2) : celle d'un golfeur du handicap équivalent de son habileté Sortie de rough ou
+    /// Sortie de bunker (36 au niveau 0, scratch au niveau 50). Les autres lies ne coûtent rien.
+    /// </summary>
+    public LieEffect LieOf(Surface lie) => lie switch
+    {
+        Surface.Rough => LieParams.Default.At(lie, Handicap(ProSkill.RoughExit)),
+        Surface.Bunker => LieParams.Default.At(lie, Handicap(ProSkill.BunkerExit)),
+        _ => LieEffect.None,
+    };
 
     /// <summary>XP d'un coup joué : chaque habileté sollicitée reçoit la sienne, selon la qualité (voir <see cref="ProQuality"/>).</summary>
     public void Record(TerrainGrid terrain, Point2 start, in ProShot shot, in ShotResult aimed, in ShotResult result, bool league, int year)

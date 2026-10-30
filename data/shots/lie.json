@@ -1,0 +1,17 @@
+{
+  // Pénalité de lie (C25 lot 2), pour tous les golfeurs. Depuis le rough ou le bunker, la balle perd de la vitesse (part de la vitesse de
+  // départ) et les écarts types du club sont multipliés par 1 + excès. Chaque valeur a deux repères : le golfeur scratch (handicap 0) et le
+  // handicap 36 ; entre eux on interpole, au-delà on prolonge la droite. Le pro de C25 prend le handicap équivalent de son habileté
+  // Sortie de rough ou Sortie de bunker (36 au niveau 0, scratch au niveau 50 : au moins moitié moins de pénalité).
+  "roughSpeedLossScratch": 0.02,
+  "roughSpeedLossAt36": 0.07,
+  "roughSigmaExcessScratch": 0.06,
+  "roughSigmaExcessAt36": 0.28,
+  "bunkerSpeedLossScratch": 0.04,
+  "bunkerSpeedLossAt36": 0.112,
+  "bunkerSigmaExcessScratch": 0.1,
+  "bunkerSigmaExcessAt36": 0.42,
+  // Part du backspin du club gardée selon le lie de départ : tout le backspin depuis le départ, le fairway et le chemin.
+  "roughBackspinShare": 0.5,
+  "bunkerBackspinShare": 0.3
+}

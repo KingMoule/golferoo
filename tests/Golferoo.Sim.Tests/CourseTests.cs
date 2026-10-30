@@ -22,14 +22,16 @@ public class CourseTests
     // Contrôle (vérifié) : avec SwingTicksCount = 20, les six cas redonnent exactement leurs sommes d'avant.
     // C21 lot 2 : les six sommes de coups changent (écarts types et niveaux recalés, vraie loi normale par Box-Muller, tirage d'un choix non
     // optimal par coup au RNG du monde) ; les trois de « blank-coude », sans coup joué, non.
+    // C25 lot 2 : les six sommes de coups changent ; cause unique = la pénalité de lie (rough, bunker) et le backspin selon le club, pour tous les
+    // golfeurs (les écarts types de base sont recalés) ; les trois de « blank-coude », sans coup, non.
     // C21 lot 3 : les six sommes de coups changent encore, cause unique = la journée de 9 min (le vent suit la fraction de journée, donc
     // les mêmes 2000 ticks tombent plus tôt dans la journée et les coups voient un autre vent) ; les trois de « blank-coude », sans coup, non.
-    [InlineData("proto-par4", 1UL, 14260327806582127918UL)]
-    [InlineData("proto-par4", 2UL, 7662814841440637217UL)]
-    [InlineData("proto-par4", 3UL, 16931937771428846761UL)]
-    [InlineData("dogleg-par4", 1UL, 17626332778901868594UL)]
-    [InlineData("dogleg-par4", 2UL, 16295810034806727912UL)]
-    [InlineData("dogleg-par4", 3UL, 3868903299865079476UL)]
+    [InlineData("proto-par4", 1UL, 10588964417231300836UL)]
+    [InlineData("proto-par4", 2UL, 9463886516495917249UL)]
+    [InlineData("proto-par4", 3UL, 17651672777512016224UL)]
+    [InlineData("dogleg-par4", 1UL, 1906927319446745666UL)]
+    [InlineData("dogleg-par4", 2UL, 14126008461882208105UL)]
+    [InlineData("dogleg-par4", 3UL, 15568084582046407330UL)]
     [InlineData("blank-coude", 1UL, 6977119086498316254UL)]
     [InlineData("blank-coude", 2UL, 6838184519777748364UL)]
     [InlineData("blank-coude", 3UL, 4217163305829179422UL)]

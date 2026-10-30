@@ -10,7 +10,10 @@ namespace Golferoo.Sim.Shots;
 /// <param name="TargetRange">Portée totale visée sur fairway plat, en mètres.</param>
 /// <param name="DirectionSigmaDegrees">Écart type de la direction, en degrés.</param>
 /// <param name="SpeedSigma">Écart type relatif de la vitesse (0,02 = 2 %).</param>
-/// <param name="Backspin">Part de la vitesse horizontale perdue au premier rebond d'un coup choisi (<see cref="ShotShapes"/>) : forte au wedge, faible au driver.</param>
+/// <param name="Backspin">
+/// Part de la vitesse horizontale perdue au premier rebond, pour tous les golfeurs (C25 lot 2) : forte au wedge, décroissante en remontant les fers,
+/// presque nulle aux fers longs, au bois et au driver ; le rough et le bunker la réduisent (<see cref="LieParams"/>), un draw, un fade et un chip la modulent (<see cref="ShotShapes"/>).
+/// </param>
 public sealed record Club(
     string Name,
     double Speed,
@@ -39,12 +42,12 @@ public sealed record Club(
 /// </summary>
 public static class Clubs
 {
-    public static readonly Club Driver = new("Driver", 69.3, 12.0, 220.0, 4.7, 0.03, 0.1);
-    public static readonly Club Wood3 = new("Bois 3", 62.4, 13.5, 200.0, 4.4, 0.03, 0.15);
-    public static readonly Club Iron5 = new("Fer 5", 52.7, 17.0, 170.0, 2.4, 0.017, 0.25);
-    public static readonly Club Iron7 = new("Fer 7", 43.4, 21.0, 140.0, 2.1, 0.017, 0.35);
-    public static readonly Club Iron9 = new("Fer 9", 34.7, 27.0, 110.0, 2.1, 0.017, 0.45);
-    public static readonly Club Wedge = new("Wedge", 27.2, 35.0, 80.0, 2.2, 0.017, 0.6);
+    public static readonly Club Driver = new("Driver", 69.3, 12.0, 220.0, 4.9, 0.03, 0.02);
+    public static readonly Club Wood3 = new("Bois 3", 62.4, 13.5, 200.0, 4.6, 0.03, 0.03);
+    public static readonly Club Iron5 = new("Fer 5", 52.7, 17.0, 170.0, 2.2, 0.017, 0.05);
+    public static readonly Club Iron7 = new("Fer 7", 43.4, 21.0, 140.0, 1.93, 0.017, 0.2);
+    public static readonly Club Iron9 = new("Fer 9", 34.7, 27.0, 110.0, 1.93, 0.017, 0.4);
+    public static readonly Club Wedge = new("Wedge", 27.2, 35.0, 80.0, 2.02, 0.017, 0.6);
     public static readonly Club Putter = new("Putter", 0.0, 0.0, 0.0, 0.25, 0.015);
 
     /// <summary>Clubs de jeu hors green, du plus long au plus court.</summary>

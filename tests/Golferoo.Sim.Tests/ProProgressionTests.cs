@@ -307,7 +307,9 @@ public class ProProgressionTests(ITestOutputHelper output)
             Assert.Equal(1.0 + (1.1 * h / 20.0), SkillLevels.FromHandicap(h), 12);
         }
 
-        Assert.Equal(1.0 - (1.1 * 4.0 / 20.0), SkillLevels.FromHandicap(-4.0), 12);
+        Assert.Equal(SkillLevels.PlusFour, SkillLevels.FromHandicap(-4.0), 12);
+        Assert.Equal(SkillLevels.Scratch, SkillLevels.FromHandicap(0.0), 12);
+        Assert.True(SkillLevels.FromHandicap(-2.0) < SkillLevels.Scratch && SkillLevels.FromHandicap(-2.0) > SkillLevels.PlusFour);
         Assert.Equal(SkillLevels.FromHandicap(-4.0), SkillLevels.FromHandicap(-9.0), 12);
         Assert.Equal(0.0, SkillLevels.ToHandicap(SkillLevels.FromHandicap(-4.0)), 12);
     }
@@ -369,7 +371,7 @@ public class ProProgressionTests(ITestOutputHelper output)
         }
     }
 
-    private const int Rounds = 80;
+    private const int Rounds = 160;
 
     /// <summary>
     /// Écart moyen (carte de 9 trous sur « Le neuf », différentiel C06) d'un golfeur ordinaire de niveau <paramref name="ordinary"/>
@@ -426,20 +428,65 @@ public class ProProgressionTests(ITestOutputHelper output)
     }
 
     /// <summary>
-    /// Du niveau 0 au niveau 50, le pro gagne autant qu'un golfeur ordinaire du handicap 36 au handicap +4. Le coup droit du pro garde le
-    /// backspin du club (C08), pas celui du golfeur ordinaire : un écart constant de quelques coups subsiste avec le golfeur ordinaire (signalé).
+    /// Le pro joue au niveau 0 comme un golfeur de handicap 36 et au niveau 50 comme un +4 (même backspin et même lie pour tous, lot 2). Les deux
+    /// mesures du pro seulement : le golfeur ordinaire du même niveau en est proche, et chaque mesure coûte une minute en Debug.
     /// </summary>
     [Fact]
-    public void OnLeNeuf_FromLevel0To50_ThePro_GainsAsMuchAsFrom36ToPlusFour()
+    public void OnLeNeuf_FromLevel0To50_ThePro_PlaysLike36ThenPlusFour()
     {
         var terrain = CourseLoader.Load(Path.Combine(Path.GetDirectoryName(TerrainTests.HolePath())!, "..", "courses", "le-neuf.json"), 2);
         var world = new World(1, terrain);
         var rating = CourseRater.Rate(terrain, 7, 30);
-        var ordinary36 = Differential(SkillLevels.FromHandicap(36.0), null, rating, terrain, world);
-        var ordinaryPlus4 = Differential(SkillLevels.FromHandicap(-4.0), null, rating, terrain, world);
         var pro0 = Differential(null, AtLevel(0), rating, terrain, world);
         var pro50 = Differential(null, AtLevel(50), rating, terrain, world);
-        output.WriteLine($"ordinaire 36 : {ordinary36:F2} ; ordinaire +4 : {ordinaryPlus4:F2} ; pro niveau 0 : {pro0:F2} ; pro niveau 50 : {pro50:F2}");
-        Assert.InRange((pro0 - pro50) - (ordinary36 - ordinaryPlus4), -2.5, 2.5);
+        output.WriteLine($"pro niveau 0 : {pro0:F2} ; pro niveau 50 : {pro50:F2}");
+
+        // Critère 5 de C25 (absolu, lot 2) : le backspin et le lie étant les mêmes pour tous, le pro joue au niveau 50 comme un +4 (± 1,5)
+        // et au niveau 0 comme un 36 (± 2). Différentiels moyens lus comme un handicap (l'index WHS borne à 0 : on prend l'écart tel quel).
+        Assert.InRange(pro50, -5.5, -2.5);
+        Assert.InRange(pro0, 34.0, 38.0);
+    }
+
+    /// <summary>Réserve de l'audit de #127 : le latéral d'un putt ne dépend que de Putter, pas de Dosage.</summary>
+    [Fact]
+    public void PuttLateralSpread_DependsOnPutterOnly_NotOnDosage()
+    {
+        var green = ShotTests.Uniform(Surface.Green, cells: 120);
+        var resolver = new PhysicalShotResolver();
+        var shot = new ProShot(Clubs.Putter, new Point2(30, 240), ShotShape.Straight, 1.0);
+        double Lateral(int dosage)
+        {
+            var p = AtLevel(25);
+            p.SetLevel(ProSkill.Dosage, dosage);
+            var rng = new DeterministicRng(11);
+            var sum = 0.0;
+            const int N = 4000;
+            for (var i = 0; i < N; i++)
+            {
+                sum += Math.Abs(p.Execute(resolver, green, Start, shot, rng, new Point2(500, 500)).Ball.Z - Start.Z);
+            }
+
+            return sum / N;
+        }
+
+        var (low, high) = (Lateral(0), Lateral(50));
+        output.WriteLine($"latéral d'un putt de 10 m : Dosage 0 : {low:F4} m ; Dosage 50 : {high:F4} m");
+        Assert.InRange(high / low, 0.95, 1.05);
+    }
+
+    [Theory]
+    [InlineData(ProSkill.RoughExit, Surface.Rough)]
+    [InlineData(ProSkill.BunkerExit, Surface.Bunker)]
+    public void ExitSkill_AtLevel50_CutsTheLiePenaltyByAtLeastHalf_AndAtLevel0IsTheHandicap36Penalty(ProSkill skill, Surface lie)
+    {
+        var p = new ProSkills();
+        p.SetLevel(skill, 0);
+        var zero = p.LieOf(lie);
+        p.SetLevel(skill, 50);
+        var fifty = p.LieOf(lie);
+        Assert.Equal(LieParams.Default.At(lie, 36.0), zero);
+        Assert.True(1.0 - fifty.Speed <= 0.5 * (1.0 - zero.Speed));
+        Assert.True(fifty.Sigma - 1.0 <= 0.5 * (zero.Sigma - 1.0));
+        Assert.Equal(LieEffect.None, p.LieOf(Surface.Fairway));
     }
 }
