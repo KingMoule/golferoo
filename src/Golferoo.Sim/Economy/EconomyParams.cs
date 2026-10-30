@@ -87,6 +87,9 @@ public sealed record EconomyParams
 
     public required long MoodFactorMaxBasisPoints { get; init; }
 
+    /// <summary>C15 : déplacer le pavillon.</summary>
+    public required long ClubhouseMove { get; init; }
+
     /// <summary>Prix d'un mètre carré peint de <paramref name="surface"/> (surface d'arrivée).</summary>
     public long PaintCost(Surface surface) => surface switch
     {
@@ -127,11 +130,20 @@ public sealed record EconomyParams
     }
 
     /// <summary>Lit un fichier de paramètres ; <see cref="InvalidDataException"/> si un paramètre manque, est négatif ou inconnu.</summary>
-    public static EconomyParams Parse(string json)
+    public static EconomyParams Parse(string json) => Parse(json, olderSave: false);
+
+    /// <summary>Avec <paramref name="olderSave"/> (sauvegarde v11), les paramètres nés depuis (<c>clubhouseMove</c>) prennent la valeur de Facile s'ils manquent.</summary>
+    internal static EconomyParams Parse(string json, bool olderSave)
     {
         EconomyParams e;
         try
         {
+            if (olderSave && System.Text.Json.Nodes.JsonNode.Parse(json, documentOptions: new JsonDocumentOptions { CommentHandling = JsonCommentHandling.Skip, AllowTrailingCommas = true }) is System.Text.Json.Nodes.JsonObject node && !node.ContainsKey("clubhouseMove"))
+            {
+                node["clubhouseMove"] = Facile.ClubhouseMove;
+                json = node.ToJsonString();
+            }
+
             e = JsonSerializer.Deserialize<EconomyParams>(json, JsonOptions) ?? throw new InvalidDataException("Le fichier d'économie est vide.");
         }
         catch (JsonException error)

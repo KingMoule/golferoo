@@ -22,15 +22,17 @@ public sealed class FlowFieldCache
     private readonly Dictionary<int, FlowField> _fields = [];
     private readonly List<int> _order = []; // clés en ordre d'insertion
     private readonly List<int> _pending = []; // destinations dont le champ est à refaire, dans l'ordre où elles étaient en cache
+    private readonly List<CellRect> _obstacles = []; // emprises de bâtiments : infranchissables
     private long _version;
     private float[] _costs;
 
-    public FlowFieldCache(TerrainGrid terrain, int capacity = 64, IEnumerable<int>? pending = null, IEnumerable<int>? cached = null)
+    public FlowFieldCache(TerrainGrid terrain, int capacity = 64, IEnumerable<int>? pending = null, IEnumerable<int>? cached = null, IEnumerable<CellRect>? obstacles = null)
     {
         _terrain = terrain ?? throw new ArgumentNullException(nameof(terrain));
         _capacity = Math.Max(1, capacity);
         _version = terrain.SurfaceVersion;
-        _costs = FlowField.BuildCosts(terrain);
+        _obstacles.AddRange(obstacles ?? []);
+        _costs = FlowField.BuildCosts(terrain, _obstacles);
         if (pending is not null)
         {
             _pending.AddRange(pending.Distinct());
@@ -133,6 +135,79 @@ public sealed class FlowFieldCache
         _pending.Clear();
     }
 
+    /// <summary>Coûts de traversée si <paramref name="removed"/> était libérée et <paramref name="added"/> bloquée, pour essayer un emplacement sans toucher au cache.</summary>
+    internal float[] CostsWith(CellRect? removed, CellRect? added)
+    {
+        var obstacles = _obstacles.Where(o => o != removed).ToList();
+        if (added is { } a)
+        {
+            obstacles.Add(a);
+        }
+
+        return FlowField.BuildCosts(_terrain, obstacles);
+    }
+
+    /// <summary>
+    /// Une emprise de bâtiment en remplace une autre (<paramref name="removed"/> libérée, <paramref name="added"/> bloquée). Seuls les champs que le
+    /// changement touche passent en attente, comme après une retouche : un champ dont aucun chemin ne traverse la nouvelle emprise (aucune cellule voisine
+    /// n'y pointe) et qui n'atteint pas l'ancienne reste identique à ce qu'un calcul neuf donnerait, et reste en cache (C15).
+    /// </summary>
+    internal void ChangeObstacle(CellRect? removed, CellRect? added)
+    {
+        Sync();
+        if (removed is { } old)
+        {
+            _obstacles.Remove(old);
+        }
+
+        if (added is { } fresh)
+        {
+            _obstacles.Add(fresh);
+        }
+
+        _costs = FlowField.BuildCosts(_terrain, _obstacles);
+        foreach (var key in _order.Where(key => IsTouched(_fields[key], removed, added)).ToList())
+        {
+            _fields.Remove(key);
+            _order.Remove(key);
+            if (!_pending.Contains(key))
+            {
+                _pending.Add(key);
+            }
+        }
+
+        TrimPending();
+    }
+
+    private static bool IsTouched(FlowField field, CellRect? removed, CellRect? added) =>
+        (removed is { } r && (r.Contains(field.DestX, field.DestZ) || ReachesRing(field, r, pointsInto: false)))
+        || (added is { } a && (a.Contains(field.DestX, field.DestZ) || ReachesRing(field, a, pointsInto: true)));
+
+    /// <summary>
+    /// Pour une emprise ajoutée (<paramref name="pointsInto"/>) : une cellule voisine a son pas suivant dans l'emprise. Pour une emprise libérée : une cellule voisine est atteinte
+    /// par le champ, donc les cellules libérées le seraient aussi.
+    /// </summary>
+    private static bool ReachesRing(FlowField field, CellRect rect, bool pointsInto)
+    {
+        for (var z = rect.MinZ - 1; z <= rect.MaxZ + 1; z++)
+        {
+            for (var x = rect.MinX - 1; x <= rect.MaxX + 1; x++)
+            {
+                if (rect.Contains(x, z))
+                {
+                    continue;
+                }
+
+                if (pointsInto ? field.TryNextCell(x, z, out var nx, out var nz) && rect.Contains(nx, nz) : field.IsReachable(x, z))
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
     private void Sync()
     {
         if (_version == _terrain.SurfaceVersion)
@@ -142,7 +217,7 @@ public sealed class FlowFieldCache
 
         // Les champs en cache passent en attente, dans leur ordre d'insertion ; les coûts, eux, se refont une fois pour toutes.
         _version = _terrain.SurfaceVersion;
-        _costs = FlowField.BuildCosts(_terrain);
+        _costs = FlowField.BuildCosts(_terrain, _obstacles);
         foreach (var key in _order)
         {
             if (!_pending.Contains(key))

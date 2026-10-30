@@ -53,7 +53,7 @@ public sealed class FlowField
         Build(terrain, BuildCosts(terrain), destX, destZ);
 
     /// <summary>Coût de traversée de chaque cellule (infini si infranchissable), dans l'ordre ligne par ligne.</summary>
-    internal static float[] BuildCosts(TerrainGrid terrain)
+    internal static float[] BuildCosts(TerrainGrid terrain, IReadOnlyList<CellRect>? obstacles = null)
     {
         var surfaces = terrain.Surfaces;
         var costs = new float[surfaces.Length];
@@ -67,6 +67,18 @@ public sealed class FlowField
         for (var i = 0; i < costs.Length; i++)
         {
             costs[i] = byType[(int)surfaces[i]];
+        }
+
+        // Les emprises de bâtiments bloquent le passage comme une surface infranchissable.
+        foreach (var rect in obstacles ?? [])
+        {
+            for (var z = Math.Max(0, rect.MinZ); z <= Math.Min(terrain.CellsZ - 1, rect.MaxZ); z++)
+            {
+                for (var x = Math.Max(0, rect.MinX); x <= Math.Min(terrain.CellsX - 1, rect.MaxX); x++)
+                {
+                    costs[(z * terrain.CellsX) + x] = float.PositiveInfinity;
+                }
+            }
         }
 
         return costs;

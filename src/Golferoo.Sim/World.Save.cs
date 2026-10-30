@@ -1,3 +1,4 @@
+using Golferoo.Sim.Buildings;
 using Golferoo.Sim.Economy;
 using Golferoo.Sim.Golfers;
 using Golferoo.Sim.League;
@@ -34,6 +35,7 @@ public sealed partial class World
     public static World Load(Stream input, IShotResolver? resolver = null)
     {
         var body = SaveFormat.Open(input, out var expected);
+        var older = body.Version < SaveFormat.Version;
         World world;
         try
         {
@@ -44,7 +46,8 @@ public sealed partial class World
             throw new InvalidDataException("Sauvegarde illisible.", e);
         }
 
-        return world.Checksum() == expected ? world : throw new InvalidDataException("Somme de contrôle fausse : la sauvegarde est corrompue.");
+        // Une v11 n'a ni pavillon, ni catégorie Buildings, ni clubhouseMove : sa somme de contrôle ne se refait plus (l'empreinte du corps garde l'intégrité).
+        return older || world.Checksum() == expected ? world : throw new InvalidDataException("Somme de contrôle fausse : la sauvegarde est corrompue.");
     }
 
     private void Write(SaveWriter w)
@@ -143,6 +146,8 @@ public sealed partial class World
         w.List(Flow?.Pending ?? [], w.Int);
         w.List(Flow?.CachedKeys ?? [], w.Int);
         w.Bool(_manualPro);
+        w.Bool(Clubhouse is not null);
+        Clubhouse?.Write(w);
     }
 
     private static void WriteRating(SaveWriter w, CourseRating r)
@@ -180,7 +185,7 @@ public sealed partial class World
         _nextGolferId = r.Int();
         _holesOpen = [.. r.List(r.Bool)];
         _holeCheckedVersion = r.Long();
-        Economy = EconomyParams.Parse(r.String());
+        Economy = EconomyParams.Parse(r.String(), olderSave: r.Version < 12);
         Progression = ProgressionParams.Parse(r.String());
         Ledger = Ledger.Read(r);
         TreeCommandsRefused = r.Int();
@@ -264,10 +269,19 @@ public sealed partial class World
             throw new InvalidDataException("Pro joué à la main sans ligue.");
         }
 
+        if (r.Version >= 12 && r.Bool())
+        {
+            Clubhouse = Building.Read(r);
+            if (Terrain is null || Clubhouse.Footprint.MinX < 0 || Clubhouse.Footprint.MinZ < 0 || Clubhouse.Footprint.MaxX >= Terrain.CellsX || Clubhouse.Footprint.MaxZ >= Terrain.CellsZ)
+            {
+                throw new InvalidDataException("Sauvegarde incohérente : pavillon hors de la carte.");
+            }
+        }
+
         _resolver = resolver ?? (Terrain is null ? new StubShotResolver() : new PhysicalShotResolver());
         if (Terrain is not null)
         {
-            Flow = new FlowFieldCache(Terrain, pending: pendingFlow, cached: cachedFlow);
+            Flow = new FlowFieldCache(Terrain, pending: pendingFlow, cached: cachedFlow, obstacles: Clubhouse is null ? null : [Clubhouse.Footprint]);
             Terrain.Soil.Season = Season;
             RefreshSoil();
             if (_resolver is PhysicalShotResolver physical)
@@ -276,6 +290,11 @@ public sealed partial class World
                 physical.Season = Season;
                 physical.BeautySources = _beautySources;
                 physical.MapCapacity = MapCapacityFor(Terrain);
+            }
+
+            if (r.Version < 12 && !Terrain.Blank)
+            {
+                PlaceClubhouseNearTee(); // sauvegarde v11 : le pavillon se place comme à une nouvelle partie
             }
         }
     }

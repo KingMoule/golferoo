@@ -204,6 +204,11 @@ public sealed partial class World
             return false;
         }
 
+        if (Clubhouse is { } club && club.Footprint.Expand(1, terrain.CellsX, terrain.CellsZ).Contains(terrain.CellXOf(c.X), terrain.CellZOf(c.Z)))
+        {
+            return false; // l'emprise du pavillon (et sa bordure) reste libre d'arbres
+        }
+
         var species = TreeSpeciesTable.Get(c.Species);
         var age = c.Stage == TreePlantStage.Mound ? TreePlanting.MoundAgeMonths(Trees.NextId) : 0;
         var crown = Tree.CrownDiameter(species, age) * 0.5;
