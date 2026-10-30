@@ -26,12 +26,13 @@ public class CourseTests
     // golfeurs, les écarts types de base recalés de Club.cs (irons -8 %, driver et bois +4 %) et BeautyDispersion 0,4 → 0,22 (artiste) ; les trois de « blank-coude », sans coup, non.
     // C21 lot 3 : les six sommes de coups changent encore, cause unique = la journée de 9 min (le vent suit la fraction de journée, donc
     // les mêmes 2000 ticks tombent plus tôt dans la journée et les coups voient un autre vent) ; les trois de « blank-coude », sans coup, non.
-    [InlineData("proto-par4", 1UL, 7934645025154228227UL)]
-    [InlineData("proto-par4", 2UL, 9463886516495917249UL)]
-    [InlineData("proto-par4", 3UL, 17651672777512016224UL)]
-    [InlineData("dogleg-par4", 1UL, 1906927319446745666UL)]
-    [InlineData("dogleg-par4", 2UL, 11357720872183965507UL)]
-    [InlineData("dogleg-par4", 3UL, 15568084582046407330UL)]
+    // C15 lot 2b : les six sommes de coups changent encore, cause unique = la marche (×3) et le vol (×1,5) des golfeurs IA plus rapides (les coups tombent plus tôt) ; les trois de « blank-coude », sans coup, non.
+    [InlineData("proto-par4", 1UL, 351506926595650977UL)]
+    [InlineData("proto-par4", 2UL, 8499941740496119436UL)]
+    [InlineData("proto-par4", 3UL, 7565524161033630925UL)]
+    [InlineData("dogleg-par4", 1UL, 4432405616130991473UL)]
+    [InlineData("dogleg-par4", 2UL, 15889232794600245621UL)]
+    [InlineData("dogleg-par4", 3UL, 5122094939293701844UL)]
     [InlineData("blank-coude", 1UL, 6977119086498316254UL)]
     [InlineData("blank-coude", 2UL, 6838184519777748364UL)]
     [InlineData("blank-coude", 3UL, 4217163305829179422UL)]

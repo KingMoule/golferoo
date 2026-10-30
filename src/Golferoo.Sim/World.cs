@@ -551,7 +551,6 @@ public sealed partial class World
             }
 
             RefreshSoil();
-            DismissWaitingArrivals();
             if (League?.OnNewDay(DayIndex, WeatherOn(DayIndex).Sky == Sky.HeavyRain, Tick) is { } round)
             {
                 for (var n = 0; n < round.Pairs.Count; n++)
@@ -607,6 +606,13 @@ public sealed partial class World
         }
 
         return snap;
+    }
+
+    /// <summary>Points de trajectoire lus ce tick : la cadence de lecture du vol d'un golfeur IA est <see cref="ArrivalParams.AiFlightSpeedFactor"/>, la trajectoire et le point de chute ne changent pas. Fonction du tick seul, donc déterministe.</summary>
+    private int FlightStep(Golfer g)
+    {
+        var f = IsManualPro(g) ? 1.0 : Arrivals.AiFlightSpeedFactor;
+        return (int)(Math.Floor(f * (Tick + 1)) - Math.Floor(f * Tick));
     }
 
     private Vec3 BallPosition(Golfer g)
@@ -892,7 +898,8 @@ public sealed partial class World
 
                     break;
                 case GolferState.BallInFlight:
-                    if (++g.FlightIndex >= g.FlightPath!.Count - 1)
+                    g.FlightIndex += FlightStep(g);
+                    if (g.FlightIndex >= g.FlightPath!.Count - 1)
                     {
                         Land(g);
                     }
@@ -1055,7 +1062,7 @@ public sealed partial class World
 
         var pos = g.Position;
         var (cx, cz) = (terrain.CellXOf(pos.X), terrain.CellZOf(pos.Z));
-        var result = FlowWalker.Advance(terrain, field, ref pos, target, TickSeconds);
+        var result = FlowWalker.Advance(terrain, field, ref pos, target, TickSeconds, IsManualPro(g) ? 1.0 : Arrivals.AiWalkSpeedFactor);
         g.Position = pos;
         var (nx, nz) = (terrain.CellXOf(pos.X), terrain.CellZOf(pos.Z));
         if ((nx, nz) != (cx, cz))

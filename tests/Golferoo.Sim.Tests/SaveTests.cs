@@ -1042,7 +1042,12 @@ public class SaveTests
     public void Arrivals_AreSavedLoadedAndChecksummed()
     {
         var world = ArrivalTests.NewWorld(3);
-        world.Step((3 * Calendar.TicksPerDay) + 4000);
+        world.Step(3 * Calendar.TicksPerDay);
+        while (world.QueueLength == 0 && world.Tick < 30 * Calendar.TicksPerDay)
+        {
+            world.Step(100);
+        }
+
         Assert.NotEmpty(world.Visitors.Visitors);
         Assert.NotEqual(world.Arrivals.ReputationStart, world.Reputation);
         Assert.True(world.QueueLength > 0);

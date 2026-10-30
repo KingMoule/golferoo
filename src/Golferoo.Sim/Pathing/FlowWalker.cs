@@ -19,9 +19,9 @@ public static class FlowWalker
 
     /// <summary>
     /// Avance d'un pas de <paramref name="dt"/> secondes vers <paramref name="target"/> en suivant <paramref name="field"/>
-    /// (calculé vers la cellule du point, ou la plus proche franchissable). Ne pose jamais le golfeur sur une cellule infranchissable.
+    /// (calculé vers la cellule du point, ou la plus proche franchissable), à <see cref="BaseSpeed"/> × <paramref name="speedFactor"/>. Ne pose jamais le golfeur sur une cellule infranchissable.
     /// </summary>
-    public static WalkResult Advance(TerrainGrid terrain, FlowField field, ref Point2 pos, Point2 target, double dt)
+    public static WalkResult Advance(TerrainGrid terrain, FlowField field, ref Point2 pos, Point2 target, double dt, double speedFactor = 1.0)
     {
         var cx = terrain.CellXOf(pos.X);
         var cz = terrain.CellZOf(pos.Z);
@@ -33,7 +33,7 @@ public static class FlowWalker
         }
 
         var cost = SurfaceTable.Get(terrain.GetCellSurface(cx, cz)).WalkCost;
-        var step = BaseSpeed / cost * dt;
+        var step = BaseSpeed * speedFactor / cost * dt;
 
         if (cx == field.DestX && cz == field.DestZ)
         {

@@ -9,7 +9,7 @@ namespace Golferoo.Sim;
 
 /// <summary>
 /// Arrivées au pavillon (C15 lot 2) : des groupes de visiteurs arrivent seuls selon l'attrait du club, attendent dans une file devant la porte,
-/// partent dès que le premier départ est libre (règles de départ de C12, avant la dernière heure de départ), puis sortent par la porte.
+/// partent dès que le premier départ est libre (règles de départ de C12), puis sortent par la porte.
 /// Les arrivées n'ont lieu que s'il y a un pavillon et un trou 1 ouvert.
 /// </summary>
 public sealed partial class World
@@ -40,19 +40,14 @@ public sealed partial class World
     /// <summary>Groupes de visiteurs qui attendent leur départ devant la porte.</summary>
     public int QueueLength => _groups.Count(g => g.FromArrivals && !g.Released);
 
-    /// <summary>Vrai tant que l'heure de jeu est avant la dernière heure de départ.</summary>
-    private bool DeparturesOpen => ArrivalParams.HourOf(DayFractionNow) < Arrivals.LastDepartureHour;
-
-    private double DayFractionNow => (double)(Tick % Calendar.TicksPerDay) / (Calendar.TicksPerDay - 1);
-
-    /// <summary>Un groupe de visiteurs peut partir : avant la dernière heure de départ, et le parcours n'est pas déjà plein de groupes.</summary>
+    /// <summary>Un groupe de visiteurs peut partir : le parcours n'est pas déjà plein de groupes.</summary>
     private bool CanStartArrival(TerrainGrid terrain) =>
-        DeparturesOpen && _groups.Count(g => g.Released && !g.Finished && !g.Leaving) < Arrivals.MaxGroupsPerHole * terrain.Course.Count;
+        _groups.Count(g => g.Released && !g.Finished && !g.Leaving) < Arrivals.MaxGroupsPerHole * terrain.Course.Count;
 
     /// <summary>Attrait du club à cet instant (0 sans trou ouvert).</summary>
     public double Attraction => Arrivals.Attraction(_holesOpen.Count(o => o), Reputation, Weather.Sky);
 
-    /// <summary>Un tirage par tick : la probabilité d'une arrivée est le taux de l'heure divisé par les ticks d'une heure.</summary>
+    /// <summary>Un tirage par tick, à taux constant sur la journée.</summary>
     private void StepArrivals()
     {
         if (Clubhouse is null || Terrain is not { Blank: false } || !HoleOpen)
@@ -60,9 +55,7 @@ public sealed partial class World
             return;
         }
 
-        var hour = (int)(Tick % Calendar.TicksPerDay * 12 / Calendar.TicksPerDay);
-        var perTick = Arrivals.RatePerHour(hour, Attraction) * 12.0 / Calendar.TicksPerDay;
-        if (_arrivalRng.NextDouble() < perTick)
+        if (_arrivalRng.NextDouble() < Arrivals.RatePerTick(Attraction))
         {
             Arrive();
         }
@@ -193,20 +186,6 @@ public sealed partial class World
         group.Left = true;
         _groupLeft = true;
         GroupLeft?.Invoke(visitors);
-    }
-
-    /// <summary>La nuit tombe : les groupes encore en file, qui n'ont pas pu partir avant la dernière heure de départ, rentrent chez eux sans que rien ne change pour eux.</summary>
-    private void DismissWaitingArrivals()
-    {
-        foreach (var g in _groups.Where(g => g.FromArrivals && !g.Released).ToList())
-        {
-            foreach (var golfer in g.Golfers)
-            {
-                Visitors.Visitors[golfer.VisitorId].InPlay = false;
-            }
-
-            _groups.Remove(g);
-        }
     }
 
     internal void WriteArrivals(Save.SaveWriter w)
