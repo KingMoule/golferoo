@@ -37,6 +37,9 @@ public enum ProSkill : byte
 /// <summary>Coup choisi par le joueur pour votre pro : club, point visé, trajectoire et force (0 à 1).</summary>
 public readonly record struct ProShot(Club Club, Point2 Target, ShotShape Shape, double Force);
 
+/// <summary>Biais de l'aperçu d'un coup (C25) : le vent que le pro croit voir, et la rotation et l'échelle de la pente qu'il croit lire.</summary>
+public readonly record struct ProBias(Vec3 Wind, double SlopeAngle, double SlopeScale);
+
 /// <summary>
 /// Expérience de votre pro, habileté par habileté (C25). Chaque coup nourrit les habiletés qu'il a sollicitées, selon sa qualité
 /// (<see cref="ProQuality"/>). L'XP est gardée en centièmes entiers (somme de contrôle exacte). Un coup de ligue compte double, sans plafond ;
@@ -135,7 +138,10 @@ public sealed class ProSkills
     public static double Factor(double level) => SkillLevels.FromHandicap(HandicapOf(level));
 
     /// <summary>Multiplicateur de la vitesse de balle donné par Distance : celle d'un golfeur de même niveau, en ligne droite entre 0 et 50.</summary>
-    public double SpeedFactor => 1.0 - (PowerLossPerSkill * (Factor(0) - 1.0) * (1.0 - (Level(ProSkill.Distance) / (double)MaxLevel)));
+    public double SpeedFactor => SpeedFactorAt(Level(ProSkill.Distance));
+
+    /// <summary>Multiplicateur de vitesse de balle au niveau <paramref name="level"/> de Distance.</summary>
+    public static double SpeedFactorAt(double level) => 1.0 - (PowerLossPerSkill * (Factor(0) - 1.0) * (1.0 - (level / MaxLevel)));
 
     /// <summary>Multiplicateur des écarts types de direction d'un club : son niveau et celui de Précision à parts égales.</summary>
     public double DirectionFactor(Club club) => club.IsPutter ? Factor(Level(ProSkill.Putter)) : Factor((Level(OfClub(club)) + Level(ProSkill.Precision)) / 2.0);
@@ -157,7 +163,7 @@ public sealed class ProSkills
     /// vitesse : on lui donne le plus petit et l'écart à l'autre s'ajoute ici en quadrature (somme de deux lois normales). Sans
     /// <paramref name="rng"/>, coup prévu : aucun hasard.
     /// </summary>
-    internal ShotResult Execute(PhysicalShotResolver resolver, TerrainGrid terrain, Point2 ball, in ProShot shot, DeterministicRng? rng, Point2 pin)
+    internal ShotResult Execute(PhysicalShotResolver resolver, TerrainGrid terrain, Point2 ball, in ProShot shot, DeterministicRng? rng, Point2 pin, ProBias? bias = null)
     {
         var club = shot.Club;
         var lie = club.IsPutter ? LieEffect.None : LieOf(terrain.SurfaceAt(ball.X, ball.Z));
@@ -192,7 +198,7 @@ public sealed class ProSkills
         {
             // La vitesse d'un putt vient de la distance visée (v² = 2 r d) : un écart de force s'obtient en allongeant ou raccourcissant la cible.
             var aimed = d * (1.0 + speedNoise) * (1.0 + speedNoise);
-            return resolver.PuttTo(ball, new Point2(ball.X + (ux * aimed), ball.Z + (uz * aimed)), terrain, rng, common, pin);
+            return resolver.PuttTo(ball, new Point2(ball.X + (ux * aimed), ball.Z + (uz * aimed)), terrain, rng, common, pin, bias?.SlopeAngle ?? 0.0, bias?.SlopeScale ?? 1.0);
         }
 
         return resolver.ExecuteShaped(ball, club, ux, uz, speed, shot.Shape, terrain, rng, common, 1.0, ShapeSigma(shot.Shape), pin, lie);
@@ -209,10 +215,53 @@ public sealed class ProSkills
         _ => LieEffect.None,
     };
 
-    /// <summary>XP d'un coup joué : chaque habileté sollicitée reçoit la sienne, selon la qualité (voir <see cref="ProQuality"/>).</summary>
-    public void Record(TerrainGrid terrain, Point2 start, in ProShot shot, in ShotResult aimed, in ShotResult result, bool league, int year)
+    /// <summary>Amplitude du biais de l'aperçu pour un niveau : 1 au niveau 0, décroît linéairement jusqu'à 0 au niveau 50.</summary>
+    public static double BiasAmplitude(int level) => Math.Clamp(1.0 - (level / (double)MaxLevel), 0.0, 1.0);
+
+    /// <summary>
+    /// Biais de l'aperçu du coup numéro <paramref name="strokes"/> au tick <paramref name="tick"/> (C25) : vent faussé (force et direction) et
+    /// pente lue faussée, d'une amplitude réglée par Jeu dans le vent et Lecture du green. Déterministe, tiré d'un hachage du tick et du coup :
+    /// il ne touche ni au RNG du monde ni à l'état. Chaque tirage a une valeur absolue d'au moins la moitié de l'amplitude.
+    /// </summary>
+    public ProBias BiasFor(long tick, int strokes, Vec3 wind)
     {
-        foreach (var (skill, hundredths) in ProQuality.Awards(_params, terrain, start, shot, aimed, result))
+        var h1 = Mix64(((ulong)tick * 0x9E3779B97F4A7C15UL) ^ ((ulong)strokes * 0xC2B2AE3D27D4EB4FUL));
+        var h2 = Mix64(h1);
+        var h3 = Mix64(h2);
+        var h4 = Mix64(h3);
+        var aw = BiasAmplitude(Level(ProSkill.Wind));
+        var ag = BiasAmplitude(Level(ProSkill.GreenReading));
+        var strength = Math.Sqrt((wind.X * wind.X) + (wind.Z * wind.Z));
+        var seen = wind;
+        if (strength > 1e-9 && aw > 0.0)
+        {
+            var speed = strength * (1.0 + (aw * _params.WindBiasForce * Signed(h1)));
+            var angle = Math.Atan2(wind.Z, wind.X) + (aw * _params.WindBiasAngle * Signed(h2));
+            seen = new Vec3(speed * Math.Cos(angle), wind.Y, speed * Math.Sin(angle));
+        }
+
+        return new ProBias(seen, ag * _params.SlopeBiasAngle * Signed(h3), 1.0 + (ag * _params.SlopeBiasScale * Signed(h4)));
+    }
+
+    private static ulong Mix64(ulong x)
+    {
+        x += 0x9E3779B97F4A7C15UL;
+        x = (x ^ (x >> 30)) * 0xBF58476D1CE4E5B9UL;
+        x = (x ^ (x >> 27)) * 0x94D049BB133111EBUL;
+        return x ^ (x >> 31);
+    }
+
+    /// <summary>Tirage signé de valeur absolue entre 0,5 et 1.</summary>
+    private static double Signed(ulong h)
+    {
+        var magnitude = 0.5 + (0.5 * (h >> 11) * (1.0 / (1UL << 53)));
+        return (h & 1UL) == 0UL ? magnitude : -magnitude;
+    }
+
+    /// <summary>XP d'un coup joué : chaque habileté sollicitée reçoit la sienne, selon la qualité (voir <see cref="ProQuality"/>).</summary>
+    public void Record(TerrainGrid terrain, Point2 start, in ProShot shot, in ShotResult aimed, in ShotResult result, bool league, int year, double windSpeed = 0.0)
+    {
+        foreach (var (skill, hundredths) in ProQuality.Awards(_params, terrain, start, shot, aimed, result, windSpeed))
         {
             Gain(skill, hundredths, league, year);
         }

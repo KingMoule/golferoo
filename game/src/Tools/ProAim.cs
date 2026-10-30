@@ -268,7 +268,8 @@ public partial class ProAim : Node3D
         var general = ProSkills.OfClub(Club);
         _label!.Text = $"Votre pro : {(putting ? "putting" : $"{ClubName(Club)}, {ShapeNames[Array.IndexOf(Shapes, Shape)].ToLowerInvariant()}")} | " +
                        $"cible à {Dist(pro.Ball, Target):F0} m, balle prévue à {Dist(pro.Ball, Preview.Ball):F0} m ({OutcomeName(Preview.Outcome)})\n" +
-                       $"{SkillName(general)} : niveau {skills.Level(general)} | clic au sol : viser";
+                       $"{SkillName(general)} : niveau {skills.Level(general)} | clic au sol : viser\n" +
+                       ReadingNote(skills, putting);
         Draw(pro.Ball, Preview, skills.DirectionFactor(Club));
     }
 
@@ -311,6 +312,16 @@ public partial class ProAim : Node3D
         }
 
         _mesh.SurfaceEnd();
+    }
+
+    /// <summary>Ce que l'aperçu vaut (C25) : le vent ou la pente sont lus avec une erreur qui s'efface avec le niveau de l'habileté.</summary>
+    private static string ReadingNote(ProSkills skills, bool putting)
+    {
+        var skill = putting ? ProSkill.GreenReading : ProSkill.Wind;
+        var level = skills.Level(skill);
+        return level >= ProSkills.MaxLevel
+            ? $"{ProEffects.Name(skill)} : niveau {level}, l'aperçu est juste"
+            : $"{ProEffects.Name(skill)} : niveau {level}, l'aperçu {(putting ? "de la pente" : "du vent")} peut se tromper (jusqu'à {ProSkills.BiasAmplitude(level) * 100.0:F0} %)";
     }
 
     private static string ClubName(Club club) => club.IsPutter ? "Putter" : ClubNames[Array.IndexOf(FullClubs, club)];

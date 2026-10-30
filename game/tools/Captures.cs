@@ -42,6 +42,7 @@ public partial class Captures : Node
     private const int CourseViewCount = 11;
     private const int GalleryViewCount = 1;
     private const int FinanceViewCount = 1;
+    private const int ProViewCount = 2;
 
     /// <summary>Lisière sud de la forêt du coude, la balle de <c>ForestExitTests.Edge</c> (tuile 18,5 / 26,5 de 8 m).</summary>
     private static readonly Point2 ForestEdge = new(18.5 * 8, 26.5 * 8);
@@ -317,7 +318,7 @@ public partial class Captures : Node
         await SaveViews(await FreeViews(await TutorialViews(await ProfileViews(await AimView(await LeagueViews(main))))));
         await CourseViews();
         await GalleryView();
-        if (_failures == 0 && _index == expected + LeagueViewCount + TutorialViewCount + ProfileViewCount + FreeViewCount + SaveViewCount + CourseViewCount + GalleryViewCount + FinanceViewCount)
+        if (_failures == 0 && _index == expected + LeagueViewCount + TutorialViewCount + ProfileViewCount + FreeViewCount + SaveViewCount + CourseViewCount + GalleryViewCount + FinanceViewCount + ProViewCount)
         {
             GD.Print($"CAPTURES OK {_index} images");
             return 0;
@@ -439,6 +440,19 @@ public partial class Captures : Node
         GD.Print($"AIM actif={main.ProAim.Active} prevue={main.ProAim.Preview.Ball} issue={main.ProAim.Preview.Outcome}");
         Save("pro-aim");
 
+        // C25 : l'aperçu faussé, un fer long avec la note de lecture du vent (niveau 0 : l'aperçu peut se tromper de la moitié de la force du vent).
+        main.ProAim.SetClub(Clubs.Iron5);
+        main.ProAim.SetShape(ShotShape.Straight);
+        main.ProAim.SetForce(0.8);
+        main.ProAim.Sync();
+        await Frames(SettleFrames);
+        GD.Print($"APERCU club={main.ProAim.Club} prevue={main.ProAim.Preview.Ball} vent={world.Wind}");
+        Save("c25-apercu");
+        main.ProAim.SetClub(Clubs.Driver);
+        main.ProAim.SetShape(ShotShape.Draw);
+        main.ProAim.SetForce(1.0);
+        main.ProAim.Sync();
+
         // Le coup joué, la fiche du pro avec sa première expérience.
         main.ProAim.Play();
         main.StepTicks(1);
@@ -451,6 +465,28 @@ public partial class Captures : Node
         await Frames(SettleFrames);
         GD.Print($"PRO driver={world.Pro!.Experience(Golferoo.Sim.Pro.ProSkill.Driver)} draw={world.Pro.Experience(Golferoo.Sim.Pro.ProSkill.Draw)}");
         Save("pro-sheet");
+
+        // C25 : la fiche à 150 % (écran logique de 1280×720) avec des niveaux répartis dans les quatre groupes ; elle doit tenir à l'écran.
+        var pro = world.Pro!;
+        var level = 3;
+        foreach (var skill in Enum.GetValues<Golferoo.Sim.Pro.ProSkill>())
+        {
+            pro.Gain(skill, pro.XpForLevel(level) + (pro.XpForLevel(level + 1) - pro.XpForLevel(level)) / 2 - pro.Experience(skill), league: true, year: world.PlayYear);
+            level = (level * 7 % 23) + 1;
+        }
+
+        var window = GetTree().Root;
+        window.ContentScaleFactor = 1.5f;
+        main.ProPanel.Toggle();
+        main.ProPanel.Toggle();
+        await Frames(SettleFrames);
+        var screen = window.GetVisibleRect();
+        var outside = main.Ui.FindChildren("*", "Control", recursive: true, owned: false).OfType<Control>()
+            .Count(c => c.IsVisibleInTree() && c.Size.X > 0f && !screen.Grow(1f).Encloses(c.GetGlobalRect()));
+        GD.Print($"FICHE 1,5 ecran={screen.Size} hors_ecran={outside} birdie={main.Birdie.Chirps.Count(c => c.Tag == "#progrès")}");
+        Save("c25-fiche");
+        window.ContentScaleFactor = 1f;
+        main.ProPanel.Toggle();
         return main;
     }
 
