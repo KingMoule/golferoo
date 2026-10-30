@@ -1817,7 +1817,8 @@ public partial class SmokeTest : Node
         panel._Process(0.0);
         var level = skills.Level(Golferoo.Sim.Pro.ProSkill.LongIrons);
         var expected = Golferoo.Sim.Pro.ProEffects.LevelMessage(Golferoo.Sim.Pro.ProSkill.LongIrons, level);
-        if (level < 1 || main.Birdie.Chirps.Count != before + 1 || main.Birdie.Chirps[^1].Text != expected)
+        // Le pro joue pendant la fumée : un autre niveau gagné au même moment poste aussi son avis, d'où « parmi les nouveaux ».
+        if (level < 1 || !main.Birdie.Chirps.Skip(before).Any(c => c.Text == expected))
         {
             failures.Add($"fiche du pro : pas d'avis Birdie au niveau gagné (niveau {level}, attendu « {expected} »)");
         }
