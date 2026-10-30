@@ -1753,10 +1753,10 @@ public partial class SmokeTest : Node
 
         panel.Toggle();
         var shown = Enum.GetValues<Golferoo.Sim.Pro.ProSkill>()
-            .Count(s => main.Ui.Find($"ProSkill{s}") is UiGauge { Bar: not null } && main.Ui.Find($"ProEffect{s}") is Label { Text: var t } && t.StartsWith("niv. ", StringComparison.Ordinal));
+            .Count(s => main.Ui.Find($"ProSkill{s}") is { TooltipText: var tip } && tip.Contains("niv. ", StringComparison.Ordinal) && main.Ui.Find($"ProEffect{s}") is Label { Text.Length: > 0 });
         if (shown != Golferoo.Sim.Pro.ProSkills.Count)
         {
-            failures.Add($"fiche du pro : {shown} habiletés sur {Golferoo.Sim.Pro.ProSkills.Count} avec jauge et effet");
+            failures.Add($"fiche du pro : {shown} habiletés sur {Golferoo.Sim.Pro.ProSkills.Count} avec ligne, effet et info-bulle (le nombre de lignes visibles se compte dans les captures, où la mise en page est faite)");
         }
 
         var before = main.Birdie.Chirps.Count;

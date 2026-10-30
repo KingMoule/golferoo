@@ -63,10 +63,10 @@ public static class ProEffects
 
     public static string GroupName(ProGroup group) => group switch
     {
-        ProGroup.Clubs => "Les clubs",
-        ProGroup.Shapes => "Les trajectoires",
-        ProGroup.Qualities => "Les qualités du coup",
-        _ => "Les situations",
+        ProGroup.Clubs => "Clubs",
+        ProGroup.Shapes => "Trajectoires",
+        ProGroup.Qualities => "Qualités",
+        _ => "Situations",
     };
 
     /// <summary>Effet de l'habileté <paramref name="skill"/> au niveau <paramref name="level"/>, en pourcentage du niveau 0.</summary>

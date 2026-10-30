@@ -909,9 +909,29 @@ public partial class Captures : Node
             await Frames(SettleFrames);
             var wide = main.Ui.FindChildren("*", "Control", recursive: true, owned: false).OfType<Control>()
                 .Count(c => c.IsVisibleInTree() && c.Size.X > 0f && !screen.Grow(1f).Encloses(c.GetGlobalRect()));
-            GD.Print($"FICHE 1,5 ecran={screen.Size} hors_ecran={wide} birdie={main.Birdie.Chirps.Count(c => c.Tag == "#progrès")}");
+            var rows150 = sheet.VisibleRows();
+            GD.Print($"FICHE 1,5 ecran={screen.Size} lignes_visibles={rows150} hors_ecran={wide} birdie={main.Birdie.Chirps.Count(c => c.Tag == "#progrès")}");
+            if (rows150 < 8)
+            {
+                GD.PrintErr($"CAPTURES FAIL fiche du pro : {rows150} habiletés visibles à 150 % avec le tiroir ouvert, 8 au moins attendues");
+                _failures++;
+            }
+
             Save("c25-fiche");
             sheet.Toggle();
+            window.ContentScaleFactor = 1f;
+            sheet.Toggle();
+            await Frames(SettleFrames);
+            var rows100 = sheet.VisibleRows();
+            GD.Print($"FICHE 1,0 lignes_visibles={rows100}");
+            if (rows100 != Golferoo.Sim.Pro.ProSkills.Count)
+            {
+                GD.PrintErr($"CAPTURES FAIL fiche du pro : {rows100} habiletés visibles à 100 % sur {Golferoo.Sim.Pro.ProSkills.Count}");
+                _failures++;
+            }
+
+            sheet.Toggle();
+            window.ContentScaleFactor = 1.5f;
         }
 
         main.Bar.Select(ToolFamily.None, toggle: false);

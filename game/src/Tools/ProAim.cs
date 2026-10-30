@@ -71,7 +71,7 @@ public partial class ProAim : Node3D
         _panel.GrowHorizontal = Control.GrowDirection.Begin;
         (_panel.OffsetTop, _panel.OffsetRight) = (16f, -16f);
         var box = _panel.Content;
-        _label = new Label();
+        _label = new Label { AutowrapMode = TextServer.AutowrapMode.WordSmart, CustomMinimumSize = new Vector2(560f, 0f) };
         box.AddChild(_label);
         _clubRow = new HBoxContainer();
         for (var i = 0; i < FullClubs.Length; i++)
@@ -269,7 +269,7 @@ public partial class ProAim : Node3D
         _label!.Text = $"Votre pro : {(putting ? "putting" : $"{ClubName(Club)}, {ShapeNames[Array.IndexOf(Shapes, Shape)].ToLowerInvariant()}")} | " +
                        $"cible à {Dist(pro.Ball, Target):F0} m, balle prévue à {Dist(pro.Ball, Preview.Ball):F0} m ({OutcomeName(Preview.Outcome)})\n" +
                        $"{SkillName(general)} : niveau {skills.Level(general)} | clic au sol : viser\n" +
-                       ReadingNote(skills, putting);
+                       ReadingNote(skills, putting, world.Progression, world.Wind);
         Draw(pro.Ball, Preview, skills.DirectionFactor(Club));
     }
 
@@ -315,13 +315,20 @@ public partial class ProAim : Node3D
     }
 
     /// <summary>Ce que l'aperçu vaut (C25) : le vent ou la pente sont lus avec une erreur qui s'efface avec le niveau de l'habileté.</summary>
-    private static string ReadingNote(ProSkills skills, bool putting)
+    private static string ReadingNote(ProSkills skills, bool putting, ProgressionParams p, Vec3 wind)
     {
         var skill = putting ? ProSkill.GreenReading : ProSkill.Wind;
         var level = skills.Level(skill);
-        return level >= ProSkills.MaxLevel
-            ? $"{ProEffects.Name(skill)} : niveau {level}, l'aperçu est juste"
-            : $"{ProEffects.Name(skill)} : niveau {level}, l'aperçu {(putting ? "de la pente" : "du vent")} peut se tromper (jusqu'à {ProSkills.BiasAmplitude(level) * 100.0:F0} %)";
+        if (level >= ProSkills.MaxLevel)
+        {
+            return $"{ProEffects.Name(skill)} : niveau {level}, l'aperçu est juste";
+        }
+
+        var amplitude = ProSkills.BiasAmplitude(level);
+        var error = putting
+            ? $"pente lue à ±{amplitude * p.SlopeBiasScale * 100.0:F0} % et ±{amplitude * p.SlopeBiasAngle * 180.0 / Math.PI:F0}°"
+            : $"vent lu à ±{amplitude * p.WindBiasForce * Math.Sqrt((wind.X * wind.X) + (wind.Z * wind.Z)):F1} m/s (vent réel {Math.Sqrt((wind.X * wind.X) + (wind.Z * wind.Z)):F1}) et ±{amplitude * p.WindBiasAngle * 180.0 / Math.PI:F0}°";
+        return $"{ProEffects.Name(skill)} : niveau {level}, écart possible de l'aperçu : {error}";
     }
 
     private static string ClubName(Club club) => club.IsPutter ? "Putter" : ClubNames[Array.IndexOf(FullClubs, club)];
