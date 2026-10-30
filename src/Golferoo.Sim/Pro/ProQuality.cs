@@ -6,7 +6,7 @@ namespace Golferoo.Sim.Pro;
 /// <summary>
 /// Qualité d'un coup du pro, habileté par habileté (C25) : qualité = (1 − écart / seuil)², de 0 à 1. XP = 10 × qualité, en centièmes
 /// (1 000 pour une qualité de 1). Seule l'habileté du club a un plancher. Le point visé est celui que le joueur a vu : l'arrêt du coup
-/// prévu sans hasard (<c>aimed</c>), pour un putt la cible ; si le coup prévu subit une pénalité (eau, hors limites), son point de drop ne dit rien
+/// prévu sans hasard (<c>aimed</c>) ; pour un putt, c'est le trou (<c>pin</c>) : sur une pente, la cible cliquée est à côté du trou pour compenser, et un putt bien lu doit être noté bon ; si le coup prévu subit une pénalité (eau, hors limites), son point de drop ne dit rien
 /// de la visée : on prend la cible. Avec une pénalité sur le coup joué, toutes les habiletés autres que le club reçoivent 0 (le club garde son
 /// plancher). Sous 1 m de distance visée, la direction n'a pas de sens : ni Précision ni Dosage ne reçoivent d'XP.
 /// </summary>
@@ -25,12 +25,12 @@ internal static class ProQuality
     internal static int Hundredths(double quality) => (int)Math.Round(FullHundredths * quality, MidpointRounding.AwayFromZero);
 
     /// <summary>Les habiletés nourries par ce coup, avec leur XP en centièmes (jamais négative).</summary>
-    internal static List<(ProSkill Skill, int Hundredths)> Awards(ProgressionParams p, TerrainGrid terrain, Point2 start, in ProShot shot, in ShotResult aimed, in ShotResult result, double windSpeed = 0.0)
+    internal static List<(ProSkill Skill, int Hundredths)> Awards(ProgressionParams p, TerrainGrid terrain, Point2 start, in ProShot shot, in ShotResult aimed, in ShotResult result, double windSpeed = 0.0, Point2? pin = null)
     {
         var awards = new List<(ProSkill, int)>();
         var putt = shot.Club.IsPutter;
         var penalty = result.PenaltyStrokes > 0;
-        var reference = putt || aimed.PenaltyStrokes > 0 ? shot.Target : aimed.Ball;
+        var reference = putt ? pin ?? shot.Target : aimed.PenaltyStrokes > 0 ? shot.Target : aimed.Ball;
         var d = Math.Max(Dist(start, reference), 1e-6);
         var tiny = d < MinAimedDistance;
         var (ux, uz) = ((reference.X - start.X) / d, (reference.Z - start.Z) / d);

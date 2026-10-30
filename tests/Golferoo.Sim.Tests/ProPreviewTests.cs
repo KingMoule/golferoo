@@ -74,6 +74,41 @@ public class ProPreviewTests
         Assert.Equal(1000, holed.Experience(ProSkill.GreenReading));
     }
 
+    /// <summary>Un putt se note contre le trou : sur une pente, la cible cliquée est à côté du trou, et un putt bien lu (arrêté à 9 cm) doit être noté haut.</summary>
+    [Fact]
+    public void Putt_IsMarkedAgainstTheHole_NotTheClickedTarget()
+    {
+        var pin = new Point2(28, 240);
+        var slope = ShotTests.Uniform(Surface.Green, (_, z) => 0.03 * z, cells: 120);
+        var read = new ProShot(Clubs.Putter, new Point2(29.4, 241.88), ShotShape.Straight, 1.0);
+        var ignored = new ProShot(Clubs.Putter, pin, ShotShape.Straight, 1.0);
+
+        var good = new ProSkills();
+        good.Record(slope, Start, read, Stop(29.4, 241.88), Stop(28.0, 240.09), league: false, year: 1, pin: pin);
+        Assert.InRange(good.Experience(ProSkill.Putter), 880, 900); // (1 - 0,09 / 1,6)^2
+        Assert.InRange(good.Experience(ProSkill.GreenReading), 770, 800); // (1 - 0,09 / 0,8)^2
+        Assert.True(good.Experience(ProSkill.Dosage) > 950);
+
+        var bad = new ProSkills();
+        bad.Record(slope, Start, ignored, Stop(28, 240), Stop(28.0, 243.83), league: false, year: 1, pin: pin);
+        Assert.Equal(50, bad.Experience(ProSkill.Putter)); // le plancher seul
+        Assert.Equal(0, bad.Experience(ProSkill.GreenReading));
+    }
+
+    [Fact]
+    public void Putt_OnTheFlat_IsMarkedTheSameWhetherTheTargetIsTheHoleOrNot()
+    {
+        var pin = new Point2(28, 240);
+        var flat = ShotTests.Uniform(Surface.Green, cells: 120);
+        var shot = new ProShot(Clubs.Putter, pin, ShotShape.Straight, 1.0);
+        var withPin = new ProSkills();
+        withPin.Record(flat, Start, shot, Stop(28, 240), Stop(28.5, 240), league: false, year: 1, pin: pin);
+        var without = new ProSkills();
+        without.Record(flat, Start, shot, Stop(28, 240), Stop(28.5, 240), league: false, year: 1);
+        Assert.Equal(without.Experience(ProSkill.Putter), withPin.Experience(ProSkill.Putter));
+        Assert.InRange(withPin.Experience(ProSkill.Putter), 460, 480); // (1 - 0,5 / 1,6)^2
+    }
+
     // ---- Critère 8 : aperçus faussés ---------------------------------------------------------------------------------------------
 
     [Fact]
@@ -172,7 +207,7 @@ public class ProPreviewTests
     [Fact]
     public void Effects_AreZeroAtLevel0_AndGrowWithTheLevel()
     {
-        foreach (var skill in Enum.GetValues<ProSkill>().Where(s => s != ProSkill.Chip))
+        foreach (var skill in Enum.GetValues<ProSkill>())
         {
             Assert.Equal(0.0, Math.Round(ProEffects.Of(skill, 0).Percent));
             Assert.True(Math.Abs(ProEffects.Of(skill, 20).Percent) > 1.0, skill.ToString());
@@ -190,7 +225,7 @@ public class ProPreviewTests
         var message = ProEffects.LevelMessage(ProSkill.LongIrons, 13);
         Assert.StartsWith("Fers longs : niveau 13, dispersion −", message);
         Assert.EndsWith(" %", message);
-        Assert.Equal("Chip : niveau 4, effet à venir", ProEffects.LevelMessage(ProSkill.Chip, 4));
+        Assert.Matches(@"^Chip : niveau 4, −\d+ % erreur d'abaissement$", ProEffects.LevelMessage(ProSkill.Chip, 4));
     }
 
     [Fact]
@@ -200,7 +235,8 @@ public class ProPreviewTests
         Assert.StartsWith("niv. 12 : dispersion −", line);
         Assert.Contains(", niv. 13 : −", line);
         Assert.EndsWith("(maximum)", ProEffects.Line(ProSkill.LongIrons, 50));
-        Assert.Equal("niv. 3 : effet à venir", ProEffects.Line(ProSkill.Chip, 3));
+        Assert.Matches(@"^−\d+ % erreur d'abaissement$", ProEffects.Compact(ProSkill.Chip, 12));
+        Assert.Matches(@"^niv\. 3 : −\d+ % erreur d'abaissement, niv\. 4 : −\d+ %$", ProEffects.Line(ProSkill.Chip, 3));
     }
 
     [Fact]

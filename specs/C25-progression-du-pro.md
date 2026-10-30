@@ -1,5 +1,5 @@
 # Progression de votre pro par l'expérience (C25)
-Statut : validé (go de Guillaume le 2026-10-29)
+Statut : livré (lots 1 à 4)
 Créé : 2026-10-29
 
 ## But
@@ -18,6 +18,7 @@ Ce qui prouve la réussite : un draw long et bien visé au fer long fait progres
 8. Reprises de C08 sans changement : la ligue compte double, sans plafond ; l'entraînement est plafonné par habileté et par année (remise à zéro au 1er avril) ; un gimme ne rapporte rien ; aucune rouille.
 9. **Backspin selon le bâton, pour tous les golfeurs** (précision de Guillaume le 2026-10-29, après le lot 1) : le wedge a le plus de backspin, surtout depuis un bon lie (fairway, départ) ; le backspin diminue en remontant les fers et devient pratiquement nul aux fers longs.
 10. **Le gain fixe par niveau vaut en handicap équivalent jusqu'au scratch** (décision de Guillaume, 2026-10-29) : sous le scratch, la courbe `FromHandicap` plus raide (+4 = 0,55) rend les niveaux 45 à 50 environ deux fois plus forts en coups : choix assumé par Guillaume.
+11. **Chip fait les deux à la fois** (décision de Guillaume, 2026-10-29, au lot 4) : chaque niveau réduit l'erreur sur l'abaissement et le roulement voulus (comme Draw et Fade pour la courbure, `chipSigma` au niveau 0) et resserre la dispersion des chips (Chip entre à un tiers dans la direction et la force d'un chip, avec le club et Précision ou Dosage). Au niveau 0, les écarts types du chip sont ceux d'un golfeur de 36, au niveau 50 ceux d'un +4. La fiche donne une ligne chiffrée, chiffre en tête (« −24 % roulement »).
 
 ## Périmètre et hors périmètre
 - Dans le périmètre :
@@ -35,10 +36,10 @@ D = distance visée (du départ au point visé). L'écart est mesuré entre l'ar
 | Habileté | Gagne de l'XP sur | Écart mesuré, seuil (qualité 0 au seuil) | Effet d'un niveau |
 |---|---|---|---|
 | Driver, Bois, Fers longs (fer 5), Fers moyens (fer 7), Fers courts (fer 9), Wedge | chaque coup de ce club | écart total ≤ 15 % de D ; × 1 dans le lie visé, × 0,5 dans le rough, × 0 avec une pénalité ; plancher 5 % | dispersion du club, direction et distance |
-| Putter | chaque putt hors gimme | putt rentré : qualité 1 ; sinon écart ≤ max(1 m, 20 % de D) ; plancher 5 % | dispersion du putt |
+| Putter | chaque putt hors gimme | putt rentré : qualité 1 ; sinon écart au trou ≤ max(1 m, 20 % de D), D = distance au trou (le putt se note contre le trou, pas contre la cible cliquée, qui sur une pente est à côté) ; plancher 5 % | dispersion du putt |
 | Précision | tout coup hors putt | écart latéral ≤ 6 % de D | erreur de direction |
 | Dosage | approche à force partielle (force < 0,9), et putt | écart en profondeur ≤ 8 % de D | erreur sur la force |
-| Distance | driver, bois et fer long à pleine force, sans pénalité | portée obtenue : 0 à 85 % de la portée du club, 1 à 100 % et plus | vitesse de balle |
+| Distance | driver, bois et fer long à pleine force, sans pénalité | portée obtenue : 0 à 75 % de la portée du club (85 % avant le lot 4), 1 à 100 % et plus | vitesse de balle |
 | Draw, Fade | coup joué avec cet effet | écart entre la courbure obtenue et la courbure voulue ≤ 100 % de la courbure voulue | erreur sur la courbure |
 | Chip | coup en chip | écart total ≤ 15 % de D | erreur sur l'abaissement et le roulement |
 | Sortie de rough, Sortie de bunker | coup joué depuis ce lie | écart total ≤ 15 % de D | pénalité de lie : vitesse et dispersion |
@@ -102,6 +103,14 @@ Aucun : la grille et la spec ont été validées le 2026-10-29 (« go »). Les s
 Complet pour les lots 1, 2 et 4 (simulation et état de partie), léger pour le lot 3 (écran).
 
 ## Clôture
-- [ ] Critères vérifiés
-- [ ] Statut passé à « livré », ligne mise à jour dans `docs/chantiers.md`
-- [ ] `specs/C08-pro-jouable.md` renvoie à C25 pour la progression
+- [x] Critères vérifiés (lot 4 : `ProSeasonTests`, voir le calibrage ci-dessous)
+- [x] Statut passé à « livré », ligne mise à jour dans `docs/chantiers.md`
+- [x] `specs/C08-pro-jouable.md` renvoie à C25 pour la progression
+
+## Calibrage (lot 4)
+- **Échelle et plafond** : `costScale` 0,085 et `trainingCapPerYear` 300 (`data/pro/progression.json`). Saisons simulées (`ProSeasonSim`, « Le neuf » : 5 journées de ligue et l'entraînement jusqu'au plafond sur Précision et Putter, putts de moins de 2 m donnés, pro qui lit la pente) : Putter, Précision et Dosage, les plus travaillés, finissent la saison 1 au niveau 24, la saison 2 aux niveaux 30-31, la saison 10 aux niveaux 47-48 ; le niveau 50 vient après la dixième saison. L'entraînement pèse environ 40 % de l'XP de la saison 1. `distanceFloor` passe de 0,85 à 0,75 : le pro de niveau 0 perd environ 10 % de vitesse, donc de portée, et Distance restait à 0,03 de qualité moyenne.
+- **Putt noté contre le trou** (réserve de l'audit de #135) : `Record` reçoit le trou et `ProQuality` note Putter, Lecture du green et Dosage d'un putt contre lui, avec la ligne départ-trou ; la cible cliquée, à côté du trou sur une pente, ne sert plus. Un putt bien lu arrêté à 9 cm du trou de 8 m donne Putter 0,89, Lecture 0,78 ; un putt qui ignore la pente et finit à 3,83 m donne le plancher de Putter et 0 à Lecture.
+- **Chip** : la fiche dit « −N % erreur d'abaissement » (l'écart de roulement mesuré à la balle baisse moins, car la dispersion et la vitesse comptent aussi).
+- **Qualités moyennes par habileté** (pro dont toutes les habiletés sont au niveau indiqué, coups mêlés de draw, fade et chip, vent de 5 m/s, putts visés 50 cm après le trou ; niveaux 0 / 25 / 50) : Driver 0,12 / 0,15 / 0,46 ; Bois 0,07 / 0,14 / 0,43 ; Fers longs 0,22 / 0,25 / 0,64 ; Fers moyens 0,21 / 0,28 / 0,65 ; Fers courts 0,18 / 0,29 / 0,63 ; Wedge 0,19 / 0,26 / 0,66 ; Putter 0,47 / 0,51 / 0,54 ; Précision 0,19 / 0,20 / 0,46 ; Dosage 0,29 / 0,37 / 0,48 ; Distance 0,11 / 0,18 / 0,41 ; Draw 0,20 / 0,25 / 0,47 ; Fade 0,21 / 0,25 / 0,60 ; Chip 0,14 / 0,22 / 0,61 ; Sortie de rough 0,15 / 0,23 / 0,60 ; Sortie de bunker 0,13 / 0,19 / 0,55 ; Vent 0,06 / 0,09 / 0,26 ; Lecture du green 0,43 / 0,46 / 0,47. Aucune n'est dégénérée. Putter et Lecture du green montent peu : un putt visé après le trou plafonne à 0,69 quand il ne rentre pas.
+- **Biais des aperçus** (inchangés : vent force ± 25 à 50 %, direction ± 0,3 à 0,6 rad ; pente angle ± 0,35 à 0,7 rad, échelle ± 25 à 50 %) : au niveau 0, avec un vent de 3 à 9 m/s, l'aperçu se trompe en moyenne de 5,8 m pour un effet du vent de 9,5 m (coup moyen de 114 m) ; 4,8 m au niveau 10 et 3,2 m au niveau 25. Sensible, sans être absurde.
+- **Sauvegarde** v11 (`chipSigma` ajouté aux réglages, v10 dans `OlderVersion`).

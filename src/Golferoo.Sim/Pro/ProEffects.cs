@@ -13,10 +13,10 @@ public enum ProGroup : byte
 }
 
 /// <summary>Effet d'un niveau : ce qui change (<see cref="Label"/>) et de combien par rapport au niveau 0 (<see cref="Percent"/>, signé).</summary>
-public readonly record struct SkillEffect(string Label, double Percent)
+public readonly record struct SkillEffect(string Label, double Percent, bool ValueFirst = false)
 {
-    /// <summary>« dispersion −13 % » ; sans effet encore, le libellé seul.</summary>
-    public override string ToString() => Label.Length == 0 ? "" : $"{Label} {Value}";
+    /// <summary>« dispersion −13 % » ; chiffre en tête pour le chip : « −24 % erreur d'abaissement ».</summary>
+    public override string ToString() => ValueFirst ? $"{Value} {Label}" : $"{Label} {Value}";
 
     /// <summary>« −13 % », « +4 % » ou « 0 % ».</summary>
     public string Value
@@ -85,7 +85,7 @@ public static class ProEffects
             case ProSkill.Draw or ProSkill.Fade:
                 return new SkillEffect("erreur de courbure", Ratio());
             case ProSkill.Chip:
-                return new SkillEffect("", 0.0); // l'effet du chip vient au lot 4
+                return new SkillEffect("erreur d'abaissement", Ratio(), ValueFirst: true); // la dispersion des chips baisse aussi, moins
             case ProSkill.RoughExit or ProSkill.BunkerExit:
                 {
                     var surface = skill == ProSkill.RoughExit ? Surface.Rough : Surface.Bunker;
@@ -101,13 +101,12 @@ public static class ProEffects
         }
     }
 
-    /// <summary>Effet en une ligne courte de la fiche, chiffre en tête pour qu'il reste lisible tronqué : « −24 % courbure », « +3 % vitesse », « à venir » pour le chip.</summary>
+    /// <summary>Effet en une ligne courte de la fiche, chiffre en tête pour qu'il reste lisible tronqué : « −24 % courbure », « +3 % vitesse », « −24 % erreur d'abaissement » pour le chip.</summary>
     public static string Compact(ProSkill skill, int level)
     {
         var effect = Of(skill, level);
         var word = effect.Label switch
         {
-            "" => "",
             "erreur de direction" => "direction",
             "erreur de force" => "force",
             "vitesse de balle" => "vitesse",
@@ -116,21 +115,16 @@ public static class ProEffects
             "pénalité de lie" => "pénalité",
             var other => other,
         };
-        return effect.Label.Length == 0 ? "à venir" : $"{effect.Value} {word}";
+        return $"{effect.Value} {word}";
     }
 
-    /// <summary>« dispersion −13 % », ou « effet à venir » pour le chip.</summary>
-    public static string Text(ProSkill skill, int level) => Of(skill, level) is { Label.Length: > 0 } effect ? effect.ToString() : "effet à venir";
+    /// <summary>« dispersion −13 % » ; « −24 % erreur d'abaissement » pour le chip.</summary>
+    public static string Text(ProSkill skill, int level) => Of(skill, level).ToString();
 
     /// <summary>Ligne de la fiche : « niv. 12 : dispersion −12 %, niv. 13 : −13 % » ; au niveau maximal, « niv. 50 : dispersion −31 % (maximum) ».</summary>
     public static string Line(ProSkill skill, int level)
     {
         var now = Of(skill, level);
-        if (now.Label.Length == 0)
-        {
-            return $"niv. {level} : effet à venir";
-        }
-
         return level >= ProSkills.MaxLevel
             ? $"niv. {level} : {now} (maximum)"
             : $"niv. {level} : {now}, niv. {level + 1} : {Of(skill, level + 1).Value}";

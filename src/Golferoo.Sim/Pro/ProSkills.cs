@@ -143,18 +143,32 @@ public sealed class ProSkills
     /// <summary>Multiplicateur de vitesse de balle au niveau <paramref name="level"/> de Distance.</summary>
     public static double SpeedFactorAt(double level) => 1.0 - (PowerLossPerSkill * (Factor(0) - 1.0) * (1.0 - (level / MaxLevel)));
 
-    /// <summary>Multiplicateur des écarts types de direction d'un club : son niveau et celui de Précision à parts égales.</summary>
-    public double DirectionFactor(Club club) => club.IsPutter ? Factor(Level(ProSkill.Putter)) : Factor((Level(OfClub(club)) + Level(ProSkill.Precision)) / 2.0);
+    /// <summary>Multiplicateur des écarts types de direction d'un club : son niveau et celui de Précision à parts égales ; un chip y ajoute Chip (tiers égaux).</summary>
+    public double DirectionFactor(Club club, ShotShape shape = ShotShape.Straight) =>
+        club.IsPutter ? Factor(Level(ProSkill.Putter))
+        : shape == ShotShape.Chip ? Factor((Level(OfClub(club)) + Level(ProSkill.Precision) + Level(ProSkill.Chip)) / 3.0)
+        : Factor((Level(OfClub(club)) + Level(ProSkill.Precision)) / 2.0);
 
-    /// <summary>Multiplicateur des écarts types de force : le niveau du club et celui de Dosage à parts égales pour un putt ou une force partielle, le club seul à pleine force.</summary>
-    public double ForceFactor(Club club, double force) =>
-        club.IsPutter || force < _params.FullForce ? Factor((Level(OfClub(club)) + Level(ProSkill.Dosage)) / 2.0) : Factor(Level(OfClub(club)));
+    /// <summary>Multiplicateur des écarts types de force : le niveau du club et celui de Dosage à parts égales pour un putt ou une force partielle, le club seul à pleine force ; un chip y ajoute Chip.</summary>
+    public double ForceFactor(Club club, double force, ShotShape shape = ShotShape.Straight)
+    {
+        var dosed = club.IsPutter || force < _params.FullForce;
+        if (shape == ShotShape.Chip && !club.IsPutter)
+        {
+            return dosed
+                ? Factor((Level(OfClub(club)) + Level(ProSkill.Dosage) + Level(ProSkill.Chip)) / 3.0)
+                : Factor((Level(OfClub(club)) + Level(ProSkill.Chip)) / 2.0);
+        }
 
-    /// <summary>Écart type de l'effet voulu (<see cref="ShotShapes.Launch"/>, amount) ; nul pour un coup droit et pour le chip, dont l'effet vient au lot 4 (le golfeur ordinaire n'a pas de bruit de chip).</summary>
+        return dosed ? Factor((Level(OfClub(club)) + Level(ProSkill.Dosage)) / 2.0) : Factor(Level(OfClub(club)));
+    }
+
+    /// <summary>Écart type de l'effet voulu (<see cref="ShotShapes.Launch"/>, amount) ; nul pour un coup droit. Pour le chip : <see cref="ProgressionParams.ChipSigma"/> au niveau 0, réduit comme la dispersion.</summary>
     public double ShapeSigma(ShotShape shape) => shape switch
     {
         ShotShape.Draw => ShapeSigmaPerLevel * Factor(Level(ProSkill.Draw)),
         ShotShape.Fade => ShapeSigmaPerLevel * Factor(Level(ProSkill.Fade)),
+        ShotShape.Chip => _params.ChipSigma * Factor(Level(ProSkill.Chip)) / Factor(0),
         _ => 0.0,
     };
 
@@ -167,8 +181,8 @@ public sealed class ProSkills
     {
         var club = shot.Club;
         var lie = club.IsPutter ? LieEffect.None : LieOf(terrain.SurfaceAt(ball.X, ball.Z));
-        var direction = DirectionFactor(club) * lie.Sigma;
-        var force = ForceFactor(club, shot.Force) * lie.Sigma;
+        var direction = DirectionFactor(club, shot.Shape) * lie.Sigma;
+        var force = ForceFactor(club, shot.Force, shot.Shape) * lie.Sigma;
         var dx = shot.Target.X - ball.X;
         var dz = shot.Target.Z - ball.Z;
         var d = Math.Sqrt((dx * dx) + (dz * dz));
@@ -259,9 +273,9 @@ public sealed class ProSkills
     }
 
     /// <summary>XP d'un coup joué : chaque habileté sollicitée reçoit la sienne, selon la qualité (voir <see cref="ProQuality"/>).</summary>
-    public void Record(TerrainGrid terrain, Point2 start, in ProShot shot, in ShotResult aimed, in ShotResult result, bool league, int year, double windSpeed = 0.0)
+    public void Record(TerrainGrid terrain, Point2 start, in ProShot shot, in ShotResult aimed, in ShotResult result, bool league, int year, double windSpeed = 0.0, Point2? pin = null)
     {
-        foreach (var (skill, hundredths) in ProQuality.Awards(_params, terrain, start, shot, aimed, result, windSpeed))
+        foreach (var (skill, hundredths) in ProQuality.Awards(_params, terrain, start, shot, aimed, result, windSpeed, pin))
         {
             Gain(skill, hundredths, league, year);
         }
