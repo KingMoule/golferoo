@@ -1,10 +1,7 @@
-// Arrivées des golfeurs au pavillon (spec C15, lot 2). Les arrivées suivent un profil horaire (de 6 h à 18 h) multiplié par l'attrait du club.
+// Arrivées des golfeurs au pavillon (spec C15, lot 2). Les arrivées ont lieu tout au long de la journée, à taux constant, multiplié par l'attrait du club ; les journées s'enchaînent sans nuit.
 {
-  // Groupes par jour pour un attrait de 1 (9 trous ouverts, réputation de départ, météo qui ne gêne pas) ; calé au banc (critère 4 : 15 à 25 par jour)
-  "groupsPerDay": 35,
-
-  // Poids des 12 heures de 6 h à 18 h : une pointe le matin
-  "hourProfile": [2, 4, 5, 4, 3, 3, 3, 3, 2.5, 1.5, 1, 0.5],
+  // Groupes par jour pour un attrait de 1 (9 trous ouverts, réputation de départ, météo qui ne gêne pas) ; calé au banc (critère 4 final : 5 à 8 départs par jour)
+  "groupsPerDay": 8,
 
   // Poids des groupes de 1, 2, 3 et 4 golfeurs
   "groupSizeWeights": [10, 40, 10, 40],
@@ -15,8 +12,8 @@
   // Groupes de visiteurs sur le parcours au plus, par trou du parcours (36 sur 18 trous, le plafond mesuré à C12) : au-delà, le groupe de tête de la file attend
   "maxGroupsPerHole": 2,
 
-  // Aucun départ à partir de cette heure (les groupes encore en file repartent le soir)
-  "lastDepartureHour": 16,
+  // Facteur sur la marche des golfeurs IA (le vol de balle et le pro joué par le joueur gardent leur vitesse) : la marche fait environ la moitié de leur temps
+  "aiWalkSpeedFactor": 2.2,
 
   // Attrait = trous × réputation × météo
   "holesReference": 9,

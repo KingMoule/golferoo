@@ -23,7 +23,6 @@ public class ArrivalTests(ITestOutputHelper output)
         public int Arrived;
         public int TurnedAway;
         public readonly List<int> Sizes = [];
-        public readonly List<double> Hours = [];
 
         public Counter(World world)
         {
@@ -31,43 +30,61 @@ public class ArrivalTests(ITestOutputHelper output)
             {
                 Arrived++;
                 Sizes.Add(g.Golfers.Count);
-                Hours.Add(ArrivalParams.HourOf(world.Date.DayFraction));
             };
             world.GroupTurnedAway += v =>
             {
                 TurnedAway++;
                 Sizes.Add(v.Count);
-                Hours.Add(ArrivalParams.HourOf(world.Date.DayFraction));
             };
         }
 
         public int Total => Arrived + TurnedAway;
     }
 
+    /// <summary>Critère 3 : pas de fenêtre horaire, les arrivées couvrent toute la journée, et un groupe en file n'est pas purgé au changement de jour.</summary>
     [Fact]
-    public void Arrivals_StayWithinOpeningHours_AndNoGroupLeavesAfterTheLastDeparture()
+    public void Arrivals_HappenAllDayLong_AndNoQueuedGroupIsPurgedAtDayChange()
     {
-        var world = NewWorld(2);
-        var counter = new Counter(world);
-        var released = new HashSet<int>();
-        var late = new List<string>();
-        for (var i = 0; i < 4 * Day; i++)
+        var world = NewWorld(2, ArrivalParams.Default.AtMaxAttraction());
+        var fractions = new List<double>();
+        world.GroupArrived += _ => fractions.Add(world.Date.DayFraction);
+        world.GroupTurnedAway += _ => fractions.Add(world.Date.DayFraction);
+        for (var d = 0; d < 4; d++)
         {
-            world.Step();
-            var hour = ArrivalParams.HourOf(world.Date.DayFraction);
-            foreach (var g in world.Groups.Where(g => g.Released && released.Add(g.Id)))
-            {
-                if (hour >= world.Arrivals.LastDepartureHour + 0.01)
-                {
-                    late.Add($"groupe {g.Id} parti à {hour:0.00} h");
-                }
-            }
+            world.Step(Day - 1);
+            var queued = world.Groups.Where(g => g.FromArrivals && !g.Released).Select(g => g.Id).ToList();
+            Assert.NotEmpty(queued); // attrait maximal : la file n'est jamais vide
+            world.Step(2); // franchit minuit
+            Assert.All(queued, id => Assert.Contains(world.Groups, g => g.Id == id));
         }
 
-        Assert.True(counter.Total > 20, $"{counter.Total} arrivées en 4 jours");
-        Assert.All(counter.Hours, h => Assert.InRange(h, Calendar.OpeningHour, Calendar.ClosingHour));
-        Assert.Empty(late);
-        Assert.NotEmpty(released);
+        for (var q = 0; q < 4; q++)
+        {
+            Assert.Contains(fractions, f => f >= q / 4.0 && f < (q + 1) / 4.0); // des arrivées dans chaque quart de la journée
+        }
+    }
+
+    /// <summary>Critère 3 : une ronde commencée en fin de journée continue le jour suivant.</summary>
+    [Fact]
+    public void RoundStartedLateInTheDay_FinishesTheNextDay()
+    {
+        var world = NewWorld(4);
+        world.Step((Day * 9 / 10) - 1);
+        var group = world.SpawnGroup();
+        while (!group.Released)
+        {
+            world.Step();
+        }
+
+        var startDay = world.DayIndex;
+        Assert.False(group.Finished);
+        while (!group.Finished && world.Tick < 6 * Day)
+        {
+            world.Step();
+        }
+
+        Assert.True(group.Finished);
+        Assert.True(world.DayIndex > startDay, "la ronde aurait dû franchir le changement de jour");
     }
 
     [Fact]
@@ -97,21 +114,6 @@ public class ArrivalTests(ITestOutputHelper output)
         Assert.True(p.Attraction(9, 0.5, Sky.Clouds) < baseline);
         Assert.Equal(p.MaxAttraction, p.AtMaxAttraction().Attraction(3, 0.0, Sky.HeavyRain));
         Assert.True(p.MaxAttraction >= p.Attraction(18, 1.0, Sky.Sun));
-    }
-
-    /// <summary>
-    /// Critère 4, part du lot 2 : 30 jours de printemps et d'été sur « Le neuf » ouvert, météo naturelle de la graine de référence
-    /// (résolveur simplifié : l'arrivée ne dépend pas de la physique du vol).
-    /// </summary>
-    [Fact]
-    public void LeNeuf_AttractsBetween15And25GroupsADay()
-    {
-        var world = NewWorld(1);
-        var counter = new Counter(world);
-        world.Step(30 * Day);
-        output.WriteLine($"{counter.Total} arrivées en 30 jours ({counter.Total / 30.0:0.0} par jour), {counter.TurnedAway} refusées, réputation {world.Reputation:0.00}");
-
-        Assert.InRange(counter.Total / 30.0, 15.0, 25.0);
     }
 
     /// <summary>Débit : un golfeur qui marche vers la porte après le trou 9 ne retient pas le groupe suivant, donc le parcours chargé se vide et les tours ne s'allongent pas au fil des groupes.</summary>
@@ -315,8 +317,8 @@ public class ArrivalTests(ITestOutputHelper output)
     {
         Assert.Throws<InvalidDataException>(() => ArrivalParams.Parse("{}"));
         var text = File.ReadAllText(Path.Combine(Path.GetDirectoryName(TerrainTests.HolePath())!, "..", "golfers", "arrivals.json"));
-        Assert.Equal(12, ArrivalParams.Parse(text).HourProfile.Length);
-        Assert.Throws<InvalidDataException>(() => ArrivalParams.Parse(text.Replace("\"groupsPerDay\": 35", "\"groupsPerDay\": 35, \"inconnu\": 1")));
+        Assert.True(ArrivalParams.Parse(text).AiWalkSpeedFactor > 1.0);
+        Assert.Throws<InvalidDataException>(() => ArrivalParams.Parse(text.Replace("\"groupsPerDay\": 8", "\"groupsPerDay\": 8, \"inconnu\": 1")));
     }
 
     [Fact]

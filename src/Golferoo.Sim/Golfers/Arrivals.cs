@@ -7,14 +7,11 @@ namespace Golferoo.Sim.Golfers;
 
 /// <summary>
 /// Arrivées des golfeurs au pavillon (spec C15 lot 2), lues depuis <c>data/golfers/arrivals.json</c>, embarqué à la compilation.
-/// Le nombre de groupes attendus par heure est <see cref="GroupsPerDay"/> × la part de l'heure dans <see cref="HourProfile"/> × <see cref="Attraction"/>.
+/// Les groupes arrivent tout au long de la journée, sans heures : le taux est <see cref="GroupsPerDay"/> × <see cref="Attraction"/> par journée de jeu.
 /// </summary>
 public sealed record ArrivalParams
 {
     public required double GroupsPerDay { get; init; }
-
-    /// <summary>Poids des 12 heures de 6 h à 18 h.</summary>
-    public required double[] HourProfile { get; init; }
 
     /// <summary>Poids des groupes de 1, 2, 3 et 4 golfeurs.</summary>
     public required double[] GroupSizeWeights { get; init; }
@@ -24,8 +21,8 @@ public sealed record ArrivalParams
     /// <summary>Groupes de visiteurs sur le parcours au plus, par trou du parcours (le banc P1 de C12 tient 36 groupes sur 18 trous) : au-delà, la file attend.</summary>
     public required int MaxGroupsPerHole { get; init; }
 
-    /// <summary>Heure à partir de laquelle plus aucun groupe ne part.</summary>
-    public required double LastDepartureHour { get; init; }
+    /// <summary>Facteur sur la vitesse de marche des golfeurs IA (pas le vol de balle, ni le pro joué par le joueur).</summary>
+    public required double AiWalkSpeedFactor { get; init; }
 
     public required double HolesReference { get; init; }
 
@@ -69,11 +66,11 @@ public sealed record ArrivalParams
     /// <summary>Attrait le plus haut : toutes les composantes au maximum.</summary>
     public double MaxAttraction => HolesFactor(HolesCap) * ReputationMaxFactor * WeatherFactors.Max();
 
-    /// <summary>Même attrait que le défaut, imposé à son maximum (banc P1).</summary>
-    public ArrivalParams AtMaxAttraction() => this with { ForcedAttraction = MaxAttraction };
+    /// <summary>Groupes par jour du banc P1 et des tests de charge : de quoi saturer le parcours (la valeur de C15 lot 2).</summary>
+    private const double SaturatingGroupsPerDay = 35;
 
-    /// <summary>Heure de jeu (6 à 18) du moment <paramref name="dayFraction"/> de la journée.</summary>
-    public static double HourOf(double dayFraction) => Calendar.OpeningHour + ((Calendar.ClosingHour - Calendar.OpeningHour) * dayFraction);
+    /// <summary>Attrait imposé à son maximum, à un taux qui sature le parcours (banc P1).</summary>
+    public ArrivalParams AtMaxAttraction() => this with { ForcedAttraction = MaxAttraction, GroupsPerDay = Math.Max(GroupsPerDay, SaturatingGroupsPerDay) };
 
     /// <summary>Facteur de trous ouverts : nul sans trou ouvert, au plus <see cref="HolesCap"/> comptés.</summary>
     public double HolesFactor(int openHoles) => Math.Pow(Math.Min(openHoles, HolesCap) / HolesReference, HolesExponent);
@@ -84,8 +81,8 @@ public sealed record ArrivalParams
     public double Attraction(int openHoles, double reputation, Sky sky) =>
         openHoles <= 0 ? 0.0 : ForcedAttraction ?? (HolesFactor(openHoles) * ReputationFactor(reputation) * WeatherFactors[(int)sky]);
 
-    /// <summary>Groupes attendus par heure à l'heure <paramref name="hourIndex"/> (0 pour 6 h) d'attrait <paramref name="attraction"/>.</summary>
-    public double RatePerHour(int hourIndex, double attraction) => GroupsPerDay * HourProfile[hourIndex] / HourProfile.Sum() * attraction;
+    /// <summary>Probabilité d'une arrivée à un tick, d'attrait <paramref name="attraction"/> : constante sur la journée.</summary>
+    public double RatePerTick(double attraction) => GroupsPerDay * attraction / Calendar.TicksPerDay;
 
     /// <summary>Taille d'un groupe (1 à 4) pour un tirage <paramref name="u"/> de [0, 1[.</summary>
     public int GroupSize(double u)
@@ -128,12 +125,12 @@ public sealed record ArrivalParams
             throw new InvalidDataException($"arrivals.json illisible : {e.Message}", e);
         }
 
-        return p.HourProfile.Length == 12 && p.HourProfile.All(w => w >= 0) && p.HourProfile.Sum() > 0
+        return p.AiWalkSpeedFactor > 0 && p.GroupsPerDay >= 0
             && p.GroupSizeWeights.Length == 4 && p.GroupSizeWeights.All(w => w >= 0) && p.GroupSizeWeights.Sum() > 0
             && p.WeatherFactors.Length == 4 && p.FirstNames.Length > 0 && p.QueueCapacity > 0 && p.MaxGroupsPerHole > 0 && p.HolesReference > 0 && p.HolesCap > 0
             && p.HandicapMax >= p.HandicapMin
             ? p
-            : throw new InvalidDataException("arrivals.json incohérent : 12 poids d'heures, 4 tailles, 4 météos, une file et des trous positifs.");
+            : throw new InvalidDataException("arrivals.json incohérent : 4 tailles, 4 météos, une file et des trous positifs.");
     }
 
     private static ArrivalParams ReadDefault()

@@ -551,7 +551,6 @@ public sealed partial class World
             }
 
             RefreshSoil();
-            DismissWaitingArrivals();
             if (League?.OnNewDay(DayIndex, WeatherOn(DayIndex).Sky == Sky.HeavyRain, Tick) is { } round)
             {
                 for (var n = 0; n < round.Pairs.Count; n++)
@@ -1055,7 +1054,7 @@ public sealed partial class World
 
         var pos = g.Position;
         var (cx, cz) = (terrain.CellXOf(pos.X), terrain.CellZOf(pos.Z));
-        var result = FlowWalker.Advance(terrain, field, ref pos, target, TickSeconds);
+        var result = FlowWalker.Advance(terrain, field, ref pos, target, TickSeconds, IsManualPro(g) ? 1.0 : Arrivals.AiWalkSpeedFactor);
         g.Position = pos;
         var (nx, nz) = (terrain.CellXOf(pos.X), terrain.CellZOf(pos.Z));
         if ((nx, nz) != (cx, cz))

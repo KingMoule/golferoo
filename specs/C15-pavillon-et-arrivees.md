@@ -30,7 +30,7 @@ Hors périmètre :
   - Le joueur peut le déplacer : coût en données dans `data/economy/`, écriture au grand livre.
   - L'emprise bloque le passage et les arbres. Le champ de flux vers la porte est mis en cache, et seule l'invalidation par champ touché s'applique (règle de C12 lot 4).
 - **Attrait et arrivées** (`Golfers/Arrivals.cs`) : chaque heure de jeu, on tire un nombre de groupes qui arrivent.
-  - Le taux suit un profil horaire : les arrivées vont de 6 h à 18 h, avec une pointe le matin. Aucun départ après 16 h, pour finir avant la nuit.
+  - Le taux est constant sur la journée : pas d'heures, pas de nuit, les journées s'enchaînent (décisions 14 et 15).
   - Le taux est multiplié par l'attrait, qui combine :
     - le nombre de trous ouverts : aucun trou ouvert, aucune arrivée ;
     - la réputation ;
@@ -61,7 +61,7 @@ Hors périmètre :
 2. Un 9 trous de note moyenne, en difficulté facile, attire **15 à 25 groupes par jour** (remplacé par la décision 9).
 3. Groupes de 1 à 4 golfeurs.
 4. Un groupe qui trouve la file pleine repart mécontent, ce qui fait baisser la réputation.
-5. Arrivées de 6 h à 18 h.
+5. Arrivées de 6 h à 18 h (remplacé par les décisions 14 et 15).
 6. Pas d'effet de l'hiver en soi : seule la météo du jour compte.
 7. Vivier persistant de visiteurs qui reviennent.
 8. Le prix du green fee n'a pas d'effet sur les arrivées dans C15.
@@ -70,17 +70,20 @@ Hors périmètre :
 11. Le plafond `maxGroupsPerHole` = 2 est validé.
 12. On accélère les golfeurs (marche, préparation, attentes, pas le vol de balle) pour qu'un 9 trous tienne en 2 à 3 h de jeu, dans un lot à part (2b).
 13. Le lot 2 est fusionné tel quel.
+14. On cesse de s'arrimer à une journée réelle : plus d'heures affichées, une journée suit l'autre sans nuit, et une ronde continue sur le jour suivant.
+15. Les arrivées ont lieu tout au long de la journée : plus de fenêtre 6 h – 18 h, plus de dernier départ à 16 h, plus de vidage de la file à minuit.
+16. Le soleil avance pendant la journée, sans nuit (lot 3).
+17. La marche des golfeurs IA est accélérée pour qu'elle fasse environ 50 % de leur temps (mesure : un groupe de 2 isolé sur « Le neuf », 73 % avant). Le facteur est `aiWalkSpeedFactor` dans `data/golfers/arrivals.json` : 2,2 donne 51 %, alors que ×2,7 ne donne que 45 % (la marche des deux golfeurs se chevauche). Le vol de balle et le pro joué par le joueur gardent leur vitesse.
 
 Hypothèses de l'orchestrateur, réglables en données :
 - file de 8 groupes ;
-- dernier départ à 16 h ;
 - le taux de base cale le critère 4 ;
 - le pavillon fait environ 12 × 8 cellules.
 
 ## Critères d'acceptation
 1. Le pavillon (position, emprise, porte), le vivier, la file et la réputation entrent dans `Checksum` et `Save` (v12). Un cas `SaveTests` échoue si l'un d'eux est oublié. Une sauvegarde v11 se charge avec un pavillon placé automatiquement.
 2. Nouvelle partie sur « Le neuf » : le pavillon est sur des cellules libres et plates, et il existe un chemin de la porte au départ du trou 1. Le déplacer débite son coût au grand livre ; un emplacement invalide est refusé sans débit. Un test vérifie que seuls les champs de flux touchés par le déplacement sont invalidés.
-3. Avec la vraie date de `Calendar`, aucun groupe n'arrive avant 6 h ni après 18 h, et aucun ne part après 16 h. Sans trou ouvert, aucun groupe n'arrive.
+3. Pas de fenêtre horaire : les groupes arrivent à toute heure de la journée. Une ronde commencée en fin de journée se termine le jour suivant, et aucun groupe en file n'est purgé au changement de jour. Sans trou ouvert, aucun groupe n'arrive.
 4. « Le neuf » ouvert, graine de référence, 30 jours de printemps et d'été à météo normale (`-c Release`) : entre 15 et 25 arrivées par jour en moyenne. Cette partie est tenue au lot 2. Le critère final (5 à 8 départs de visiteurs par jour, au plus 10 % de refus, réputation finale au-dessus de 0,8) est celui du lot 2b.
 5. La taille des groupes reste entre 1 et 4, et la distribution observée sur 1 000 groupes suit celle des données à ±5 points.
 6. La file ne dépasse jamais 8 groupes. Un groupe qui arrive file pleine lève `GroupTurnedAway`, ne paie rien et fait baisser la réputation. Le test vérifie l'évènement, pas un compteur.
@@ -96,7 +99,7 @@ Hypothèses de l'orchestrateur, réglables en données :
 | 1 | Pavillon dans la sim (`Building`, emprise, porte, placement automatique, déplacement, coût), champ de flux vers la porte, sauvegarde v12 ; critères 1 et 2 | complet |
 | 2 | Arrivées, file, départs, sortie, vivier, réputation, banc P1 avec arrivées ; critères 3 à 9 | complet |
 | 2b | Rythme de jeu : un 9 trous en 2 à 3 h de jeu sur un parcours vide, le parcours chargé reste fluide, puis le critère 4 final (5 à 8 départs de visiteurs par jour, au plus 10 % de refus, réputation finale au-dessus de 0,8) | complet |
-| 3 | Rendu du pavillon et de la file, déplacement au dock, choix du groupe pour le pro, touche G en débogage, capture ; critères 10 et 11 | léger |
+| 3 | Rendu du pavillon et de la file, déplacement au dock, choix du groupe pour le pro, touche G en débogage, capture ; le soleil avance pendant la journée sans nuit (décision 16) ; barre du jour sans heures, façon Cities: Skylines ; critères 10 et 11 | léger |
 
 ## Niveau de contrôle
 Complet (lots 1 et 2), léger (lot 3).
