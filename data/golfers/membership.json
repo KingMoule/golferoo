@@ -4,10 +4,10 @@
   "thresholds": [2, 4, 8, 16],
 
   // Une partie vaut 1 point par groupe de likedHolesPerPoint trous aimés (au moins un événement positif sur le trou)…
-  "likedHolesPerPoint": 3,
+  "likedHolesPerPoint": 6,
 
   // …plus goodExitPoints si l'humeur de sortie est d'au moins goodExitMood…
-  "goodExitMood": 7,
+  "goodExitMood": 9,
   "goodExitPoints": 1,
 
   // …plus proPoints pour un membre qui a joué avec le pro.

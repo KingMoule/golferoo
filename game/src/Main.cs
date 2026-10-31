@@ -510,7 +510,7 @@ public partial class Main : Node3D
         }
     }
 
-    /// <summary>Un clic sur un golfeur de la file le plus proche (à 2,5 m du sol visé) choisit son groupe : la caméra le suit. Faux si le clic ne tombe sur aucun.</summary>
+    /// <summary>Un clic sur un golfeur de la file le plus proche (à 2,5 m du sol visé) choisit son groupe : la caméra le suit et le pro le rejoint (C16) si la sim l'accepte. Faux si le clic ne tombe sur aucun.</summary>
     private bool ChooseQueuedGroupAt(Vector2 screen)
     {
         var view = Camera.View;
@@ -540,7 +540,9 @@ public partial class Main : Node3D
 
         ChosenGroupId = best.Group.Id;
         Camera.Follow(best.Golfer);
-        ShowMessage($"Groupe de {best.Group.Golfers.Count} choisi dans la file.");
+        ShowMessage(World.JoinQueuedGroup(best.Group.Id)
+            ? $"Groupe de {best.Group.Golfers.Count} choisi : le pro jouera avec lui au prochain départ."
+            : $"Groupe de {best.Group.Golfers.Count} choisi dans la file (le pro ne peut pas le rejoindre maintenant).");
         return true;
     }
 
