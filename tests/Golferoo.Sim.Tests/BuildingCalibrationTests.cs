@@ -12,7 +12,8 @@ namespace Golferoo.Sim.Tests;
 public class BuildingCalibrationTests(ITestOutputHelper output)
 {
     /// <summary>Une partie du balayage : bâtiments posés et règles de visite.</summary>
-    private sealed record Config(string Name, bool Equipped, bool SecondSnack, int SnackRange, int ProRange, double SnackChance, double ProChance);
+    /// <summary>Une chance nulle laisse celles des données (par profil).</summary>
+    private sealed record Config(string Name, bool Equipped, bool SecondSnack, int SnackRange, int ProRange, double? SnackChance, double? ProChance);
 
     private sealed record Outcome(Config Config, ulong Seed, int Golfers, int Quits, double MeanExit, int SnackVisits, int SecondSnackVisits, int ProVisits, int DaysRun);
 
@@ -22,8 +23,8 @@ public class BuildingCalibrationTests(ITestOutputHelper output)
         {
             SnackBar = BuildingParams.Default.SnackBar with { Range = c.SnackRange },
             ProShop = BuildingParams.Default.ProShop with { Range = c.ProRange },
-            SnackBarChance = VisitTests.All(c.SnackChance),
-            ProShopChance = VisitTests.All(c.ProChance),
+            SnackBarChance = c.SnackChance is { } s ? VisitTests.All(s) : BuildingParams.Default.SnackBarChance,
+            ProShopChance = c.ProChance is { } p ? VisitTests.All(p) : BuildingParams.Default.ProShopChance,
         };
         int[] visits = new int[3];
         var run = MoodRun.Go(days, physical: true, seed, buildings: rules, setup: world =>
@@ -57,7 +58,7 @@ public class BuildingCalibrationTests(ITestOutputHelper output)
         return new Outcome(c, seed, run.Golfers, run.Quits, run.MeanExit, visits[0], visits[1], visits[2], days);
     }
 
-    /// <summary>Le calage complet (12 parties de 30 jours, plusieurs minutes) : lancé si <c>GOLFEROO_LONG</c> est défini, en <c>-c Release</c>, avec <c>--logger "console;verbosity=detailed"</c>.</summary>
+    /// <summary>Le calage complet (21 parties de 30 jours, une vingtaine de minutes) : lancé si <c>GOLFEROO_LONG</c> est défini, en <c>-c Release</c>, avec <c>--logger "console;verbosity=detailed"</c>.</summary>
     [Fact]
     public void Sweep_ThirtyDays_ThreeSeeds()
     {
@@ -72,6 +73,9 @@ public class BuildingCalibrationTests(ITestOutputHelper output)
             new Config("S+P+H, chances de base", true, false, 24, 12, 0.5, 0.3),
             new Config("S+P+H, chances hautes", true, false, 24, 12, 0.8, 0.6),
             new Config("S+S2+P+H, chances hautes", true, true, 24, 12, 0.8, 0.6),
+            new Config("S+P+H, données finales", true, false, 24, 12, null, null),
+            new Config("S+S2+P+H, données finales", true, true, 24, 12, null, null),
+            new Config("S+P+H, portées 12 et 8", true, false, 12, 8, null, null),
         };
         var jobs = configs.SelectMany(c => new ulong[] { 1, 2, 3 }.Select(s => (c, s))).ToList();
         var results = new Outcome[jobs.Count];
@@ -86,7 +90,7 @@ public class BuildingCalibrationTests(ITestOutputHelper output)
     [Fact]
     public void EightDays_PhysicalResolver_VisitsHappen_AndQuitsStayLow()
     {
-        var o = Measure(new Config("CI", true, false, 24, 12, 0.5, 0.3), 1, 8);
+        var o = Measure(new Config("CI", true, false, 24, 12, null, null), 1, 8);
 
         Assert.True(o.SnackVisits + o.ProVisits > 0, "des visites ont eu lieu");
         Assert.True(o.Golfers >= 20);

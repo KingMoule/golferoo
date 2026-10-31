@@ -57,7 +57,7 @@ public class BuildingTests
     public void Rules_ComeFromData_AndAQuarterTurnSwapsTheFootprintAndMovesTheDoor()
     {
         var rules = BuildingParams.Default;
-        Assert.Equal(2_000_000, rules.SnackBar.Cost);
+        Assert.Equal(1_200_000, rules.SnackBar.Cost);
         Assert.Equal(1, rules.Bench.Width * rules.Bench.Depth);
         var south = rules.At(BuildingKind.ProShop, 10, 10, DoorSide.South)!;
         var east = rules.At(BuildingKind.ProShop, 10, 10, DoorSide.East)!;

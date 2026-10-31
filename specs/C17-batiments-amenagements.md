@@ -60,6 +60,36 @@ Hors périmètre (décidé le 2026-10-31) :
 
 Hypothèses de l'orchestrateur, réglables en données : seuils de déblocage, prix des bâtiments, portées, revenus par visite, bonus de précision, effet non cumulatif du hangar, rayon du banc. Le choix 2 impose de les caler pour que **plusieurs snack-bars** ne rapportent pas plus que leur prix à eux seuls (critère 6).
 
+## Calage du lot 2
+Mesuré sur « Le neuf » (9 trous, cellules de 4 m), résolveur physique, 30 jours, sans ligue, graines 1, 2 et 3 (`BuildingCalibrationTests.Sweep_ThirtyDays_ThreeSeeds`, lancé avec `GOLFEROO_LONG=1` en `-c Release`, 21 parties, environ 25 minutes). Les visites ne dépendent ni des prix ni des revenus : on a balayé ce qui change le comportement (portées, probabilités), puis fixé prix et revenus sur les visites mesurées. L'année vaut 120 jours (12 mois de 10 jours) : revenu annuel = 4 × celui des 30 jours, sans compter la montée en puissance du club (estimation prudente).
+
+**Les portées d'hypothèse (8 cellules le snack-bar, 5 le pro shop) ne tiennent pas sur cette carte** : le rough le plus proche de la sortie du trou 5 est à 17 cellules du drapeau, et la porte du pro shop la plus proche du pavillon à 9 cellules de sa porte (le pavillon est entouré de fairway et de chemin, où l'on ne pose pas). Avec 12 et 8, personne ne visite. Retenu : **24 cellules pour le snack-bar, 12 pour le pro shop** (la porte la plus proche posable est à 17 et 9 cellules). Un joueur qui pose plus loin n'a aucune visite : c'est la règle, pas un défaut.
+
+| Parties (graines 1, 2, 3) | Golfeurs | Abandons | Humeur de sortie | Visites snack-bar | Visites 2e snack-bar | Visites pro shop |
+|---|---|---|---|---|---|---|
+| Sans bâtiment | 286, 295, 267 | 7, 6, 5 (2,4 / 2,0 / 1,9 %) | 6,76 · 7,10 · 5,11 | 0 | 0 | 0 |
+| Probabilités 0,5 et 0,3 | 287, 299, 273 | 8, 8, 2 (2,8 / 2,7 / 0,7 %) | 7,01 · 7,51 · 6,30 | 114, 134, 103 | 0 | 76, 85, 79 |
+| Probabilités 0,8 et 0,6 | 288, 296, 267 | 6, 8, 8 (2,1 / 2,7 / 3,0 %) | 7,36 · 7,67 · 6,54 | 185, 198, 179 | 0 | 164, 179, 133 |
+| 2 snack-bars, 0,8 et 0,6 | 288, 299, 267 | 3, 5, 8 (1,0 / 1,7 / 3,0 %) | 7,36 · 7,69 · 6,54 | 192, 196, 179 (+0 au 2e) | 0 | 173, 182, 133 |
+| **Données finales** (profils) | 288, 296, 269 | 3, 9, 3 (1,0 / 3,0 / 1,1 %) | 7,41 · 7,59 · 6,48 | 169, 190, 176 | 0 | 188, 189, 146 |
+| Données finales, 2 snack-bars | 288, 296, 271 | 5, 9, 4 (1,7 / 3,0 / 1,5 %) | 7,27 · 7,59 · 6,87 | 171, 190, 197 (+0 au 2e) | 0 | 178, 189, 151 |
+| Portées 12 et 8 | 282, 295, 267 | 8, 8, 6 (2,8 / 2,7 / 2,2 %) | 6,59 · 7,06 · 5,12 | 0 | 0 | 0 |
+
+Lecture :
+- **Un deuxième snack-bar voisin ne rapporte rien** : chacun ne visite qu'un snack-bar par partie et va au plus proche, donc le premier garde toutes les visites (le 2e en a 0 sur 6 parties). Le total des visites au snack-bar reste celui d'un seul (169, 190, 176 contre 171, 190, 197 ; l'écart de la graine 3 vient de parties qui divergent, pas du 2e snack-bar). Le revenu ne double donc pas, et le 2e snack-bar ne rembourse jamais son prix : c'est ce que le choix 2 exigeait.
+- **Abandons hors ligue sous 5 %** sur toutes les parties : au plus 3,0 % (sans bâtiment : 1,9 à 2,4 %). Les visites ne ralentissent pas assez le jeu pour fâcher, et l'humeur de sortie monte (+0,5 à +1,4).
+- **Prix et revenus** (revenu annuel = 4 × visites des 30 jours, graine la plus faible comprise) :
+
+| Bâtiment | Prix | Revenu | Revenu annuel (graines 1, 2, 3) | Rapport au prix, pire graine |
+|---|---|---|---|---|
+| Snack-bar | 12 000 $ (hypothèse : 20 000 $) | 22 $ par visite (hypothèse : 6 $) | 14 872 · 16 720 · 15 488 $ | 124 % |
+| Pro shop | 20 000 $ (hypothèse : 30 000 $) | 40 $ par visite (hypothèse : 10 $) | 30 080 · 30 240 · 23 360 $ | 117 % |
+| Hangar | 15 000 $ (inchangé) | −15 % d'entretien : 9 trous × 1 100 $ × 15 % × 12 mois | 17 820 $ | 119 % |
+
+  Les revenus d'hypothèse (6 $ et 10 $) ne pouvaient pas rembourser des bâtiments de 20 000 et 30 000 $ : il y a environ 290 golfeurs en 30 jours, donc au plus 1 160 par an et une visite par genre et par golfeur.
+- Bonus du pro shop : dispersion × 0,97 pour le reste de la partie (une seule visite par partie, donc borné). Hangar : −15 %, non cumulatif. Banc : +0,1 de beauté, rayon 6 m.
+- Banc P1 (`dotnet run -c Release --project tests/Golferoo.Sim.Bench`, « Arrivées continues », 18 trous, 5 000 arbres, attrait au maximum, un snack-bar, un pro shop, un hangar et un banc posés, 11 visites pendant la mesure) : tick moyen 1,06 ms (limite 2), p99 2,02 ms (limite 5).
+
 ## Critères d'acceptation
 1. Sauvegarde : la liste des bâtiments entre dans `Checksum` et `Save` (v17), un cas `SaveTests` échoue si elle est oubliée, une sauvegarde v16 se charge.
 2. Pose : un bâtiment se pose sur du rough, pas sur un fairway, un green, un départ, un bunker, de l'eau ni sur une autre emprise ; les arbres sous l'emprise sont coupés et facturés ; un genre verrouillé est refusé ; un solde insuffisant suit les règles du découvert. Chaque cas par un test qui vérifie la commande refusée ou acceptée, pas un compteur.
