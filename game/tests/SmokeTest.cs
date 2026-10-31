@@ -5,6 +5,7 @@ using Golferoo.Game.Rendering;
 using Golferoo.Game.Tools;
 using Golferoo.Game.Ui;
 using Golferoo.Sim;
+using Golferoo.Sim.Buildings;
 using Golferoo.Sim.Economy;
 using Golferoo.Sim.Golfers;
 using Golferoo.Sim.Terrain;
@@ -987,6 +988,104 @@ public partial class SmokeTest : Node
         }
     }
 
+    /// <summary>Un point où le genre se poserait (porte au sud) : le centre d'une emprise que la sim accepte, ou nul.</summary>
+    private static Point2? BuildingSpot(World world, TerrainGrid grid, BuildingKind kind)
+    {
+        var rect = world.BuildingRules.At(kind, 0, 0, DoorSide.South)!.Footprint;
+        for (var z = 1; z < grid.CellsZ - rect.MaxZ - 2; z += 2)
+        {
+            for (var x = 1; x < grid.CellsX - rect.MaxX - 2; x += 2)
+            {
+                if (world.CheckBuilding(kind, x, z, DoorSide.South) == BuildingPlacement.Placed)
+                {
+                    return new Point2((x + ((rect.MaxX + 1) / 2.0)) * grid.CellSize, (z + ((rect.MaxZ + 1) / 2.0)) * grid.CellSize);
+                }
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// C17 lot 3, critère 9 : chaque bouton du tiroir Bâtiments choisit son genre et pose son bâtiment (sans touche), rendu à la position de la sim ; le fantôme est vert
+    /// sur un emplacement valide et rouge sur un fairway ; une vente rend la moitié du prix. Le monde est remis comme avant.
+    /// </summary>
+    private void CheckBuildings(List<string> failures)
+    {
+        var main = _main!;
+        var world = main.World;
+        var grid = world.Terrain!;
+        var tool = main.BuildingTool;
+        var layer = main.Structures;
+        void Expect(bool ok, string what)
+        {
+            if (!ok)
+            {
+                failures.Add($"C17 bâtiments : {what}");
+            }
+        }
+
+        Expect(Press(UiIds.Tool.Buildings, failures) && tool.Active && main.Bar.Current == ToolFamily.Buildings && !main.PlaceTool.Active && !main.Brush.Active, "le bouton Bâtiments ne prend pas l'outil");
+        var placed = new List<Golferoo.Sim.Buildings.Building>();
+        foreach (var kind in BuildingTool.Kinds)
+        {
+            var name = kind.ToString();
+            Expect(Press(UiIds.Action.Building(name), failures) && tool.Kind == kind, $"{name} : le bouton ne choisit pas le genre");
+            if (BuildingSpot(world, grid, kind) is not { } spot)
+            {
+                failures.Add($"C17 bâtiments : {name} : aucun emplacement valide sur le parcours");
+                continue;
+            }
+
+            var count = world.PlacedBuildings.Count;
+            var balance = world.Ledger.Balance;
+            Expect(tool.ShowGhost(spot) == BuildingPlacement.Placed && layer.GhostVisible && layer.GhostValid, $"{name} : le fantôme n'est pas vert sur un emplacement valide");
+            var result = tool.TryPlace(spot);
+            Expect(result == BuildingPlacement.Placed && world.PlacedBuildings.Count == count + 1, $"{name} : pose refusée ({result})");
+            Expect(world.Ledger.Balance <= balance - (world.BuildingCost(kind) ?? 0), $"{name} : le prix n'est pas payé");
+            if (world.PlacedBuildings.Count == count + 1)
+            {
+                placed.Add(world.PlacedBuildings[^1]);
+            }
+        }
+
+        layer.Update(world.PlacedBuildings);
+        var centers = layer.ModelCenters.ToList();
+        Expect(layer.ShownCount == placed.Count && centers.Count == placed.Count, $"{layer.ShownCount} modèles rendus pour {placed.Count} bâtiments posés");
+        for (var i = 0; i < Math.Min(centers.Count, placed.Count); i++)
+        {
+            var at = placed[i].Position(grid.CellSize);
+            Expect(Math.Abs(centers[i].X - at.X) < 0.05 && Math.Abs(centers[i].Z - at.Z) < 0.05, $"{placed[i].Kind} : le modèle n'est pas à la position de la sim ({centers[i]} pour {at})");
+        }
+
+        // Le fantôme d'un snack-bar sur un fairway est rouge, avec une raison.
+        Press(UiIds.Action.Building(nameof(BuildingKind.SnackBar)), failures);
+        Point2? fairway = null;
+        for (var z = 10.0; z < grid.CellsZ * grid.CellSize && fairway is null; z += 5.0)
+        {
+            for (var x = 10.0; x < grid.CellsX * grid.CellSize && fairway is null; x += 5.0)
+            {
+                fairway = grid.SurfaceAt(x, z) == Surface.Fairway ? new Point2(x, z) : null;
+            }
+        }
+
+        Expect(fairway is { } f && tool.ShowGhost(f) == BuildingPlacement.BadSurface && layer.GhostVisible && !layer.GhostValid && tool.Status.Contains("rough"), "le fantôme ne montre pas de refus sur un fairway");
+
+        // Une vente rend la moitié du prix et libère l'emprise.
+        foreach (var building in placed.AsEnumerable().Reverse())
+        {
+            var cost = world.BuildingCost(building.Kind) ?? 0;
+            var balance = world.Ledger.Balance;
+            var count = world.PlacedBuildings.Count;
+            Expect(tool.TrySell(building.Position(grid.CellSize)) && world.Ledger.Balance == balance + (cost / 2) && world.PlacedBuildings.Count == count - 1, $"{building.Kind} : la vente ne rend pas la moitié du prix");
+        }
+
+        layer.Update(world.PlacedBuildings);
+        Expect(layer.ShownCount == 0, "des modèles restent après la vente");
+        main.Bar.Select(ToolFamily.None, toggle: false);
+        Expect(!tool.Active && !layer.GhostVisible, "l'outil et son fantôme ne se ferment pas");
+    }
+
     /// <summary>Pousse une touche (appui puis relâché) dans la fenêtre, comme le clavier ; rend vrai pour s'enchaîner dans une condition.</summary>
     private bool PushKey(Key key)
     {
@@ -1244,10 +1343,8 @@ public partial class SmokeTest : Node
         Expect(main.Camera.Mode == CameraMode.Free, "Caméra libre");
         Press(UiIds.Round.Camera, failures);
         Expect(main.Camera.Mode == CameraMode.Iso, "retour à la vue iso");
-        foreach (var id in new[] { UiIds.Tool.Buildings, UiIds.Tool.Amenities })
-        {
-            Expect(ui.Find(id) is BaseButton { Disabled: true }, $"{id} devrait être grisé");
-        }
+        Expect(ui.Find(UiIds.Tool.Amenities) is BaseButton { Disabled: true }, $"{UiIds.Tool.Amenities} devrait être grisé");
+        CheckBuildings(failures);
 
         main.Bar.Select(ToolFamily.None, toggle: false);
         Expect(!brush.Active && !trees.Active && !place.Active && !ui.Find(UiIds.Drawer.Root)!.Visible, "rien de pris : le tiroir reste ouvert");
