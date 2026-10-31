@@ -47,7 +47,7 @@ public partial class ReactionReport : Node
             CustomMinimumSize = new Vector2(0f, 32f),
             TooltipText = "Un disque par réaction récente : rouge pour une contrariété, vert pour un plaisir. Là où ils s'accumulent, le parcours fait réagir.",
         };
-        _mapButton.Toggled += SetMap;
+        _mapButton.Pressed += () => SetMap(!_map.Visible);
         _panel.Content.AddChild(_mapButton);
         _panel.Content.AddChild(new Label { Text = "Rouge : à corriger. Vert : ce qui plaît. Les chiffres sont des réactions de golfeurs, ce mois-ci puis le mois précédent.", ThemeTypeVariation = "UiCaption", AutowrapMode = TextServer.AutowrapMode.WordSmart, CustomMinimumSize = new Vector2(Width - 40f, 0f) });
         _holes = new VBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
