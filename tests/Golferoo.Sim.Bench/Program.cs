@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Text.Json;
 using Golferoo.Sim;
+using Golferoo.Sim.Buildings;
 using Golferoo.Sim.Golfers;
 using Golferoo.Sim.League;
 using Golferoo.Sim.Pathing;
@@ -288,12 +289,12 @@ WriteSummary(full, fullPassed);
 var arrivals = MeasureArrivals(Path.Combine(Path.GetDirectoryName(holePath)!, "..", "..", "tests", "Golferoo.Sim.Bench", "Courses", "dix-huit.json"));
 var arrivalsPassed = arrivals.MostOnCourse <= arrivals.GroupCeiling && arrivals.TickMean < fullCourseTickMeanLimitMs && arrivals.TickP99 < fullCourseTickP99LimitMs;
 allPassed &= arrivalsPassed;
-Console.WriteLine($"Arrivées continues ({arrivals.Holes} trous, {arrivals.Trees} arbres, attrait au maximum, {arrivals.Ticks} ticks) : {arrivals.Arrived} groupes en file, {arrivals.TurnedAway} refusés, {arrivals.Left} sortis ; au plus {arrivals.MostOnCourse} groupes sur le parcours (plafond {arrivals.GroupCeiling}), file jusqu'à {arrivals.LongestQueue} ; tick moyen {arrivals.TickMean:F3} ms (limite {fullCourseTickMeanLimitMs}), p99 {arrivals.TickP99:F3} ms (limite {fullCourseTickP99LimitMs}), pire {arrivals.TickMax:F2} ms");
+Console.WriteLine($"Arrivées continues ({arrivals.Holes} trous, {arrivals.Trees} arbres, attrait au maximum, {arrivals.Ticks} ticks) : {arrivals.Arrived} groupes en file, {arrivals.TurnedAway} refusés, {arrivals.Left} sortis ; au plus {arrivals.MostOnCourse} groupes sur le parcours (plafond {arrivals.GroupCeiling}), file jusqu'à {arrivals.LongestQueue} ; tick moyen {arrivals.TickMean:F3} ms (limite {fullCourseTickMeanLimitMs}), p99 {arrivals.TickP99:F3} ms (limite {fullCourseTickP99LimitMs}), pire {arrivals.TickMax:F2} ms ; {arrivals.Buildings} bâtiments posés, {arrivals.Visits} visites");
 
 var report = new
 {
     fullCourse = FullJson(full, fullPassed),
-    arrivals = new { arrivals.Holes, arrivals.Trees, arrivals.Ticks, arrivals.Arrived, arrivals.TurnedAway, arrivals.Left, arrivals.MostOnCourse, ceiling = arrivals.GroupCeiling, arrivals.LongestQueue, tickMeanMs = arrivals.TickMean, tickP99Ms = arrivals.TickP99, tickMaxMs = arrivals.TickMax, passed = arrivalsPassed },
+    arrivals = new { arrivals.Holes, arrivals.Trees, arrivals.Ticks, arrivals.Arrived, arrivals.TurnedAway, arrivals.Left, arrivals.MostOnCourse, ceiling = arrivals.GroupCeiling, arrivals.LongestQueue, tickMeanMs = arrivals.TickMean, tickP99Ms = arrivals.TickP99, tickMaxMs = arrivals.TickMax, arrivals.Buildings, arrivals.Visits, passed = arrivalsPassed },
     planProfiles = new { teeMedianMs = planProfiles.ToDictionary(p => p.Profile.ToString(), p => p.Ms), worstRatio = planProfileWorst, limit = planProfileRatioLimit, passed = planProfileWorst <= planProfileRatioLimit },
     playMap = new { doglegMedianMs = mapDogleg.Median, doglegLimitMs = playMapDoglegLimitMs, map512MedianMs = map512.Median, map512LimitMs = playMap512LimitMs, passed = mapDogleg.Median < playMapDoglegLimitMs && map512.Median < playMap512LimitMs },
     tutorial = new { holeCheckMedianMs = holeCheck.Median, stepMedianMs = tutorialStep.Median, limitMs = tutorialLimitMs, passed = holeCheck.Median < tutorialLimitMs && tutorialStep.Median < tutorialLimitMs },
@@ -438,6 +439,9 @@ static ArrivalsResult MeasureArrivals(string coursePath)
     var terrain = CourseLoader.Load(coursePath, 2);
     var world = new World(seed: 1, terrain, placeClubhouse: true, arrivals: ArrivalParams.Default.AtMaxAttraction()) { Climate = Climate.Calm };
     FillTrees(world, terrain, treeCount);
+    var buildings = Equip(world);
+    var visits = 0;
+    world.MoodChanged += c => visits += c.Event == MoodEvent.ServiceVisited ? 1 : 0;
     var arrived = 0;
     var turnedAway = 0;
     var left = 0;
@@ -459,7 +463,35 @@ static ArrivalsResult MeasureArrivals(string coursePath)
     }
 
     Array.Sort(ticks);
-    return new ArrivalsResult(terrain.Course.Count, treeCount, measuredTicks, arrived, turnedAway, left, mostOnCourse, groupCeiling, longestQueue, ticks.Average(), ticks[(int)(measuredTicks * 0.99)], ticks[^1]);
+    return new ArrivalsResult(terrain.Course.Count, treeCount, measuredTicks, arrived, turnedAway, left, mostOnCourse, groupCeiling, longestQueue, ticks.Average(), ticks[(int)(measuredTicks * 0.99)], ticks[^1], buildings, visits);
+}
+
+// C17 lot 2 : un snack-bar à la sortie du trou du milieu, un pro shop, un hangar et un banc près du pavillon, pour que les visites soient actives pendant la mesure.
+static int Equip(World world)
+{
+    var terrain = world.Terrain!;
+    var placed = 0;
+    void Put(BuildingKind kind, Point2 around)
+    {
+        var target = (X: terrain.CellXOf(around.X), Z: terrain.CellZOf(around.Z));
+        var corners = Enumerable.Range(0, terrain.CellsZ).SelectMany(z => Enumerable.Range(0, terrain.CellsX).Select(x => (X: x, Z: z)))
+            .OrderBy(c => Math.Pow(world.BuildingRules.At(kind, c.X, c.Z, DoorSide.South)!.DoorCell.X - target.X, 2) + Math.Pow(world.BuildingRules.At(kind, c.X, c.Z, DoorSide.South)!.DoorCell.Z - target.Z, 2));
+        foreach (var c in corners)
+        {
+            if (world.CheckBuilding(kind, c.X, c.Z, DoorSide.South) == BuildingPlacement.Placed)
+            {
+                placed += world.PlaceBuilding(kind, c.X, c.Z, DoorSide.South) == BuildingPlacement.Placed ? 1 : 0;
+                return;
+            }
+        }
+    }
+
+    var door = world.Clubhouse!.DoorPosition(terrain.CellSize);
+    Put(BuildingKind.ProShop, door);
+    Put(BuildingKind.SnackBar, world.ExitPointOf((terrain.Course.Count + 1) / 2));
+    Put(BuildingKind.MaintenanceShed, door);
+    Put(BuildingKind.Bench, door);
+    return placed;
 }
 
 static FullCourseResult MeasureFullCourse(string coursePath)
@@ -961,4 +993,4 @@ internal readonly record struct FullCourseResult(
         TickMean < meanLimit && TickP99 < p99Limit && Retouch.Median < retouchLimit && SaveMs < saveLimit && LoadMs < loadLimit && SaveBytes < bytesLimit;
 }
 
-internal readonly record struct ArrivalsResult(int Holes, int Trees, int Ticks, int Arrived, int TurnedAway, int Left, int MostOnCourse, int GroupCeiling, int LongestQueue, double TickMean, double TickP99, double TickMax);
+internal readonly record struct ArrivalsResult(int Holes, int Trees, int Ticks, int Arrived, int TurnedAway, int Left, int MostOnCourse, int GroupCeiling, int LongestQueue, double TickMean, double TickP99, double TickMax, int Buildings, int Visits);

@@ -34,9 +34,9 @@ internal sealed class MoodRun
     public double MeanExit => ExitMoods.Count == 0 ? 0.0 : ExitMoods.Average();
 
     /// <summary>« Le neuf » avec son pavillon, sans ligue ; la graine de référence est 1.</summary>
-    public static MoodRun Go(int days, bool physical, ulong seed = 1, TerrainGrid? terrain = null, MoodParams? mood = null, ArrivalParams? arrivals = null, Action<World>? setup = null, bool noQuit = false)
+    public static MoodRun Go(int days, bool physical, ulong seed = 1, TerrainGrid? terrain = null, MoodParams? mood = null, ArrivalParams? arrivals = null, Action<World>? setup = null, bool noQuit = false, Buildings.BuildingParams? buildings = null)
     {
-        var world = new World(seed, terrain ?? ClubhouseTests.LeNeuf(), physical ? null : new StubShotResolver(), league: false, placeClubhouse: true, arrivals: arrivals, mood: mood);
+        var world = new World(seed, terrain ?? ClubhouseTests.LeNeuf(), physical ? null : new StubShotResolver(), league: false, placeClubhouse: true, arrivals: arrivals, mood: mood, buildings: buildings);
         setup?.Invoke(world);
         var run = new MoodRun { World = world };
         var byVisitor = new Dictionary<int, Golfer>();

@@ -11,7 +11,7 @@ namespace Golferoo.Sim.Tests;
 /// <summary>C17 lot 2 : visites à pied (snack-bar, pro shop), revenus, humeur, bonus du pro shop, hangar, banc, sauvegarde v18.</summary>
 public class VisitTests
 {
-    private static Dictionary<Archetype, double> All(double p) => Enum.GetValues<Archetype>().ToDictionary(a => a, _ => p);
+    internal static Dictionary<Archetype, double> All(double p) => Enum.GetValues<Archetype>().ToDictionary(a => a, _ => p);
 
     /// <summary>Tout le monde visite à coup sûr : les tests ne dépendent pas du tirage.</summary>
     private static BuildingParams Sure => BuildingParams.Default with { SnackBarChance = All(1.0), ProShopChance = All(1.0) };
@@ -32,17 +32,17 @@ public class VisitTests
     }
 
     /// <summary>L'angle où la pose est acceptée et dont la porte est la plus proche de <paramref name="around"/>.</summary>
-    private static (int X, int Z) Nearest(World world, BuildingKind kind, Point2 around, DoorSide side = DoorSide.South) =>
+    internal static (int X, int Z) Nearest(World world, BuildingKind kind, Point2 around, DoorSide side = DoorSide.South) =>
         Corners(world, kind, side, d => CellsBetween(world, d, around)).First(c => world.CheckBuilding(kind, c.X, c.Z, side) == BuildingPlacement.Placed);
 
-    private static Building Place(World world, BuildingKind kind, Point2 around, DoorSide side = DoorSide.South)
+    internal static Building Place(World world, BuildingKind kind, Point2 around, DoorSide side = DoorSide.South)
     {
         var (x, z) = Nearest(world, kind, around, side);
         Assert.Equal(BuildingPlacement.Placed, world.PlaceBuilding(kind, x, z, side));
         return world.PlacedBuildings[^1];
     }
 
-    private static Point2 ClubDoor(World world) => world.Clubhouse!.DoorPosition(world.Terrain!.CellSize);
+    internal static Point2 ClubDoor(World world) => world.Clubhouse!.DoorPosition(world.Terrain!.CellSize);
 
     /// <summary>Un snack-bar près du trou du virage et un pro shop près du pavillon.</summary>
     private static void EquipBoth(World world, int extra = 0)
