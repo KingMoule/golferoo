@@ -311,7 +311,13 @@ public class SaveTests
         }
         else
         {
-            raw = raw[..^Bytes(w => world.Reactions.WriteSpots(w)).Length]; // les réactions sans leurs cellules (v16)
+            raw = raw[..^Bytes(w => world.Reactions.Write(w)).Length]; // les réactions sans leurs cellules (v16), au dernier événement près (v18)
+            raw = [.. raw, .. Bytes(w =>
+            {
+                var events = Enum.GetValues<Golferoo.Sim.Golfers.MoodEvent>().Where(e => e != Golferoo.Sim.Golfers.MoodEvent.ServiceVisited).ToList();
+                w.List(Enumerable.Range(1, 18).SelectMany(h => events.Select(e => world.Reactions.Count(h, e))).ToList(), w.Int);
+                w.List(Enumerable.Range(1, 18).SelectMany(h => events.Select(e => world.Reactions.Previous(h, e))).ToList(), w.Int);
+            })];
         }
 
         foreach (var group in world.Groups)
@@ -322,7 +328,15 @@ public class SaveTests
             {
                 var g = Bytes(w => golfer.Write(w));
                 var cut = 5 + (version == 13 ? 4 + 1 + 4 + (4 * MoodParams.EventCount) + 4 : 0); // trous aimés (v15), puis humeur, abandon, compteurs et attente (v14)
-                legacy = ReplaceOnce(legacy, g, g[..^cut]);
+                var older = g[..^(19 + cut)]; // ni visite (v18)
+                if (version != 13)
+                {
+                    // les compteurs d'événements n'avaient pas le dernier (v18) : on le retire, avec 4 octets de moins dans leur longueur
+                    var count = older.Length - 4 - (4 * MoodParams.EventCount) - 4;
+                    older = [.. older[..count], .. BitConverter.GetBytes(MoodParams.EventCount - 1), .. older[(count + 4)..^8], .. older[^4..]];
+                }
+
+                legacy = ReplaceOnce(legacy, g, older);
             }
 
             raw = ReplaceOnce(raw, bytes, version == 13 ? legacy[..^8] : legacy); // l'heure d'arrivée du groupe (v14) est la dernière chose écrite
@@ -460,7 +474,7 @@ public class SaveTests
     public void Load_UnknownVersion_Throws()
     {
         var bytes = Save(Build(1, "proto", "start"));
-        bytes[4] = 18;
+        bytes[4] = 19;
 
         Assert.Throws<InvalidDataException>(() => Load(bytes));
     }

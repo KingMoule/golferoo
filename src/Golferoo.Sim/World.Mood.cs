@@ -46,7 +46,7 @@ public sealed partial class World
 
         var before = g.Mood;
         g.Mood = MoodParams.Clamp(before + def.Value);
-        g.LikedThisHole |= def.Value > 0 && e != MoodEvent.ProPlaysWithUs;
+        g.LikedThisHole |= def.Value > 0 && e is not (MoodEvent.ProPlaysWithUs or MoodEvent.ServiceVisited);
         var cell = CellOf(at);
         Reactions.Add(hole, e, cell);
         MoodChanged?.Invoke(new MoodChange(g, e, hole, cell, g.Mood - before));
@@ -132,6 +132,8 @@ public sealed partial class World
                 Raise(g, MoodEvent.TeeWait, 1, g.Position);
             }
         }
+
+        OfferProShop(group);
     }
 
     /// <summary>Le golfeur attend le groupe devant : à <see cref="MoodParams.SlowPlayTicks"/> ticks sur un même trou, le jeu est lent.</summary>
@@ -195,9 +197,9 @@ public sealed partial class World
 
     private BeautyMap Beauty(TerrainGrid terrain)
     {
-        if (_beautyMap is null || !_beautyMap.StillValid(terrain, Trees, Season, _beautySources))
+        if (_beautyMap is null || !_beautyMap.StillValid(terrain, Trees, Season, _beautySources, _benchBeauty))
         {
-            _beautyMap = BeautyMap.Build(terrain, Trees, Season, _beautySources);
+            _beautyMap = BeautyMap.Build(terrain, Trees, Season, _beautySources, _benchBeauty);
         }
 
         return _beautyMap;

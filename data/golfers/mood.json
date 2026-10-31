@@ -42,6 +42,7 @@
     { "id": "remarkableTree", "value": 1, "minor": false, "thought": "Quel bel arbre, il a de la prestance." },
     { "id": "beautifulHole", "value": 1, "minor": false, "thought": "Quel beau trou, une vraie carte postale." },
     { "id": "longWalk", "value": -1, "minor": true, "thought": "Il y a une sacrée marche jusqu'au prochain départ." },
-    { "id": "proPlaysWithUs", "value": 1, "minor": false, "thought": "Je joue avec le pro, quelle chance !" }
+    { "id": "proPlaysWithUs", "value": 1, "minor": false, "thought": "Je joue avec le pro, quelle chance !" },
+    { "id": "serviceVisited", "value": 1, "minor": false, "thought": "Ça fait du bien de s'arrêter un moment." }
   ]
 }

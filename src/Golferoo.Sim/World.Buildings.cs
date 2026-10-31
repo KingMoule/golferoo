@@ -89,6 +89,7 @@ public sealed partial class World
 
         _placed.Add(building);
         flow.ChangeObstacle(null, building.Footprint);
+        RefreshBenchBeauty();
         return BuildingPlacement.Placed;
     }
 
@@ -108,6 +109,7 @@ public sealed partial class World
         _placed.RemoveAt(index);
         Ledger.Post(LedgerCategory.Buildings, BuildingRules.Spec(building.Kind)!.Cost / 2);
         flow.ChangeObstacle(building.Footprint, null);
+        RefreshBenchBeauty();
         return true;
     }
 
@@ -163,8 +165,9 @@ public sealed partial class World
             return BuildingPlacement.Golfer;
         }
 
-        // Un chemin de la porte au départ du trou 1, l'emprise comprise : un bâtiment n'enferme personne.
-        if (hasDoor && !FlowField.Build(terrain, flow.CostsWith(null, rect), dx, dz).IsReachable(terrain.CellXOf(terrain.Tee.X), terrain.CellZOf(terrain.Tee.Z)))
+        // Un chemin du départ du trou 1 à chaque porte, la sienne et celles des bâtiments déjà posés (pavillon compris), l'emprise comprise : une pose n'enferme personne.
+        var fromTee = FlowField.Build(terrain, flow.CostsWith(null, rect), terrain.CellXOf(terrain.Tee.X), terrain.CellZOf(terrain.Tee.Z));
+        if ((hasDoor && !fromTee.IsReachable(dx, dz)) || others.Any(o => o.Kind != BuildingKind.Bench && !fromTee.IsReachable(o.DoorCell.X, o.DoorCell.Z)))
         {
             return BuildingPlacement.NoPath;
         }

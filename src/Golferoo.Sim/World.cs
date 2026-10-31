@@ -749,6 +749,11 @@ public sealed partial class World
             Mix(ref hash, (ulong)g.VisitorId);
         }
 
+        if (g.Offered != 0 || g.State == GolferState.Visiting)
+        {
+            Mix(ref hash, g.Offered | ((ulong)g.VisitKind << 8) | ((ulong)g.Resume << 16));
+        }
+
         if (g.VisitorId >= 0)
         {
             Mix(ref hash, (ulong)(uint)(g.Mood - MoodParams.Min) | (g.Quit ? 1UL << 8 : 0UL) | ((ulong)(uint)g.WaitTicks << 16));
@@ -892,6 +897,7 @@ public sealed partial class World
             return;
         }
 
+        StepVisits(terrain, group);
         if (group.Leaving || (group.FromArrivals && group.Finished))
         {
             UpdateLeaving(terrain, group);
@@ -955,6 +961,7 @@ public sealed partial class World
             // Tout le groupe a fini le trou : il marche vers le prochain trou ouvert, ou la partie est finie.
             RecordHole(group);
             var next = NextOpenHole(group);
+            var completed = group.Hole;
             if (next > 0)
             {
                 ResolveQuits(group); // il reste des trous : celui qui est sous zéro rentre au pavillon, les autres continuent
@@ -962,6 +969,7 @@ public sealed partial class World
                 {
                     BeforeMove(group, terrain.Course[next]);
                     MoveToHole(group, terrain.Course[next]);
+                    OfferSnackBar(group, completed, last: false);
                 }
             }
             else if (group.LeagueRound >= 0)
@@ -974,6 +982,8 @@ public sealed partial class World
                 {
                     g.State = GolferState.Leaving;
                 }
+
+                OfferSnackBar(group, completed, last: true);
             }
 
             return;

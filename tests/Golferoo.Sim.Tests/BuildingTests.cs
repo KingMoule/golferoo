@@ -146,12 +146,7 @@ public class BuildingTests
     [Fact]
     public void Place_ALockedKind_IsRefused_ThenAccepted_OnceEnoughHolesAreOpen()
     {
-        var locked = BuildingParams.Parse("""
-            { "snackBar": { "width": 6, "depth": 5, "cost": 100, "unlockHoles": 10 },
-              "proShop": { "width": 8, "depth": 6, "cost": 100, "unlockHoles": 4 },
-              "maintenanceShed": { "width": 8, "depth": 6, "cost": 100, "unlockHoles": 6 },
-              "bench": { "width": 1, "depth": 1, "cost": 100, "unlockHoles": 1 } }
-            """);
+        var locked = BuildingParams.Default with { SnackBar = BuildingParams.Default.SnackBar with { UnlockHoles = 10 } };
         var world = NewGame(rules: locked);
         Assert.Equal(9, world.OpenHoles);
         var (x, z) = FreeSpot(NewGame(), BuildingKind.SnackBar);

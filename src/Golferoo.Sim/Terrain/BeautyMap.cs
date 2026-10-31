@@ -2,6 +2,9 @@ using Golferoo.Sim.Trees;
 
 namespace Golferoo.Sim.Terrain;
 
+/// <summary>Un apport de beauté en plus des sources : des points (les bancs de C17), leur poids et leur rayon en mètres.</summary>
+public sealed record BeautyAccent(IReadOnlyList<Point2> Spots, double Weight, double RadiusMeters);
+
 /// <summary>
 /// Beauté de 0 à 1 par cellule, pour l'artiste : chaque source (l'eau, les arbres, les fleurs au printemps, les sources de beauté
 /// posées dans le monde) apporte son poids × (1 − d / <see cref="Radius"/>), d étant la distance à la plus proche ; les apports
@@ -27,8 +30,9 @@ public sealed class BeautyMap
     private readonly Season _season;
     private readonly IReadOnlyList<Point2> _sources;
     private readonly int _sourceCount;
+    private readonly BeautyAccent? _accent;
 
-    private BeautyMap(TerrainGrid terrain, TreeStand? trees, Season season, IReadOnlyList<Point2> sources)
+    private BeautyMap(TerrainGrid terrain, TreeStand? trees, Season season, IReadOnlyList<Point2> sources, BeautyAccent? accent)
     {
         _terrain = terrain;
         _terrainVersion = terrain.SurfaceVersion;
@@ -37,6 +41,7 @@ public sealed class BeautyMap
         _season = season;
         _sources = sources;
         _sourceCount = sources.Count;
+        _accent = accent;
         _beauty = new float[terrain.CellsX * terrain.CellsZ];
     }
 
@@ -44,24 +49,24 @@ public sealed class BeautyMap
     public double At(double x, double z) => _beauty[(_terrain.CellZOf(z) * _terrain.CellsX) + _terrain.CellXOf(x)];
 
     /// <summary>La carte vaut encore pour ce terrain, ces arbres, cette saison et ces sources.</summary>
-    public bool IsFor(TerrainGrid terrain, TreeStand? trees, Season season, IReadOnlyList<Point2> sources) =>
+    public bool IsFor(TerrainGrid terrain, TreeStand? trees, Season season, IReadOnlyList<Point2> sources, BeautyAccent? accent = null) =>
         ReferenceEquals(terrain, _terrain) && terrain.SurfaceVersion == _terrainVersion
         && ReferenceEquals(trees, _trees) && (trees?.Version ?? 0) == _treesVersion
-        && season == _season && ReferenceEquals(sources, _sources) && sources.Count == _sourceCount;
+        && season == _season && ReferenceEquals(sources, _sources) && sources.Count == _sourceCount && ReferenceEquals(accent, _accent);
 
     /// <summary>
     /// Comme <see cref="IsFor"/>, mais une retouche des surfaces qui laisse l'eau où elle était ne compte pas et les fleurs du printemps non plus :
     /// la carte est alors la même, on la garde (C12 lot 4 : sans cela, chaque retouche coûtait une carte entière au premier artiste qui joue).
     /// </summary>
-    public bool StillValid(TerrainGrid terrain, TreeStand? trees, Season season, IReadOnlyList<Point2> sources)
+    public bool StillValid(TerrainGrid terrain, TreeStand? trees, Season season, IReadOnlyList<Point2> sources, BeautyAccent? accent = null)
     {
-        if (IsFor(terrain, trees, season, sources))
+        if (IsFor(terrain, trees, season, sources, accent))
         {
             return true;
         }
 
         if (!ReferenceEquals(terrain, _terrain) || !ReferenceEquals(trees, _trees) || (trees?.Version ?? 0) != _treesVersion
-            || season != _season || !ReferenceEquals(sources, _sources) || sources.Count != _sourceCount)
+            || season != _season || !ReferenceEquals(sources, _sources) || sources.Count != _sourceCount || !ReferenceEquals(accent, _accent))
         {
             return false;
         }
@@ -79,19 +84,19 @@ public sealed class BeautyMap
         return true;
     }
 
-    public static BeautyMap Build(TerrainGrid terrain, TreeStand? trees, Season season, IReadOnlyList<Point2> sources)
+    public static BeautyMap Build(TerrainGrid terrain, TreeStand? trees, Season season, IReadOnlyList<Point2> sources, BeautyAccent? accent = null)
     {
-        var map = new BeautyMap(terrain, trees, season, sources);
+        var map = new BeautyMap(terrain, trees, season, sources, accent);
         var nx = terrain.CellsX;
         var n = nx * terrain.CellsZ;
         var mask = new bool[n];
 
-        void Add(double weight)
+        void Add(double weight, double radius = Radius)
         {
             var d = Distances(mask, nx, terrain.CellsZ, terrain.CellSize);
             for (var i = 0; i < n; i++)
             {
-                map._beauty[i] = (float)Math.Min(1.0, map._beauty[i] + (weight * Math.Max(0.0, 1.0 - (d[i] / Radius))));
+                map._beauty[i] = (float)Math.Min(1.0, map._beauty[i] + (weight * Math.Max(0.0, 1.0 - (d[i] / radius))));
             }
 
             Array.Clear(mask);
@@ -136,6 +141,16 @@ public sealed class BeautyMap
             }
 
             Add(SourceWeight);
+        }
+
+        if (accent is { Spots.Count: > 0 })
+        {
+            foreach (var s in accent.Spots)
+            {
+                mask[(terrain.CellZOf(s.Z) * nx) + terrain.CellXOf(s.X)] = true;
+            }
+
+            Add(accent.Weight, accent.RadiusMeters);
         }
 
         return map;
