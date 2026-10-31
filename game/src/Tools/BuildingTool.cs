@@ -92,7 +92,7 @@ public partial class BuildingTool : Node
         _main.Structures.ShowGhost(target, verdict == BuildingPlacement.Placed);
         var name = UiNames.BuildingName(target.Kind);
         Status = verdict == BuildingPlacement.Placed
-            ? $"{name}, {UiMoney.Format(world.BuildingCost(target.Kind) ?? 0)} (plus le défrichage s'il y a des arbres) : clic pour poser, molette pour tourner, clic droit sur un bâtiment pour le vendre à moitié prix."
+            ? $"{name}, {UiMoney.Format(world.BuildingCost(target.Kind) ?? 0)} + défrichage : clic pour poser, molette pour tourner, clic droit pour vendre."
             : $"{name} : {UiNames.Refusal(verdict)}";
         return verdict;
     }

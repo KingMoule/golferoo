@@ -1082,6 +1082,10 @@ public partial class SmokeTest : Node
 
         layer.Update(world.PlacedBuildings);
         Expect(layer.ShownCount == 0, "des modèles restent après la vente");
+
+        // Le tiroir reprend sa taille avant la suite : la mise en page ne passe qu'entre deux images, et les clics suivants visent le terrain.
+        main.Bar.Select(ToolFamily.Terrain, toggle: false);
+        main.Ui.Find(UiIds.Drawer.Root)!.ResetSize();
         main.Bar.Select(ToolFamily.None, toggle: false);
         Expect(!tool.Active && !layer.GhostVisible, "l'outil et son fantôme ne se ferment pas");
     }
