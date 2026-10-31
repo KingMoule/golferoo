@@ -13,3 +13,5 @@ Ajouter sans relire tout le fichier : `echo "- ..." >> docs/lecons.md`. `/amelio
 - 2026-10-29 · outil · la modification de `.claude/settings.json` par la session (allow-list des commandes d'agents) est refusée par le mode auto : à faire par Guillaume s'il la veut · en attente · /ameliorer du 2026-10-29
 - Codeur en worktree : commandes composées (heredoc + &&) refusées, un script lancé deux fois a laissé un doublon (C15 lot 1).
 - Banc ou CI lancés en tâche de fond par un agent : CPU étranglé (~5 %), 70 min sans fin ; les lancer au premier plan (C15 lot 2).
+- Calage C16 lot 1 : humeur de départ au plafond (10) choisie par balayage, un tiers des positifs écrêtés ; un critère de calage doit aussi borner ce qui est perdu, pas seulement le taux visé.
+- Migration de sauvegarde (C16 lot 2) : un else rattaché au mauvais if a remis l'humeur v14 à 6, invisible car le test partait des valeurs par défaut ; archiver une vraie sauvegarde de main comme fixture à chaque montée de version.
