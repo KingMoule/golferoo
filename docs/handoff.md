@@ -1,32 +1,42 @@
-Mis à jour : 2026-10-30 (compte de G. St-Arnaud, session de bureau Windows)
+Mis à jour : 2026-10-31 (compte de G. St-Arnaud, session de bureau Windows ; reprise prévue sur un autre compte)
 
 ## État
-Vague 1 finie (C00 à C14, C21, C25). Vague 2 : C15 (pavillon et arrivée des golfeurs) livré, #138 à #142, audits sans bloquant. Sauvegarde en v13. Plus d'heures dans le jeu : barre du jour, soleil sans nuit, arrivées toute la journée ; IA marche ×3 et vol ×1,5 ; « Le neuf » absorbe environ 3 à 5 départs par jour (`groupsPerDay` 4).
+Vague 2 : C15 (pavillon et arrivées, #138 à #143) et C16 (humeur, pensées et adhésion, #144 à #147) livrés. La boucle est fermée : les golfeurs arrivent, réagissent, abandonnent ou deviennent membres, et la ligue recrute parmi eux. Sauvegarde en v16. C'est le moment de la première vraie séance de jeu de Guillaume (`docs/plan-alpha.md`).
 
-## À signaler à Guillaume (C15)
-- Choix du groupe de la file pour le pro reporté à C16 (décision 20) : le clic sélectionne et la caméra suit, mais `Main.ChosenGroupId` n'est lu par rien ; le message « choisi dans la file » promet plus que ce qui est fait.
-- À regarder en jeu : la façade du pavillon est-elle du côté de la porte (le .glb est supposé faire face en +Z) ; le soleil, peu lisible dans la capture (pluie).
-- Le chemin de sortie longe le départ du trou 9 (visuel).
-- Job Captures porté à 540 s (environ 6 min en CI) ; le banc « vent » a échoué une fois (ratio 1,078 contre 1,05), passé au relancement.
+## À signaler à Guillaume (C16)
+- Calage de l'humeur : départ 7, baisse de 1 tous les 5 trous, contrariété mineure comptée à partir de sa 6e répétition, coup décevant −1 (−2 dans l'original), vue panoramique 0,2, beau trou 0,5. Mesuré sur 30 jours sans ligue : 1,9 à 2,4 % d'abandons (graines 1 à 3). La beauté pèse donc peu : à revoir en jeu.
+- Les jours de ligue engorgent le parcours, avec 7 à 9 % d'abandons sur 45 à 60 jours : effet gardé (décision 9). Première raison d'abandon : l'eau.
+- Adhésion (« Le neuf », graine 1) : premier membre au jour 6, premier Silver au jour 14, ligue ouverte vers le jour 15. Le jeu crée toujours le club pré-rempli, et le club vide n'existe que dans la sim (C22 ajoutera le menu de nouvelle partie).
+- À relire : les 16 pensées de `data/golfers/mood.json` et les libellés du rapport, en dur dans `UiNames.Reactions`.
+- C15, à voir en jeu : façade du pavillon du côté de la porte, soleil, chemin de sortie qui longe le départ du trou 9.
 
 ## En cours
-- **Petit correctif de test** (réserve de l'audit de #135) : `ProSeasonSim` appelle `ProQuality.Awards(...)` sans le trou ; passer `hole.Hole` puis régénérer le tableau de qualité de la spec C25. [agent]
-- **C23 lot 2** : attend les animations de Guillaume (marche, putt, attente, réactions). [guillaume]
-- À vérifier par Guillaume : FPS avec `Mesurer FPS.bat` (C13 critère 13, C23 critère 8, C21 critère 2) ; drapeau sans scintillement ; pente de la rive (`shore_depth`, `blur_meters`) ; liste d'autorisations de `.claude/settings.json` proposée dans #133 (facultatif). [guillaume]
+- **Petit correctif de test** (réserve de #135) : `ProSeasonSim` appelle `ProQuality.Awards(...)` sans le trou ; passer `hole.Hole` puis régénérer le tableau de qualité de la spec C25. [agent]
+- **Garde-fou ligue et parcours** (audit de #145) : un membre peut être à la fois visiteur sur le parcours et engagé dans une journée de ligue, et le pro aussi, entre un groupe de la file et la ligue. Rare. Touche `Draw` de la ligue et le cycle de `InPlay`. [agent]
+- **C23 lot 2** : attend les animations de Guillaume. [guillaume]
+- À vérifier par Guillaume : FPS avec `Mesurer FPS.bat` (C13, C21, C23), drapeau sans scintillement, pente de la rive. [guillaume]
 
 ## Reporté
-Choix du groupe de la file par le pro, migration des 40 membres de la ligue vers le vivier, vivier qui grossit avec les visiteurs acceptés (C16) ; test CI du critère 4 en résolveur simplifié, sans le régime saturé du physique ; chargement v12 testé seulement sur un monde neuf ; journal des commandes et rejeu ; sauvegardes nommées ; migration de format à la première version publique ; tampons des champs de flux avant les grands parcours ; une journée de ligue qui ne se clôt jamais gèle la ligue (à surveiller en C22).
+- Fumée : l'info-bulle masquée pendant `ProAim`/`PlaceTool` n'est pas exercée, et la jauge de fiche n'est assertée que si l'humeur change.
+- `Reactions.Spots` (256 dernières) n'est pas remis à zéro au mois.
+- `ArrivalParams` n'est pas sauvegardé.
+- L'historique des pensées de la fiche n'est pas sauvegardé.
+- Le critère 4 de C15 en CI est tenu en résolveur simplifié.
+- Journal des commandes et rejeu.
+- Sauvegardes nommées.
+- Tampons des champs de flux.
+- Ligue qui ne se clôt jamais (à surveiller en C22).
 
 ## Règles de projet
-- Fusion : une PR prête (quatre jobs de CI verts sur le dernier commit, audit prévu par la spec sans bloquant, aucun commentaire de revue ouvert) est fusionnée par la session elle-même (`gh pr merge N --merge --match-head-commit <sha>`). On ne supprime pas la branche. Une PR qui touche `CLAUDE.md`, `.claude/` ou `docs/workflow.md` attend Guillaume.
-- Guillaume veut être interrogé avant chaque spec : rondes de questions numérotées avec recommandation, maquette quand c'est visuel, spec validée par lui (« go ») avant les lots.
-- Orchestration : la session principale délègue chaque chantier ou audit à `codeur` ou `auditeur` en arrière-plan, `isolation: worktree` ; un correctif se renvoie au même agent par `SendMessage`. Un codeur lance banc et CI au premier plan (en tâche de fond, le CPU est étranglé).
-- Environnement local Windows (`C:\dev\golferoo`) : .NET 10 et `gh`, pas de Godot (la CI fait foi). Astuces Windows dans `CLAUDE.md`.
-- Assets 3D : partir du catalogue `catalogue-assets/` ; filières dans `docs/assets-3d.md`.
+- Fusion : une PR prête (4 jobs de CI verts sur le dernier commit, audit prévu par la spec sans bloquant, aucun commentaire de revue) est fusionnée par la session elle-même (`gh pr merge N --merge --match-head-commit <sha>`), sans supprimer la branche. Une PR qui touche `CLAUDE.md`, `.claude/` ou `docs/workflow.md` attend Guillaume ; `ci.yml` n'en fait pas partie.
+- Guillaume est interrogé avant chaque spec : rondes de questions numérotées avec recommandation, maquette si c'est visuel, spec validée par son « go » avant les lots.
+- Orchestration : la session principale délègue chaque lot à `codeur` et chaque audit à `auditeur`, en arrière-plan avec `isolation: worktree`. Un correctif est renvoyé au même agent (`SendMessage`). Banc, CI et calages se lancent au premier plan, une commande par appel.
+- Calage : borner aussi ce qui est perdu (par exemple les positifs écrêtés), pas seulement le taux visé, et toujours sur 3 graines en physique. Chaque montée de version de sauvegarde archive une vraie sauvegarde de `main` comme fixture (`tests/Golferoo.Sim.Tests/Fixtures/`).
+- Environnement Windows (`C:\dev\golferoo`) : .NET 10 et `gh`, pas de Godot (la CI fait foi). Assets : `catalogue-assets/`, `docs/assets-3d.md`.
 
 ## Décisions récentes
-- C15 (Guillaume) : pavillon placé automatiquement et déplaçable contre un coût ; file de 8, refus qui baisse la réputation ; vivier persistant ; pas d'effet de saison ni de prix ; plafond 2 groupes par trou ; plus de journée réelle (décisions 14 à 19 de la spec).
-- C25 : 17 habiletés, niveaux 0 à 50, `distanceFloor` 75 %.
+- C16 (Guillaume) : moins de 5 % d'abandons hors ligue, adhésion à 2/4/8/16 points, ligue ouverte dès 8 avec le pro, bulles à l'événement, le pro se joint au groupe cliqué, pas d'effet direct de la météo, contagion à l'abandon, aucun plafond de membres.
+- C15 (Guillaume) : plus de journée réelle (barre du jour, soleil sans nuit), file de 8, plafond de 2 groupes par trou.
 
 ## Prochaine étape
-Cadrer C16 (humeur, pensées et adhésion) avec Guillaume, une ronde de questions à la fois ; y inclure le choix du groupe de la file et la migration des membres de la ligue vers le vivier. Rien n'est lancé avant son « go ».
+EN ATTENTE de Guillaume : première séance de jeu sur « Le neuf » (export Windows de la CI, artefact `golferoo-windows`) et ses retours sur l'humeur et les pensées. Ensuite, cadrer C17 (bâtiments et aménagements) avec lui.
