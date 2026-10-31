@@ -197,9 +197,9 @@ public sealed partial class World
 
     private BeautyMap Beauty(TerrainGrid terrain)
     {
-        if (_beautyMap is null || !_beautyMap.StillValid(terrain, Trees, Season, _beautySources, _benchBeauty))
+        if (_beautyMap is null || !_beautyMap.StillValid(terrain, Trees, Season, _beautySources, BenchAccent))
         {
-            _beautyMap = BeautyMap.Build(terrain, Trees, Season, _beautySources, _benchBeauty);
+            _beautyMap = BeautyMap.Build(terrain, Trees, Season, _beautySources, BenchAccent);
         }
 
         return _beautyMap;

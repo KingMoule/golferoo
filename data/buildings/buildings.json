@@ -3,8 +3,8 @@
 // Visites (lot 2) : range = portée en cellules entre le golfeur et la porte, revenue = cents encaissés par visite.
 // Le calage est dans specs/C17-batiments-amenagements.md.
 {
-  "snackBar": { "width": 6, "depth": 5, "cost": 2000000, "unlockHoles": 3, "range": 8, "revenue": 600 },
-  "proShop": { "width": 8, "depth": 6, "cost": 3000000, "unlockHoles": 4, "range": 5, "revenue": 1000 },
+  "snackBar": { "width": 6, "depth": 5, "cost": 2000000, "unlockHoles": 3, "range": 24, "revenue": 600 },
+  "proShop": { "width": 8, "depth": 6, "cost": 3000000, "unlockHoles": 4, "range": 12, "revenue": 1000 },
   "maintenanceShed": { "width": 8, "depth": 6, "cost": 1500000, "unlockHoles": 6 },
   "bench": { "width": 1, "depth": 1, "cost": 30000, "unlockHoles": 1 },
 

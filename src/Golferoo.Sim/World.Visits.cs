@@ -14,7 +14,8 @@ namespace Golferoo.Sim;
 /// </summary>
 public sealed partial class World
 {
-    private BeautyAccent? _benchBeauty;
+    /// <summary>Beauté ajoutée par les bancs posés (nulle sans banc), lue par <see cref="BeautyMap"/>.</summary>
+    internal BeautyAccent? BenchAccent { get; private set; }
 
     /// <summary>Porte du hangar le plus proche de <paramref name="from"/>, ou celle du pavillon sans hangar : d'où partent les tondeuses. Nul sans pavillon.</summary>
     public Point2? MowerDepot(Point2 from)
@@ -35,10 +36,10 @@ public sealed partial class World
     {
         var cs = Terrain?.CellSize ?? 1.0;
         var spots = _placed.Where(b => b.Kind == BuildingKind.Bench).Select(b => b.Position(cs)).ToList();
-        _benchBeauty = spots.Count == 0 ? null : new BeautyAccent(spots, BuildingRules.BenchBeauty.Weight, BuildingRules.BenchBeauty.RadiusMeters);
+        BenchAccent = spots.Count == 0 ? null : new BeautyAccent(spots, BuildingRules.BenchBeauty.Weight, BuildingRules.BenchBeauty.RadiusMeters);
         if (_resolver is PhysicalShotResolver physical)
         {
-            physical.BeautyAccent = _benchBeauty;
+            physical.BeautyAccent = BenchAccent;
         }
     }
 
