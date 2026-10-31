@@ -1,4 +1,4 @@
-Mis à jour : 2026-10-31 (compte de G. St-Arnaud, session de bureau Windows ; reprise prévue sur un autre compte)
+Mis à jour : 2026-10-31 (reprise sur le compte de Guillaume ; correctifs #150 livrés)
 
 ## État
 Vague 2 : C15 (pavillon et arrivées, #138 à #143) et C16 (humeur, pensées et adhésion, #144 à #147) livrés. La boucle est fermée : les golfeurs arrivent, réagissent, abandonnent ou deviennent membres, et la ligue recrute parmi eux. Sauvegarde en v16. C'est le moment de la première vraie séance de jeu de Guillaume (`docs/plan-alpha.md`).
@@ -11,8 +11,7 @@ Vague 2 : C15 (pavillon et arrivées, #138 à #143) et C16 (humeur, pensées et 
 - C15, à voir en jeu : façade du pavillon du côté de la porte, soleil, chemin de sortie qui longe le départ du trou 9.
 
 ## En cours
-- **Petit correctif de test** (réserve de #135) : `ProSeasonSim` appelle `ProQuality.Awards(...)` sans le trou ; passer `hole.Hole` puis régénérer le tableau de qualité de la spec C25. [agent]
-- **Garde-fou ligue et parcours** (audit de #145) : un membre peut être à la fois visiteur sur le parcours et engagé dans une journée de ligue, et le pro aussi, entre un groupe de la file et la ligue. Rare. Touche `Draw` de la ligue et le cycle de `InPlay`. [agent]
+- Livrés en #150 : `ProSeasonSim` passe le trou à `Awards` (tableau C25 régénéré) ; garde-fou ligue/parcours (un groupe de ligue attend un membre ou le pro qui joue devant lui, et un membre en ligue ne revient pas en visiteur).
 - **C23 lot 2** : attend les animations de Guillaume. [guillaume]
 - À vérifier par Guillaume : FPS avec `Mesurer FPS.bat` (C13, C21, C23), drapeau sans scintillement, pente de la rive. [guillaume]
 
