@@ -849,13 +849,13 @@ public partial class Captures : Node
         var rect = world.BuildingRules.At(BuildingKind.SnackBar, 0, 0, DoorSide.South)!.Footprint;
         (int X, int Z)? spot = null;
         var verdicts = new Dictionary<BuildingPlacement, int>();
-        for (var radius = 3; radius <= 60 && spot is null; radius++)
+        for (var radius = 3; radius <= 18 && spot is null; radius++)
         {
             for (var dz = -radius; dz <= radius && spot is null; dz++)
             {
                 for (var dx = -radius; dx <= radius && spot is null; dx++)
                 {
-                    if (Math.Max(Math.Abs(dx), Math.Abs(dz)) != radius)
+                    if (Math.Max(Math.Abs(dx), Math.Abs(dz)) != radius || (dx * dx) + (dz * dz) > 18 * 18)
                     {
                         continue;
                     }
