@@ -303,6 +303,7 @@ public class SaveTests
     {
         var league = world.League;
         Assert.True(league is null || league.Members.Count == 1);
+        raw = raw[..^4]; // ni bâtiments posés (v17)
         raw = raw[..^4]; // ni commandes du pro (v15)
         if (version == 13)
         {
@@ -459,7 +460,7 @@ public class SaveTests
     public void Load_UnknownVersion_Throws()
     {
         var bytes = Save(Build(1, "proto", "start"));
-        bytes[4] = 17;
+        bytes[4] = 18;
 
         Assert.Throws<InvalidDataException>(() => Load(bytes));
     }
@@ -1036,6 +1037,23 @@ public class SaveTests
         }
 
         return false;
+    }
+
+    /// <summary>C17 lot 1 (v17) : les bâtiments posés se sauvent et se relisent ; ce cas échoue si la liste est oubliée de <c>Save</c> ou du <c>Checksum</c>.</summary>
+    [Fact]
+    public void PlacedBuildings_AreSavedLoadedAndChecksummed()
+    {
+        var world = new World(3, ClubhouseTests.LeNeuf(), new StubShotResolver(), league: true, placeClubhouse: true);
+        var before = world.Checksum();
+        var spot = Enumerable.Range(0, world.Terrain!.CellsZ).SelectMany(z => Enumerable.Range(0, world.Terrain.CellsX).Select(x => (x, z)))
+            .First(p => world.CheckBuilding(BuildingKind.Bench, p.x, p.z, DoorSide.South) == BuildingPlacement.Placed);
+        Assert.Equal(BuildingPlacement.Placed, world.PlaceBuilding(BuildingKind.Bench, spot.x, spot.z, DoorSide.South));
+        Assert.NotEqual(before, world.Checksum());
+
+        var loaded = Load(Save(world));
+
+        Assert.Equal(world.PlacedBuildings, loaded.PlacedBuildings);
+        Assert.Equal(world.Checksum(), loaded.Checksum());
     }
 
     /// <summary>C15 lot 1 (v12) : le pavillon se sauve, se relit et entre dans la somme de contrôle ; un pavillon déplacé se relit à sa nouvelle place.</summary>

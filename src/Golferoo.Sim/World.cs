@@ -1,3 +1,4 @@
+using Golferoo.Sim.Buildings;
 using Golferoo.Sim.Economy;
 using Golferoo.Sim.Golfers;
 using Golferoo.Sim.League;
@@ -67,12 +68,13 @@ public sealed partial class World
     private Point2?[] _exitPoints = [];
     private long _exitPointVersion = -1;
 
-    public World(ulong seed, TerrainGrid? terrain = null, IShotResolver? resolver = null, bool league = false, EconomyParams? economy = null, ProgressionParams? progression = null, bool placeClubhouse = false, ArrivalParams? arrivals = null, MoodParams? mood = null, MembershipParams? membership = null, bool emptyClub = false)
+    public World(ulong seed, TerrainGrid? terrain = null, IShotResolver? resolver = null, bool league = false, EconomyParams? economy = null, ProgressionParams? progression = null, bool placeClubhouse = false, ArrivalParams? arrivals = null, MoodParams? mood = null, MembershipParams? membership = null, bool emptyClub = false, BuildingParams? buildings = null)
     {
         Seed = seed;
         Arrivals = arrivals ?? ArrivalParams.Default;
         Moods = mood ?? MoodParams.Default;
         Memberships = membership ?? MembershipParams.Default;
+        BuildingRules = buildings ?? BuildingParams.Default;
         Reputation = Arrivals.ReputationStart;
         _arrivalRng = new DeterministicRng(seed ^ ArrivalSeedMask);
         Terrain = terrain;
@@ -659,6 +661,7 @@ public sealed partial class World
         }
 
         MixClubhouse(ref hash);
+        MixBuildings(ref hash);
         MixArrivals(ref hash);
         MixMood(ref hash);
         MixMembership(ref hash);

@@ -151,6 +151,7 @@ public sealed partial class World
         WriteArrivals(w);
         Reactions.Write(w);
         w.List(_joinCommands, w.Int);
+        w.List(_placed, b => b.Write(w));
     }
 
     private static void WriteRating(SaveWriter w, CourseRating r)
@@ -321,6 +322,17 @@ public sealed partial class World
             AdoptClub(); // avant la v15, les membres de la ligue n'étaient pas des visiteurs : les 40 de la graine le deviennent, mêmes handicap et division
         }
 
+        if (r.Version >= 17)
+        {
+            _placed.AddRange(r.List(() => Building.Read(r)));
+            var all = _placed.Select(b => b.Footprint).Concat(Clubhouse is { } club ? [club.Footprint] : []).ToList();
+            if (_placed.Any(b => b.Kind == BuildingKind.Clubhouse || Terrain is null || b.Footprint.MinX < 0 || b.Footprint.MinZ < 0 || b.Footprint.MaxX >= Terrain.CellsX || b.Footprint.MaxZ >= Terrain.CellsZ)
+                || all.Where((a, i) => all.Skip(i + 1).Any(o => Overlaps(a, o))).Any())
+            {
+                throw new InvalidDataException("Sauvegarde incohérente : bâtiment hors de la carte ou superposé.");
+            }
+        }
+
         if (League is not null && League.Members.Any(m => m.VisitorId >= Visitors.Next || (!m.IsPro && m.VisitorId < 0)))
         {
             throw new InvalidDataException("Sauvegarde incohérente : membre de la ligue sans visiteur.");
@@ -329,7 +341,7 @@ public sealed partial class World
         _resolver = resolver ?? (Terrain is null ? new StubShotResolver() : new PhysicalShotResolver());
         if (Terrain is not null)
         {
-            Flow = new FlowFieldCache(Terrain, pending: pendingFlow, cached: cachedFlow, obstacles: Clubhouse is null ? null : [Clubhouse.Footprint]);
+            Flow = new FlowFieldCache(Terrain, pending: pendingFlow, cached: cachedFlow, obstacles: _placed.Select(b => b.Footprint).Concat(Clubhouse is null ? [] : [Clubhouse.Footprint]));
             Terrain.Soil.Season = Season;
             RefreshSoil();
             if (_resolver is PhysicalShotResolver physical)

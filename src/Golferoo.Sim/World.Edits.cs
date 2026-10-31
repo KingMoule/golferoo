@@ -81,7 +81,7 @@ public sealed partial class World
             }
             else if (e.Kind == EditKind.Paint)
             {
-                if (TouchesClubhouse(terrain, e.Center, e.Radius))
+                if (TouchesBuildings(terrain, e.Center, e.Radius))
                 {
                     continue; // l'emprise du pavillon ne se repeint pas
                 }
@@ -112,7 +112,7 @@ public sealed partial class World
             }
             else
             {
-                if (TouchesClubhouse(terrain, e.Center, e.Radius))
+                if (TouchesBuildings(terrain, e.Center, e.Radius))
                 {
                     continue; // ni ne se modèle
                 }
