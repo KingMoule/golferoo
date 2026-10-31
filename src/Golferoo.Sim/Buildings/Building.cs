@@ -7,6 +7,10 @@ namespace Golferoo.Sim.Buildings;
 public enum BuildingKind : byte
 {
     Clubhouse,
+    SnackBar,
+    ProShop,
+    MaintenanceShed,
+    Bench,
 }
 
 /// <summary>Côté de l'emprise où s'ouvre la porte (z croît vers le sud).</summary>

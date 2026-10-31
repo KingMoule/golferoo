@@ -1,0 +1,8 @@
+// Bâtiments et aménagements posables (C17). Tailles en cellules (largeur x profondeur, porte au sud ; un quart de tour les échange),
+// prix en cents entiers, seuil de déblocage en nombre de trous ouverts. Le pavillon n'est pas ici : il se pose à la nouvelle partie (C15).
+{
+  "snackBar": { "width": 6, "depth": 5, "cost": 2000000, "unlockHoles": 3 },
+  "proShop": { "width": 8, "depth": 6, "cost": 3000000, "unlockHoles": 4 },
+  "maintenanceShed": { "width": 8, "depth": 6, "cost": 1500000, "unlockHoles": 6 },
+  "bench": { "width": 1, "depth": 1, "cost": 30000, "unlockHoles": 1 }
+}

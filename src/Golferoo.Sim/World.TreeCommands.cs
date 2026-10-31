@@ -209,6 +209,11 @@ public sealed partial class World
             return false; // l'emprise du pavillon (et sa bordure) reste libre d'arbres
         }
 
+        if (_placed.Any(b => b.Footprint.Contains(terrain.CellXOf(c.X), terrain.CellZOf(c.Z))))
+        {
+            return false; // comme celle des autres bâtiments
+        }
+
         var species = TreeSpeciesTable.Get(c.Species);
         var age = c.Stage == TreePlantStage.Mound ? TreePlanting.MoundAgeMonths(Trees.NextId) : 0;
         var crown = Tree.CrownDiameter(species, age) * 0.5;
