@@ -1025,7 +1025,7 @@ public sealed partial class World
     private bool TryRelease(TerrainGrid terrain, int index)
     {
         var group = _groups[index];
-        if ((group.LeagueRound >= 0 && Tick < group.ReleaseTick) || !HoleOpen || (group.FromArrivals && !CanStartArrival(terrain)) || (index > 0 && !TeeCleared(terrain, _groups[index - 1])))
+        if ((group.LeagueRound >= 0 && (Tick < group.ReleaseTick || LeagueMemberPlaysAhead(index))) || !HoleOpen || (group.FromArrivals && !CanStartArrival(terrain)) || (index > 0 && !TeeCleared(terrain, _groups[index - 1])))
         {
             return false;
         }
