@@ -84,7 +84,7 @@ internal static class ProSeasonSim
                 pro.Record(terrain, ball, shot, aimed, r, league, year, wind, hole.Hole);
                 if (onAwards is not null)
                 {
-                    onAwards(ProQuality.Awards(ProgressionParams.Default, terrain, ball, shot, aimed, r, wind));
+                    onAwards(ProQuality.Awards(ProgressionParams.Default, terrain, ball, shot, aimed, r, wind, hole.Hole));
                 }
 
                 strokes += 1 + r.PenaltyStrokes;

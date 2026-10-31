@@ -376,6 +376,35 @@ public class MembershipTests(ITestOutputHelper output)
     }
 
     [Fact]
+    public void LeagueGroup_WaitsForTheProAndForMembersPlayingAhead()
+    {
+        var world = WithQueue(groups: 2);
+        var queue = world.Groups.Where(g => g.FromArrivals && !g.Released).ToList();
+        var pro = world.League!.Members.First(m => m.IsPro);
+        Assert.True(world.JoinQueuedGroup(queue[0].Id));
+        world.Step();
+        var member = Recruit(world, "Test", 20.0);
+        var visitorGolfer = queue[1].Golfers[0];
+        member.VisitorId = visitorGolfer.VisitorId; // ce membre est aussi, ce jour-là, un visiteur de la file
+
+        var groups = (List<Group>)world.Groups;
+        var forPro = new Group(9001, [new Golfer(9001, queue[0].Golfers[0].Position, GolferState.Arriving) { MemberId = pro.Id }]) { LeagueRound = 0 };
+        var forMember = new Group(9002, [new Golfer(9002, queue[0].Golfers[0].Position, GolferState.Arriving) { MemberId = member.Id }]) { LeagueRound = 0 };
+        groups.Add(forPro);
+        groups.Add(forMember);
+        Assert.True(world.LeagueMemberPlaysAhead(groups.IndexOf(forPro)));
+        Assert.True(world.LeagueMemberPlaysAhead(groups.IndexOf(forMember)));
+
+        foreach (var g in queue.SelectMany(q => q.Golfers))
+        {
+            g.State = GolferState.Done;
+        }
+
+        Assert.False(world.LeagueMemberPlaysAhead(groups.IndexOf(forPro)));
+        Assert.False(world.LeagueMemberPlaysAhead(groups.IndexOf(forMember)));
+    }
+
+    [Fact]
     public void JoinQueuedGroup_AMemberWithTheProEarnsOnePointMore()
     {
         Assert.Equal(MembershipParams.Default.ProPoints, MembershipParams.Default.PointsFor(0, 0, true));

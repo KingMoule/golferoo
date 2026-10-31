@@ -98,7 +98,7 @@ public sealed partial class World
         for (var i = 0; i < size; i++)
         {
             Visitor? chosen = null;
-            if (_arrivalRng.NextDouble() < Arrivals.ReturnShare && Visitors.Returning(day, Arrivals.ReturnThreshold) is { Count: > 0 } back)
+            if (_arrivalRng.NextDouble() < Arrivals.ReturnShare && Visitors.Returning(day, Arrivals.ReturnThreshold).Where(v => !InLeagueGroup(v)).ToList() is { Count: > 0 } back)
             {
                 chosen = back[(int)(_arrivalRng.NextUInt64() % (ulong)back.Count)];
             }

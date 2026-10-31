@@ -34,6 +34,32 @@ public sealed partial class World
     /// <summary>Le pro fait partie d'un groupe (partie d'entraînement, journée de ligue ou groupe de la file).</summary>
     private bool ProPlays => _groups.Any(g => g.Golfers.Any(IsPro));
 
+    /// <summary>
+    /// Garde-fou : le groupe de ligue <paramref name="index"/> attend tant qu'un de ses golfeurs (membre ou pro) joue encore dans un groupe devant lui,
+    /// où il serait venu comme visiteur ou avec le pro. Seuls les groupes devant comptent : ils finiront, aucun blocage possible.
+    /// </summary>
+    internal bool LeagueMemberPlaysAhead(int index)
+    {
+        for (var i = 0; i < index; i++)
+        {
+            var ahead = _groups[i];
+            if (!ahead.Finished && _groups[index].Golfers.Any(g => ahead.Golfers.Any(o => IsSamePerson(g, o))))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private bool IsSamePerson(Golfer leagueGolfer, Golfer other) =>
+        (other.MemberId >= 0 && other.MemberId == leagueGolfer.MemberId)
+        || (other.VisitorId >= 0 && other.VisitorId == League!.Members[leagueGolfer.MemberId].VisitorId);
+
+    /// <summary>Le visiteur est membre d'un groupe de ligue pas encore fini : il ne revient pas comme visiteur.</summary>
+    private bool InLeagueGroup(Visitor v) =>
+        _groups.Any(g => g.LeagueRound >= 0 && !g.Finished && g.Golfers.Any(o => o.MemberId >= 0 && League!.Members[o.MemberId].VisitorId == v.Id));
+
     /// <summary>Le club pré-rempli : chaque membre de la ligue qui n'a pas de visiteur en reçoit un, au niveau Member, qui a envie de revenir comme les autres.</summary>
     private void AdoptClub()
     {
