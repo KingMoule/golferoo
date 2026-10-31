@@ -72,6 +72,7 @@ public partial class ReactionReport : Node
     {
         _map.Visible = on;
         _mapButton.SetPressedNoSignal(on);
+        _mapButton.Text = on ? "Cacher la carte du terrain" : "Montrer la carte sur le terrain";
         Refresh();
     }
 

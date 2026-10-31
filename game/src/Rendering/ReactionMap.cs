@@ -11,7 +11,7 @@ namespace Golferoo.Game.Rendering;
 /// </summary>
 public partial class ReactionMap : Node3D
 {
-    private readonly CylinderMesh _disc = new() { TopRadius = 2.4f, BottomRadius = 2.4f, Height = 0.1f, RadialSegments = 20, Rings = 1 };
+    private readonly CylinderMesh _disc = new() { TopRadius = 3.2f, BottomRadius = 3.2f, Height = 0.1f, RadialSegments = 20, Rings = 1 };
     private readonly StandardMaterial3D _good = Disc(UiTheme.Grass);
     private readonly StandardMaterial3D _bad = Disc(UiTheme.Brick);
     private (int Count, ReactionSpot First, ReactionSpot Last) _built = (-1, default, default);
@@ -23,7 +23,9 @@ public partial class ReactionMap : Node3D
     {
         ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
         Transparency = BaseMaterial3D.TransparencyEnum.Alpha,
-        AlbedoColor = new Color(color, 0.45f),
+        AlbedoColor = new Color(color, 0.5f),
+        NoDepthTest = true,
+        RenderPriority = 1,
     };
 
     /// <summary>Remet les disques d'accord avec les réactions de la sim (rien à faire si elles n'ont pas changé).</summary>

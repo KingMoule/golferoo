@@ -899,13 +899,13 @@ public partial class Captures : Node
         main.StepTicks(1);
         main.ReactionReport.Toggle();
         main.ReactionReport.SetMap(true);
+        // Le cadre : la médiane des réactions gardées, large de ce qui en contient 80 % (au moins 120 m).
         var grid = world.Terrain!;
-        var holes = grid.Course.Holes;
-        var (minX, maxX) = (holes.Min(h => Math.Min(h.Tee.X, h.Hole.X)), holes.Max(h => Math.Max(h.Tee.X, h.Hole.X)));
-        var (minZ, maxZ) = (holes.Min(h => Math.Min(h.Tee.Z, h.Hole.Z)), holes.Max(h => Math.Max(h.Tee.Z, h.Hole.Z)));
-        var span = (float)Math.Max(maxX - minX, maxZ - minZ);
+        var xs = world.Reactions.Spots.Select(s => grid.CellCenter(s.X, s.Z).X).Order().ToList();
+        var zs = world.Reactions.Spots.Select(s => grid.CellCenter(s.X, s.Z).Z).Order().ToList();
+        var span = xs.Count == 0 ? 0f : (float)Math.Max(xs[xs.Count * 9 / 10] - xs[xs.Count / 10], zs[zs.Count * 9 / 10] - zs[zs.Count / 10]);
         main.SunDayFraction = 0.4;
-        main.Camera.SetView(45f, Math.Clamp(span * 0.8f, 120f, 400f), new Vector3((float)(minX + maxX) / 2f, 0f, (float)(minZ + maxZ) / 2f));
+        main.Camera.SetView(45f, Math.Clamp(span * 0.9f, 120f, 400f), xs.Count == 0 ? Vector3.Zero : new Vector3((float)xs[xs.Count / 2], 0f, (float)zs[zs.Count / 2]));
         await Frames(SettleFrames);
         var report = main.ReactionReport;
         GD.Print($"REACTIONS lignes={report.Rows.Count} disques={report.MapDiscs} gardees={world.Reactions.Spots.Count} jours={world.DayIndex}");
