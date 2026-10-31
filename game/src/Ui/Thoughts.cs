@@ -211,6 +211,20 @@ public partial class Thoughts : Node
             }
         }
 
+        // Les bulles d'un même groupe se superposent : chacune monte au-dessus de celles déjà posées qu'elle recouvre.
+        var placed = new List<Rect2>();
+        foreach (var bubble in _bubbles.Where(b => b.Node.Visible))
+        {
+            var rect = new Rect2(bubble.Node.Position, bubble.Node.Size);
+            while (placed.FirstOrDefault(p => p.Intersects(rect)) is { Size.X: > 0f } hit)
+            {
+                rect.Position = new Vector2(rect.Position.X, hit.Position.Y - rect.Size.Y - 2f);
+            }
+
+            bubble.Node.Position = rect.Position;
+            placed.Add(rect);
+        }
+
         UpdateTip();
     }
 
