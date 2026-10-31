@@ -844,29 +844,25 @@ public partial class Captures : Node
         main.Bar.Select(ToolFamily.Buildings, toggle: false);
         tool.Select(BuildingKind.SnackBar);
 
-        // Le premier emplacement valide, de plus en plus loin de la sortie du trou 5.
-        var (gx, gz) = (grid.CellXOf(hole.Green.X), grid.CellZOf(hole.Green.Z));
+        // Le premier emplacement valide dont la porte est la plus proche de la sortie du trou 5 (comme les tests de la sim), à portée du snack-bar.
+        var exit = world.ExitPointOf(5);
+        var (gx, gz) = (grid.CellXOf(exit.X), grid.CellZOf(exit.Z));
         var rect = world.BuildingRules.At(BuildingKind.SnackBar, 0, 0, DoorSide.South)!.Footprint;
         (int X, int Z)? spot = null;
         var verdicts = new Dictionary<BuildingPlacement, int>();
-        for (var radius = 3; radius <= 18 && spot is null; radius++)
+        var candidates = Enumerable.Range(0, grid.CellsZ).SelectMany(z => Enumerable.Range(0, grid.CellsX).Select(x => (X: x, Z: z)))
+            .Select(c => (Cell: c, Door: world.BuildingRules.At(BuildingKind.SnackBar, c.X, c.Z, DoorSide.South)!.DoorCell))
+            .Select(c => (c.Cell, Dist: Math.Sqrt(Math.Pow(c.Door.X - gx, 2) + Math.Pow(c.Door.Z - gz, 2))))
+            .Where(c => c.Dist <= 20)
+            .OrderBy(c => c.Dist);
+        foreach (var c in candidates)
         {
-            for (var dz = -radius; dz <= radius && spot is null; dz++)
+            var verdict = world.CheckBuilding(BuildingKind.SnackBar, c.Cell.X, c.Cell.Z, DoorSide.South);
+            verdicts[verdict] = verdicts.GetValueOrDefault(verdict) + 1;
+            if (verdict == BuildingPlacement.Placed)
             {
-                for (var dx = -radius; dx <= radius && spot is null; dx++)
-                {
-                    if (Math.Max(Math.Abs(dx), Math.Abs(dz)) != radius || (dx * dx) + (dz * dz) > 18 * 18)
-                    {
-                        continue;
-                    }
-
-                    var verdict = world.CheckBuilding(BuildingKind.SnackBar, gx + dx, gz + dz, DoorSide.South);
-                    verdicts[verdict] = verdicts.GetValueOrDefault(verdict) + 1;
-                    if (verdict == BuildingPlacement.Placed)
-                    {
-                        spot = (gx + dx, gz + dz);
-                    }
-                }
+                spot = c.Cell;
+                break;
             }
         }
 
@@ -945,10 +941,25 @@ public partial class Captures : Node
 
         var door = snack.DoorPosition(cell);
         GolferView? visitor = null;
-        for (var i = 0; i < 20000 && visitor is null; i++)
+        var visited = 0;
+        void OnMood(MoodChange m)
+        {
+            if (m.Event == MoodEvent.ServiceVisited && visited == 0)
+            {
+                visited = m.Golfer.Id;
+            }
+        }
+
+        world.MoodChanged += OnMood;
+        for (var i = 0; i < 20000 && visited == 0; i++)
         {
             main.StepTicks(4);
-            visitor = world.Snapshot().Golfers.Where(g => g.State == GolferState.Visiting).Select(g => (View: (GolferView?)g, Dist: Math.Abs(g.Position.X - door.X) + Math.Abs(g.Position.Z - door.Z))).Where(v => v.Dist < 6.0).OrderBy(v => v.Dist).Select(v => v.View).FirstOrDefault();
+        }
+
+        world.MoodChanged -= OnMood;
+        if (visited != 0)
+        {
+            visitor = world.Snapshot().Golfers.Where(g => g.Id == visited).Select(g => (GolferView?)g).FirstOrDefault();
         }
 
         if (visitor is not { } seen)
