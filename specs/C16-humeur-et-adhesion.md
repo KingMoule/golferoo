@@ -1,5 +1,5 @@
 # Humeur, pensées et adhésion
-Statut : validé (go de Guillaume le 2026-10-30)
+Statut : livré (go de Guillaume le 2026-10-30)
 Créé : 2026-10-30
 
 ## But
@@ -125,5 +125,5 @@ Le résolveur simplifié ne rend ni eau, ni arbre, ni bunker, ni mauvais coup : 
 Complet (lots 1 et 2), léger (lots 3 et 4).
 
 ## Clôture
-- [ ] Critères vérifiés
-- [ ] Statut passé à « livré », ligne mise à jour dans docs/chantiers.md
+- [x] Critères vérifiés (audits complets des lots 1 et 2, légers des lots 3 et 4, sans bloquant ; réserves dans docs/handoff.md)
+- [x] Statut passé à « livré », ligne mise à jour dans docs/chantiers.md
