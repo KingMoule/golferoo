@@ -891,7 +891,7 @@ public partial class Captures : Node
     private async Task ReactionsView(Main main)
     {
         var world = main.World;
-        for (var day = 0; day < 3; day++)
+        for (var day = 0; day < 1; day++)
         {
             world.Step(Calendar.TicksPerDay);
         }
