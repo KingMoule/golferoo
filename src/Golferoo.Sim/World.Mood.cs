@@ -32,7 +32,7 @@ public sealed partial class World
     private (int X, int Z) CellOf(Point2 p) => (Terrain!.CellXOf(p.X), Terrain.CellZOf(p.Z));
 
     /// <summary>
-    /// L'événement <paramref name="e"/> touche le golfeur. Une contrariété mineure ne compte qu'à partir de sa
+    /// L'événement <paramref name="e"/> touche le golfeur ; <see cref="MoodChange.Delta"/> est le changement réel, écrêté à ±10 (nul au plafond). Une contrariété mineure ne compte qu'à partir de sa
     /// <see cref="MoodParams.RepeatThreshold"/>-ième occurrence : avant, rien ne change, rien n'est compté ni levé.
     /// </summary>
     private void Raise(Golfer g, MoodEvent e, int hole, Point2 at)
@@ -44,9 +44,10 @@ public sealed partial class World
             return;
         }
 
-        g.Mood = MoodParams.Clamp(g.Mood + def.Value);
+        var before = g.Mood;
+        g.Mood = MoodParams.Clamp(before + def.Value);
         Reactions.Add(hole, e);
-        MoodChanged?.Invoke(new MoodChange(g, e, hole, CellOf(at), def.Value));
+        MoodChanged?.Invoke(new MoodChange(g, e, hole, CellOf(at), g.Mood - before));
     }
 
     private static double Dist(Point2 a, Point2 b) => Math.Sqrt(Dist2(a, b));
@@ -279,8 +280,6 @@ public sealed partial class World
         {
             quitter.Quit = true;
             quitter.State = GolferState.Quitting;
-            quitter.Holed = false;
-            quitter.PickedUp = false;
             foreach (var partner in group.Active)
             {
                 partner.Mood = HasMood(partner) ? MoodParams.Clamp(partner.Mood - 1) : partner.Mood;

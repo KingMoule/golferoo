@@ -86,6 +86,16 @@ Hors périmètre :
 
 Hypothèses de l'orchestrateur, réglables en données : la valeur de chaque événement part de celle de l'original quand il est cité (`docs/recensement-sim-golf.md` §9.4), sinon ±1 ; l'humeur de départ et la baisse par trou calent le critère 3.
 
+Calage du lot 1 (résolveur physique, « Le neuf », 30 jours, graines 1, 2 et 3) : humeur de départ 6 (jamais au-dessus de 7, sinon le plafond de 10 avale les événements positifs : 35 % d'entre eux se perdaient à 10), baisse de 1 tous les 5 trous, contrariétés mineures à partir de la 6e occurrence, « coup décevant » à −1. Mesures :
+
+| Graine | Golfeurs | Abandons | Humeur de sortie moyenne | Positifs écrêtés au plafond |
+|---|---|---|---|---|
+| 1 | 286 | 12 (4,2 %) | +6,03 | 24 sur 1 238 (1,9 %) |
+| 2 | 295 | 8 (2,7 %) | +6,84 | 105 sur 1 567 (6,7 %) |
+| 3 | 267 | 11 (4,1 %) | +4,29 | 0 sur 674 (0,0 %) |
+
+Le résolveur simplifié ne rend ni eau, ni arbre, ni bunker, ni mauvais coup : il donne 0 abandon et une sortie à 9,9. Il ne peut donc pas caler. La CI cale sur le résolveur physique, 8 jours (48 golfeurs, graine 1) : au moins un abandon, moins de 8 %, sortie entre 1 et 9, moins de 10 % de positifs écrêtés. Les trois graines sur 30 jours se lancent à la main (`GOLFEROO_LONG=1`).
+
 ## Critères d'acceptation
 1. L'humeur, les compteurs de réactions, les niveaux et points d'adhésion et l'état de la ligue entrent dans `Checksum` et `Save` (v14), et un cas `SaveTests` échoue si l'un d'eux est oublié. Une sauvegarde v13 se charge : ses 40 membres deviennent des membres du vivier, avec le même handicap et la même division.
 2. Événements, chacun par un test qui vérifie l'évènement `MoodChanged`, pas un compteur :
@@ -93,7 +103,7 @@ Hypothèses de l'orchestrateur, réglables en données : la valeur de chaque év
    - une balle dans l'eau aussi ;
    - une contrariété mineure isolée ne change pas l'humeur, sa répétition oui ;
    - un golfeur sous zéro lève `GolferQuit`, rentre au pavillon, et ses partenaires perdent 1.
-3. « Le neuf », graine de référence, résolveur physique, 30 jours de printemps et d'été : moins de 5 % d'abandons (choix 1) et une humeur de sortie moyenne positive. Un trou modifié avec de l'eau devant le green fait baisser l'humeur moyenne de sortie sur ce trou, et ses compteurs « balle dans l'eau » montent. La CI tient la même borne en résolveur simplifié.
+3. « Le neuf », graine de référence, résolveur physique, 30 jours de printemps et d'été : moins de 5 % d'abandons (choix 1) et une humeur de sortie moyenne positive. Un trou modifié avec de l'eau devant le green fait baisser l'humeur moyenne de sortie sur ce trou, et ses compteurs « balle dans l'eau » montent. Les positifs écrêtés au plafond restent sous 10 %. Le critère se tient sur les graines 1, 2 et 3 (la mesure est dans les hypothèses ci-dessus). La CI tient une borne qui peut échouer sur 8 jours en résolveur physique (le résolveur simplifié est trop indulgent pour cela).
 4. Adhésion : sur 60 jours de « Le neuf » à partir d'un club vide, au moins un visiteur devient Member, puis au moins un Member monte Silver. Les évènements `MemberJoined` et `MemberPromoted` sont levés. Un membre qui abandonne lève `MemberResigned` et ne revient jamais.
 5. Ligue : à partir d'un club vide, la ligue reste fermée avec 6 membres et ouvre une division à 7. La journée de ligue suivante n'utilise que de vrais membres. Les tests de C06 et C21 passent sur le club pré-rempli.
 6. Pro et file : `JoinQueuedGroup` met le groupe choisi en tête, et le pro part avec lui au prochain départ libre. Le groupe reçoit l'événement « le pro joue avec nous ». Avec la même graine et les mêmes commandes, on obtient le même `Checksum`.

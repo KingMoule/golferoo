@@ -10,6 +10,12 @@ internal sealed class MoodRun
     public int Golfers;
     public int Quits;
     public readonly List<int> ExitMoods = [];
+
+    /// <summary>Événements positifs levés, et parmi eux ceux que le plafond a écrêtés (changement réel inférieur à la valeur).</summary>
+    public int Positives;
+    public int Clipped;
+
+    public double ClippedShare => Positives == 0 ? 0.0 : Clipped / (double)Positives;
     public readonly int[] Events = new int[MoodParams.EventCount];
 
     /// <summary>Somme des variations d'humeur par trou (indice = numéro du trou).</summary>
@@ -46,6 +52,13 @@ internal sealed class MoodRun
         };
         world.MoodChanged += c =>
         {
+            var nominal = world.Moods.Definitions[(int)c.Event].Value;
+            if (nominal > 0)
+            {
+                run.Positives++;
+                run.Clipped += c.Delta < nominal ? 1 : 0;
+            }
+
             if (noQuit)
             {
                 c.Golfer.Mood = MoodParams.Max; // mesure des événements seuls : personne ne passe sous zéro
@@ -53,7 +66,7 @@ internal sealed class MoodRun
 
             run.Events[(int)c.Event]++;
             run.DeltaByHole[c.Hole] += c.Delta;
-            run.Trace.Add((run.GroupOf[c.Golfer.Id], c.Golfer.Id, c.Hole, c.Delta, c.Event));
+            run.Trace.Add((run.GroupOf[c.Golfer.Id], c.Golfer.Id, c.Hole, nominal, c.Event));
         };
         world.GolferQuit += _ => run.Quits++;
         world.GroupLeft += visitors =>

@@ -73,6 +73,18 @@ public class MoodTests(ITestOutputHelper output)
     }
 
     [Fact]
+    public void PositiveEventAtTheCeiling_IsRaisedWithTheRealDelta_AndStillCounted()
+    {
+        var world = Arrivals(mood: MoodParams.Default with { Start = MoodParams.Max });
+        var changes = Play(world, c => c.Any(x => world.Moods.Definitions[(int)x.Event].Value > 0));
+
+        var change = changes.First(c => world.Moods.Definitions[(int)c.Event].Value > 0);
+        Assert.Equal(0, change.Delta);
+        Assert.Equal(MoodParams.Max, change.Golfer.Mood);
+        Assert.True(world.Reactions.Count(change.Hole, change.Event) >= 1);
+    }
+
+    [Fact]
     public void MinorAnnoyance_CountsOnlyFromItsRepetition()
     {
         // Chaque coup hors green finit au bunker : la contrariété mineure se répète.
@@ -222,18 +234,30 @@ public class MoodTests(ITestOutputHelper output)
     [Fact]
     public void QuitterPaysNoMoreGreenFees()
     {
-        // Même graine, même parcours : seul le départ diffère. Les golfeurs qui abandonnent après le trou 1 ne paient pas les suivants.
-        long Fees(MoodParams mood)
+        // Un paiement par golfeur et par trou joué : un golfeur qui abandonne après le trou k ne paie que k fois, les autres autant que de trous sur leur carte.
+        // Le premier de chaque groupe arrive à humeur nulle et passe sous zéro dès le trou 1 ; ses partenaires, à 10, continuent seuls.
+        var world = Arrivals(mood: MoodParams.Default with { DropEveryHoles = 1 });
+        var golfers = new List<Golfer>();
+        var quitAfter = new Dictionary<Golfer, int>();
+        var withPartners = 0;
+        var payments = 0;
+        world.GroupArrived += g =>
         {
-            var world = Arrivals(mood: mood);
-            world.Step(3 * Day);
-            return world.Ledger.Current(LedgerCategory.GreenFees);
-        }
+            golfers.AddRange(g.Golfers);
+            withPartners += g.Golfers.Count > 1 ? 1 : 0;
+            foreach (var o in g.Golfers)
+            {
+                o.Mood = o == g.Golfers[0] ? 0 : MoodParams.Max;
+            }
+        };
+        world.GolferQuit += q => quitAfter[q.Golfer] = q.Hole;
+        world.Ledger.MoneyChanged += _ => payments++;
+        world.Step(3 * Day);
 
-        var content = Fees(MoodParams.Default);
-        var grumpy = Fees(MoodParams.Default with { Start = 0, DropEveryHoles = 1 });
-        output.WriteLine($"green fees en 3 jours : {content} content, {grumpy} grincheux");
-        Assert.True(grumpy < content);
+        var expected = golfers.Sum(g => quitAfter.TryGetValue(g, out var hole) ? hole : Enumerable.Range(0, g.Card!.HoleCount).Count(h => g.Card.Strokes(h) > 0));
+        output.WriteLine($"{quitAfter.Count} abandons, {payments} paiements, {expected} attendus");
+        Assert.True(withPartners > 0 && quitAfter.Values.Any(h => h < 9), "aucun abandon avec des partenaires qui continuent : le test ne couvre rien");
+        Assert.Equal(expected, payments);
     }
 
     [Fact]
@@ -281,13 +305,14 @@ public class MoodTests(ITestOutputHelper output)
     {
         var p = MoodParams.Default;
         Assert.Equal(16, p.Definitions.Count);
+        Assert.InRange(p.Start, 3, 7); // assez bas pour que les événements positifs comptent (pas écrêtés au plafond)
         Assert.All(Enum.GetValues<MoodEvent>(), e => Assert.Equal(e, p.Definitions[(int)e].Event));
         Assert.All(p.Definitions, d => Assert.True(d.Thought.Length > 10 && d.Value != 0));
         Assert.Equal(p.Definitions.Count, p.Definitions.Select(d => d.Thought).Distinct().Count());
     }
 
     [Theory]
-    [InlineData("\"start\": 10,", "\"start\": 11,")]
+    [InlineData("\"start\": 6,", "\"start\": 11,")]
     [InlineData("\"id\": \"water\"", "\"id\": \"inconnu\"")]
     [InlineData("\"thought\": \"Ma balle est partie à l'eau, zut.\"", "\"thought\": \"\"")]
     [InlineData("\"dropEveryHoles\": 5,", "")]
@@ -315,28 +340,48 @@ public class MoodTests(ITestOutputHelper output)
         Assert.True(Enumerable.Range(1, 9).Sum(h => Enum.GetValues<MoodEvent>().Sum(e => a.Reactions.Count(h, e) + a.Reactions.Previous(h, e))) > 0, "aucune réaction comptée");
     }
 
-    /// <summary>Critère 3 (résolveur simplifié, la CI) : moins de 5 % d'abandons et une humeur de sortie moyenne positive.</summary>
-    [Fact]
-    public void LeNeuf_Stub_FewQuitAndTheyLeaveHappy() => AssertCalibration(MoodRun.Go(30, physical: false), "simplifié");
+    /// <summary>« Le neuf » sans modification, résolveur physique, 8 jours de printemps : partagé par le test de calage de la CI et celui du lac.</summary>
+    private static readonly Lazy<MoodRun> PlainWeek = new(() => MoodRun.Go(8, physical: true));
 
-    /// <summary>Même borne avec le résolveur physique (environ 3 minutes) : lancée si <c>GOLFEROO_LONG</c> est défini, comme à la main au calage.</summary>
+    /// <summary>
+    /// Critère 3 en CI. Le résolveur simplifié ne peut pas servir au calage : il ne rend ni eau, ni arbre, ni bunker, ni mauvais coup, donc personne n'abandonne
+    /// et l'humeur reste au plafond (mesuré : 0 abandon, sortie à 9,9, 29 % des positifs écrêtés). On cale donc en CI sur le résolveur physique, 8 jours
+    /// (environ 50 golfeurs, graine 1), avec une borne qui échoue si le calage dérive : au moins un abandon, moins de 8 %, sortie positive et sous le plafond.
+    /// </summary>
     [Fact]
-    public void LeNeuf_Physical_FewQuitAndTheyLeaveHappy()
+    public void LeNeuf_PhysicalWeek_SomeQuitButFewAndTheyLeaveHappy()
+    {
+        var run = PlainWeek.Value;
+        output.WriteLine($"physique, 8 jours : {run.Golfers} golfeurs, {run.Quits} abandons ({run.QuitShare:P1}), humeur de sortie moyenne {run.MeanExit:0.00}, positifs écrêtés {run.Clipped}/{run.Positives} ({run.ClippedShare:P1})");
+        Assert.True(run.Golfers >= 30, $"{run.Golfers} golfeurs seulement : l'échantillon est trop petit");
+        Assert.True(run.Quits >= 1, "aucun abandon : le calage est devenu trop indulgent");
+        Assert.True(run.QuitShare < 0.08, $"{run.QuitShare:P1} d'abandons");
+        Assert.InRange(run.MeanExit, 1.0, 9.0);
+        Assert.True(run.ClippedShare < 0.10, $"{run.ClippedShare:P1} des événements positifs perdus au plafond");
+    }
+
+    /// <summary>Même borne avec le résolveur physique sur trois graines (environ 3 minutes chacune) : lancée si <c>GOLFEROO_LONG</c> est défini, comme à la main au calage.</summary>
+    [Theory]
+    [InlineData(1UL)]
+    [InlineData(2UL)]
+    [InlineData(3UL)]
+    public void LeNeuf_Physical_FewQuitAndTheyLeaveHappy(ulong seed)
     {
         if (Environment.GetEnvironmentVariable("GOLFEROO_LONG") is null)
         {
             return;
         }
 
-        AssertCalibration(MoodRun.Go(30, physical: true), "physique");
+        AssertCalibration(MoodRun.Go(30, physical: true, seed), $"physique, graine {seed}");
     }
 
     private void AssertCalibration(MoodRun run, string label)
     {
-        output.WriteLine($"{label} : {run.Golfers} golfeurs, {run.Quits} abandons ({run.QuitShare:P1}), humeur de sortie moyenne {run.MeanExit:0.00}, réputation {run.World.Reputation:0.00}");
+        output.WriteLine($"{label} : {run.Golfers} golfeurs, {run.Quits} abandons ({run.QuitShare:P1}), humeur de sortie moyenne {run.MeanExit:0.00}, positifs écrêtés {run.Clipped}/{run.Positives} ({run.ClippedShare:P1}), réputation {run.World.Reputation:0.00}");
         Assert.True(run.Golfers >= 100, $"{run.Golfers} golfeurs seulement : l'échantillon est trop petit");
         Assert.True(run.QuitShare < 0.05, $"{run.QuitShare:P1} d'abandons");
         Assert.True(run.MeanExit > 0.0, $"humeur de sortie moyenne {run.MeanExit:0.00}");
+        Assert.True(run.ClippedShare < 0.10, $"{run.ClippedShare:P1} des événements positifs perdus au plafond : l'humeur de départ est trop haute");
     }
 
     /// <summary>
@@ -346,7 +391,7 @@ public class MoodTests(ITestOutputHelper output)
     [Fact]
     public void LakeInFrontOfTheGreen_LowersTheMoodOnThatHole_AndCountsTheWater()
     {
-        var plain = MoodRun.Go(8, physical: true);
+        var plain = PlainWeek.Value;
         var lake = MoodRun.Go(8, physical: true, setup: w =>
         {
             var hole = w.Terrain!.Course[1];

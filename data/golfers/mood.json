@@ -3,11 +3,11 @@
 // Valeurs de départ : celles de docs/recensement-sim-golf.md §9.4 quand elles y sont, sinon ±1.
 {
   // Humeur à l'arrivée, et baisse de 1 après chaque trou dont le numéro est un multiple de dropEveryHoles
-  "start": 10,
+  "start": 6,
   "dropEveryHoles": 5,
 
   // Une contrariété mineure (minor) ne compte qu'à partir de sa n-ième occurrence chez le même golfeur
-  "repeatThreshold": 3,
+  "repeatThreshold": 6,
 
   // Humeur de sortie à partir de laquelle la sortie est tout à fait bonne pour la réputation (en dessous, elle baisse jusqu'à 0 à −10)
   "reputationFullMood": 8,
@@ -29,7 +29,7 @@
   "events": [
     { "id": "hardPuttHoled", "value": 1, "minor": false, "thought": "Quel putt ! Je n'y croyais pas." },
     { "id": "easyPuttMissed", "value": -1, "minor": false, "thought": "Ce putt-là, je ne devais pas le rater." },
-    { "id": "poorShot", "value": -2, "minor": false, "thought": "Ce coup ne m'a mené nulle part." },
+    { "id": "poorShot", "value": -1, "minor": false, "thought": "Ce coup ne m'a mené nulle part." },
     { "id": "water", "value": -1, "minor": false, "thought": "Ma balle est partie à l'eau, zut." },
     { "id": "bunker", "value": -1, "minor": true, "thought": "Encore dans le sable..." },
     { "id": "treeHit", "value": -1, "minor": true, "thought": "Cet arbre n'avait rien à faire là." },

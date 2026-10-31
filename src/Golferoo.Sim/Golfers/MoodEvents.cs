@@ -36,7 +36,7 @@ public enum MoodEvent : byte
 
 /// <summary>Un événement vu du dehors : un golfeur a réagi (levé quand l'humeur change, pas pour une contrariété mineure isolée).</summary>
 /// <param name="Cell">Cellule du terrain où cela s'est passé.</param>
-/// <param name="Delta">Valeur de l'événement (l'humeur reste bornée à −10…+10).</param>
+/// <param name="Delta">Changement réel de l'humeur : la valeur de l'événement, écrêtée pour que l'humeur reste dans −10…+10 (donc 0 au plafond).</param>
 public readonly record struct MoodChange(Golfer Golfer, MoodEvent Event, int Hole, (int X, int Z) Cell, int Delta);
 
 /// <summary>Un golfeur abandonne la partie. <paramref name="Reason"/> : l'événement qui a le plus pesé sur son humeur, ou nul si elle a seulement baissé trou après trou.</summary>
