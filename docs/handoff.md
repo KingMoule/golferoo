@@ -17,15 +17,7 @@ Vague 2 : C15 (pavillon et arrivées, #138 à #143) et C16 (humeur, pensées et 
 - À vérifier par Guillaume : FPS avec `Mesurer FPS.bat` (C13, C21, C23), drapeau sans scintillement, pente de la rive. [guillaume]
 
 ## Reporté
-- Fumée : l'info-bulle masquée pendant `ProAim`/`PlaceTool` n'est pas exercée, et la jauge de fiche n'est assertée que si l'humeur change.
-- `Reactions.Spots` (256 dernières) n'est pas remis à zéro au mois.
-- `ArrivalParams` n'est pas sauvegardé.
-- L'historique des pensées de la fiche n'est pas sauvegardé.
-- Le critère 4 de C15 en CI est tenu en résolveur simplifié.
-- Journal des commandes et rejeu.
-- Sauvegardes nommées.
-- Tampons des champs de flux.
-- Ligue qui ne se clôt jamais (à surveiller en C22).
+Fumée : info-bulle masquée pendant `ProAim`/`PlaceTool` non exercée, jauge de fiche assertée seulement si l'humeur change ; `Reactions.Spots` (256 dernières) non remis à zéro au mois ; `ArrivalParams` et historique des pensées de la fiche non sauvegardés ; critère 4 de C15 tenu en CI en résolveur simplifié ; journal des commandes et rejeu ; sauvegardes nommées ; tampons des champs de flux ; ligue qui ne se clôt jamais (C22).
 
 ## Règles de projet
 - Fusion : une PR prête (4 jobs de CI verts sur le dernier commit, audit prévu par la spec sans bloquant, aucun commentaire de revue) est fusionnée par la session elle-même (`gh pr merge N --merge --match-head-commit <sha>`), sans supprimer la branche. Une PR qui touche `CLAUDE.md`, `.claude/` ou `docs/workflow.md` attend Guillaume ; `ci.yml` n'en fait pas partie.
