@@ -48,13 +48,23 @@ public sealed class Group
         w.Int(Hole);
         w.Bool(Released);
         w.List(Golfers, g => g.Write(w));
+        w.Long(ArrivedTick);
     }
 
-    internal static Group Read(SaveReader r)
+    /// <summary><paramref name="tick"/> : le tick de la sauvegarde, que prend l'arrivée d'un groupe sauvé avant la v14.</summary>
+    internal static Group Read(SaveReader r, long tick)
     {
         var (id, round, release, started, hole, released) = (r.Int(), r.Int(), r.Long(), r.Bool(), r.Int(), r.Bool());
-        return new Group(id, r.List(() => Golfer.Read(r))) { LeagueRound = round, ReleaseTick = release, Started = started, Hole = hole, Released = released };
+        var group = new Group(id, r.List(() => Golfer.Read(r))) { LeagueRound = round, ReleaseTick = release, Started = started, Hole = hole, Released = released };
+        group.ArrivedTick = r.Version >= 14 ? r.Long() : tick;
+        return group;
     }
+
+    /// <summary>Tick où le groupe est entré dans la file de départ (C16 : l'attente au départ se mesure à partir de là).</summary>
+    internal long ArrivedTick { get; set; }
+
+    /// <summary>Les golfeurs qui jouent encore : ceux qui n'ont pas abandonné.</summary>
+    internal IEnumerable<Golfer> Active => Golfers.Where(g => !g.Quit);
 
     /// <summary>Tous ses golfeurs ont quitté le green.</summary>
     public bool Finished

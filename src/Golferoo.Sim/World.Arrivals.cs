@@ -22,7 +22,7 @@ public sealed partial class World
     /// <summary>Réglages des arrivées (<c>data/golfers/arrivals.json</c> par défaut ; non sauvés, comme les données embarquées).</summary>
     public ArrivalParams Arrivals { get; }
 
-    /// <summary>Réputation du club, de 0 à 1 : moyenne glissante des sorties (bonne = 1, mauvaise = 0).</summary>
+    /// <summary>Réputation du club, de 0 à 1 : moyenne glissante de l'humeur de sortie des groupes (<see cref="MoodParams.ExitScore"/>), un groupe refusé comptant 0.</summary>
     public double Reputation { get; private set; }
 
     /// <summary>Visiteurs du club, persistants.</summary>
@@ -147,21 +147,25 @@ public sealed partial class World
                 Skill = SkillLevels.FromHandicap(v.Handicap),
                 Profile = v.Profile,
                 VisitorId = v.Id,
+                Mood = Moods.Start,
             });
         }
 
-        var group = new Group(_nextGroupId++, golfers);
+        var group = new Group(_nextGroupId++, golfers) { ArrivedTick = Tick };
         _groups.Add(group);
         return group;
     }
 
-    /// <summary>Les golfeurs du groupe marchent vers la porte ; arrivés, le groupe quitte le monde et ses visiteurs retournent au vivier avec une bonne sortie.</summary>
+    /// <summary>
+    /// Les golfeurs du groupe marchent vers la porte ; arrivés, le groupe quitte le monde et ses visiteurs retournent au vivier. Leur humeur de sortie
+    /// décide de leur envie de revenir (<c>desireGood</c> si elle n'est pas négative, sinon <c>desireRefused</c> en moins) et fait la réputation du club.
+    /// </summary>
     private void UpdateLeaving(TerrainGrid terrain, Group group)
     {
         var door = Clubhouse?.DoorPosition(terrain.CellSize) ?? ExitPoint;
         foreach (var g in group.Golfers)
         {
-            if (g.State == GolferState.Leaving && Walk(terrain, g, door))
+            if (g.State is GolferState.Leaving or GolferState.Quitting && Walk(terrain, g, door))
             {
                 g.State = GolferState.Done;
             }
@@ -178,11 +182,11 @@ public sealed partial class World
             var v = Visitors.Visitors[g.VisitorId];
             v.InPlay = false;
             v.LastVisitDay = DayIndex;
-            v.Desire = Math.Min(1.0, v.Desire + Arrivals.DesireGood);
+            v.Desire = Math.Clamp(v.Desire + (g.Mood >= 0 ? Arrivals.DesireGood : -Arrivals.DesireRefused), 0.0, 1.0);
             visitors.Add(v);
         }
 
-        Reputation += (1.0 - Reputation) * Arrivals.ReputationWeight;
+        Reputation += (ExitScore(group) - Reputation) * Arrivals.ReputationWeight;
         group.Left = true;
         _groupLeft = true;
         GroupLeft?.Invoke(visitors);

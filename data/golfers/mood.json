@@ -1,0 +1,47 @@
+// Humeur des golfeurs (spec C16, lot 1), réglée pour Facile. L'humeur va de −10 à +10 ; sous zéro, le golfeur abandonne à la fin d'un trou
+// s'il reste des trous à jouer. Chaque événement a un identifiant stable, une valeur, et une pensée en français (relue par Guillaume).
+// Valeurs de départ : celles de docs/recensement-sim-golf.md §9.4 quand elles y sont, sinon ±1.
+{
+  // Humeur à l'arrivée, et baisse de 1 après chaque trou dont le numéro est un multiple de dropEveryHoles
+  "start": 6,
+  "dropEveryHoles": 5,
+
+  // Une contrariété mineure (minor) ne compte qu'à partir de sa n-ième occurrence chez le même golfeur
+  "repeatThreshold": 6,
+
+  // Humeur de sortie à partir de laquelle la sortie est tout à fait bonne pour la réputation (en dessous, elle baisse jusqu'à 0 à −10)
+  "reputationFullMood": 8,
+
+  // Seuils de mesure des événements
+  "hardPuttMeters": 5,
+  "easyPuttMeters": 1.5,
+  "poorShotMinMeters": 60,
+  "poorShotProgress": 0.0,
+  "nearMissMeters": 10,
+  "teeWaitTicks": 4000,
+  "slowPlayTicks": 1500,
+  "wornTurf": 100,
+  "panoramaBeauty": 0.15,
+  "beautifulHoleBeauty": 0.4,
+  "remarkableTreeMeters": 10,
+  "longWalkMeters": 80,
+
+  "events": [
+    { "id": "hardPuttHoled", "value": 1, "minor": false, "thought": "Quel putt ! Je n'y croyais pas." },
+    { "id": "easyPuttMissed", "value": -1, "minor": false, "thought": "Ce putt-là, je ne devais pas le rater." },
+    { "id": "poorShot", "value": -1, "minor": false, "thought": "Ce coup ne m'a mené nulle part." },
+    { "id": "water", "value": -1, "minor": false, "thought": "Ma balle est partie à l'eau, zut." },
+    { "id": "bunker", "value": -1, "minor": true, "thought": "Encore dans le sable..." },
+    { "id": "treeHit", "value": -1, "minor": true, "thought": "Cet arbre n'avait rien à faire là." },
+    { "id": "noSafeAim", "value": -2, "minor": false, "thought": "Je ne vois aucun endroit sûr où viser." },
+    { "id": "teeWait", "value": -1, "minor": false, "thought": "Je poireaute au départ depuis un bon moment." },
+    { "id": "slowPlay", "value": -2, "minor": false, "thought": "Le groupe devant nous est bien lent." },
+    { "id": "nearMiss", "value": -3, "minor": false, "thought": "Une balle a failli me toucher !" },
+    { "id": "panorama", "value": 1, "minor": false, "thought": "Quelle vue magnifique d'ici." },
+    { "id": "wornTurf", "value": -1, "minor": true, "thought": "Le gazon est bien abîmé par ici." },
+    { "id": "remarkableTree", "value": 1, "minor": false, "thought": "Quel bel arbre, il a de la prestance." },
+    { "id": "beautifulHole", "value": 1, "minor": false, "thought": "Quel beau trou, une vraie carte postale." },
+    { "id": "longWalk", "value": -1, "minor": true, "thought": "Il y a une sacrée marche jusqu'au prochain départ." },
+    { "id": "proPlaysWithUs", "value": 1, "minor": false, "thought": "Je joue avec le pro, quelle chance !" }
+  ]
+}
