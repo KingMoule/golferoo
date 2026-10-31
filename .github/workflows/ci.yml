@@ -129,7 +129,7 @@ jobs:
   captures:
     name: Captures (rendu logiciel)
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 35 # deux tours de captures de 12 min au plus (C16 lot 4)
     env:
       GODOT_VERSION: 4.7.2
     steps:
@@ -187,7 +187,7 @@ jobs:
         run: |
           run_captures() {
             rm -rf captures
-            timeout 540 xvfb-run -a -s "-screen 0 1280x720x24" "$GODOT" --path game --audio-driver Dummy "$@" res://tools/Captures.tscn -- --out "$GITHUB_WORKSPACE/captures" --thumbs --full 2>&1 | tee captures.log
+            timeout 720 xvfb-run -a -s "-screen 0 1280x720x24" "$GODOT" --path game --audio-driver Dummy "$@" res://tools/Captures.tscn -- --out "$GITHUB_WORKSPACE/captures" --thumbs --full 2>&1 | tee captures.log
             return "${PIPESTATUS[0]}"
           }
           if run_captures --rendering-method forward_plus --rendering-driver vulkan \
