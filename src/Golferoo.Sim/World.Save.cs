@@ -352,6 +352,8 @@ public sealed partial class World
                 physical.MapCapacity = MapCapacityFor(Terrain);
             }
 
+            RefreshBenchBeauty();
+
             if (r.Version < 12 && !Terrain.Blank)
             {
                 PlaceClubhouseNearTee(); // sauvegarde v11 : le pavillon se place comme à une nouvelle partie

@@ -63,7 +63,7 @@ public sealed partial class World
     {
         var demanding = Terrain?.Turf.Settings.Demanding == true;
         var maintenance = OpenHoles * Economy.MaintenancePerHole * (10_000 + (demanding ? Economy.DemandingTurfBasisPoints : 0)) / 10_000;
-        Ledger.Post(LedgerCategory.Maintenance, -maintenance);
+        Ledger.Post(LedgerCategory.Maintenance, -WithShed(maintenance));
         if (Ledger.Balance < 0)
         {
             Ledger.Post(LedgerCategory.Interest, Ledger.Balance * Economy.OverdraftInterestBasisPoints / 10_000);

@@ -32,6 +32,9 @@ public enum MoodEvent : byte
 
     /// <summary>Le pro joue avec le groupe (choix 5) : déclaré au lot 1, levé par la file au lot 2.</summary>
     ProPlaysWithUs = 15,
+
+    /// <summary>Le golfeur est passé au snack-bar ou au pro shop (C17) : levé à la porte du bâtiment.</summary>
+    ServiceVisited = 16,
 }
 
 /// <summary>Un événement vu du dehors : un golfeur a réagi (levé quand l'humeur change, pas pour une contrariété mineure isolée).</summary>

@@ -94,6 +94,9 @@ public sealed class PhysicalShotResolver : IShotResolver
     /// <summary>Sources de beauté posées dans le monde (objets de décor), pour l'artiste (<see cref="BeautyMap"/>). Le monde y met les siennes.</summary>
     public IReadOnlyList<Point2> BeautySources { get; set; } = [];
 
+    /// <summary>Apport de beauté des bancs (C17), nul sans banc.</summary>
+    public BeautyAccent? BeautyAccent { get; set; }
+
     public ShotResult Resolve(in ShotRequest request, TerrainGrid terrain, DeterministicRng rng) => Resolve(request, terrain, rng, out _);
 
     /// <summary>Comme <see cref="Resolve(in ShotRequest, TerrainGrid, DeterministicRng)"/>, en rendant le coup planifié (nul pour un putt).</summary>
@@ -145,9 +148,9 @@ public sealed class PhysicalShotResolver : IShotResolver
     {
         lock (_beautyLock)
         {
-            if (_beauty is null || !_beauty.StillValid(terrain, Trees, Season, BeautySources))
+            if (_beauty is null || !_beauty.StillValid(terrain, Trees, Season, BeautySources, BeautyAccent))
             {
-                _beauty = BeautyMap.Build(terrain, Trees, Season, BeautySources);
+                _beauty = BeautyMap.Build(terrain, Trees, Season, BeautySources, BeautyAccent);
             }
 
             return _beauty;

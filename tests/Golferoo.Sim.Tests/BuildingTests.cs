@@ -57,7 +57,7 @@ public class BuildingTests
     public void Rules_ComeFromData_AndAQuarterTurnSwapsTheFootprintAndMovesTheDoor()
     {
         var rules = BuildingParams.Default;
-        Assert.Equal(2_000_000, rules.SnackBar.Cost);
+        Assert.Equal(1_200_000, rules.SnackBar.Cost);
         Assert.Equal(1, rules.Bench.Width * rules.Bench.Depth);
         var south = rules.At(BuildingKind.ProShop, 10, 10, DoorSide.South)!;
         var east = rules.At(BuildingKind.ProShop, 10, 10, DoorSide.East)!;
@@ -146,12 +146,7 @@ public class BuildingTests
     [Fact]
     public void Place_ALockedKind_IsRefused_ThenAccepted_OnceEnoughHolesAreOpen()
     {
-        var locked = BuildingParams.Parse("""
-            { "snackBar": { "width": 6, "depth": 5, "cost": 100, "unlockHoles": 10 },
-              "proShop": { "width": 8, "depth": 6, "cost": 100, "unlockHoles": 4 },
-              "maintenanceShed": { "width": 8, "depth": 6, "cost": 100, "unlockHoles": 6 },
-              "bench": { "width": 1, "depth": 1, "cost": 100, "unlockHoles": 1 } }
-            """);
+        var locked = BuildingParams.Default with { SnackBar = BuildingParams.Default.SnackBar with { UnlockHoles = 10 } };
         var world = NewGame(rules: locked);
         Assert.Equal(9, world.OpenHoles);
         var (x, z) = FreeSpot(NewGame(), BuildingKind.SnackBar);

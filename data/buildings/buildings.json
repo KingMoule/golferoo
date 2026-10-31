@@ -1,8 +1,26 @@
 // Bâtiments et aménagements posables (C17). Tailles en cellules (largeur x profondeur, porte au sud ; un quart de tour les échange),
 // prix en cents entiers, seuil de déblocage en nombre de trous ouverts. Le pavillon n'est pas ici : il se pose à la nouvelle partie (C15).
+// Visites (lot 2) : range = portée en cellules entre le golfeur et la porte, revenue = cents encaissés par visite.
+// Prix, revenus et portées sont calés dans specs/C17-batiments-amenagements.md (« Calage du lot 2 »).
 {
-  "snackBar": { "width": 6, "depth": 5, "cost": 2000000, "unlockHoles": 3 },
-  "proShop": { "width": 8, "depth": 6, "cost": 3000000, "unlockHoles": 4 },
+  "snackBar": { "width": 6, "depth": 5, "cost": 1200000, "unlockHoles": 3, "range": 24, "revenue": 2200 },
+  "proShop": { "width": 8, "depth": 6, "cost": 2000000, "unlockHoles": 4, "range": 12, "revenue": 4000 },
   "maintenanceShed": { "width": 8, "depth": 6, "cost": 1500000, "unlockHoles": 6 },
-  "bench": { "width": 1, "depth": 1, "cost": 30000, "unlockHoles": 1 }
+  "bench": { "width": 1, "depth": 1, "cost": 30000, "unlockHoles": 1 },
+
+  // Le virage est le trou du milieu ; un parcours de moins de turnMinHoles trous n'a de virage qu'à son dernier trou
+  "turnMinHoles": 4,
+
+  // Probabilité qu'un golfeur de ce profil visite quand un bâtiment est à portée (un profil absent ne visite jamais)
+  "snackBarChance": { "neutral": 0.8, "cautious": 0.85, "longHitter": 0.8, "drawer": 0.75, "fader": 0.75, "artist": 0.9, "charger": 0.7 },
+  "proShopChance": { "neutral": 0.6, "cautious": 0.5, "longHitter": 0.7, "drawer": 0.65, "fader": 0.65, "artist": 0.5, "charger": 0.7 },
+
+  // Après une visite au pro shop, la dispersion du golfeur est multipliée par ce facteur (une visite par partie : le bonus est borné)
+  "proShopSkillFactor": 0.97,
+
+  // Baisse de l'entretien mensuel dès qu'il y a au moins un hangar, en points de base (ne se cumule pas)
+  "shedMaintenanceBasisPoints": 1500,
+
+  // Beauté ajoutée par un banc (comme une source de beauté, au poids près) jusqu'à radiusMeters mètres
+  "benchBeauty": { "weight": 0.1, "radiusMeters": 6 }
 }

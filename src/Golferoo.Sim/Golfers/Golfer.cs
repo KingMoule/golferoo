@@ -46,6 +46,9 @@ public enum GolferState : byte
 
     /// <summary>A abandonné la partie (C16) : marche vers la porte du pavillon, puis <see cref="Done"/> ; ses partenaires continuent sans lui.</summary>
     Quitting = 12,
+
+    /// <summary>Marche vers la porte du snack-bar ou du pro shop qu'il a choisi (C17) ; arrivé, il paie et reprend l'état de <see cref="Golfer.Resume"/>.</summary>
+    Visiting = 13,
 }
 
 public sealed class Golfer
@@ -129,6 +132,18 @@ public sealed class Golfer
     /// <summary>Le golfeur joue une journée de ligue.</summary>
     internal bool InLeague { get; set; }
 
+    /// <summary>Genres de bâtiment (un bit par <see cref="Buildings.BuildingKind"/>) dont le golfeur a déjà eu l'occasion cette partie : visité ou non, on ne le lui propose qu'une fois.</summary>
+    internal byte Offered { get; set; }
+
+    /// <summary>Bâtiment qu'il visite (état <see cref="GolferState.Visiting"/>).</summary>
+    internal Buildings.BuildingKind VisitKind { get; set; }
+
+    /// <summary>Porte du bâtiment qu'il visite.</summary>
+    internal Point2 VisitDoor { get; set; }
+
+    /// <summary>État qu'il reprend après sa visite.</summary>
+    internal GolferState Resume { get; set; }
+
     /// <summary>Mode charge : indice du point de passage visé.</summary>
     internal int WaypointIndex { get; set; }
 
@@ -176,6 +191,10 @@ public sealed class Golfer
         w.Int(WaitTicks);
         w.Int(LikedHoles);
         w.Bool(LikedThisHole);
+        w.Byte(Offered);
+        w.Byte((byte)VisitKind);
+        w.Point(VisitDoor);
+        w.Byte((byte)Resume);
     }
 
     internal static Golfer Read(SaveReader r)
@@ -215,6 +234,11 @@ public sealed class Golfer
             golfer.Quit = r.Bool();
             var occurrences = r.List(r.Int);
             golfer.WaitTicks = r.Int();
+            if (r.Version < 18 && occurrences.Count == MoodParams.EventCount - 1)
+            {
+                occurrences.Add(0); // sauvegarde d'avant C17 lot 2 : l'événement « service visité » n'existait pas
+            }
+
             if (occurrences.Count != MoodParams.EventCount || golfer.Mood is < MoodParams.Min or > MoodParams.Max || occurrences.Any(o => o < 0) || golfer.WaitTicks < 0)
             {
                 throw new InvalidDataException("Sauvegarde incohérente : humeur d'un golfeur.");
@@ -235,6 +259,19 @@ public sealed class Golfer
         else if (r.Version < 14 && golfer.VisitorId >= 0)
         {
             golfer.Mood = MoodParams.Default.Start; // sauvegarde v13 : les visiteurs en jeu repartent avec l'humeur de départ
+        }
+
+        if (r.Version >= 18)
+        {
+            golfer.Offered = r.Byte();
+            golfer.VisitKind = (Buildings.BuildingKind)r.Byte();
+            golfer.VisitDoor = r.Point();
+            golfer.Resume = (GolferState)r.Byte();
+            if (!Enum.IsDefined(golfer.VisitKind) || !Enum.IsDefined(golfer.Resume) || golfer.Resume == GolferState.Visiting
+                || (golfer.State == GolferState.Visiting && golfer.VisitKind is not (Buildings.BuildingKind.SnackBar or Buildings.BuildingKind.ProShop)))
+            {
+                throw new InvalidDataException("Sauvegarde incohérente : visite d'un golfeur.");
+            }
         }
 
         return golfer;

@@ -305,7 +305,7 @@ public class MoodTests(ITestOutputHelper output)
     public void MoodData_HasOneFrenchThoughtPerEvent()
     {
         var p = MoodParams.Default;
-        Assert.Equal(16, p.Definitions.Count);
+        Assert.Equal(17, p.Definitions.Count);
         Assert.InRange(p.Start, 3, 7); // assez bas pour que les événements positifs comptent (pas écrêtés au plafond)
         Assert.All(Enum.GetValues<MoodEvent>(), e => Assert.Equal(e, p.Definitions[(int)e].Event));
         Assert.All(p.Definitions, d => Assert.True(d.Thought.Length > 10 && d.Value != 0));
