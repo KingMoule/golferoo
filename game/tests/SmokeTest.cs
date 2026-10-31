@@ -1245,6 +1245,7 @@ public partial class SmokeTest : Node
         GD.Print($"SMOKE barre : outils, vignettes, actions, vitesses, caméra par leurs boutons ({failures.Count} échec)");
         CheckPanels(failures);
         CheckBirdie(failures);
+        CheckThoughts(failures);
         CheckUiScale(failures);
         CheckNoKeys(main, failures, []);
         CheckBirdieDays(failures);
@@ -1563,6 +1564,65 @@ public partial class SmokeTest : Node
         GD.Print($"SMOKE birdie muet : aperçu fermé et compteur {before + 1} en sourdine, aperçu rétabli ensuite ({failures.Count} échec)");
         GD.Print($"SMOKE birdie : sauvegarde et avis de ligue reçus, compteur remis à zéro, suivi {(golfer is null ? "sans golfeur membre" : "vérifié")} ({failures.Count} échec)");
     }
+
+    /// <summary>
+    /// C16 critère 9 : une pensée ouvre une bulle au-dessus du golfeur et entre dans sa fiche ; coupée par son bouton, elle n'ouvre plus de bulle mais
+    /// reste dans la fiche ; au plus <see cref="Thoughts.MaxBubbles"/> bulles ; l'info-bulle et la fiche s'ouvrent.
+    /// </summary>
+    private void CheckThoughts(List<string> failures)
+    {
+        var main = _main!;
+        var thoughts = main.Thoughts;
+        void Expect(bool ok, string what)
+        {
+            if (!ok)
+            {
+                failures.Add($"pensées : {what} (bulles {thoughts.BubbleCount})");
+            }
+        }
+
+        if (main.World.Visitors.Visitors.Count == 0)
+        {
+            failures.Add("pensées : le vivier est vide, pas de fiche à ouvrir");
+            return;
+        }
+
+        var visitor = main.World.Visitors.Visitors[0];
+        var group = main.World.SpawnGroup();
+        var golfer = group.Golfers[0];
+        Expect(!Thoughts.Off && thoughts.BubbleCount == 0, "des bulles avant tout évènement");
+        thoughts.Think(golfer.Id, visitor.Id, "Quelle vue magnifique d'ici.", 1);
+        Expect(thoughts.BubbleCount == 1 && main.Ui.Find(UiIds.Hud.ThoughtBubble) is not null, "pas de bulle après un évènement");
+
+        thoughts.Tip(golfer, new Vector2(100f, 100f));
+        Expect(thoughts.TipVisible && ((Control)main.Ui.Find(UiIds.Hud.GolferTip)!).GetChildCount() > 0, "l'info-bulle ne s'ouvre pas");
+
+        thoughts.OpenCard(visitor.Id);
+        Expect(thoughts.CardOpen && thoughts.CardVisitor == visitor.Id && main.Panels.Opened.Contains(main.Ui.Find(UiIds.Panel.Golfer)), "la fiche ne s'ouvre pas");
+        Expect(AllText(main.Ui.Find(UiIds.Panel.Golfer)!).Any(t => t.Contains("Quelle vue magnifique")), "la fiche n'a pas la pensée");
+
+        Press(UiIds.Hud.ThoughtsToggle, failures);
+        Expect(Thoughts.Off, "le bouton ne coupe pas les bulles");
+        var shown = thoughts.BubbleCount;
+        thoughts.Think(golfer.Id, visitor.Id, "Je poireaute au départ depuis un bon moment.", -1);
+        Expect(thoughts.BubbleCount == shown, "une bulle s'ouvre malgré le réglage");
+        Expect(AllText(main.Ui.Find(UiIds.Panel.Golfer)!).Any(t => t.Contains("poireaute")), "la pensée coupée n'est pas dans la fiche");
+        Press(UiIds.Hud.ThoughtsToggle, failures);
+        Expect(!Thoughts.Off, "le bouton ne rétablit pas les bulles");
+
+        for (var i = 0; i < Thoughts.MaxBubbles + 4; i++)
+        {
+            thoughts.Think(10000 + i, visitor.Id, "Zut.", -1);
+        }
+
+        Expect(thoughts.BubbleCount <= Thoughts.MaxBubbles, "trop de bulles à la fois");
+        thoughts.ClearBubbles();
+        main.Panels.Close((UiPanel)main.Ui.Find(UiIds.Panel.Golfer)!);
+        GD.Print($"SMOKE pensées : bulle, info-bulle, fiche, réglage et plafond de {Thoughts.MaxBubbles} bulles ({failures.Count} échec)");
+    }
+
+    private static IEnumerable<string> AllText(Node root) =>
+        (root is Label label ? [label.Text] : Enumerable.Empty<string>()).Concat(root.GetChildren().SelectMany(AllText));
 
     /// <summary>
     /// C13 critère 11 : à l'échelle 1,5 en 1080p, l'écran logique fait 1280×720 ; les deux étages de la barre, le tiroir Terrain et deux

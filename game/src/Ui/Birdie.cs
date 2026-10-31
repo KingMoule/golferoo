@@ -62,6 +62,11 @@ public partial class Birdie : Node
         _panel.Content.AddChild(mute);
         _mute = mute;
         SetMuted(_muted);
+        var thoughts = new Button { Name = UiIds.Hud.ThoughtsToggle, ToggleMode = true, FocusMode = Control.FocusModeEnum.None, CustomMinimumSize = new Vector2(0f, 32f) };
+        thoughts.Pressed += () => Thoughts.SetOff(!Thoughts.Off);
+        _panel.Content.AddChild(thoughts);
+        Thoughts.Mirror = thoughts;
+        Thoughts.SetOff(Thoughts.Off);
         _panel.Content.AddChild(_scroll);
         main.Panels.Add(_panel);
 

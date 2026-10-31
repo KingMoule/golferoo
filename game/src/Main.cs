@@ -127,6 +127,9 @@ public partial class Main : Node3D
     /// <summary>Le fil des messages du jeu (bouton Birdie).</summary>
     public Birdie Birdie { get; private set; } = null!;
 
+    /// <summary>Pensées en bulle, info-bulle et fiche des golfeurs, messages d'adhésion (C16).</summary>
+    public Thoughts Thoughts { get; private set; } = null!;
+
     /// <summary>Les finances du club : panneau, coût du coup près du curseur, confirmation du découvert (bouton Finances).</summary>
     public Finances Finances { get; private set; } = null!;
 
@@ -361,6 +364,9 @@ public partial class Main : Node3D
         Birdie = new Birdie { Name = "Birdie" };
         AddChild(Birdie);
         Birdie.Init(this);
+        Thoughts = new Thoughts { Name = "Thoughts" };
+        AddChild(Thoughts);
+        Thoughts.Init(this);
         Finances = new Finances { Name = "Finances" };
         AddChild(Finances);
         Finances.Init(this);
@@ -474,6 +480,8 @@ public partial class Main : Node3D
                 break;
             case InputEventMouseButton { Pressed: true, ButtonIndex: MouseButton.Left } click when !Brush.Active && !TreeTool.Active && ChooseQueuedGroupAt(click.Position):
                 break;
+            case InputEventMouseButton { Pressed: true, ButtonIndex: MouseButton.Left } click when !Brush.Active && !TreeTool.Active && Thoughts.OpenCardAt(click.Position):
+                break;
             case InputEventMouseButton when Brush.Active || TreeTool.Active:
                 // Le pinceau garde les clics : la caméra ne reçoit plus que la molette et le clic du milieu.
                 if (@event is InputEventMouseButton { Pressed: true, ButtonIndex: MouseButton.WheelUp })
@@ -510,34 +518,42 @@ public partial class Main : Node3D
         }
     }
 
-    /// <summary>Un clic sur un golfeur de la file le plus proche (à 2,5 m du sol visé) choisit son groupe : la caméra le suit et le pro le rejoint (C16) si la sim l'accepte. Faux si le clic ne tombe sur aucun.</summary>
-    private bool ChooseQueuedGroupAt(Vector2 screen)
+    /// <summary>Le golfeur le plus proche du clic (à 2,5 m du sol visé) parmi les groupes qui passent <paramref name="where"/>, ou nul.</summary>
+    internal (Golferoo.Sim.Golfers.Group Group, Golferoo.Sim.Golfers.Golfer Golfer)? PickGolfer(Vector2 screen, Func<Golferoo.Sim.Golfers.Group, bool> where)
     {
         var view = Camera.View;
         if (view is null || !view.IsInsideTree() || World.Terrain is not { } grid
             || !Brush.TryPick(grid, view.ProjectRayOrigin(screen), view.ProjectRayNormal(screen), view.Far, out var hit))
         {
-            return false;
+            return null;
         }
 
-        var best = (Group: (Golferoo.Sim.Golfers.Group?)null, Golfer: -1, Distance: 2.5 * 2.5);
-        foreach (var group in World.Groups.Where(g => g.FromArrivals && !g.Released))
+        (Golferoo.Sim.Golfers.Group, Golferoo.Sim.Golfers.Golfer)? best = null;
+        var nearest = 2.5 * 2.5;
+        foreach (var group in World.Groups.Where(where))
         {
             foreach (var golfer in group.Golfers)
             {
                 var d = ((golfer.Position.X - hit.X) * (golfer.Position.X - hit.X)) + ((golfer.Position.Z - hit.Z) * (golfer.Position.Z - hit.Z));
-                if (d < best.Distance)
+                if (d < nearest)
                 {
-                    best = (group, golfer.Id, d);
+                    (best, nearest) = ((group, golfer), d);
                 }
             }
         }
 
-        if (best.Group is null)
+        return best;
+    }
+
+    /// <summary>Un clic sur un golfeur de la file le plus proche choisit son groupe : la caméra le suit et le pro le rejoint (C16) si la sim l'accepte. Faux si le clic ne tombe sur aucun.</summary>
+    private bool ChooseQueuedGroupAt(Vector2 screen)
+    {
+        if (PickGolfer(screen, g => g.FromArrivals && !g.Released) is not var (group, golfer))
         {
             return false;
         }
 
+        var best = (Group: group, Golfer: golfer.Id);
         ChosenGroupId = best.Group.Id;
         Camera.Follow(best.Golfer);
         ShowMessage(World.JoinQueuedGroup(best.Group.Id)

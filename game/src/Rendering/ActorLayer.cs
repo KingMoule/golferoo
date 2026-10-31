@@ -384,7 +384,7 @@ public partial class ActorLayer : Node3D
             case GolferState.Roaming when BenchSwing && cur.Id % 2 == 1:
                 rig.Pose(GolferModel.Swing, ((display * World.TickSeconds) + (cur.Id * 0.37)) % model.Length(GolferModel.Swing));
                 break;
-            case GolferState.Arriving or GolferState.WalkingToBall or GolferState.Exiting or GolferState.ToNextTee or GolferState.Roaming:
+            case GolferState.Arriving or GolferState.WalkingToBall or GolferState.Exiting or GolferState.ToNextTee or GolferState.Roaming or GolferState.Leaving or GolferState.Quitting:
                 var cycle = model.WalkCycle * ProceduralMeshes.GolferScale;
                 rig.Pose(GolferModel.Walk, cycle > 0 ? t.Phase / cycle % 1.0 * model.Length(GolferModel.Walk) : 0.0);
                 break;
