@@ -57,12 +57,14 @@ public class MembershipTests(ITestOutputHelper output)
         var world = Empty(league: false);
         var golfers = new Dictionary<int, Golfer>();
         var before = new Dictionary<int, int>();
+        var gamesBefore = new Dictionary<int, int>();
         world.GroupArrived += g =>
         {
             foreach (var o in g.Golfers)
             {
                 golfers[o.VisitorId] = o;
                 before[o.VisitorId] = world.Visitors.Visitors[o.VisitorId].Points;
+                gamesBefore[o.VisitorId] = world.Visitors.Visitors[o.VisitorId].Games;
             }
         };
         var checkedGames = 0;
@@ -73,6 +75,7 @@ public class MembershipTests(ITestOutputHelper output)
                 var g = golfers[v.Id];
                 var wanted = g.Quit ? 0 : world.Memberships.PointsFor(g.LikedHoles, g.Mood, false);
                 Assert.Equal(before[v.Id] + wanted, v.Points);
+                Assert.Equal(gamesBefore[v.Id] + (g.Quit ? 0 : 1), v.Games);
                 Assert.Equal(world.Memberships.LevelOf(v.Points), v.Resigned ? MemberLevel.Visitor : v.Level);
                 checkedGames += g.LikedHoles > 0 ? 1 : 0;
             }

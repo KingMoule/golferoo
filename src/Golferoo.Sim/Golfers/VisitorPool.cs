@@ -43,6 +43,9 @@ public sealed class Visitor
     /// <summary>A démissionné (il a abandonné une partie comme membre) : il ne revient jamais.</summary>
     public bool Resigned { get; internal set; }
 
+    /// <summary>Parties finies (sans l'avoir abandonnée) depuis son arrivée dans le vivier.</summary>
+    public int Games { get; internal set; }
+
     internal void Write(SaveWriter w)
     {
         w.Int(Id);
@@ -55,6 +58,7 @@ public sealed class Visitor
         w.Int(Points);
         w.Byte((byte)Level);
         w.Bool(Resigned);
+        w.Int(Games);
     }
 
     internal static Visitor Read(SaveReader r)
@@ -69,6 +73,11 @@ public sealed class Visitor
             }
         }
 
+        if (r.Version >= 16 && (v.Games = r.Int()) < 0)
+        {
+            throw new InvalidDataException("Sauvegarde incohérente : parties jouées d'un visiteur.");
+        }
+
         return v;
     }
 
@@ -81,6 +90,11 @@ public sealed class Visitor
         if (Points != 0 || Level != MemberLevel.Visitor || Resigned)
         {
             World.Mix(ref hash, (ulong)(uint)Points | ((ulong)Level << 32) | (Resigned ? 1UL << 40 : 0UL));
+        }
+
+        if (Games != 0)
+        {
+            World.Mix(ref hash, (ulong)(uint)Games);
         }
     }
 }

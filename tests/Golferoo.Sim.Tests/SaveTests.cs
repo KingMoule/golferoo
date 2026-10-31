@@ -308,6 +308,10 @@ public class SaveTests
         {
             raw = raw[..^Bytes(w => world.Reactions.Write(w)).Length]; // ni réactions (v14)
         }
+        else
+        {
+            raw = raw[..^Bytes(w => world.Reactions.WriteSpots(w)).Length]; // les réactions sans leurs cellules (v16)
+        }
 
         foreach (var group in world.Groups)
         {
@@ -325,7 +329,7 @@ public class SaveTests
 
         var pool = Bytes(w => world.Visitors.Write(w));
         var visitors = world.Visitors.Visitors;
-        var legacyPool = Bytes(w => w.Int(visitors.Count)).Concat(visitors.SelectMany(v => Bytes(w => v.Write(w))[..^6])).ToArray(); // ni points, ni niveau, ni démission (v15)
+        var legacyPool = Bytes(w => w.Int(visitors.Count)).Concat(visitors.SelectMany(v => Bytes(w => v.Write(w))[..^10])).ToArray(); // ni points, ni niveau, ni démission (v15), ni parties jouées (v16)
         raw = ReplaceOnce(raw, pool, legacyPool);
 
         if (league is not null)
@@ -455,7 +459,7 @@ public class SaveTests
     public void Load_UnknownVersion_Throws()
     {
         var bytes = Save(Build(1, "proto", "start"));
-        bytes[4] = 16;
+        bytes[4] = 17;
 
         Assert.Throws<InvalidDataException>(() => Load(bytes));
     }
@@ -1186,6 +1190,8 @@ public class SaveTests
         world.Reactions.Add(1, Golferoo.Sim.Golfers.MoodEvent.Water);
         world.Reactions.CloseMonth();
         world.Reactions.Add(2, Golferoo.Sim.Golfers.MoodEvent.Bunker);
+        world.Reactions.Add(3, Golferoo.Sim.Golfers.MoodEvent.TreeHit, (12, 34));
+        world.Visitors.Visitors[group.Golfers[0].VisitorId].Games = 5;
 
         var loaded = World.Load(new MemoryStream(Save(world)), new StubShotResolver());
         var copy = loaded.Groups.First(g => g.Id == group.Id).Golfers[0];
@@ -1211,9 +1217,61 @@ public class SaveTests
         Changes(() => golfer.Occurrences[0]++, () => golfer.Occurrences[0]--);
         Changes(() => golfer.WaitTicks++, () => golfer.WaitTicks--);
         Changes(() => group.ArrivedTick++, () => group.ArrivedTick--);
+        var visitor = world.Visitors.Visitors[group.Golfers[0].VisitorId];
+        Assert.Equal(5, loaded.Visitors.Visitors[visitor.Id].Games);
+        Changes(() => visitor.Games++, () => visitor.Games--);
         var reactionsBefore = world.Checksum();
         world.Reactions.Add(3, Golferoo.Sim.Golfers.MoodEvent.Water);
         Assert.NotEqual(reactionsBefore, world.Checksum());
+
+        // La cellule d'une réaction se sauve et compte dans la somme, à compteurs égaux.
+        Assert.Equal(new Golferoo.Sim.Golfers.ReactionSpot(12, 34, Golferoo.Sim.Golfers.MoodEvent.TreeHit), loaded.Reactions.Spots[^1]);
+        Assert.Equal(world.Reactions.Spots, loaded.Reactions.Spots);
+        var (a, b) = (Load(Save(loaded)), Load(Save(loaded)));
+        a.Reactions.Add(3, Golferoo.Sim.Golfers.MoodEvent.Water, (1, 2));
+        b.Reactions.Add(3, Golferoo.Sim.Golfers.MoodEvent.Water, (1, 3));
+        Assert.NotEqual(a.Checksum(), b.Checksum());
+    }
+
+    /// <summary>Seules les <see cref="Golferoo.Sim.Golfers.Reactions.MaxSpots"/> dernières cellules sont gardées.</summary>
+    [Fact]
+    public void ReactionSpots_AreBounded_KeepingTheMostRecent()
+    {
+        var reactions = new Golferoo.Sim.Golfers.Reactions();
+        for (var i = 0; i < Golferoo.Sim.Golfers.Reactions.MaxSpots + 10; i++)
+        {
+            reactions.Add(1, Golferoo.Sim.Golfers.MoodEvent.Water, (i, 0));
+        }
+
+        Assert.Equal(Golferoo.Sim.Golfers.Reactions.MaxSpots, reactions.Spots.Count);
+        Assert.Equal(10, reactions.Spots[0].X);
+        Assert.Equal(Golferoo.Sim.Golfers.Reactions.MaxSpots + 9, reactions.Spots[^1].X);
+    }
+
+    /// <summary>
+    /// Une vraie sauvegarde v15 produite par <c>main</c> (c4df5d2, graine 3, 12 h par pas, groupes en jeu, humeurs variées, membres promus, réactions comptées) :
+    /// le niveau, l'humeur, les divisions, le solde et les compteurs survivent au chargement v16, avec zéro partie jouée et aucune cellule de réaction.
+    /// </summary>
+    [Fact]
+    public void Load_RealV15Save_KeepsMoodMembersCountersAndStartsWithoutGamesOrSpots()
+    {
+        var dir = Path.Combine(AppContext.BaseDirectory, "Fixtures");
+        var expected = File.ReadAllLines(Path.Combine(dir, "v15-groups.txt"));
+        var world = Load(File.ReadAllBytes(Path.Combine(dir, "v15-groups.sav")));
+
+        Assert.Equal($"tick {world.Tick}", expected[0]);
+        Assert.Equal($"balance {world.Ledger.Balance}", expected[1]);
+        Assert.Equal($"members {world.League!.Members.Count}", expected[2]);
+        Assert.Equal("divisions " + string.Join(";", world.League.Divisions.Select(d => string.Join(",", d.Select(m => m.Id)))), expected[3]);
+        var golfers = world.Groups.SelectMany(g => g.Golfers).Where(o => o.VisitorId >= 0).Select(o => $"golfer {o.Id} {o.VisitorId} {o.Mood}").ToList();
+        Assert.Equal(expected.Where(l => l.StartsWith("golfer ")), golfers);
+        Assert.True(golfers.Select(x => x.Split(' ')[3]).Distinct().Count() > 3, "la fixture doit avoir des humeurs variées");
+        Assert.Equal(expected.Where(l => l.StartsWith("visitor ")), world.Visitors.Visitors.Where(v => v.Points > 0).Select(v => $"visitor {v.Id} {(int)v.Level} {v.Points}"));
+        var counters = Enumerable.Range(1, 9).SelectMany(h => Enum.GetValues<Golferoo.Sim.Golfers.MoodEvent>().Select(e => (h, e, c: world.Reactions.Count(h, e), p: world.Reactions.Previous(h, e)))).Where(x => x.c + x.p > 0);
+        Assert.Equal(expected.Where(l => l.StartsWith("reaction ")), counters.Select(x => $"reaction {x.h} {(int)x.e} {x.c} {x.p}"));
+        Assert.All(world.Visitors.Visitors, v => Assert.Equal(0, v.Games));
+        Assert.Empty(world.Reactions.Spots);
+        Assert.Equal(world.Checksum(), Load(Save(world)).Checksum());
     }
 
     /// <summary>Une sauvegarde v13 (sans compteurs de réactions) se charge avec des compteurs vides et l'humeur de départ des visiteurs.</summary>
