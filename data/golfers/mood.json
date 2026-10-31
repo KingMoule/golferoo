@@ -3,7 +3,7 @@
 // Valeurs de départ : celles de docs/recensement-sim-golf.md §9.4 quand elles y sont, sinon ±1.
 {
   // Humeur à l'arrivée, et baisse de 1 après chaque trou dont le numéro est un multiple de dropEveryHoles
-  "start": 6,
+  "start": 7,
   "dropEveryHoles": 5,
 
   // Une contrariété mineure (minor) ne compte qu'à partir de sa n-ième occurrence chez le même golfeur
@@ -21,8 +21,8 @@
   "teeWaitTicks": 4000,
   "slowPlayTicks": 1500,
   "wornTurf": 100,
-  "panoramaBeauty": 0.15,
-  "beautifulHoleBeauty": 0.4,
+  "panoramaBeauty": 0.2,
+  "beautifulHoleBeauty": 0.5,
   "remarkableTreeMeters": 10,
   "longWalkMeters": 80,
 

@@ -86,13 +86,13 @@ Hors périmètre :
 
 Hypothèses de l'orchestrateur, réglables en données : la valeur de chaque événement part de celle de l'original quand il est cité (`docs/recensement-sim-golf.md` §9.4), sinon ±1 ; l'humeur de départ et la baisse par trou calent le critère 3.
 
-Calage du lot 1 (résolveur physique, « Le neuf », 30 jours, graines 1, 2 et 3) : humeur de départ 6 (jamais au-dessus de 7, sinon le plafond de 10 avale les événements positifs : 35 % d'entre eux se perdaient à 10), baisse de 1 tous les 5 trous, contrariétés mineures à partir de la 6e occurrence, « coup décevant » à −1. Mesures :
+Calage du lot 1, recalé au lot 2 (résolveur physique, « Le neuf », 30 jours, sans ligue, graines 1, 2 et 3) : humeur de départ 7 (jamais au-dessus, sinon le plafond de 10 avale les événements positifs), baisse de 1 tous les 5 trous, contrariétés mineures à partir de la 6e occurrence, « coup décevant » à −1, panorama à 0,2 et beau trou à 0,5 de beauté (moins de +1 gaspillés au plafond). Au départ 6, l'exclusion des démissionnaires du vivier décalait les tirages et la graine 1 passait à 5,6 % d'abandons (limite 4,5 %) ; la raison dominante est l'eau. Mesures :
 
 | Graine | Golfeurs | Abandons | Humeur de sortie moyenne | Positifs écrêtés au plafond |
 |---|---|---|---|---|
-| 1 | 286 | 12 (4,2 %) | +6,03 | 24 sur 1 238 (1,9 %) |
-| 2 | 295 | 8 (2,7 %) | +6,84 | 105 sur 1 567 (6,7 %) |
-| 3 | 267 | 11 (4,1 %) | +4,29 | 0 sur 674 (0,0 %) |
+| 1 | 286 | 7 (2,4 %) | +6,76 | 30 sur 1 114 (2,7 %) |
+| 2 | 295 | 6 (2,0 %) | +7,10 | 106 sur 1 387 (7,6 %) |
+| 3 | 267 | 5 (1,9 %) | +5,11 | 4 sur 681 (0,6 %) |
 
 Le résolveur simplifié ne rend ni eau, ni arbre, ni bunker, ni mauvais coup : il donne 0 abandon et une sortie à 9,9. Il ne peut donc pas caler. La CI cale sur le résolveur physique, 8 jours (48 golfeurs, graine 1) : au moins un abandon, moins de 8 %, sortie entre 1 et 9, moins de 10 % de positifs écrêtés. Les trois graines sur 30 jours se lancent à la main (`GOLFEROO_LONG=1`).
 

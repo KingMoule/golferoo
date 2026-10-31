@@ -232,7 +232,7 @@ public sealed class Golfer
                 throw new InvalidDataException("Sauvegarde incohérente : trous aimés d'un golfeur.");
             }
         }
-        else if (golfer.VisitorId >= 0)
+        else if (r.Version < 14 && golfer.VisitorId >= 0)
         {
             golfer.Mood = MoodParams.Default.Start; // sauvegarde v13 : les visiteurs en jeu repartent avec l'humeur de départ
         }

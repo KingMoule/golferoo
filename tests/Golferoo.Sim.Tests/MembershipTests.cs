@@ -436,4 +436,32 @@ public class MembershipTests(ITestOutputHelper output)
         Assert.Equal(world.Checksum(), loaded.Checksum());
         Assert.Contains(world.Visitors.Visitors, v => v.Points > 0);
     }
+
+    /// <summary>
+    /// Une vraie sauvegarde v14 produite par <c>main</c> (ac0a7bc, graine 3, groupes en jeu, humeurs variées) : l'humeur, les membres, les divisions et le solde survivent au chargement v15.
+    /// </summary>
+    [Fact]
+    public void Load_RealV14Save_KeepsMoodMembersDivisionsAndBalance()
+    {
+        var dir = Path.Combine(AppContext.BaseDirectory, "Fixtures");
+        var expected = File.ReadAllLines(Path.Combine(dir, "v14-groups.txt"));
+        var world = World.Load(File.OpenRead(Path.Combine(dir, "v14-groups.sav")), new StubShotResolver());
+
+        Assert.Equal($"tick {world.Tick}", expected[0]);
+        Assert.Equal($"balance {world.Ledger.Balance}", expected[1]);
+        Assert.Equal($"members {world.League!.Members.Count}", expected[2]);
+        Assert.Equal("divisions " + string.Join(";", world.League.Divisions.Select(d => string.Join(",", d.Select(m => m.Id)))), expected[3]);
+        var golfers = world.Groups.SelectMany(g => g.Golfers).Where(o => o.VisitorId >= 0).Select(o => $"golfer {o.Id} {o.VisitorId} {o.Mood}").ToList();
+        Assert.Equal(expected.Skip(4), golfers);
+        Assert.True(golfers.Select(x => x.Split(' ')[3]).Distinct().Count() > 3, "la fixture doit avoir des humeurs variées");
+        Assert.Equal(40, world.Visitors.Visitors.Count(v => v.Level == MemberLevel.Member)); // les 40 membres de la graine, adoptés
+        Assert.Equal(world.Checksum(), World.Load(new MemoryStream(Resave(world)), new StubShotResolver()).Checksum());
+    }
+
+    private static byte[] Resave(World world)
+    {
+        using var stream = new MemoryStream();
+        world.Save(stream);
+        return stream.ToArray();
+    }
 }
