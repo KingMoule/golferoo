@@ -13,6 +13,7 @@ public static class UiNames
     [
         "putt difficile rentré", "putt facile raté", "coup décevant", "balle dans l'eau", "balle dans un bunker", "balle dans un arbre", "aucun endroit sûr où viser", "attente au départ",
         "jeu lent devant", "balle d'un autre groupe tombée tout près", "vue panoramique", "gazon usé", "arbre remarquable", "beau trou", "longue marche", "le pro joue avec le groupe",
+        "visite d'un service du club",
     ];
 
     public static readonly string[] Skies = ["soleil", "nuages", "pluie", "forte pluie"];
