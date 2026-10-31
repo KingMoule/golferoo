@@ -14,10 +14,10 @@ public class LeagueFinalTests(ITestOutputHelper output)
         var list = new List<Member>();
         for (var i = 0; i < enrolled; i++)
         {
-            list.Add(new Member(i, $"M{i}", 2 + i, 60 + (i % 40)));
+            list.Add(new Member(i, $"M{i}", 2 + i));
         }
 
-        list.Add(new Member(999, "Pro", 36, 100, isPro: true));
+        list.Add(new Member(999, "Pro", 36, isPro: true));
         return list;
     }
 
@@ -177,7 +177,7 @@ public class LeagueFinalTests(ITestOutputHelper output)
     [Fact]
     public void NextSeason_April1st_DivisionsRecomputed_PointsReset_NewcomerAtTheBottom_CardsKept()
     {
-        var newcomer = new Member(50, "Neuf", 3, 10);
+        var newcomer = new Member(50, "Neuf", 3) { Resigned = true };
         var s = new LeagueSeason(1, [.. Members(9), newcomer]); // 10 inscrits : une division
         Play(s, 0, 57);
         var cards = s.Members.Sum(m => m.Cards.Count);
@@ -185,7 +185,7 @@ public class LeagueFinalTests(ITestOutputHelper output)
         Assert.Single(s.Divisions);
 
         // Le nouveau, d'un meilleur niveau que tous, s'inscrit pendant l'hiver : il arrive tout en bas, avant le pro.
-        newcomer.Opinion = 80;
+        newcomer.Resigned = false;
         Play(s, 58, 119);
         Assert.Equal(0, s.Year);
         Play(s, 120, 120);
@@ -227,7 +227,7 @@ public class LeagueFinalTests(ITestOutputHelper output)
         Play(s, 0, 57);
         foreach (var m in members.Skip(10).Where(m => !m.IsPro))
         {
-            m.Opinion = 0;
+            m.Resigned = true;
         }
 
         Play(s, 58, 120);

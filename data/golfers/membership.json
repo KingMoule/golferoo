@@ -1,0 +1,15 @@
+// Adhésion (spec C16, lot 2), réglée pour Facile. Un visiteur gagne des points après chaque partie finie ; son niveau suit ses points.
+// thresholds : points pour Member, Silver, Gold, Platinum (pas de plafond de membres). Une démission est définitive.
+{
+  "thresholds": [2, 4, 8, 16],
+
+  // Une partie vaut 1 point par groupe de likedHolesPerPoint trous aimés (au moins un événement positif sur le trou)…
+  "likedHolesPerPoint": 6,
+
+  // …plus goodExitPoints si l'humeur de sortie est d'au moins goodExitMood…
+  "goodExitMood": 9,
+  "goodExitPoints": 1,
+
+  // …plus proPoints pour un membre qui a joué avec le pro.
+  "proPoints": 1
+}

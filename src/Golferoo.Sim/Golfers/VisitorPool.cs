@@ -4,7 +4,7 @@ namespace Golferoo.Sim.Golfers;
 
 /// <summary>
 /// Un visiteur nommé et persistant du vivier (C15) : son niveau et son style, la dernière journée où il est venu et son envie de revenir (0 à 1).
-/// C16 remplacera l'envie par l'humeur et fera des membres de certains visiteurs.
+/// C16 : il gagne des points après chaque partie finie et devient membre (<see cref="Level"/>) ; une démission est définitive.
 /// </summary>
 public sealed class Visitor
 {
@@ -34,6 +34,15 @@ public sealed class Visitor
     /// <summary>Il est sur le parcours ou dans la file, donc pas disponible.</summary>
     public bool InPlay { get; internal set; }
 
+    /// <summary>Points d'adhésion gagnés (<see cref="MembershipParams"/>), sans plafond.</summary>
+    public int Points { get; internal set; }
+
+    /// <summary>Niveau d'adhésion ; <see cref="MemberLevel.Visitor"/> tant qu'il n'est pas membre, ou après sa démission.</summary>
+    public MemberLevel Level { get; internal set; }
+
+    /// <summary>A démissionné (il a abandonné une partie comme membre) : il ne revient jamais.</summary>
+    public bool Resigned { get; internal set; }
+
     internal void Write(SaveWriter w)
     {
         w.Int(Id);
@@ -43,10 +52,25 @@ public sealed class Visitor
         w.Double(Desire);
         w.Int(LastVisitDay);
         w.Bool(InPlay);
+        w.Int(Points);
+        w.Byte((byte)Level);
+        w.Bool(Resigned);
     }
 
-    internal static Visitor Read(SaveReader r) =>
-        new(r.Int(), r.String(), r.Double(), (Archetype)r.Byte(), r.Double()) { LastVisitDay = r.Int(), InPlay = r.Bool() };
+    internal static Visitor Read(SaveReader r)
+    {
+        var v = new Visitor(r.Int(), r.String(), r.Double(), (Archetype)r.Byte(), r.Double()) { LastVisitDay = r.Int(), InPlay = r.Bool() };
+        if (r.Version >= 15)
+        {
+            (v.Points, v.Level, v.Resigned) = (r.Int(), (MemberLevel)r.Byte(), r.Bool());
+            if (v.Points < 0 || !Enum.IsDefined(v.Level) || (v.Resigned && v.Level != MemberLevel.Visitor))
+            {
+                throw new InvalidDataException("Sauvegarde incohérente : adhésion d'un visiteur.");
+            }
+        }
+
+        return v;
+    }
 
     internal void Mix(ref ulong hash)
     {
@@ -54,6 +78,10 @@ public sealed class Visitor
         World.Mix(ref hash, (ulong)BitConverter.DoubleToInt64Bits(Handicap));
         World.Mix(ref hash, (ulong)BitConverter.DoubleToInt64Bits(Desire));
         World.Mix(ref hash, (ulong)(uint)LastVisitDay);
+        if (Points != 0 || Level != MemberLevel.Visitor || Resigned)
+        {
+            World.Mix(ref hash, (ulong)(uint)Points | ((ulong)Level << 32) | (Resigned ? 1UL << 40 : 0UL));
+        }
     }
 }
 
@@ -67,9 +95,9 @@ public sealed class VisitorPool
     /// <summary>Numéro du prochain visiteur.</summary>
     public int Next => _visitors.Count;
 
-    internal Visitor Add(string name, double handicap, Archetype profile, double desire)
+    internal Visitor Add(string name, double handicap, Archetype profile, double desire, MemberLevel level = MemberLevel.Visitor, int points = 0)
     {
-        var v = new Visitor(_visitors.Count, name, handicap, profile, desire);
+        var v = new Visitor(_visitors.Count, name, handicap, profile, desire) { Level = level, Points = points };
         _visitors.Add(v);
         return v;
     }
@@ -82,7 +110,7 @@ public sealed class VisitorPool
     /// <paramref name="threshold"/>. Dans l'ordre du vivier.
     /// </summary>
     internal List<Visitor> Returning(int day, double threshold) =>
-        [.. _visitors.Where(v => !v.InPlay && v.LastVisitDay < day && v.Desire >= threshold)];
+        [.. _visitors.Where(v => !v.InPlay && !v.Resigned && v.LastVisitDay < day && v.Desire >= threshold)];
 
     internal void Write(SaveWriter w) => w.List(_visitors, v => v.Write(w));
 

@@ -67,11 +67,12 @@ public sealed partial class World
     private Point2?[] _exitPoints = [];
     private long _exitPointVersion = -1;
 
-    public World(ulong seed, TerrainGrid? terrain = null, IShotResolver? resolver = null, bool league = false, EconomyParams? economy = null, ProgressionParams? progression = null, bool placeClubhouse = false, ArrivalParams? arrivals = null, MoodParams? mood = null)
+    public World(ulong seed, TerrainGrid? terrain = null, IShotResolver? resolver = null, bool league = false, EconomyParams? economy = null, ProgressionParams? progression = null, bool placeClubhouse = false, ArrivalParams? arrivals = null, MoodParams? mood = null, MembershipParams? membership = null, bool emptyClub = false)
     {
         Seed = seed;
         Arrivals = arrivals ?? ArrivalParams.Default;
         Moods = mood ?? MoodParams.Default;
+        Memberships = membership ?? MembershipParams.Default;
         Reputation = Arrivals.ReputationStart;
         _arrivalRng = new DeterministicRng(seed ^ ArrivalSeedMask);
         Terrain = terrain;
@@ -92,9 +93,10 @@ public sealed partial class World
         Flow = terrain is null ? null : new FlowFieldCache(terrain);
         if (league && terrain is not null)
         {
-            League = new LeagueSeason(seed, LeagueSeason.GenerateMembers(seed));
+            League = new LeagueSeason(seed, emptyClub ? LeagueSeason.EmptyClub(seed) : LeagueSeason.GenerateMembers(seed));
             Pro = new ProSkills(Progression);
             _proMemberId = League.Members.First(m => m.IsPro).Id;
+            AdoptClub();
         }
 
         if (terrain is not null)
@@ -511,6 +513,7 @@ public sealed partial class World
         ApplyHoleCommands();
         ApplyTurfCommands();
         ApplyProShots();
+        ApplyJoins();
         while (_ratingCommands.Count > 0)
         {
             ApplyRating(_ratingCommands.Dequeue());
@@ -658,6 +661,7 @@ public sealed partial class World
         MixClubhouse(ref hash);
         MixArrivals(ref hash);
         MixMood(ref hash);
+        MixMembership(ref hash);
         MixPendingEdits(ref hash);
         MixStroke(ref hash);
         MixTreeCommands(ref hash);
@@ -748,6 +752,11 @@ public sealed partial class World
             foreach (var o in g.Occurrences)
             {
                 Mix(ref hash, (ulong)o);
+            }
+
+            if (g.LikedHoles != 0 || g.LikedThisHole)
+            {
+                Mix(ref hash, (ulong)(uint)g.LikedHoles | (g.LikedThisHole ? 1UL << 32 : 0UL));
             }
         }
 

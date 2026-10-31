@@ -46,6 +46,7 @@ public sealed partial class World
 
         var before = g.Mood;
         g.Mood = MoodParams.Clamp(before + def.Value);
+        g.LikedThisHole |= def.Value > 0 && e != MoodEvent.ProPlaysWithUs;
         Reactions.Add(hole, e);
         MoodChanged?.Invoke(new MoodChange(g, e, hole, CellOf(at), g.Mood - before));
     }
@@ -125,7 +126,7 @@ public sealed partial class World
     {
         if (group.FromArrivals && Tick - group.ArrivedTick >= Moods.TeeWaitTicks)
         {
-            foreach (var g in group.Golfers)
+            foreach (var g in group.Golfers.Where(HasMood))
             {
                 Raise(g, MoodEvent.TeeWait, 1, g.Position);
             }
@@ -181,6 +182,12 @@ public sealed partial class World
             if (group.Hole % Moods.DropEveryHoles == 0)
             {
                 g.Mood = MoodParams.Clamp(g.Mood - 1);
+            }
+
+            if (g.LikedThisHole)
+            {
+                g.LikedHoles++;
+                g.LikedThisHole = false;
             }
         }
     }
@@ -280,6 +287,7 @@ public sealed partial class World
         {
             quitter.Quit = true;
             quitter.State = GolferState.Quitting;
+            ResignIfMember(quitter);
             foreach (var partner in group.Active)
             {
                 partner.Mood = HasMood(partner) ? MoodParams.Clamp(partner.Mood - 1) : partner.Mood;
@@ -307,8 +315,8 @@ public sealed partial class World
         return reason;
     }
 
-    /// <summary>Qualité de la sortie d'un groupe, de 0 à 1 : la moyenne de l'humeur de sortie de ses golfeurs, abandons compris.</summary>
-    private double ExitScore(Group group) => group.Golfers.Average(g => Moods.ExitScore(g.Mood));
+    /// <summary>Qualité de la sortie d'un groupe, de 0 à 1 : la moyenne de l'humeur de sortie de ses visiteurs, abandons compris (le pro n'a pas d'humeur).</summary>
+    private double ExitScore(Group group) => group.Golfers.Where(HasMood).Average(g => Moods.ExitScore(g.Mood));
 
     private void MixMood(ref ulong hash)
     {

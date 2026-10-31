@@ -312,7 +312,7 @@ public class MoodTests(ITestOutputHelper output)
     }
 
     [Theory]
-    [InlineData("\"start\": 6,", "\"start\": 11,")]
+    [InlineData("\"start\": 7,", "\"start\": 11,")]
     [InlineData("\"id\": \"water\"", "\"id\": \"inconnu\"")]
     [InlineData("\"thought\": \"Ma balle est partie à l'eau, zut.\"", "\"thought\": \"\"")]
     [InlineData("\"dropEveryHoles\": 5,", "")]
