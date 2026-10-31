@@ -57,6 +57,7 @@ public sealed partial class World
             }
 
             var v = Visitors.Visitors[g.VisitorId];
+            v.Games++;
             var from = v.Level;
             v.Points += Memberships.PointsFor(g.LikedHoles, g.Mood, withPro && from != MemberLevel.Visitor);
             var to = Memberships.LevelOf(v.Points);

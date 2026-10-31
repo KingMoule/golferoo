@@ -7,6 +7,14 @@ public static class UiNames
     public static readonly string[] MonthsShort = ["jan", "fév", "mars", "avr", "mai", "juin", "juil", "août", "sept", "oct", "nov", "déc"];
     public static readonly string[] Seasons = ["printemps", "été", "automne", "hiver"];
     public static readonly string[] Levels = ["Visiteur", "Membre", "Argent", "Or", "Platine"];
+
+    /// <summary>Ce qui a fait réagir un golfeur, dans l'ordre de <c>MoodEvent</c> : le rapport des réactions par trou.</summary>
+    public static readonly string[] Reactions =
+    [
+        "putt difficile rentré", "putt facile raté", "coup décevant", "balle dans l'eau", "balle dans un bunker", "balle dans un arbre", "aucun endroit sûr où viser", "attente au départ",
+        "jeu lent devant", "balle d'un autre groupe tombée tout près", "vue panoramique", "gazon usé", "arbre remarquable", "beau trou", "longue marche", "le pro joue avec le groupe",
+    ];
+
     public static readonly string[] Skies = ["soleil", "nuages", "pluie", "forte pluie"];
 
     /// <summary>« Printemps » pour « printemps ».</summary>

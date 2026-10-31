@@ -31,10 +31,14 @@ public partial class Thoughts : Node
     private PanelContainer _tip = null!;
     private UiPanel _card = null!;
     private int _cardVisitor = -1;
+    private (int? Mood, int Points, int Games, MemberLevel Level) _cardKey;
     private bool _leagueOpen;
 
-    /// <summary>Les bulles à l'écran.</summary>
+    /// <summary>Les bulles ouvertes.</summary>
     public int BubbleCount => _bubbles.Count;
+
+    /// <summary>Les bulles ouvertes qui se voient : celles des golfeurs hors de l'écran sont cachées.</summary>
+    public int VisibleBubbleCount => _bubbles.Count(b => b.Node.Visible);
 
     public bool TipVisible => _tip.Visible;
 
@@ -225,7 +229,20 @@ public partial class Thoughts : Node
             placed.Add(rect);
         }
 
+        // La jauge de la fiche suit l'humeur, qui baisse aussi sans évènement (un peu tous les quelques trous), et le niveau et les parties à la fin d'une partie.
+        if (_card.Visible && _cardVisitor >= 0 && CardKey(_cardVisitor) != _cardKey)
+        {
+            BuildCard(_cardVisitor);
+        }
+
         UpdateTip();
+    }
+
+    private (int? Mood, int Points, int Games, MemberLevel Level) CardKey(int visitorId)
+    {
+        var visitor = _main.World.Visitors.Visitors[visitorId];
+        var golfer = _main.World.Groups.SelectMany(g => g.Golfers).FirstOrDefault(g => g.VisitorId == visitorId);
+        return (golfer?.Mood, visitor.Points, visitor.Games, visitor.Level);
     }
 
     // ---- Info-bulle ----
@@ -241,7 +258,7 @@ public partial class Thoughts : Node
         }
 
         var viewport = _main.GetViewport();
-        if (_main.Brush.Active || _main.TreeTool.Active || viewport.GuiGetHoveredControl() is not null
+        if (_main.Brush.Active || _main.TreeTool.Active || _main.ProAim.Active || _main.PlaceTool.Active || viewport.GuiGetHoveredControl() is not null
             || _main.PickGolfer(viewport.GetMousePosition(), _ => true) is not var (_, golfer))
         {
             _tip.Visible = false;
@@ -298,6 +315,7 @@ public partial class Thoughts : Node
 
     private void BuildCard(int visitorId)
     {
+        _cardKey = CardKey(visitorId);
         var visitor = _main.World.Visitors.Visitors[visitorId];
         var golfer = _main.World.Groups.SelectMany(g => g.Golfers).FirstOrDefault(g => g.VisitorId == visitorId);
         foreach (var child in _card.Content.GetChildren())
@@ -312,6 +330,7 @@ public partial class Thoughts : Node
         var thresholds = _main.World.Memberships.Thresholds;
         var next = thresholds.Cast<int?>().FirstOrDefault(t => t > visitor.Points);
         body.AddChild(new Label { Text = next is { } n ? $"{visitor.Points} points d'adhésion (prochain niveau à {n})" : $"{visitor.Points} points d'adhésion", ThemeTypeVariation = "UiCaption" });
+        body.AddChild(new Label { Text = visitor.Games == 1 ? "1 partie jouée" : $"{visitor.Games} parties jouées", ThemeTypeVariation = "UiCaption" });
         body.AddChild(golfer is null
             ? new Label { Text = "Pas sur le parcours : l'humeur reprend à l'arrivée.", ThemeTypeVariation = "UiCaption", AutowrapMode = TextServer.AutowrapMode.WordSmart }
             : MoodGauge(golfer.Mood));

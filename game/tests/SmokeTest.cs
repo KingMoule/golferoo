@@ -24,6 +24,9 @@ public partial class SmokeTest : Node
 
     private Main? _main;
     private Main? _tutorial;
+
+    /// <summary>C16 lot 4 : un monde à arrivées saturées, mis en pause, où la sim lève de vrais évènements d'humeur (<see cref="CheckThoughtsReal"/>).</summary>
+    private Main? _real;
     private int _frames;
 
     public override void _Ready()
@@ -36,6 +39,12 @@ public partial class SmokeTest : Node
         var scene = GD.Load<PackedScene>("res://Main.tscn");
         _main = scene.Instantiate<Main>();
         AddChild(_main);
+
+        Main.ArrivalsOverride = ArrivalParams.Default.AtMaxAttraction();
+        _real = scene.Instantiate<Main>();
+        AddChild(_real);
+        _real.Paused = true;
+        Main.ArrivalsOverride = null;
     }
 
     public override void _Process(double delta)
@@ -1246,6 +1255,8 @@ public partial class SmokeTest : Node
         CheckPanels(failures);
         CheckBirdie(failures);
         CheckThoughts(failures);
+        CheckThoughtsReal(failures);
+        CheckReactions(failures);
         CheckUiScale(failures);
         CheckNoKeys(main, failures, []);
         CheckBirdieDays(failures);
@@ -1610,15 +1621,146 @@ public partial class SmokeTest : Node
         Press(UiIds.Hud.ThoughtsToggle, failures);
         Expect(!Thoughts.Off, "le bouton ne rétablit pas les bulles");
 
-        for (var i = 0; i < Thoughts.MaxBubbles + 4; i++)
-        {
-            thoughts.Think(10000 + i, visitor.Id, "Zut.", -1);
-        }
-
-        Expect(thoughts.BubbleCount <= Thoughts.MaxBubbles, "trop de bulles à la fois");
         thoughts.ClearBubbles();
         main.Panels.Close((UiPanel)main.Ui.Find(UiIds.Panel.Golfer)!);
-        GD.Print($"SMOKE pensées : bulle, info-bulle, fiche, réglage et plafond de {Thoughts.MaxBubbles} bulles ({failures.Count} échec)");
+        GD.Print($"SMOKE pensées : bulle, info-bulle, fiche et réglage ({failures.Count} échec)");
+    }
+
+    /// <summary>
+    /// C16 lot 4 : le chemin entier, sans appeler <c>Think</c> : un vrai visiteur arrive, la sim lève un vrai évènement d'humeur (<c>World.MoodChanged</c>), la bulle s'ouvre,
+    /// <c>OpenCardAt</c> ouvre sa fiche (niveau, parties, jauge d'humeur à jour) ; puis le plafond de bulles avec de vrais golfeurs, et une bulle cachée qui cède sa place.
+    /// </summary>
+    private void CheckThoughtsReal(List<string> failures)
+    {
+        var main = _real!;
+        var world = main.World;
+        var thoughts = main.Thoughts;
+        void Expect(bool ok, string what)
+        {
+            if (!ok)
+            {
+                failures.Add($"pensées réelles : {what} (bulles {thoughts.BubbleCount})");
+            }
+        }
+
+        MoodChange? seen = null;
+        world.MoodChanged += c => seen ??= c.Delta != 0 && c.Golfer.VisitorId >= 0 ? c : null;
+        for (var i = 0; i < 3 * Golferoo.Sim.Time.Calendar.TicksPerDay / 100 && seen is null; i++)
+        {
+            world.Step(100);
+        }
+
+        if (seen is not { } change)
+        {
+            failures.Add("pensées réelles : aucun évènement d'humeur en trois jours d'arrivées");
+            return;
+        }
+
+        Expect(!Thoughts.Off && thoughts.BubbleCount >= 1 && main.Ui.Find(UiIds.Hud.ThoughtBubble) is not null, "la sim a levé un évènement mais aucune bulle ne s'ouvre");
+
+        Vector3 Ground(Golfer g) => new((float)g.Position.X, (float)world.Terrain!.Sample(g.Position.X, g.Position.Z), (float)g.Position.Z);
+        main.Camera.SetView(45f, 60f, Ground(change.Golfer));
+        Expect(thoughts.OpenCardAt(main.Camera.View!.UnprojectPosition(Ground(change.Golfer))) && thoughts.CardOpen, "OpenCardAt n'ouvre pas la fiche d'un golfeur du vivier");
+        if (thoughts.CardOpen)
+        {
+            var card = main.Ui.Find(UiIds.Panel.Golfer)!;
+            var visitor = world.Visitors.Visitors[thoughts.CardVisitor];
+            var onCourse = world.Groups.SelectMany(g => g.Golfers).First(g => g.VisitorId == visitor.Id);
+            var text = AllText(card).ToList();
+            Expect(text.Contains(UiNames.Levels[(int)visitor.Level]), $"la fiche n'affiche pas le niveau {UiNames.Levels[(int)visitor.Level]}");
+            Expect(text.Any(t => t.Contains("partie")), "la fiche n'affiche pas les parties jouées");
+            var gauge = card.FindChild("MoodGauge", true, false) as UiGauge;
+            Expect(gauge?.Value.Text == onCourse.Mood.ToString(CultureInfo.InvariantCulture), $"la jauge de la fiche dit {gauge?.Value.Text} pour une humeur de {onCourse.Mood}");
+
+            // La jauge suit l'humeur quand elle change plus tard (un évènement, ou la baisse tous les quelques trous).
+            var shown = onCourse.Mood;
+            for (var i = 0; i < 3 * Golferoo.Sim.Time.Calendar.TicksPerDay / 100 && onCourse.Mood == shown && world.Groups.Any(g => g.Golfers.Contains(onCourse)); i++)
+            {
+                world.Step(100);
+            }
+
+            thoughts._Process(0.0);
+            if (onCourse.Mood != shown)
+            {
+                Expect(((UiGauge)card.FindChild("MoodGauge", true, false)!).Value.Text == onCourse.Mood.ToString(CultureInfo.InvariantCulture), "la jauge de la fiche ne suit pas l'humeur");
+            }
+        }
+
+        // Le plafond, avec de vrais golfeurs : une bulle cachée (golfeur hors de l'écran) cède sa place à un golfeur qu'on voit.
+        List<Golfer> Visitors() => [.. world.Groups.SelectMany(g => g.Golfers).Where(g => g.VisitorId >= 0)];
+        for (var i = 0; i < Golferoo.Sim.Time.Calendar.TicksPerDay / 100 && Visitors().Count <= Thoughts.MaxBubbles + 3; i++)
+        {
+            world.Step(100);
+        }
+
+        var golfers = Visitors();
+        if (golfers.Count <= Thoughts.MaxBubbles + 3)
+        {
+            failures.Add($"pensées réelles : {golfers.Count} golfeurs du vivier seulement, il en faut plus de {Thoughts.MaxBubbles + 3}");
+            return;
+        }
+
+        thoughts.ClearBubbles();
+        var size = (float)(world.Terrain!.CellsX * world.Terrain.CellSize);
+        var corners = new[] { new Vector3(0f, 0f, 0f), new Vector3(size, 0f, 0f), new Vector3(0f, 0f, size), new Vector3(size, 0f, size) };
+        var away = corners.MaxBy(c => golfers.Min(g => new Vector2(c.X - (float)g.Position.X, c.Z - (float)g.Position.Z).Length()));
+        main.Camera.SetView(45f, 30f, away);
+        foreach (var g in golfers.Take(Thoughts.MaxBubbles + 3))
+        {
+            thoughts.Think(g.Id, g.VisitorId, "Zut.", -1);
+        }
+
+        Expect(thoughts.BubbleCount == Thoughts.MaxBubbles, $"{thoughts.BubbleCount} bulles au lieu de {Thoughts.MaxBubbles} au plafond");
+        Expect(thoughts.VisibleBubbleCount == 0, "des golfeurs sont à l'écran dans le coin le plus vide : le cas du plafond n'est pas préparé");
+        var next = golfers[Thoughts.MaxBubbles + 3];
+        main.Camera.SetView(45f, 30f, Ground(next));
+        thoughts.Think(next.Id, next.VisitorId, "Enfin un beau coup.", 1);
+        Expect(thoughts.BubbleCount == Thoughts.MaxBubbles && thoughts.VisibleBubbleCount == 1, $"une bulle cachée bloque le golfeur qu'on voit ({thoughts.VisibleBubbleCount} bulles visibles)");
+        thoughts.ClearBubbles();
+        main.Panels.Close((UiPanel)main.Ui.Find(UiIds.Panel.Golfer)!);
+        GD.Print($"SMOKE pensées réelles : évènement {change.Event} levé par la sim, bulle, fiche par clic (niveau, parties, humeur), plafond de {Thoughts.MaxBubbles} bulles et bulle cachée ({failures.Count} échec)");
+    }
+
+    /// <summary>C16 lot 4 : le rapport affiche les compteurs de la sim (mauvaises réactions d'abord, triées), et la carte se montre avec un disque par réaction gardée.</summary>
+    private void CheckReactions(List<string> failures)
+    {
+        var main = _real!;
+        var world = main.World;
+        var report = main.ReactionReport;
+        void Expect(bool ok, string what)
+        {
+            if (!ok)
+            {
+                failures.Add($"réactions : {what}");
+            }
+        }
+
+        var holes = world.Terrain!.Course.Count;
+        var total = Enumerable.Range(1, holes).Sum(h => Enum.GetValues<MoodEvent>().Sum(e => world.Reactions.Count(h, e) + world.Reactions.Previous(h, e)));
+        Expect(total > 0, "la sim n'a compté aucune réaction");
+        Expect(Press(main, UiIds.Round.Reactions, failures) && report.IsOpen && main.Panels.Opened.Contains(main.Ui.Find(UiIds.Panel.Reactions)), "le bouton n'ouvre pas le rapport");
+        Expect(report.Rows.Sum(r => r.Now + r.Before) == total, $"le rapport totalise {report.Rows.Sum(r => r.Now + r.Before)} réactions, la sim {total}");
+        foreach (var hole in report.Rows.GroupBy(r => r.Hole))
+        {
+            Expect(hole.Select(r => r.Good).SequenceEqual(hole.Select(r => r.Good).OrderBy(g => g)), $"trou {hole.Key} : les mauvaises réactions ne viennent pas d'abord");
+            foreach (var side in hole.GroupBy(r => r.Good))
+            {
+                Expect(side.Select(r => r.Now).SequenceEqual(side.Select(r => r.Now).OrderByDescending(n => n)), $"trou {hole.Key} : réactions mal triées");
+            }
+        }
+
+        var worst = report.Rows.Where(r => !r.Good).OrderByDescending(r => r.Now).FirstOrDefault();
+        var text = AllText(main.Ui.Find(UiIds.Panel.Reactions)!).ToList();
+        Expect(worst.Text is null || (text.Contains($"Trou {worst.Hole}") && text.Contains($"×{worst.Now}")), "le rapport n'affiche pas la pire réaction avec son nombre");
+
+        Expect(!report.MapOn, "la carte est montrée avant qu'on la demande");
+        Expect(Press(main, UiIds.Hud.ReactionMap, failures) && report.MapOn, "le bouton n'active pas la carte");
+        Expect(report.MapDiscs == world.Reactions.Spots.Count && report.MapDiscs > 0, $"{report.MapDiscs} disques pour {world.Reactions.Spots.Count} réactions gardées");
+        Press(main, UiIds.Hud.ReactionMap, failures);
+        Expect(!report.MapOn, "le bouton ne cache pas la carte");
+        Press(main, UiIds.Round.Reactions, failures);
+        Expect(!report.IsOpen, "le bouton ne referme pas le rapport");
+        GD.Print($"SMOKE réactions : rapport de {report.Rows.Count} lignes pour {total} réactions comptées, carte de {world.Reactions.Spots.Count} disques ({failures.Count} échec)");
     }
 
     private static IEnumerable<string> AllText(Node root) =>

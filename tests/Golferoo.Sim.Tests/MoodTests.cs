@@ -54,6 +54,7 @@ public class MoodTests(ITestOutputHelper output)
         Assert.True(change.Golfer.Mood < world.Moods.Start);
         Assert.True(world.Reactions.Count(change.Hole, MoodEvent.EasyPuttMissed) >= 1);
         Assert.Equal(change.Cell, (world.Terrain!.CellXOf(change.Golfer.Ball.X), world.Terrain.CellZOf(change.Golfer.Ball.Z)));
+        Assert.Contains(new ReactionSpot(change.Cell.X, change.Cell.Z, MoodEvent.EasyPuttMissed), world.Reactions.Spots);
     }
 
     [Fact]

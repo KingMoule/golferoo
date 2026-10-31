@@ -47,8 +47,9 @@ public sealed partial class World
         var before = g.Mood;
         g.Mood = MoodParams.Clamp(before + def.Value);
         g.LikedThisHole |= def.Value > 0 && e != MoodEvent.ProPlaysWithUs;
-        Reactions.Add(hole, e);
-        MoodChanged?.Invoke(new MoodChange(g, e, hole, CellOf(at), g.Mood - before));
+        var cell = CellOf(at);
+        Reactions.Add(hole, e, cell);
+        MoodChanged?.Invoke(new MoodChange(g, e, hole, cell, g.Mood - before));
     }
 
     private static double Dist(Point2 a, Point2 b) => Math.Sqrt(Dist2(a, b));

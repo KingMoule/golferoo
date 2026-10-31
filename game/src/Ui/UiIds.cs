@@ -27,6 +27,7 @@ public static class UiIds
         public const string League = "RoundLeague";
         public const string Pro = "RoundPro";
         public const string Finances = "RoundFinances";
+        public const string Reactions = "RoundReactions";
         public const string Birdie = "RoundBirdie";
         public const string Camera = "RoundCamera";
     }
@@ -50,6 +51,7 @@ public static class UiIds
         public const string BirdieFeed = "BirdieFeed";
         public const string BirdieMute = "BirdieMute";
         public const string ThoughtsToggle = "ThoughtsToggle";
+        public const string ReactionMap = "ReactionMapToggle";
         public const string ThoughtBubble = "ThoughtBubble";
         public const string GolferTip = "GolferTip";
         public const string StrokeCost = "HudStrokeCost";
@@ -111,6 +113,7 @@ public static class UiIds
         public const string Birdie = "PanelBirdie";
         public const string Golfer = "PanelGolfer";
         public const string Finances = "PanelFinances";
+        public const string Reactions = "PanelReactions";
         public const string Overdraft = "PanelOverdraft";
 
         /// <summary>La visée du pro, hors de la pile : elle suit le tour du pro.</summary>
