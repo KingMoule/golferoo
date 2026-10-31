@@ -53,6 +53,7 @@ public partial class ToolDrawer : PanelContainer
     private readonly Dictionary<(TreeSpeciesId, TreePlantStage), UiThumb> _treeThumbs = [];
     private readonly Dictionary<string, Button> _actions = [];
     private readonly Dictionary<BuildingKind, UiThumb> _buildingThumbs = [];
+    private ToolFamily _lastFamily;
     private Main _main = null!;
     private BottomBar _bar = null!;
     private Label _title = null!;
@@ -140,6 +141,7 @@ public partial class ToolDrawer : PanelContainer
         _pages[ToolFamily.Buildings] = BuildingsPage(thumbnails);
         foreach (var page in _pages.Values)
         {
+            page.Visible = false; // montrée par Sync : sinon toutes les pages empilées donnent au tiroir sa taille avant la première mise à jour
             content.AddChild(page);
         }
 
@@ -290,6 +292,12 @@ public partial class ToolDrawer : PanelContainer
         foreach (var (f, page) in _pages)
         {
             page.Visible = f == family;
+        }
+
+        if (family != _lastFamily)
+        {
+            _lastFamily = family;
+            ResetSize(); // la mise en page ne passe qu'à l'image suivante : le tiroir prend tout de suite la taille de sa nouvelle page
         }
 
         _sizeRow.Visible = family is not (ToolFamily.Holes or ToolFamily.Buildings);

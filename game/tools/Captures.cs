@@ -848,13 +848,21 @@ public partial class Captures : Node
         var (gx, gz) = (grid.CellXOf(hole.Green.X), grid.CellZOf(hole.Green.Z));
         var rect = world.BuildingRules.At(BuildingKind.SnackBar, 0, 0, DoorSide.South)!.Footprint;
         (int X, int Z)? spot = null;
-        for (var radius = 3; radius <= 20 && spot is null; radius++)
+        var verdicts = new Dictionary<BuildingPlacement, int>();
+        for (var radius = 3; radius <= 60 && spot is null; radius++)
         {
             for (var dz = -radius; dz <= radius && spot is null; dz++)
             {
                 for (var dx = -radius; dx <= radius && spot is null; dx++)
                 {
-                    if (Math.Max(Math.Abs(dx), Math.Abs(dz)) == radius && world.CheckBuilding(BuildingKind.SnackBar, gx + dx, gz + dz, DoorSide.South) == BuildingPlacement.Placed)
+                    if (Math.Max(Math.Abs(dx), Math.Abs(dz)) != radius)
+                    {
+                        continue;
+                    }
+
+                    var verdict = world.CheckBuilding(BuildingKind.SnackBar, gx + dx, gz + dz, DoorSide.South);
+                    verdicts[verdict] = verdicts.GetValueOrDefault(verdict) + 1;
+                    if (verdict == BuildingPlacement.Placed)
                     {
                         spot = (gx + dx, gz + dz);
                     }
@@ -864,7 +872,7 @@ public partial class Captures : Node
 
         if (spot is not { } at)
         {
-            GD.PrintErr("CAPTURES FAIL c17 : aucun emplacement valide pour un snack-bar près du trou 5");
+            GD.PrintErr($"CAPTURES FAIL c17 : aucun emplacement valide pour un snack-bar près du trou 5 (sortie {gx},{gz}, ouverts {world.OpenHoles}, verdicts {string.Join(", ", verdicts.Select(v => $"{v.Key}={v.Value}"))})");
             _failures++;
             return;
         }
@@ -872,12 +880,12 @@ public partial class Captures : Node
         var middle = new Point2((at.X + ((rect.MaxX + 1) / 2.0)) * cell, (at.Z + ((rect.MaxZ + 1) / 2.0)) * cell);
         var focus = new Vector3((float)middle.X, (float)grid.Sample(middle.X, middle.Z), (float)middle.Z);
         main.SunDayFraction = 0.4;
-        var verdict = tool.ShowGhost(middle);
+        var shown = tool.ShowGhost(middle);
         main.Camera.SetMode(CameraMode.Iso, instant: true);
         main.Camera.SetView(45f, 60f, focus);
         await Frames(SettleFrames);
-        GD.Print($"C17 pose snack-bar={at} sortie={gx},{gz} verdict={verdict} fantome_valide={main.Structures.GhostValid} etat={tool.Status}");
-        if (verdict != BuildingPlacement.Placed || !main.Structures.GhostVisible || !main.Structures.GhostValid)
+        GD.Print($"C17 pose snack-bar={at} sortie={gx},{gz} verdict={shown} fantome_valide={main.Structures.GhostValid} etat={tool.Status}");
+        if (shown != BuildingPlacement.Placed || !main.Structures.GhostVisible || !main.Structures.GhostValid)
         {
             GD.PrintErr("CAPTURES FAIL c17 : le fantôme n'est pas vert sur l'emplacement valide");
             _failures++;
@@ -900,11 +908,11 @@ public partial class Captures : Node
             return;
         }
 
-        verdict = tool.ShowGhost(refused);
+        shown = tool.ShowGhost(refused);
         main.Camera.SetView(45f, 60f, new Vector3((float)refused.X, (float)grid.Sample(refused.X, refused.Z), (float)refused.Z));
         await Frames(SettleFrames);
-        GD.Print($"C17 refus verdict={verdict} fantome_valide={main.Structures.GhostValid} etat={tool.Status}");
-        if (verdict == BuildingPlacement.Placed || main.Structures.GhostValid)
+        GD.Print($"C17 refus verdict={shown} fantome_valide={main.Structures.GhostValid} etat={tool.Status}");
+        if (shown == BuildingPlacement.Placed || main.Structures.GhostValid)
         {
             GD.PrintErr("CAPTURES FAIL c17 : le fantôme n'est pas rouge sur le fairway");
             _failures++;
