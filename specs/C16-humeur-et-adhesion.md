@@ -110,7 +110,7 @@ Le résolveur simplifié ne rend ni eau, ni arbre, ni bunker, ni mauvais coup : 
 6. Pro et file : `JoinQueuedGroup` met le groupe choisi en tête, et le pro part avec lui au prochain départ libre. Le groupe reçoit l'événement « le pro joue avec nous ». Avec la même graine et les mêmes commandes, on obtient le même `Checksum`.
 7. Déterminisme : même graine, mêmes commandes, donc même `Checksum` après 10 jours avec humeur, abandons et adhésions.
 8. Banc P1 : le tick tient les seuils de C12 (moyenne sous 2 ms, 99e centile sous 5 ms) avec les événements actifs.
-9. Fumée Godot : une bulle de pensée apparaît au-dessus d'un golfeur après un événement, et aucune quand l'option est coupée. L'info-bulle et la fiche s'ouvrent. Le rapport par trou affiche les compteurs de la sim. Capture `c16-pensees` en CI.
+9. Fumée Godot : une bulle de pensée apparaît au-dessus d'un golfeur après un événement, et aucune quand l'option est coupée. L'info-bulle et la fiche s'ouvrent. Le rapport par trou affiche les compteurs de la sim. Captures `c16-pensees` et `c16-reactions` (rapport et carte) en CI.
 10. Les textes des pensées sont en français, dans les données, un par événement.
 
 ## Lots

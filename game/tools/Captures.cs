@@ -39,7 +39,7 @@ public partial class Captures : Node
     private const int ProfileViewCount = 3;
     private const int FreeViewCount = 4;
     private const int SaveViewCount = 2;
-    private const int CourseViewCount = 13;
+    private const int CourseViewCount = 14;
     private const int GalleryViewCount = 1;
     private const int FinanceViewCount = 1;
     private const int ProViewCount = 2;
@@ -784,45 +784,7 @@ public partial class Captures : Node
         await CloseUp(main, "c23-swing", g => g.State == GolferState.Swinging, rig => rig.Clip == GolferModel.Swing && Math.Abs(rig.Time - SwingTopSeconds) < 0.03);
         main.Actors.Range = ActorLayer.AnimatedRange;
         await InterfaceView(main, placed[0].Id);
-        await ThoughtsView(main, focus);
         await PavilionView();
-    }
-
-    /// <summary>
-    /// C16 lot 3 : « Le neuf », des bulles de pensée au-dessus de quelques golfeurs (vraies pensées des données, bonnes en vert, mauvaises en rouge), l'info-bulle de l'un d'eux
-    /// et la fiche d'un membre du club ouverte à droite (<c>c16-pensees</c>).
-    /// </summary>
-    private async Task ThoughtsView(Main main, Vector3 focus)
-    {
-        main.Camera.SetView(45f, 60f, focus);
-        await Frames(SettleFrames);
-        var defs = main.World.Moods.Definitions;
-        var golfers = main.World.Groups.SelectMany(g => g.Golfers).ToList();
-        var thoughts = main.Thoughts;
-        for (var i = 0; i < golfers.Count && i < Thoughts.MaxBubbles; i++)
-        {
-            var def = defs[(i * 5 + 1) % defs.Count];
-            thoughts.Think(golfers[i].Id, i, def.Thought, def.Value >= 0 ? 1 : -1);
-        }
-
-        thoughts.OpenCard(0);
-        await Frames(2);
-        var view = main.Camera.View!;
-        var ground = main.Actors.PositionOf(golfers[0].Id) ?? Vector3.Zero;
-        thoughts.Tip(golfers[0], view.UnprojectPosition(ground));
-        thoughts.Pinned = true;
-        await Frames(2);
-        GD.Print($"PENSEES bulles={thoughts.BubbleCount} fiche={thoughts.CardOpen} info_bulle={thoughts.TipVisible}");
-        if (thoughts.BubbleCount == 0 || !thoughts.CardOpen)
-        {
-            GD.PrintErr("CAPTURES FAIL pensées : aucune bulle ou fiche absente");
-            _failures++;
-        }
-
-        Save("c16-pensees");
-        thoughts.ClearBubbles();
-        thoughts.Pinned = false;
-        main.Panels.Close(main.Panels.Opened.Last());
     }
 
     /// <summary>C15 lot 3 : le pavillon et une file de golfeurs devant sa porte (deux groupes lancés bloquent le départ, les arrivées font la file), soleil en début de matinée.</summary>
@@ -861,6 +823,102 @@ public partial class Captures : Node
         main.Camera.SetView(45f, 60f, focus);
         await Frames(SettleFrames);
         Save("c15-pavillon");
+        await ThoughtsView(main);
+        await ReactionsView(main);
+    }
+
+    /// <summary>
+    /// C16 lots 3 et 4 : de vrais visiteurs arrivés et jouant sur « Le neuf » ; on avance jusqu'à ce que la sim lève une dizaine de réactions de golfeurs différents, puis on montre
+    /// leurs pensées (celles des données, bonnes en vert, mauvaises en rouge) en bulles au-dessus de leurs têtes, l'info-bulle de l'un d'eux et sa fiche, à droite (<c>c16-pensees</c>).
+    /// </summary>
+    private async Task ThoughtsView(Main main)
+    {
+        var world = main.World;
+        var thoughts = main.Thoughts;
+        var recent = new List<MoodChange>();
+        void Note(MoodChange c)
+        {
+            if (c.Delta != 0 && c.Golfer.VisitorId >= 0 && recent.TrueForAll(r => r.Golfer.Id != c.Golfer.Id))
+            {
+                recent.Add(c);
+            }
+        }
+
+        world.MoodChanged += Note;
+        for (var i = 0; i < 6000 && recent.Count < 10; i++)
+        {
+            main.StepTicks(10);
+        }
+
+        world.MoodChanged -= Note;
+        thoughts.ClearBubbles();
+        if (recent.Count == 0)
+        {
+            GD.PrintErr("CAPTURES FAIL pensées : aucun évènement d'humeur en 6000 pas");
+            _failures++;
+            return;
+        }
+
+        // Le cadre : le golfeur qui a le plus de voisins parmi ceux qui ont réagi.
+        var centre = recent.MaxBy(c => recent.Count(o => Math.Abs(o.Golfer.Position.X - c.Golfer.Position.X) + Math.Abs(o.Golfer.Position.Z - c.Golfer.Position.Z) < 40.0))!.Golfer;
+        var ground = new Vector3((float)centre.Position.X, (float)world.Terrain!.Sample(centre.Position.X, centre.Position.Z), (float)centre.Position.Z);
+        main.Camera.SetView(45f, 50f, ground);
+        await Frames(SettleFrames);
+        foreach (var c in recent.TakeLast(Thoughts.MaxBubbles))
+        {
+            thoughts.Think(c.Golfer.Id, c.Golfer.VisitorId, world.Moods.Definitions[(int)c.Event].Thought, c.Delta);
+        }
+
+        thoughts.OpenCard(centre.VisitorId);
+        await Frames(2);
+        thoughts.Tip(centre, main.Camera.View!.UnprojectPosition(ground));
+        thoughts.Pinned = true;
+        await Frames(2);
+        GD.Print($"PENSEES reactions={recent.Count} bulles={thoughts.BubbleCount} visibles={thoughts.VisibleBubbleCount} fiche={thoughts.CardOpen} info_bulle={thoughts.TipVisible}");
+        if (thoughts.VisibleBubbleCount == 0 || !thoughts.CardOpen)
+        {
+            GD.PrintErr("CAPTURES FAIL pensées : aucune bulle visible ou fiche absente");
+            _failures++;
+        }
+
+        Save("c16-pensees");
+        thoughts.ClearBubbles();
+        thoughts.Pinned = false;
+        main.Panels.Close(main.Panels.Opened.Last());
+    }
+
+    /// <summary>C16 lot 4 : après quelques jours d'arrivées, le rapport des réactions par trou ouvert à droite et la carte des réactions sur tout le parcours (<c>c16-reactions</c>).</summary>
+    private async Task ReactionsView(Main main)
+    {
+        var world = main.World;
+        for (var day = 0; day < 3; day++)
+        {
+            world.Step(Calendar.TicksPerDay);
+        }
+
+        main.StepTicks(1);
+        main.ReactionReport.Toggle();
+        main.ReactionReport.SetMap(true);
+        var grid = world.Terrain!;
+        var holes = grid.Course.Holes;
+        var (minX, maxX) = (holes.Min(h => Math.Min(h.Tee.X, h.Hole.X)), holes.Max(h => Math.Max(h.Tee.X, h.Hole.X)));
+        var (minZ, maxZ) = (holes.Min(h => Math.Min(h.Tee.Z, h.Hole.Z)), holes.Max(h => Math.Max(h.Tee.Z, h.Hole.Z)));
+        var span = (float)Math.Max(maxX - minX, maxZ - minZ);
+        main.SunDayFraction = 0.4;
+        main.Camera.SetView(45f, Math.Clamp(span * 0.8f, 120f, 400f), new Vector3((float)(minX + maxX) / 2f, 0f, (float)(minZ + maxZ) / 2f));
+        await Frames(SettleFrames);
+        var report = main.ReactionReport;
+        GD.Print($"REACTIONS lignes={report.Rows.Count} disques={report.MapDiscs} gardees={world.Reactions.Spots.Count} jours={world.DayIndex}");
+        CheckWidth(main.Ui.Find(UiIds.Panel.Reactions)!, ReactionReport.Width);
+        if (report.Rows.Count == 0 || report.MapDiscs == 0)
+        {
+            GD.PrintErr("CAPTURES FAIL réactions : rapport ou carte vide");
+            _failures++;
+        }
+
+        Save("c16-reactions");
+        report.SetMap(false);
+        report.Toggle();
     }
 
     /// <summary>Sommet du swing de golf_swing_2s (image 23 sur 61 à 30 images/s).</summary>

@@ -27,6 +27,7 @@ public partial class BottomBar : Control
     private Button _pro = null!;
     private Button _birdie = null!;
     private Button _finances = null!;
+    private Button _reactions = null!;
     private UiPill _money = null!;
     private bool? _debt;
     private Button _camera = null!;
@@ -124,6 +125,8 @@ public partial class BottomBar : Control
         _pro.SetPressedNoSignal(_main.ProPanel?.IsOpen == true);
         _birdie.SetPressedNoSignal(_main.Birdie?.IsOpen == true);
         _finances.SetPressedNoSignal(_main.Finances?.IsOpen == true);
+        _reactions.SetPressedNoSignal(_main.ReactionReport?.IsOpen == true);
+        _main.ReactionReport?.Refresh();
         _main.Finances?.Refresh();
         _camera.SetPressedNoSignal(_main.Camera.Mode == CameraMode.Free);
         _pause.SetPressedNoSignal(_main.Paused);
@@ -215,6 +218,7 @@ public partial class BottomBar : Control
         _league = Round(round, UiIds.Round.League, "trophy", "Ligue", () => _main.League?.Toggle(), enabled: _main.League is not null);
         _pro = Round(round, UiIds.Round.Pro, "figurine", "Votre pro", () => _main.ProPanel?.Toggle(), enabled: _main.ProPanel is not null);
         _finances = Round(round, UiIds.Round.Finances, "coin", "Finances : solde, douze derniers mois, détail par catégorie", () => _main.Finances.Toggle(), enabled: true);
+        _reactions = Round(round, UiIds.Round.Reactions, "information", "Réactions des golfeurs par trou, et leur carte sur le terrain", () => _main.ReactionReport.Toggle(), enabled: true);
         _birdie = Round(round, UiIds.Round.Birdie, "birdie", "Birdie : les nouvelles du club", () => _main.Birdie.Toggle(), enabled: true);
         _camera = Round(round, UiIds.Round.Camera, "video", "Caméra libre (clic du milieu glissé pour tourner et incliner)", () => _main.Camera.ToggleMode(), enabled: true);
         return Tier("BarTop", UiTheme.BarTop, 0f, TopHeight, row);
