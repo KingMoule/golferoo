@@ -176,8 +176,9 @@ public sealed partial class World
             return;
         }
 
+        AwardPoints(group);
         var visitors = new List<Visitor>(group.Golfers.Count);
-        foreach (var g in group.Golfers)
+        foreach (var g in group.Golfers.Where(HasMood))
         {
             var v = Visitors.Visitors[g.VisitorId];
             v.InPlay = false;

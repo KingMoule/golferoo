@@ -8,7 +8,8 @@ namespace Golferoo.Sim.League;
 
 /// <summary>
 /// Saison de ligue : inscrits, divisions, calendrier, formats et points. Sans Godot et sans tick :
-/// le monde l'appelle au changement de jour et quand une paire a fini.
+/// le monde l'appelle au changement de jour et quand une paire a fini. Les inscrits sont les membres du club (C16) et votre pro ;
+/// la ligue est fermée (aucune division) tant qu'ils sont moins de <see cref="DivisionSize"/>, pro compris.
 /// </summary>
 public sealed class LeagueSeason
 {
@@ -20,7 +21,6 @@ public sealed class LeagueSeason
 
     /// <summary>Les formats tournent en cycle de quatre.</summary>
     public const int FormatCycle = 4;
-    public const int MinOpinion = 60;
     public const int DivisionSize = 8;
     public const int ClubMembers = 40;
 
@@ -40,6 +40,7 @@ public sealed class LeagueSeason
     public const int MovesPerBoundary = 2;
 
     private readonly ulong _seed;
+    private readonly List<Member> _members;
     private readonly Dictionary<int, Member> _byId;
     private int _next;
     private int _due;
@@ -50,14 +51,17 @@ public sealed class LeagueSeason
     {
         ArgumentNullException.ThrowIfNull(members);
         _seed = seed;
-        Members = members;
+        _members = [.. members];
         _byId = members.ToDictionary(m => m.Id);
         Divisions = BuildDivisions(Enrolled(members).ToList());
         (Rounds, Final) = NewRounds(0);
         _due = Rounds[0].NominalDay;
     }
 
-    public IReadOnlyList<Member> Members { get; }
+    public IReadOnlyList<Member> Members => _members;
+
+    /// <summary>La ligue a au moins une division : assez de membres, pro compris.</summary>
+    public bool Open => Divisions.Count > 0;
 
     /// <summary>Divisions de la première (la plus forte) à la dernière.</summary>
     public IReadOnlyList<IReadOnlyList<Member>> Divisions { get; internal set; }
@@ -92,7 +96,12 @@ public sealed class LeagueSeason
     /// <summary>Jour prévu de la journée <paramref name="round"/> : le 5 de chaque mois, à partir d'avril.</summary>
     public static int NominalDay(int round) => (round * Calendar.DaysPerMonth) + RoundDayOfMonth - 1;
 
-    /// <summary>40 membres tirés de la graine (handicaps de 2 à 36), puis votre pro (handicap 36, opinion 100).</summary>
+    /// <summary>Un club vide : seulement votre pro (handicap 36).</summary>
+    public static List<Member> EmptyClub(ulong seed) => [new Member(0, ProName, 36, isPro: true, GolferProfile.ForMember(seed, 0))];
+
+    private const string ProName = "Votre pro";
+
+    /// <summary>Le club pré-rempli de la démonstration et des tests : 40 membres tirés de la graine (handicaps de 2 à 36), puis votre pro (handicap 36).</summary>
     public static List<Member> GenerateMembers(ulong seed)
     {
         var rng = new DeterministicRng(seed ^ 0x4D454D4245525355UL);
@@ -101,10 +110,11 @@ public sealed class LeagueSeason
         {
             var name = $"{FirstNames[(int)(rng.NextUInt64() % (ulong)FirstNames.Length)]} {(char)('A' + (int)(rng.NextUInt64() % 26))}.";
             var handicap = 2 + (int)(rng.NextUInt64() % 35);
-            members.Add(new Member(i, name, handicap, (int)(rng.NextUInt64() % 101), profile: GolferProfile.ForMember(seed, i)));
+            _ = rng.NextUInt64(); // l'opinion de C06, supprimée : le tirage reste, pour que les noms et handicaps ne changent pas
+            members.Add(new Member(i, name, handicap, profile: GolferProfile.ForMember(seed, i)));
         }
 
-        members.Add(new Member(ClubMembers, "Votre pro", 36, 100, isPro: true, GolferProfile.ForMember(seed, ClubMembers)));
+        members.Add(new Member(ClubMembers, ProName, 36, isPro: true, GolferProfile.ForMember(seed, ClubMembers)));
         return members;
     }
 
@@ -123,13 +133,13 @@ public sealed class LeagueSeason
     private LeagueRound RoundAt(int n) => n < RoundCount ? Rounds[n] : Final;
 
     private static IEnumerable<Member> Enrolled(IEnumerable<Member> members) =>
-        members.Where(m => !m.IsPro && m.Opinion >= MinOpinion).OrderBy(m => m.StartHandicap).ThenBy(m => m.Id)
+        members.Where(m => !m.IsPro && !m.Resigned).OrderBy(m => m.StartHandicap).ThenBy(m => m.Id)
             .Concat(members.Where(m => m.IsPro));
 
-    /// <summary>Divisions de <c>floor(inscrits / 8)</c> (au moins une) sur la liste déjà rangée.</summary>
+    /// <summary>Divisions de <c>floor(inscrits / 8)</c>, pro compris, sur la liste déjà rangée : aucune avant 8 inscrits.</summary>
     private static List<IReadOnlyList<Member>> BuildDivisions(List<Member> ordered)
     {
-        var count = Math.Max(1, ordered.Count / DivisionSize);
+        var count = ordered.Count / DivisionSize;
         var divisions = new List<IReadOnlyList<Member>>(count);
         var start = 0;
         for (var d = 0; d < count; d++)
@@ -143,11 +153,45 @@ public sealed class LeagueSeason
     }
 
     /// <summary>
+    /// Un visiteur devient membre : il entre dans la ligue (<paramref name="member"/>, identifiant libre). Fermée, la ligue ouvre ses divisions dès qu'elle a
+    /// <see cref="DivisionSize"/> inscrits, pro compris ; ouverte, il attend le 1er avril, qui range les nouveaux inscrits en bas des divisions.
+    /// </summary>
+    internal void Enroll(Member member)
+    {
+        _members.Add(member);
+        _byId.Add(member.Id, member);
+        if (!Open)
+        {
+            Divisions = BuildDivisions(Enrolled(_members).ToList());
+        }
+    }
+
+    /// <summary>Un membre démissionne : il quitte sa division, et ne sera plus tiré au sort ni inscrit.</summary>
+    internal void Resign(Member member)
+    {
+        member.Resigned = true;
+        Divisions = [.. Divisions.Select(d => (IReadOnlyList<Member>)[.. d.Where(m => m != member)])];
+    }
+
+    /// <summary>
     /// Au changement du jour <paramref name="day"/> : démarre la journée due, sauf sous l'orage (elle glisse au lendemain).
-    /// Rend la journée et ses groupes dans l'ordre de départ (dernière division d'abord), ou nul.
+    /// Rend la journée et ses groupes dans l'ordre de départ (dernière division d'abord), ou nul. Fermée, la ligue ne joue pas ; elle passe les années.
     /// </summary>
     public LeagueRound? OnNewDay(int day, bool storm, long tick)
     {
+        if (!Open)
+        {
+            if (day >= (Year + 1) * DaysPerYear)
+            {
+                NewSeason();
+            }
+
+            if (!Open)
+            {
+                return null;
+            }
+        }
+
         if (_adjusted && day >= (Year + 1) * DaysPerYear)
         {
             NewSeason();
@@ -356,7 +400,7 @@ public sealed class LeagueSeason
     /// <summary>1er avril : mêmes divisions rangées par l'ajustement, nouveaux inscrits et pro en bas, points remis à zéro.</summary>
     private void NewSeason()
     {
-        var kept = Divisions.SelectMany(d => d).Where(m => !m.IsPro && m.Opinion >= MinOpinion).ToList();
+        var kept = Divisions.SelectMany(d => d).Where(m => !m.IsPro && !m.Resigned).ToList();
         var known = kept.ToHashSet();
         var ordered = kept.Concat(Enrolled(Members).Where(m => !m.IsPro && !known.Contains(m)))
             .Concat(Members.Where(m => m.IsPro)).ToList();
@@ -406,6 +450,7 @@ public sealed class LeagueSeason
         w.Int(_next);
         w.Int(_due);
         w.Bool(_adjusted);
+        w.List(Members, m => m.WriteRoster(w));
         foreach (var m in Members)
         {
             m.Write(w);
@@ -440,17 +485,24 @@ public sealed class LeagueSeason
 
     private static LeagueChampion ReadChampion(SaveReader r) => new(r.Int(), r.Int(), r.Int());
 
-    /// <summary>Saison relue : les membres sont ceux de la graine, l'état qui change (année, journées, divisions, classements) vient du fichier.</summary>
+    /// <summary>
+    /// Saison relue. Depuis la v15 le fichier porte la liste des membres ; avant, ils sont ceux de la graine (40 et votre pro) et
+    /// <see cref="World"/> en fait des visiteurs du vivier. L'état qui change (année, journées, divisions, classements) vient du fichier.
+    /// </summary>
     internal static LeagueSeason Read(SaveReader r, ulong seed)
     {
-        var season = new LeagueSeason(seed, GenerateMembers(seed));
-        season.Year = r.Int();
-        season._next = r.Int();
-        season._due = r.Int();
-        season._adjusted = r.Bool();
+        var legacy = r.Version < 15;
+        var (year, next, due, adjusted) = (r.Int(), r.Int(), r.Int(), r.Bool());
+        var members = legacy ? GenerateMembers(seed) : r.List(() => Member.ReadRoster(r));
+        if (members.Count(m => m.IsPro) != 1 || members.Select(m => m.Id).Distinct().Count() != members.Count)
+        {
+            throw new InvalidDataException("Sauvegarde incohérente : membres de la ligue.");
+        }
+
+        var season = new LeagueSeason(seed, members) { Year = year, _next = next, _due = due, _adjusted = adjusted };
         foreach (var m in season.Members)
         {
-            m.ReadState(r);
+            m.ReadState(r, legacy);
         }
 
         List<Member> Group(List<int> ids) => [.. ids.Select(id => season._byId[id])];
@@ -475,6 +527,12 @@ public sealed class LeagueSeason
     {
         World.Mix(ref hash, ((ulong)(uint)_next << 32) | (uint)_due);
         World.Mix(ref hash, ((ulong)(uint)Year << 1) | (_adjusted ? 1UL : 0UL));
+        World.Mix(ref hash, (ulong)_members.Count);
+        foreach (var m in _members)
+        {
+            World.Mix(ref hash, (ulong)(uint)(m.VisitorId + 1) | (m.Resigned ? 1UL << 40 : 0UL));
+        }
+
         foreach (var division in Divisions)
         {
             World.Mix(ref hash, (ulong)division.Count);

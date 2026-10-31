@@ -15,15 +15,15 @@ public class LeagueTests(ITestOutputHelper output)
         var list = new List<Member>();
         for (var i = 0; i < enrolled; i++)
         {
-            list.Add(new Member(i, $"M{i}", 2 + i, 60 + (i % 40)));
+            list.Add(new Member(i, $"M{i}", 2 + i));
         }
 
         for (var i = 0; i < notEnrolled; i++)
         {
-            list.Add(new Member(100 + i, $"X{i}", 10, 59 - i));
+            list.Add(new Member(100 + i, $"X{i}", 10) { Resigned = true });
         }
 
-        list.Add(new Member(999, "Pro", 36, 100, isPro: true));
+        list.Add(new Member(999, "Pro", 36, isPro: true));
         return list;
     }
 
@@ -36,20 +36,28 @@ public class LeagueTests(ITestOutputHelper output)
 
         Assert.Equal(41, members.Count);
         Assert.All(members.Take(40), m => Assert.InRange(m.StartHandicap, 2, 36));
-        Assert.All(members.Take(40), m => Assert.InRange(m.Opinion, 0, 100));
         Assert.Equal(36, members[^1].StartHandicap);
         Assert.True(members[^1].IsPro);
         Assert.Equal(members.Select(m => m.Name), LeagueSeason.GenerateMembers(5).Select(m => m.Name));
     }
 
     [Fact]
-    public void Enrollment_OnlyOpinionAtLeast60AndThePro()
+    public void Enrollment_NotTheResigned_ButThePro()
     {
         var season = new LeagueSeason(1, Members(10, notEnrolled: 5));
 
         var enrolled = season.Divisions.SelectMany(d => d).ToList();
         Assert.Equal(11, enrolled.Count);
-        Assert.All(enrolled, m => Assert.True(m.IsPro || m.Opinion >= 60));
+        Assert.All(enrolled, m => Assert.False(m.Resigned));
+    }
+
+    [Fact]
+    public void Divisions_ClosedUnder8WithThePro_OpenAt7Members()
+    {
+        Assert.Empty(new LeagueSeason(1, Members(6)).Divisions);
+        Assert.False(new LeagueSeason(1, Members(6)).Open);
+        Assert.Single(new LeagueSeason(1, Members(7)).Divisions);
+        Assert.Equal(8, new LeagueSeason(1, Members(7)).Divisions[0].Count);
     }
 
     [Fact]

@@ -33,16 +33,27 @@ public sealed partial class World
     private long ReliefPrice(double cubicMeters) => (long)Math.Round(cubicMeters * Economy.ReliefPerM3);
 
     /// <summary>
-    /// Green fee d'un trou joué : tarif visiteur (sans membre) ou Member (tous les membres jusqu'à C16 lot 2), rien pour votre pro.
-    /// Celui d'un visiteur suit son humeur à la fin du trou (×0,5 à −10, ×1 à zéro, ×1,2 à +10).
+    /// Green fee d'un trou joué : le tarif du niveau d'adhésion (visiteur, Member, Silver, Gold ou Platinum), rien pour votre pro.
+    /// Celui d'un visiteur du vivier suit son humeur à la fin du trou (×0,5 à −10, ×1 à zéro, ×1,2 à +10) ; celui d'un membre en journée de ligue, non.
     /// </summary>
-    internal long GreenFee(Golfer g) =>
-        g.MemberId < 0
-            ? Economy.GreenFeeVisitor * (g.VisitorId < 0 ? 10_000 : MoodParams.FeeBasisPoints(g.Mood, Economy.MoodFactorMinBasisPoints, Economy.MoodFactorMaxBasisPoints)) / 10_000
-            : League!.Members[g.MemberId].IsPro ? 0 : Economy.GreenFeeMember;
+    internal long GreenFee(Golfer g)
+    {
+        if (g.VisitorId >= 0)
+        {
+            return LevelFee(Visitors.Visitors[g.VisitorId].Level) * MoodParams.FeeBasisPoints(g.Mood, Economy.MoodFactorMinBasisPoints, Economy.MoodFactorMaxBasisPoints) / 10_000;
+        }
 
-    /// <summary>Membres qui paient la cotisation : ceux du club, sans votre pro (tous au niveau Member jusqu'à C16).</summary>
-    private int PayingMembers => League?.Members.Count(m => !m.IsPro) ?? 0;
+        if (g.MemberId < 0)
+        {
+            return Economy.GreenFeeVisitor;
+        }
+
+        var member = League!.Members[g.MemberId];
+        return member.IsPro ? 0 : member.VisitorId >= 0 ? LevelFee(Visitors.Visitors[member.VisitorId].Level) : Economy.GreenFeeMember;
+    }
+
+    /// <summary>Cotisations annuelles de tous les membres du vivier, chacune selon son niveau (votre pro ne paie rien).</summary>
+    private long AnnualDues => Visitors.Visitors.Sum(v => LevelDues(v.Level));
 
     /// <summary>
     /// Clôture du mois <paramref name="month"/> : entretien des trous ouverts (majoré si les consignes sont exigeantes), 1 % d'intérêts sur un
@@ -58,7 +69,7 @@ public sealed partial class World
             Ledger.Post(LedgerCategory.Interest, Ledger.Balance * Economy.OverdraftInterestBasisPoints / 10_000);
         }
 
-        Ledger.Post(LedgerCategory.Dues, PayingMembers * Economy.DuesMember / Calendar.MonthsPerYear);
+        Ledger.Post(LedgerCategory.Dues, AnnualDues / Calendar.MonthsPerYear);
 
         Ledger.CloseMonth(month);
         Reactions.CloseMonth();

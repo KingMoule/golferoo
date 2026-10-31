@@ -25,7 +25,8 @@ public sealed class Group
     /// <summary>Journée de ligue de ce groupe (−1 hors ligue).</summary>
     public int LeagueRound { get; internal init; } = -1;
 
-    public IReadOnlyList<Golfer> Golfers { get; }
+    /// <summary>Les golfeurs du groupe ; le pro s'y ajoute quand il se joint à un groupe de la file (C16).</summary>
+    public IReadOnlyList<Golfer> Golfers { get; internal set; }
 
     /// <summary>Ligue : tick à partir duquel le groupe peut jouer son premier coup, sans attendre le groupe précédent.</summary>
     internal long ReleaseTick { get; set; }

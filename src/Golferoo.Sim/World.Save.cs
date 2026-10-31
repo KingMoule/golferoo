@@ -150,6 +150,7 @@ public sealed partial class World
         Clubhouse?.Write(w);
         WriteArrivals(w);
         Reactions.Write(w);
+        w.List(_joinCommands, w.Int);
     }
 
     private static void WriteRating(SaveWriter w, CourseRating r)
@@ -282,6 +283,7 @@ public sealed partial class World
 
         Arrivals = ArrivalParams.Default;
         Moods = MoodParams.Default;
+        Memberships = MembershipParams.Default;
         if (r.Version >= 13)
         {
             _arrivalRng = DeterministicRng.Read(r);
@@ -305,6 +307,23 @@ public sealed partial class World
         if (r.Version >= 14)
         {
             Reactions = Reactions.Read(r);
+        }
+
+        if (r.Version >= 15)
+        {
+            foreach (var id in r.List(r.Int))
+            {
+                _joinCommands.Enqueue(id);
+            }
+        }
+        else if (League is not null)
+        {
+            AdoptClub(); // avant la v15, les membres de la ligue n'étaient pas des visiteurs : les 40 de la graine le deviennent, mêmes handicap et division
+        }
+
+        if (League is not null && League.Members.Any(m => m.VisitorId >= Visitors.Next || (!m.IsPro && m.VisitorId < 0)))
+        {
+            throw new InvalidDataException("Sauvegarde incohérente : membre de la ligue sans visiteur.");
         }
 
         _resolver = resolver ?? (Terrain is null ? new StubShotResolver() : new PhysicalShotResolver());

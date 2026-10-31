@@ -120,6 +120,12 @@ public sealed class Golfer
     /// <summary>Ticks passés à attendre le groupe devant sur le trou en cours ; remis à zéro au départ du trou suivant.</summary>
     internal int WaitTicks { get; set; }
 
+    /// <summary>Trous finis qu'il a aimés : au moins un événement positif sur le trou (C16 lot 2, adhésion).</summary>
+    public int LikedHoles { get; internal set; }
+
+    /// <summary>Un événement positif a touché le golfeur sur le trou en cours.</summary>
+    internal bool LikedThisHole { get; set; }
+
     /// <summary>Le golfeur joue une journée de ligue.</summary>
     internal bool InLeague { get; set; }
 
@@ -168,6 +174,8 @@ public sealed class Golfer
         w.Bool(Quit);
         w.List(Occurrences, w.Int);
         w.Int(WaitTicks);
+        w.Int(LikedHoles);
+        w.Bool(LikedThisHole);
     }
 
     internal static Golfer Read(SaveReader r)
@@ -213,6 +221,16 @@ public sealed class Golfer
             }
 
             occurrences.CopyTo(golfer.Occurrences);
+        }
+
+        if (r.Version >= 15)
+        {
+            golfer.LikedHoles = r.Int();
+            golfer.LikedThisHole = r.Bool();
+            if (golfer.LikedHoles < 0)
+            {
+                throw new InvalidDataException("Sauvegarde incohérente : trous aimés d'un golfeur.");
+            }
         }
         else if (golfer.VisitorId >= 0)
         {

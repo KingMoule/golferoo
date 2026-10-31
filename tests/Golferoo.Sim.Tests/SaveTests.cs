@@ -163,7 +163,6 @@ public class SaveTests
             Assert.True(reached(), "scénario non atteint");
         }
 
-        league.Members[3].Opinion = 17; // hors Checksum : seul AssertSameLeague le voit
         return world;
     }
 
@@ -183,7 +182,7 @@ public class SaveTests
     private static void AssertSameLeague(World a, World b)
     {
         var (x, y) = (a.League!, b.League!);
-        Assert.Equal(x.Members.Select(m => m.Opinion), y.Members.Select(m => m.Opinion));
+        Assert.Equal(x.Members.Select(m => (m.Id, m.Name, m.StartHandicap, m.Profile, m.IsPro, m.VisitorId, m.Resigned)), y.Members.Select(m => (m.Id, m.Name, m.StartHandicap, m.Profile, m.IsPro, m.VisitorId, m.Resigned)));
         Assert.Equal(x.FinalRanking, y.FinalRanking);
         Assert.Equal(x.Champion, y.Champion);
         foreach (var (r, q) in x.Rounds.Append(x.Final).Zip(y.Rounds.Append(y.Final)))
@@ -280,6 +279,82 @@ public class SaveTests
         using var gzip = new GZipStream(new MemoryStream(file, 28, file.Length - 28), CompressionMode.Decompress);
         gzip.CopyTo(raw);
         return raw.ToArray();
+    }
+
+    private static byte[] Bytes(Action<Golferoo.Sim.Save.SaveWriter> write)
+    {
+        var w = new Golferoo.Sim.Save.SaveWriter();
+        write(w);
+        return w.Written.ToArray();
+    }
+
+    private static byte[] ReplaceOnce(byte[] all, byte[] what, byte[] with)
+    {
+        var at = all.AsSpan().IndexOf(what);
+        Assert.True(at >= 0, "section introuvable dans le corps");
+        return [.. all[..at], .. with, .. all[(at + what.Length)..]];
+    }
+
+    /// <summary>
+    /// Ramène le corps v15 de <paramref name="raw"/> (monde à club vide : seulement le pro dans la ligue, vivier sans membre) à la disposition de la v14 ou de la v13 :
+    /// sans commandes du pro, sans trous aimés, sans adhésion des visiteurs, ligue des 40 membres de la graine et leur opinion fixe ; pour la v13, sans humeur, sans heure d'arrivée des groupes, sans réactions.
+    /// </summary>
+    private static byte[] LegacyBody(World world, byte[] raw, int version)
+    {
+        var league = world.League;
+        Assert.True(league is null || league.Members.Count == 1);
+        raw = raw[..^4]; // ni commandes du pro (v15)
+        if (version == 13)
+        {
+            raw = raw[..^Bytes(w => world.Reactions.Write(w)).Length]; // ni réactions (v14)
+        }
+
+        foreach (var group in world.Groups)
+        {
+            var bytes = Bytes(w => group.Write(w));
+            var legacy = bytes;
+            foreach (var golfer in group.Golfers)
+            {
+                var g = Bytes(w => golfer.Write(w));
+                var cut = 5 + (version == 13 ? 4 + 1 + 4 + (4 * MoodParams.EventCount) + 4 : 0); // trous aimés (v15), puis humeur, abandon, compteurs et attente (v14)
+                legacy = ReplaceOnce(legacy, g, g[..^cut]);
+            }
+
+            raw = ReplaceOnce(raw, bytes, version == 13 ? legacy[..^8] : legacy); // l'heure d'arrivée du groupe (v14) est la dernière chose écrite
+        }
+
+        var pool = Bytes(w => world.Visitors.Write(w));
+        var visitors = world.Visitors.Visitors;
+        var legacyPool = Bytes(w => w.Int(visitors.Count)).Concat(visitors.SelectMany(v => Bytes(w => v.Write(w))[..^6])).ToArray(); // ni points, ni niveau, ni démission (v15)
+        raw = ReplaceOnce(raw, pool, legacyPool);
+
+        if (league is not null)
+        {
+            var bytes = Bytes(w => league.Write(w));
+            var roster = Bytes(w => w.List(league.Members, m => m.WriteRoster(w)));
+            var states = Bytes(w => league.Members.ToList().ForEach(m => m.Write(w)));
+            var divisions = Bytes(w => w.List(league.Divisions, d => w.List(d, m => w.Int(m.Id))));
+            var rest = bytes[(13 + roster.Length + states.Length + divisions.Length)..];
+            var club = new Golferoo.Sim.League.LeagueSeason(world.Seed, Golferoo.Sim.League.LeagueSeason.GenerateMembers(world.Seed));
+            var legacyLeague = bytes[..13]
+                .Concat(Bytes(w => club.Members.ToList().ForEach(m =>
+                {
+                    w.Int(50); // l'opinion fixe de C06
+                    m.Write(w);
+                })))
+                .Concat(Bytes(w => w.List(club.Divisions, d => w.List(d, m => w.Int(m.Id)))))
+                .Concat(rest).ToArray();
+            raw = ReplaceOnce(raw, bytes, legacyLeague);
+        }
+
+        return raw;
+    }
+
+    private static byte[] LegacyFile(byte[] file, byte[] raw, int version)
+    {
+        var forged = (byte[])file.Clone();
+        forged[4] = (byte)version;
+        return Pack(forged, raw, Golferoo.Sim.Save.SaveFormat.Hash(raw));
     }
 
     private static bool Throws(Action load)
@@ -380,7 +455,7 @@ public class SaveTests
     public void Load_UnknownVersion_Throws()
     {
         var bytes = Save(Build(1, "proto", "start"));
-        bytes[4] = 15;
+        bytes[4] = 16;
 
         Assert.Throws<InvalidDataException>(() => Load(bytes));
     }
@@ -995,9 +1070,9 @@ public class SaveTests
     [Fact]
     public void Load_V11_PlacesTheClubhouseAutomatically()
     {
-        var world = new World(5, ClubhouseTests.LeNeuf(), league: true);
+        var world = new World(5, ClubhouseTests.LeNeuf(), league: true, emptyClub: true);
         var v12 = Save(world);
-        var raw = Unpack(v12);
+        var raw = LegacyBody(world, Unpack(v12), 13);
 
         byte[] Bytes(Action<Golferoo.Sim.Save.SaveWriter> write)
         {
@@ -1022,7 +1097,6 @@ public class SaveTests
         var legacyLedger = ledger[..(20 + (8 * (categories - 1)))].Concat(ledger[(20 + (8 * categories))..]).ToArray();
         raw = Replace(raw, ledger, legacyLedger);
 
-        raw = raw[..^Bytes(w => world.Reactions.Write(w)).Length]; // ni compteurs de réactions (v14)
         raw = raw[..^Bytes(world.WriteArrivals).Length]; // ni vivier, ni réputation (v13)
         Assert.Equal(0, raw[^1]); // pas de pavillon
         raw = raw[..^1];
@@ -1081,19 +1155,14 @@ public class SaveTests
     [Fact]
     public void Load_V12_StartsWithAnEmptyPool()
     {
-        var world = new World(5, ClubhouseTests.LeNeuf(), league: true, placeClubhouse: true);
+        var world = new World(5, ClubhouseTests.LeNeuf(), league: true, placeClubhouse: true, emptyClub: true);
         var file = Save(world);
-        var raw = Unpack(file);
-        var tail = new Golferoo.Sim.Save.SaveWriter();
-        world.WriteArrivals(tail);
-        var reactions = new Golferoo.Sim.Save.SaveWriter();
-        world.Reactions.Write(reactions);
-        raw = raw[..^(tail.Written.Length + reactions.Written.Length)];
-        file[4] = 12;
-        var loaded = Load(Pack(file, raw, Golferoo.Sim.Save.SaveFormat.Hash(raw)));
+        var raw = LegacyBody(world, Unpack(file), 13);
+        raw = raw[..^Bytes(world.WriteArrivals).Length];
+        var loaded = Load(LegacyFile(file, raw, 12));
 
         Assert.Equal(world.Clubhouse, loaded.Clubhouse);
-        Assert.Empty(loaded.Visitors.Visitors);
+        Assert.Equal(40, loaded.Visitors.Visitors.Count); // les 40 membres de la graine deviennent des membres du vivier
         Assert.Equal(loaded.Arrivals.ReputationStart, loaded.Reputation);
     }
 
@@ -1153,14 +1222,119 @@ public class SaveTests
     {
         var world = ArrivalTests.NewWorld(3);
         var file = Save(world);
-        var raw = Unpack(file);
-        var reactions = new Golferoo.Sim.Save.SaveWriter();
-        world.Reactions.Write(reactions);
-        raw = raw[..^reactions.Written.Length];
-        file[4] = 13;
-        var loaded = Load(Pack(file, raw, Golferoo.Sim.Save.SaveFormat.Hash(raw)));
+        var loaded = Load(LegacyFile(file, LegacyBody(world, Unpack(file), 13), 13));
 
         Assert.True(loaded.Reactions.Untouched);
         Assert.Equal(world.Visitors.Visitors.Count, loaded.Visitors.Visitors.Count);
+    }
+
+    /// <summary>« Le neuf » à club vide avec son pavillon et sa ligue (fermée), résolveur de substitution : des groupes en file et en jeu, des visiteurs au vivier.</summary>
+    private static World EmptyClubWithGroups(ulong seed = 3)
+    {
+        var world = new World(seed, ClubhouseTests.LeNeuf(), new StubShotResolver(), league: true, placeClubhouse: true, emptyClub: true, arrivals: ArrivalParams.Default.AtMaxAttraction());
+        while ((world.QueueLength == 0 || !world.Groups.Any(g => g.Released && g.FromArrivals && !g.Finished)) && world.Tick < 30 * Calendar.TicksPerDay)
+        {
+            world.Step(100);
+        }
+
+        Assert.True(world.QueueLength > 0 && world.Groups.Any(g => g.Released && g.FromArrivals), "pas de groupe en file et en jeu");
+        return world;
+    }
+
+    /// <summary>C16 lot 2 (v15) : points, niveau, démission, trous aimés, membres de la ligue et commande « le pro rejoint un groupe » se sauvent, se relisent et entrent dans la somme de contrôle.</summary>
+    [Fact]
+    public void Membership_IsSavedLoadedAndChecksummed()
+    {
+        var world = EmptyClubWithGroups();
+        var visitor = world.Visitors.Visitors[0];
+        visitor.Points = 5;
+        visitor.Level = MemberLevel.Silver;
+        var other = world.Visitors.Visitors[1];
+        other.Resigned = true;
+        var playing = world.Groups.First(g => g.Released && g.FromArrivals).Golfers[0];
+        playing.LikedHoles = 4;
+        playing.LikedThisHole = true;
+        world.League!.Enroll(new Golferoo.Sim.League.Member(world.League.Members.Count, "Tess T.", 12, profile: Archetype.Cautious, visitorId: 0));
+        Assert.True(world.JoinQueuedGroup(world.Groups.First(g => g.FromArrivals && !g.Released).Id));
+
+        var loaded = World.Load(new MemoryStream(Save(world)), new StubShotResolver());
+        var (v, o) = (loaded.Visitors.Visitors[0], loaded.Visitors.Visitors[1]);
+        Assert.Equal((5, MemberLevel.Silver, false, 0, MemberLevel.Visitor, true), (v.Points, v.Level, v.Resigned, o.Points, o.Level, o.Resigned));
+        var copy = loaded.Groups.SelectMany(g => g.Golfers).First(g => g.Id == playing.Id);
+        Assert.Equal((4, true), (copy.LikedHoles, copy.LikedThisHole));
+        var member = loaded.League!.Members[^1];
+        Assert.Equal(("Tess T.", 12.0, Archetype.Cautious, 0, false), (member.Name, member.StartHandicap, member.Profile, member.VisitorId, member.Resigned));
+        Assert.False(loaded.CanJoinQueuedGroup(world.Groups.First(g => g.FromArrivals && !g.Released).Id)); // la commande attend déjà
+        Assert.Equal(world.Checksum(), loaded.Checksum());
+        Assert.Equal(Save(world), Save(loaded));
+
+        // Chaque état compte dans la somme : en changer un seul la change.
+        void Changes(Action change, Action undo)
+        {
+            var before = world.Checksum();
+            change();
+            Assert.NotEqual(before, world.Checksum());
+            undo();
+            Assert.Equal(before, world.Checksum());
+        }
+
+        Changes(() => visitor.Points++, () => visitor.Points--);
+        Changes(() => visitor.Level = MemberLevel.Gold, () => visitor.Level = MemberLevel.Silver);
+        Changes(() => other.Resigned = false, () => other.Resigned = true);
+        Changes(() => playing.LikedHoles++, () => playing.LikedHoles--);
+        Changes(() => playing.LikedThisHole = false, () => playing.LikedThisHole = true);
+        Changes(() => world.League.Members[^1].VisitorId = 1, () => world.League.Members[^1].VisitorId = 0);
+        Changes(() => world.League.Members[^1].Resigned = true, () => world.League.Members[^1].Resigned = false);
+        var joinQueued = world.Groups.First(g => g.FromArrivals && !g.Released);
+        var swapped = world.Checksum();
+        world.Step();
+        loaded.Step();
+        Assert.Equal(world.Checksum(), loaded.Checksum());
+        Assert.NotEqual(swapped, world.Checksum());
+        Assert.Contains(joinQueued.Golfers, g => g.MemberId == world.League.Members.First(m => m.IsPro).Id); // la commande s'est appliquée au tick suivant
+    }
+
+    /// <summary>
+    /// C16 lot 2, critère 1 : une sauvegarde v13 ou v14 qui a des groupes en jeu se charge, et ses 40 membres de la graine deviennent des membres du vivier
+    /// (même handicap, même division). Le fichier est fabriqué en ramenant le corps d'un monde à club vide à la disposition d'avant la v15.
+    /// </summary>
+    [Theory]
+    [InlineData(13)]
+    [InlineData(14)]
+    public void Load_BeforeV15_WithGroupsInPlay_MakesTheSeedMembersVisitors(int version)
+    {
+        var world = EmptyClubWithGroups();
+        var file = Save(world);
+        var loaded = Load(LegacyFile(file, LegacyBody(world, Unpack(file), version), version));
+
+        var before = world.Visitors.Visitors.Count;
+        var club = new Golferoo.Sim.League.LeagueSeason(world.Seed, Golferoo.Sim.League.LeagueSeason.GenerateMembers(world.Seed));
+        Assert.Equal(before + 40, loaded.Visitors.Visitors.Count);
+        Assert.Equal(club.Members.Count, loaded.League!.Members.Count);
+        Assert.Equal(club.Divisions.Select(d => d.Select(m => m.Id)), loaded.League.Divisions.Select(d => d.Select(m => m.Id)));
+        foreach (var m in club.Members.Where(m => !m.IsPro))
+        {
+            var member = loaded.League.Members[m.Id];
+            var visitor = loaded.Visitors.Visitors[member.VisitorId];
+            Assert.Equal((m.Name, m.StartHandicap, m.Profile), (member.Name, member.StartHandicap, member.Profile));
+            Assert.Equal((m.Name, m.StartHandicap, m.Profile, MemberLevel.Member, false), (visitor.Name, visitor.Handicap, visitor.Profile, visitor.Level, visitor.Resigned));
+            Assert.True(member.VisitorId >= before);
+        }
+
+        // Les groupes en jeu sont intacts (ceux de la v13 n'avaient pas d'humeur : ils repartent de l'humeur de départ).
+        Assert.Equal(world.Groups.Select(g => (g.Id, g.Hole, g.Released)), loaded.Groups.Select(g => (g.Id, g.Hole, g.Released)));
+        Assert.Equal(world.Groups.SelectMany(g => g.Golfers).Select(g => (g.Id, g.VisitorId, g.Position)), loaded.Groups.SelectMany(g => g.Golfers).Select(g => (g.Id, g.VisitorId, g.Position)));
+        if (version == 14)
+        {
+            Assert.Equal(world.Groups.SelectMany(g => g.Golfers).Select(g => g.Mood), loaded.Groups.SelectMany(g => g.Golfers).Select(g => g.Mood));
+        }
+
+        // Le monde chargé joue, se resauve à l'identique, et ses membres paient leur cotisation.
+        var again = Load(Save(loaded));
+        Assert.Equal(loaded.Checksum(), again.Checksum());
+        loaded.Step(4000);
+        again.Step(4000);
+        Assert.Equal(loaded.Checksum(), again.Checksum());
+        Assert.Equal(40, loaded.Visitors.Visitors.Count(v => v.Level == MemberLevel.Member));
     }
 }

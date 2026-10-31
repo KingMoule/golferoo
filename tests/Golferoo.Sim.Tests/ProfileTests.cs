@@ -126,10 +126,10 @@ public class ProfileTests(ITestOutputHelper output)
         Assert.Equal(GolferProfile.Count, a.Select(m => m.Profile).Distinct().Count());
 
         // Noms et handicaps tirés comme avant le lot (graine 42, relevés sur origin/main).
-        Assert.Equal(Names42, string.Join(";", a.Take(3).Select(m => $"{m.Name}|{m.StartHandicap}|{m.Opinion}")));
+        Assert.Equal(Names42, string.Join(";", a.Take(3).Select(m => $"{m.Name}|{m.StartHandicap}")));
     }
 
-    private const string Names42 = "Romane T.|3|47;Quentin I.|29|23;Claire D.|23|68";
+    private const string Names42 = "Romane T.|3;Quentin I.|29;Claire D.|23";
 
     [Fact]
     public void Profiles_AreSpreadUniformly()
