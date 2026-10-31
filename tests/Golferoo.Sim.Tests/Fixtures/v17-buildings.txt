@@ -1,0 +1,27 @@
+tick 44400
+balance 10114450
+building 1 0 0 5 4 2
+building 2 6 0 11 7 1
+building 4 12 0 12 0 0
+golfer 7 47 4
+golfer 8 45 6
+golfer 9 48 7
+golfer 10 49 6
+golfer 11 40 6
+golfer 12 50 7
+golfer 13 51 6
+golfer 14 46 7
+reaction 1 0 1 0
+reaction 1 2 2 0
+reaction 2 0 1 0
+reaction 3 0 1 0
+reaction 3 3 3 0
+reaction 4 3 1 0
+reaction 4 12 9 0
+reaction 6 3 18 0
+reaction 6 13 7 0
+reaction 7 0 1 0
+reaction 7 3 1 0
+reaction 8 0 2 0
+reaction 9 2 5 0
+reaction 9 5 4 0
