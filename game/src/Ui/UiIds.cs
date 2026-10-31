@@ -49,6 +49,9 @@ public static class UiIds
         public const string BirdieUnread = "BirdieUnread";
         public const string BirdieFeed = "BirdieFeed";
         public const string BirdieMute = "BirdieMute";
+        public const string ThoughtsToggle = "ThoughtsToggle";
+        public const string ThoughtBubble = "ThoughtBubble";
+        public const string GolferTip = "GolferTip";
         public const string StrokeCost = "HudStrokeCost";
 
         /// <summary>Bouton de vitesse ×<paramref name="speed"/> (1, 2, 4, 8 ou 16).</summary>
@@ -106,6 +109,7 @@ public static class UiIds
         public const string Pro = "PanelPro";
         public const string LeagueCard = "PanelLeagueCard";
         public const string Birdie = "PanelBirdie";
+        public const string Golfer = "PanelGolfer";
         public const string Finances = "PanelFinances";
         public const string Overdraft = "PanelOverdraft";
 

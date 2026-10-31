@@ -39,7 +39,7 @@ public partial class Captures : Node
     private const int ProfileViewCount = 3;
     private const int FreeViewCount = 4;
     private const int SaveViewCount = 2;
-    private const int CourseViewCount = 12;
+    private const int CourseViewCount = 13;
     private const int GalleryViewCount = 1;
     private const int FinanceViewCount = 1;
     private const int ProViewCount = 2;
@@ -784,7 +784,45 @@ public partial class Captures : Node
         await CloseUp(main, "c23-swing", g => g.State == GolferState.Swinging, rig => rig.Clip == GolferModel.Swing && Math.Abs(rig.Time - SwingTopSeconds) < 0.03);
         main.Actors.Range = ActorLayer.AnimatedRange;
         await InterfaceView(main, placed[0].Id);
+        await ThoughtsView(main, focus);
         await PavilionView();
+    }
+
+    /// <summary>
+    /// C16 lot 3 : « Le neuf », des bulles de pensée au-dessus de quelques golfeurs (vraies pensées des données, bonnes en vert, mauvaises en rouge), l'info-bulle de l'un d'eux
+    /// et la fiche d'un membre du club ouverte à droite (<c>c16-pensees</c>).
+    /// </summary>
+    private async Task ThoughtsView(Main main, Vector3 focus)
+    {
+        main.Camera.SetView(45f, 60f, focus);
+        await Frames(SettleFrames);
+        var defs = main.World.Moods.Definitions;
+        var golfers = main.World.Groups.SelectMany(g => g.Golfers).ToList();
+        var thoughts = main.Thoughts;
+        for (var i = 0; i < golfers.Count && i < Thoughts.MaxBubbles; i++)
+        {
+            var def = defs[(i * 5 + 1) % defs.Count];
+            thoughts.Think(golfers[i].Id, i, def.Thought, def.Value >= 0 ? 1 : -1);
+        }
+
+        thoughts.OpenCard(0);
+        await Frames(2);
+        var view = main.Camera.View!;
+        var ground = main.Actors.PositionOf(golfers[0].Id) ?? Vector3.Zero;
+        thoughts.Tip(golfers[0], view.UnprojectPosition(ground));
+        thoughts.Pinned = true;
+        await Frames(2);
+        GD.Print($"PENSEES bulles={thoughts.BubbleCount} fiche={thoughts.CardOpen} info_bulle={thoughts.TipVisible}");
+        if (thoughts.BubbleCount == 0 || !thoughts.CardOpen)
+        {
+            GD.PrintErr("CAPTURES FAIL pensées : aucune bulle ou fiche absente");
+            _failures++;
+        }
+
+        Save("c16-pensees");
+        thoughts.ClearBubbles();
+        thoughts.Pinned = false;
+        main.Panels.Close(main.Panels.Opened.Last());
     }
 
     /// <summary>C15 lot 3 : le pavillon et une file de golfeurs devant sa porte (deux groupes lancés bloquent le départ, les arrivées font la file), soleil en début de matinée.</summary>

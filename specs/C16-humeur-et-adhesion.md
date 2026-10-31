@@ -83,6 +83,7 @@ Hors périmètre :
 6. La météo n'a pas d'effet direct sur l'humeur : elle rend déjà les coups plus difficiles.
 7. Quand un golfeur abandonne, ses partenaires perdent 1.
 8. Pas de plafond de membres en C16.
+9. Les jours de ligue engorgent le parcours (attente au départ ×2) et les abandons montent à 7 à 9 % sur 45 à 60 jours (audit du lot 2) : l'effet est gardé, c'est un signal que le joueur peut lire. La cible de 5 % du choix 1 vaut pour les jours sans ligue.
 
 Hypothèses de l'orchestrateur, réglables en données : la valeur de chaque événement part de celle de l'original quand il est cité (`docs/recensement-sim-golf.md` §9.4), sinon ±1 ; l'humeur de départ et la baisse par trou calent le critère 3.
 
