@@ -853,7 +853,7 @@ public partial class Captures : Node
         var candidates = Enumerable.Range(0, grid.CellsZ).SelectMany(z => Enumerable.Range(0, grid.CellsX).Select(x => (X: x, Z: z)))
             .Select(c => (Cell: c, Door: world.BuildingRules.At(BuildingKind.SnackBar, c.X, c.Z, DoorSide.South)!.DoorCell))
             .Select(c => (c.Cell, Dist: Math.Sqrt(Math.Pow(c.Door.X - gx, 2) + Math.Pow(c.Door.Z - gz, 2))))
-            .Where(c => c.Dist <= 20)
+            .Where(c => c.Dist <= 30)
             .OrderBy(c => c.Dist);
         foreach (var c in candidates)
         {
