@@ -1,16 +1,19 @@
 using Godot;
 using Golferoo.Sim;
+using Golferoo.Sim.Save;
 
 namespace Golferoo.Game;
 
-/// <summary>Sauvegarde C11 : les deux emplacements de user://saves, la sérialisation en mémoire et l'écriture de fond.</summary>
+/// <summary>Sauvegarde C11 et C18 : les emplacements de user://saves (voir <see cref="SaveSlotStore"/>), la sérialisation en mémoire et l'écriture de fond.</summary>
 public static class SaveSlots
 {
     public static string Dir => ProjectSettings.GlobalizePath("user://saves");
 
-    public static string QuickPath => System.IO.Path.Combine(Dir, "rapide.golf");
+    public static string QuickPath => SaveSlotStore.SavePath(Dir, SaveSlotStore.Quick);
 
-    public static string AutoPath => System.IO.Path.Combine(Dir, "auto.golf");
+    public static string AutoPath => SaveSlotStore.SavePath(Dir, SaveSlotStore.Auto);
+
+    public static string PathOf(string slot) => SaveSlotStore.SavePath(Dir, slot);
 
     private static Task _writing = Task.CompletedTask;
 
@@ -24,28 +27,23 @@ public static class SaveSlots
         return memory.ToArray();
     }
 
-    /// <summary>Écrit le fichier (par un fichier temporaire, pour qu'un chargement ne lise jamais un fichier à moitié écrit).</summary>
-    public static void Write(string path, byte[] bytes)
-    {
-        System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName(path)!);
-        var temp = path + ".tmp";
-        System.IO.File.WriteAllBytes(temp, bytes);
-        System.IO.File.Move(temp, path, overwrite: true);
-    }
+    /// <summary>Écrit un emplacement du joueur ou l'emplacement rapide : sauvegarde, métadonnées, vignette.</summary>
+    public static void Write(string slot, byte[] bytes, SlotMeta meta, byte[]? thumbnail) => SaveSlotStore.Write(Dir, slot, bytes, meta, thumbnail);
 
-    /// <summary>Écrit sur une tâche de fond ; rend faux, sans rien écrire, si l'écriture précédente n'est pas finie.</summary>
-    public static bool WriteInBackground(string path, byte[] bytes)
+    /// <summary>Écrit l'emplacement automatique sur une tâche de fond ; rend faux, sans rien écrire, si l'écriture précédente n'est pas finie.</summary>
+    public static bool WriteAutoInBackground(byte[] bytes, SlotMeta meta, byte[]? thumbnail)
     {
         if (!_writing.IsCompleted)
         {
             return false;
         }
 
+        var dir = Dir;
         _writing = Task.Run(() =>
         {
             try
             {
-                Write(path, bytes);
+                SaveSlotStore.WriteAuto(dir, bytes, meta, thumbnail);
             }
             catch (Exception e)
             {
@@ -53,6 +51,15 @@ public static class SaveSlots
             }
         });
         return true;
+    }
+
+    public static SlotMeta? Meta(string slot) => SaveSlotStore.ReadMeta(Dir, slot);
+
+    /// <summary>La vignette de l'emplacement, ou nulle s'il n'en a pas.</summary>
+    public static Texture2D? Thumbnail(string slot)
+    {
+        var image = Image.LoadFromFile(SaveSlotStore.ThumbPath(Dir, slot));
+        return image is null ? null : ImageTexture.CreateFromImage(image);
     }
 
     /// <summary>Les emplacements existants, le plus récent d'abord.</summary>

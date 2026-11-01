@@ -7,6 +7,7 @@ using Golferoo.Game.Tutorial;
 using Golferoo.Game.Ui;
 using Golferoo.Sim;
 using Golferoo.Sim.Rating;
+using Golferoo.Sim.Save;
 using Golferoo.Sim.Terrain;
 using Golferoo.Sim.Time;
 
@@ -20,6 +21,23 @@ public partial class Main : Node3D
 {
     /// <summary>Parcours joué : « Le neuf » (C12), ou celui d'`--course fichier` ; le tutoriel et la mesure FPS gardent leur trou.</summary>
     public static string HoleFile => TutorialMode ? "data/holes/blank-coude.json" : FpsBench.Active && FpsBench.Golfers == 0 ? "data/holes/proto-par4.json" : CourseOverride ?? CommandLineOption("--course") ?? "data/courses/le-neuf.json";
+
+    /// <summary>Ce que le menu titre demande à la scène du jeu : le parcours de démonstration (par défaut, et pour la fumée et les captures) ou une nouvelle partie sur la propriété vierge. Un chargement passe par <see cref="TryLoad"/>.</summary>
+    public enum GameRequest
+    {
+        Demo,
+        NewGame,
+    }
+
+    public static GameRequest Request { get; set; } = GameRequest.Demo;
+
+    /// <summary>Graine de la nouvelle partie demandée (affichée au menu titre, sauvée avec le monde).</summary>
+    public static ulong NewGameSeed { get; set; } = 1;
+
+    private static readonly string[] MenuBypassOptions = ["--course", "--tutorial", "--load", "--pro", "--fps-bench", "--fps-bench-low", "--fps-bench-golfers"];
+
+    /// <summary>Le menu titre est sauté quand la ligne de commande nomme déjà ce qu'on joue.</summary>
+    public static bool SkipsTitleMenu => OS.GetCmdlineUserArgs().Any(MenuBypassOptions.Contains);
 
     /// <summary>Parcours imposé par le code (captures de trou seul) ; sans valeur, le parcours par défaut s'applique.</summary>
     public static string? CourseOverride { get; set; }
@@ -138,6 +156,9 @@ public partial class Main : Node3D
 
     /// <summary>Le rapport des réactions par trou et leur carte sur le terrain (C16).</summary>
     public ReactionReport ReactionReport { get; private set; } = null!;
+
+    /// <summary>Le menu pause (Échap), C18.</summary>
+    public PauseMenu PauseMenu { get; private set; } = null!;
 
     /// <summary>Échelle d'interface (<c>-- --ui-scale 1.25</c>) : 1, 1,25 ou 1,5.</summary>
     public static float UiScale => float.TryParse(CommandLineOption("--ui-scale"), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var scale) ? Math.Clamp(scale, 1f, 1.5f) : 1f;
@@ -265,6 +286,8 @@ public partial class Main : Node3D
 
         var loaded = _pendingWorld;
         _pendingWorld = null;
+        var request = Request;
+        Request = GameRequest.Demo;
         TerrainGrid grid;
         if (loaded is not null)
         {
@@ -274,6 +297,12 @@ public partial class Main : Node3D
             {
                 (_speedIndex, Paused) = play;
             }
+        }
+        else if (request == GameRequest.NewGame && !TutorialMode)
+        {
+            grid = BlankProperty.Create();
+            GD.Print($"NEWGAME seed={NewGameSeed}");
+            World = new World(NewGameSeed, grid, league: true, placeClubhouse: ClubhouseOnNewGame, arrivals: ArrivalsOverride);
         }
         else
         {
@@ -389,6 +418,9 @@ public partial class Main : Node3D
         ReactionReport = new ReactionReport { Name = "ReactionReport" };
         AddChild(ReactionReport);
         ReactionReport.Init(this);
+        PauseMenu = new PauseMenu { Name = "PauseMenu" };
+        AddChild(PauseMenu);
+        PauseMenu.Init(this);
         // L'échelle agrandit toute l'interface (calques 2D), pas le rendu 3D.
         GetWindow().ContentScaleFactor = UiScale;
 
@@ -632,6 +664,17 @@ public partial class Main : Node3D
     private void HandleKey(InputEventKey @event)
     {
         var key = @event.Keycode;
+        if (PauseMenu.IsOpen)
+        {
+            // Le menu pause garde le clavier : Échap le ferme, le reste attend.
+            if (key == Key.Escape)
+            {
+                PauseMenu.Toggle();
+            }
+
+            return;
+        }
+
         if (key == Key.Z && @event.CtrlPressed)
         {
             Brush.Undo();
@@ -670,9 +713,18 @@ public partial class Main : Node3D
                 ToggleDebug();
                 break;
             case Key.Escape:
-                if (!Finances.DismissPrompt())
+                if (Finances.DismissPrompt())
+                {
+                    break;
+                }
+
+                if (Panels.Opened.Count > 0)
                 {
                     Panels.CloseLast();
+                }
+                else
+                {
+                    PauseMenu.Toggle();
                 }
 
                 break;
@@ -769,8 +821,14 @@ public partial class Main : Node3D
         Ui.AddChild(top);
     }
 
+    /// <summary>Le tutoriel ne se sauvegarde pas.</summary>
+    public bool CanSave => !InTutorial;
+
     /// <summary>F5 : écrit l'emplacement rapide. Rend faux (et le dit à l'écran) si la sauvegarde n'a pas eu lieu.</summary>
-    public bool QuickSave()
+    public bool QuickSave() => SaveToSlot(SaveSlotStore.Quick, ThumbnailRenderer.CaptureJpg(GetViewport()));
+
+    /// <summary>Écrit un emplacement (sauvegarde, métadonnées, vignette déjà prise). Rend faux (et le dit à l'écran) si la sauvegarde n'a pas eu lieu.</summary>
+    public bool SaveToSlot(string slot, byte[]? thumbnail)
     {
         if (InTutorial)
         {
@@ -780,8 +838,9 @@ public partial class Main : Node3D
 
         try
         {
-            SaveSlots.Write(SaveSlots.QuickPath, SaveSlots.Serialize(World, out var ms));
-            GD.Print($"SAVE rapide serialisation={ms:F2} ms tick={World.Tick}");
+            var bytes = SaveSlots.Serialize(World, out var ms);
+            SaveSlots.Write(slot, bytes, SlotMeta.Of(World, World.Terrain!.Name), thumbnail);
+            GD.Print($"SAVE {slot} serialisation={ms:F2} ms tick={World.Tick}");
             Birdie.Post(Birdie.Club, "Partie sauvegardée. Le registre du club est à jour.", "#sauvegarde");
             return true;
         }
@@ -790,6 +849,19 @@ public partial class Main : Node3D
             Birdie.Post(Birdie.Club, $"Sauvegarde impossible : {e.Message}", "#sauvegarde");
             return false;
         }
+    }
+
+    /// <summary>Charge un emplacement par la scène ; rend le message d'erreur, ou null si le chargement part.</summary>
+    public string? LoadSlot(string slot)
+    {
+        var error = TryLoad(SaveSlots.PathOf(slot));
+        if (error is null)
+        {
+            _carryPlay = (_speedIndex, false);
+            GetTree().ReloadCurrentScene();
+        }
+
+        return error;
     }
 
     /// <summary>F8 : recharge le plus récent des deux emplacements par la scène ; en cas d'erreur le jeu continue.</summary>
@@ -837,7 +909,7 @@ public partial class Main : Node3D
 
         var bytes = SaveSlots.Serialize(World, out var ms);
         GD.Print($"SAVE auto serialisation={ms:F2} ms octets={bytes.Length} jour={World.DayIndex}");
-        SaveSlots.WriteInBackground(SaveSlots.AutoPath, bytes);
+        SaveSlots.WriteAutoInBackground(bytes, SlotMeta.Of(World, World.Terrain!.Name), ThumbnailRenderer.CaptureJpg(GetViewport()));
     }
 
     private void HandleCameraAction(InputEvent @event)

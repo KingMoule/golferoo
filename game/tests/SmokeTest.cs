@@ -45,6 +45,7 @@ public partial class SmokeTest : Node
         _real = scene.Instantiate<Main>();
         AddChild(_real);
         _real.Paused = true;
+        _real.SetProcessUnhandledInput(false); // le clavier de la fumée vise _main, pas ce second monde (Échap y ouvrirait un menu pause)
         Main.ArrivalsOverride = null;
     }
 
@@ -81,6 +82,7 @@ public partial class SmokeTest : Node
             var tutorialFailures = CheckTutorial();
             CheckFollow(tutorialFailures);
             CheckSave(tutorialFailures);
+            CheckMenus(tutorialFailures);
             Finish(tutorialFailures);
         }
     }
@@ -260,6 +262,94 @@ public partial class SmokeTest : Node
         }
 
         GD.Print($"SAVE OK checksum={before:x16} apres={after:x16} serialisation={ms.ToString("F2", CultureInfo.InvariantCulture)} ms");
+    }
+
+    /// <summary>
+    /// C18 lot 1 : le menu titre offre ses entrées, une nouvelle partie part de la propriété vierge, Échap ouvre le menu pause, Sauvegarder écrit l'emplacement
+    /// (métadonnées lisibles sans le monde) et le recharger rend la même somme de contrôle. « Menu titre » et « Nouvelle partie » changent de scène : seule leur présence est vérifiée.
+    /// </summary>
+    private void CheckMenus(List<string> failures)
+    {
+        var title = GD.Load<PackedScene>(TitleMenu.Scene).Instantiate<TitleMenu>();
+        AddChild(title);
+        foreach (var id in new[] { UiIds.Menu.NewGame, UiIds.Menu.Load, UiIds.Menu.Demo, UiIds.Menu.Quit })
+        {
+            if (title.FindChild(id, true, false) is not Button { Disabled: false })
+            {
+                failures.Add($"menu titre : bouton {id} absent ou grisé");
+            }
+        }
+
+        if (title.FindChild(UiIds.Menu.Options, true, false) is not Button { Disabled: true })
+        {
+            failures.Add("menu titre : Options devrait être grisé jusqu'au lot 3");
+        }
+
+        (title.FindChild(UiIds.Menu.NewGame, true, false) as Button)?.EmitSignal(BaseButton.SignalName.Pressed);
+        if (title.FindChild(UiIds.Menu.Start, true, false) is null)
+        {
+            failures.Add("menu titre : Nouvelle partie n'ouvre pas le choix de la graine");
+        }
+
+        title.QueueFree();
+
+        Main.Request = Main.GameRequest.NewGame;
+        Main.NewGameSeed = 42;
+        var game = GD.Load<PackedScene>("res://Main.tscn").Instantiate<Main>();
+        AddChild(game);
+        if (game.World.Seed != 42 || game.World.Terrain!.Name != "Nouvelle propriété" || game.World.Clubhouse is null)
+        {
+            failures.Add("nouvelle partie : graine, propriété ou pavillon inattendus");
+        }
+
+        for (var i = 0; i < 40; i++)
+        {
+            game.World.Step();
+        }
+
+        var before = game.World.Checksum();
+        PushKey(Key.Escape);
+        if (!game.PauseMenu.IsOpen || !game.Paused)
+        {
+            failures.Add("Échap n'ouvre pas le menu pause");
+        }
+
+        foreach (var id in new[] { UiIds.Menu.Resume, UiIds.Menu.Save, UiIds.Menu.Load, UiIds.Menu.ToTitle, UiIds.Menu.Quit })
+        {
+            if (game.Ui.Find(id) is not Button { Disabled: false })
+            {
+                failures.Add($"menu pause : bouton {id} absent ou grisé");
+            }
+        }
+
+        (game.Ui.Find(UiIds.Menu.Save) as Button)?.EmitSignal(BaseButton.SignalName.Pressed);
+        (game.Ui.Find(UiIds.Menu.Slot("slot1")) as Button)?.EmitSignal(BaseButton.SignalName.Pressed);
+        if (SaveSlots.Meta("slot1") is not { } meta || meta.Checksum != before || meta.OpenHoles != 1)
+        {
+            failures.Add("sauvegarde dans l'emplacement 1 : métadonnées absentes ou fausses");
+        }
+
+        PushKey(Key.Escape);
+        if (game.PauseMenu.IsOpen || game.Paused)
+        {
+            failures.Add("Échap ne ferme pas le menu pause");
+        }
+
+        game.QueueFree();
+        if (Main.TryLoad(SaveSlots.PathOf("slot1")) is { } error)
+        {
+            failures.Add($"chargement de l'emplacement 1 : {error}");
+            return;
+        }
+
+        game = GD.Load<PackedScene>("res://Main.tscn").Instantiate<Main>();
+        AddChild(game);
+        if (game.World.Checksum() != before)
+        {
+            failures.Add("emplacement 1 rechargé : la somme de contrôle a changé");
+        }
+
+        GD.Print($"SMOKE menus : titre, nouvelle partie, pause, emplacement ({failures.Count} échec)");
     }
 
     /// <summary>C10 lot 1 : touches de caméra dans l'InputMap, Début centre sur le départ, Tab lance le suivi (vérifié par <see cref="CheckFollow"/>).</summary>

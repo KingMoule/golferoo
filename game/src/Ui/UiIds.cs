@@ -147,4 +147,25 @@ public static class UiIds
         public const string Close = "TutorialClose";
         public const string Ring = "TutorialRing";
     }
+
+    /// <summary>Menu titre, menu pause et écrans Charger / Sauvegarder (C18).</summary>
+    public static class Menu
+    {
+        public const string Title = "TitleMenu";
+        public const string NewGame = "MenuNewGame";
+        public const string Start = "MenuStart";
+        public const string Load = "MenuLoad";
+        public const string Demo = "MenuDemo";
+        public const string Options = "MenuOptions";
+        public const string Quit = "MenuQuit";
+        public const string Pause = "PauseMenu";
+        public const string Resume = "MenuResume";
+        public const string Save = "MenuSave";
+        public const string ToTitle = "MenuToTitle";
+        public const string Slots = "SlotsScreen";
+        public const string Error = "MenuError";
+
+        /// <summary>Bouton de l'emplacement <paramref name="slot"/> (slot1, auto, rapide...).</summary>
+        public static string Slot(string slot) => $"Slot_{slot}";
+    }
 }
