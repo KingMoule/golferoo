@@ -146,7 +146,6 @@ public static class UiIds
         public const string Later = "TutorialLater";
         public const string Start = "TutorialStart";
         public const string Skip = "TutorialSkip";
-        public const string Golfers = "TutorialGolfers";
         public const string Close = "TutorialClose";
         public const string Ring = "TutorialRing";
     }

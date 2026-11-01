@@ -345,7 +345,13 @@ public sealed partial class World
             }
         }
 
-        State = r.Version >= 20 ? GameState.Read(r, Economy.StartingMoney) : new GameState(Economy.StartingMoney, false);
+        var clubActive = Terrain is not { Blank: true };
+        State = r.Version >= 20 ? GameState.Read(r, Economy.StartingMoney, clubActive) : new GameState(Economy.StartingMoney, false, clubActive);
+        if (r.Version < 21 && !clubActive && HoleOpen)
+        {
+            State.ClubActive = true; // une leçon d'avant la v21 qui avait déjà son trou valide
+        }
+
         if (State.Completed >> ObjectiveCatalog.Default.Count != 0)
         {
             throw new InvalidDataException("Sauvegarde incohérente : objectif inconnu.");

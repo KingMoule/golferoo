@@ -40,7 +40,7 @@ public class RevenueTests(ITestOutputHelper output)
         terrain.Blank = true;
         var h2 = terrain.Course[2];
         h2.MoveTee(new Point2(h2.Tee.X + 100, h2.Tee.Z)); // plus sur un départ : HoleCheck ferme le trou 2
-        var closed = new World(3, terrain);
+        var closed = new World(3, terrain, arrivals: ArrivalParams.Default with { GroupsPerDay = 0 }); // terre vierge au trou 1 valide : le club s'active (C19), sans visiteur ici
         closed.Step();
         Assert.False(closed.IsHoleOpen(2));
         closed.SpawnGroup();

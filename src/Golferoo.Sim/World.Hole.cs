@@ -208,6 +208,11 @@ public sealed partial class World
         {
             _holesOpen = [.. terrain.Course.Holes.Select(h => HoleCheck.Check(terrain, h).Count == 0)];
             _holeCheckedVersion = terrain.Version;
+            if (!State.ClubActive && HoleOpen)
+            {
+                State.ClubActive = true; // première ouverture de la leçon : le club vit, le pavillon se pose
+                PlaceClubhouseNearTee();
+            }
         }
     }
 

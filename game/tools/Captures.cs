@@ -36,7 +36,7 @@ public partial class Captures : Node
     private const float TurfSize = 100f;
 
     private const int LeagueViewCount = 5;
-    private const int TutorialViewCount = 3;
+    private const int TutorialViewCount = 7;
     private const int ProfileViewCount = 3;
     private const int FreeViewCount = 4;
     private const int SaveViewCount = 2;
@@ -115,6 +115,14 @@ public partial class Captures : Node
             // Mise au point d'un écran de « Le neuf » (c12, c13) sans attendre les vues d'avant : `-- --only course`.
             await CourseViews();
             return _failures == 0 ? 0 : 1;
+        }
+
+        if (Main.CommandLineOption("--only") == "tutorial")
+        {
+            var start = GD.Load<PackedScene>("res://Main.tscn").Instantiate<Main>();
+            AddChild(start);
+            await TutorialViews(start); // mise au point de la leçon et de sa suite (C07, C19) : `-- --only tutorial`
+            return _failures == 0 && _index == TutorialViewCount ? 0 : 1;
         }
 
         if (Main.CommandLineOption("--only") == "c18")
@@ -580,8 +588,10 @@ public partial class Captures : Node
         previous.QueueFree();
         await Frames(2);
         Main.TutorialMode = true;
+        Main.ArrivalsOverride = ArrivalParams.Default.AtMaxAttraction(); // C19 : la suite de la leçon attend des visiteurs, qu'ils arrivent vite
         var main = GD.Load<PackedScene>("res://Main.tscn").Instantiate<Main>();
         AddChild(main);
+        Main.ArrivalsOverride = null;
         Main.TutorialMode = false;
         var world = main.World;
         var grid = world.Terrain!;
@@ -619,6 +629,48 @@ public partial class Captures : Node
         main.Camera.SetView(45f, 220f, center);
         await Frames(SettleFrames);
         Save("tutorial-done");
+        return await ClubViews(main);
+    }
+
+    /// <summary>C19 lot 1 : la suite de la leçon dans le même monde, le club ouvert, la première paire, une pensée lue et le bon de pose du snack-bar (sim seule entre les images, pour rester rapide).</summary>
+    private async Task<Main> ClubViews(Main main)
+    {
+        var world = main.World;
+        var grid = world.Terrain!;
+        void Until(Func<bool> stop)
+        {
+            for (var i = 0; i < 400 && !stop(); i++)
+            {
+                main.StepTicks(100);
+            }
+        }
+
+        var club = world.Clubhouse!.Position(grid.CellSize);
+        main.Camera.SetView(45f, 90f, new Vector3((float)club.X, 0f, (float)club.Z));
+        await Frames(SettleFrames);
+        Save("c19-club-ouvert");
+
+        Until(() => Golferoo.Sim.Tutorial.TutorialSteps.Current(world) == Golferoo.Sim.Tutorial.TutorialStep.FirstGreenFee);
+        main.Camera.SetView(45f, 70f, new Vector3((float)grid.Tee.X, 0f, (float)grid.Tee.Z));
+        await Frames(SettleFrames);
+        Save("c19-premiere-paire");
+
+        Until(() => Golferoo.Sim.Tutorial.TutorialSteps.Current(world) == Golferoo.Sim.Tutorial.TutorialStep.ReadThought && world.Groups.SelectMany(g => g.Golfers).Any(world.CarriesThought));
+        var golfer = world.Groups.SelectMany(g => g.Golfers).First(world.CarriesThought);
+        main.Camera.SetView(45f, 50f, new Vector3((float)golfer.Position.X, 0f, (float)golfer.Position.Z));
+        main.Thoughts.Pinned = true;
+        main.Thoughts.Tip(golfer, new Vector2(640f, 300f));
+        main.Thoughts.OpenCard(golfer.VisitorId);
+        await Frames(SettleFrames);
+        Save("c19-pensee");
+        main.Thoughts.Pinned = false;
+
+        main.Bar.Select(ToolFamily.Buildings);
+        main.BuildingTool.Select(BuildingKind.SnackBar);
+        main.Camera.SetView(45f, 90f, new Vector3((float)club.X, 0f, (float)club.Z));
+        await Frames(SettleFrames);
+        Save("c19-bon-de-pose");
+        GD.Print($"C19 etape={Golferoo.Sim.Tutorial.TutorialSteps.Current(world)} bon={world.State.Vouchers(BuildingKind.SnackBar)} pensee={world.State.ThoughtRead}");
         return main;
     }
 

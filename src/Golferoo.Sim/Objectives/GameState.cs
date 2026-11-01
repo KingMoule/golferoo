@@ -73,14 +73,26 @@ public sealed class GameState
     private readonly List<YearReport> _reports = [];
     private readonly int[] _vouchers = new int[KindCount];
 
-    internal GameState(long startingBalance, bool objectives)
+    internal GameState(long startingBalance, bool objectives, bool clubActive = true)
     {
+        _clubActiveAtStart = clubActive;
+        ClubActive = clubActive;
         ObjectivesOn = objectives;
         YearStartBalance = startingBalance;
         _startingBalance = startingBalance;
     }
 
     private readonly long _startingBalance;
+    private readonly bool _clubActiveAtStart;
+
+    /// <summary>
+    /// Le club vit : pavillon, arrivées et bâtiments sont permis. Vrai d'office hors leçon ; dans la leçon (terre vierge) il le devient à la première
+    /// ouverture du trou et ne retombe plus, même si l'on défait le green ensuite (C19).
+    /// </summary>
+    public bool ClubActive { get; internal set; }
+
+    /// <summary>Le joueur a ouvert la fiche ou l'info-bulle d'un golfeur qui porte une pensée (étape « lire une pensée » de la leçon, C19).</summary>
+    public bool ThoughtRead { get; internal set; }
 
     /// <summary>Les objectifs sont évalués (une carrière) ; faux pour le parcours de démonstration.</summary>
     public bool ObjectivesOn { get; private set; }
@@ -150,7 +162,7 @@ public sealed class GameState
 
     /// <summary>Un état que rien n'a touché ne change pas la somme de contrôle (les mondes sans partie gardent leurs empreintes).</summary>
     internal bool Untouched =>
-        !ObjectivesOn && Completed == 0 && !Bankrupt && !ContinuedAfterBankruptcy && MonthsBelow == 0 && YearStartBalance == _startingBalance
+        !ObjectivesOn && ClubActive == _clubActiveAtStart && !ThoughtRead && Completed == 0 && !Bankrupt && !ContinuedAfterBankruptcy && MonthsBelow == 0 && YearStartBalance == _startingBalance
         && YearGolfers == 0 && YearMoodTotal == 0 && YearObjectives == 0 && _reports.Count == 0 && _vouchers.All(v => v == 0);
 
     internal void Mix(ref ulong hash)
@@ -162,7 +174,7 @@ public sealed class GameState
 
         World.Mix(ref hash, 0x47414D45UL);
         World.Mix(ref hash, Completed);
-        World.Mix(ref hash, (ObjectivesOn ? 1UL : 0UL) | (Bankrupt ? 2UL : 0UL) | (ContinuedAfterBankruptcy ? 4UL : 0UL) | ((ulong)(uint)MonthsBelow << 8));
+        World.Mix(ref hash, (ObjectivesOn ? 1UL : 0UL) | (Bankrupt ? 2UL : 0UL) | (ContinuedAfterBankruptcy ? 4UL : 0UL) | (ClubActive != _clubActiveAtStart ? 8UL : 0UL) | (ThoughtRead ? 16UL : 0UL) | ((ulong)(uint)MonthsBelow << 8));
         World.Mix(ref hash, (ulong)YearStartBalance);
         World.Mix(ref hash, ((ulong)(uint)YearGolfers << 32) | (uint)YearObjectives);
         World.Mix(ref hash, (ulong)YearMoodTotal);
@@ -191,11 +203,13 @@ public sealed class GameState
         w.Int(YearObjectives);
         w.List(_vouchers, w.Int);
         w.List(_reports, r => r.Write(w));
+        w.Bool(ClubActive);
+        w.Bool(ThoughtRead);
     }
 
-    internal static GameState Read(SaveReader r, long startingBalance)
+    internal static GameState Read(SaveReader r, long startingBalance, bool clubActiveAtStart)
     {
-        var state = new GameState(startingBalance, r.Bool()) { Completed = r.ULong(), Bankrupt = r.Bool(), ContinuedAfterBankruptcy = r.Bool(), MonthsBelow = r.Int(), YearStartBalance = r.Long() };
+        var state = new GameState(startingBalance, r.Bool(), clubActiveAtStart) { Completed = r.ULong(), Bankrupt = r.Bool(), ContinuedAfterBankruptcy = r.Bool(), MonthsBelow = r.Int(), YearStartBalance = r.Long() };
         (state.YearGolfers, state.YearMoodTotal, state.YearObjectives) = (r.Int(), r.Long(), r.Int());
         var vouchers = r.List(r.Int);
         if (vouchers.Count != KindCount || vouchers.Any(v => v < 0) || state.MonthsBelow < 0 || state.YearGolfers < 0 || state.YearObjectives < 0)
@@ -205,6 +219,11 @@ public sealed class GameState
 
         vouchers.CopyTo(state._vouchers);
         state._reports.AddRange(r.List(() => YearReport.Read(r)));
+        if (r.Version >= 21)
+        {
+            (state.ClubActive, state.ThoughtRead) = (r.Bool(), r.Bool());
+        }
+
         return state;
     }
 }

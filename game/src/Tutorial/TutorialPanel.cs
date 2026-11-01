@@ -1,6 +1,7 @@
 using Godot;
 using Golferoo.Game.Ui;
 using Golferoo.Sim;
+using Golferoo.Sim.Buildings;
 using Golferoo.Sim.Terrain;
 using Golferoo.Sim.Trees;
 using Golferoo.Sim.Tutorial;
@@ -23,7 +24,7 @@ public partial class TutorialPanel : Node
         Finished,
     }
 
-    private const int StepCount = 6;
+    private const int StepCount = 11;
     private const float RingPad = 5f;
 
     private Main? _main;
@@ -33,7 +34,6 @@ public partial class TutorialPanel : Node
     private Button? _later;
     private Button? _start;
     private Button? _skip;
-    private Button? _golfers;
     private Button? _close;
     private Panel? _ring;
     private GhostOutline? _ghost;
@@ -70,7 +70,6 @@ public partial class TutorialPanel : Node
         _later = Button(UiIds.Tutorial.Later, "Plus tard", Dismiss, buttons);
         _start = Button(UiIds.Tutorial.Start, "Commencer", Start, buttons);
         _skip = Button(UiIds.Tutorial.Skip, "Passer le tutoriel", Dismiss, buttons);
-        _golfers = Button(UiIds.Tutorial.Golfers, "Lancer des golfeurs", LaunchGolfers, buttons);
         _close = Button(UiIds.Tutorial.Close, "Fermer", Dismiss, buttons);
 
         _panel = UiTheme.GlassFrame(UiIds.Tutorial.Bubble, row, 16);
@@ -137,13 +136,15 @@ public partial class TutorialPanel : Node
     }
 
     /// <summary>Le bouton attendu à l'étape <paramref name="step"/> : la famille d'outils d'abord, puis la vignette ou l'action du tiroir.</summary>
-    private string Target(TutorialStep step)
+    private string? Target(TutorialStep step)
     {
         var main = _main!;
         var family = main.Bar.Current;
         var trees = main.TreeTool;
         return step switch
         {
+            TutorialStep.OpenHole or TutorialStep.WatchPair or TutorialStep.FirstGreenFee or TutorialStep.ReadThought => null,
+            TutorialStep.PlaceSnackBar => family != ToolFamily.Buildings ? UiIds.Tool.Buildings : UiIds.Action.Building(nameof(BuildingKind.SnackBar)),
             TutorialStep.ClearTrees => family != ToolFamily.Trees ? UiIds.Tool.Trees : trees.SelectedId < 0 ? UiIds.Action.TreeSelect : UiIds.Action.TreeRaze,
             TutorialStep.PlantSapling => family != ToolFamily.Trees ? UiIds.Tool.Trees : UiIds.Thumb.Tree(trees.Species.ToString(), nameof(TreePlantStage.Sapling)),
             TutorialStep.PaintTee => family != ToolFamily.Terrain ? UiIds.Tool.Terrain : UiIds.Thumb.Tee,
@@ -180,13 +181,12 @@ public partial class TutorialPanel : Node
     private void SetPhase(Mode mode)
     {
         Phase = mode;
-        Highlighted = mode == Mode.Finished ? UiIds.Tutorial.Golfers : null;
+        Highlighted = mode == Mode.Finished ? UiIds.Tutorial.Close : null;
         _panel!.Visible = mode != Mode.Off;
         _yes!.Visible = mode == Mode.Offer;
         _later!.Visible = mode == Mode.Offer;
         _start!.Visible = mode == Mode.Welcome;
         _skip!.Visible = mode is Mode.Welcome or Mode.Running;
-        _golfers!.Visible = mode == Mode.Finished;
         _close!.Visible = mode == Mode.Finished;
         _ghost?.Show([], false);
         switch (mode)
@@ -198,9 +198,7 @@ public partial class TutorialPanel : Node
                 Say("Bonjour, je suis votre pro. Ce terrain est vierge : construisons ensemble votre premier trou. Quand vous êtes prêt, cliquez sur Commencer.");
                 break;
             case Mode.Finished:
-                var terrain = _main!.World.Terrain!;
-                var meters = Math.Sqrt(Math.Pow(terrain.Hole.X - terrain.Tee.X, 2) + Math.Pow(terrain.Hole.Z - terrain.Tee.Z, 2));
-                Say($"[b]Le trou est valide ![/b] Par {terrain.Par}, {meters:0} m. Cliquez sur [b]Lancer des golfeurs[/b] et regardez la première paire le jouer. Bon jeu !");
+                Say(UiNames.TutorialDone);
                 break;
             default:
                 break;
@@ -222,12 +220,6 @@ public partial class TutorialPanel : Node
 
     private void Dismiss() => SetPhase(Mode.Off);
 
-    private void LaunchGolfers()
-    {
-        _main!.SpawnGroup();
-        Dismiss();
-    }
-
     /// <summary>Commence le tutoriel (le bouton « Commencer »).</summary>
     public void Start() => SetPhase(Mode.Running);
 
@@ -242,7 +234,7 @@ public partial class TutorialPanel : Node
             TutorialStep.PaintFairway => "peignez le fairway. Choisissez [b]Fairway[/b] et suivez le contour vert ; le curseur [b]Taille du pinceau[/b] change le rayon.",
             TutorialStep.PaintGreen => "peignez le green. Choisissez [b]Green[/b] et couvrez le contour turquoise.",
             TutorialStep.PlaceTeeAndHole => "posez le départ et le trou. Cliquez sur [b]Trous[/b], puis sur le départ, enfin sur le green." + Missing(terrain),
-            _ => string.Empty,
+            _ => UiNames.TutorialClub(step),
         };
     }
 

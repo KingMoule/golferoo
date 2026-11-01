@@ -469,7 +469,7 @@ public partial class Main : Node3D
         {
             Tutorial = new TutorialPanel { Name = "Tutorial" };
             AddChild(Tutorial);
-            Tutorial.Init(this, loaded is null && TutorialMode ? TutorialPanel.Mode.Welcome : loaded is null && OfferTutorial && OS.GetCmdlineUserArgs().Length == 0 ? TutorialPanel.Mode.Offer : TutorialPanel.Mode.Off);
+            Tutorial.Init(this, loaded is { Terrain.Blank: true } && Golferoo.Sim.Tutorial.TutorialSteps.Current(loaded) != Golferoo.Sim.Tutorial.TutorialStep.Done ? TutorialPanel.Mode.Running : loaded is null && TutorialMode ? TutorialPanel.Mode.Welcome : loaded is null && OfferTutorial && OS.GetCmdlineUserArgs().Length == 0 ? TutorialPanel.Mode.Offer : TutorialPanel.Mode.Off);
         }
 
         _carryPlay = null;
@@ -782,8 +782,8 @@ public partial class Main : Node3D
         }
     }
 
-    /// <summary>La terre vierge du tutoriel : ni sauvegarde ni sauvegarde automatique.</summary>
-    private bool InTutorial => World.Terrain!.Blank;
+    /// <summary>La terre vierge du tutoriel tant que le club n'est pas activé (le trou valide, C19) : ni sauvegarde ni sauvegarde automatique.</summary>
+    private bool InTutorial => World.Terrain!.Blank && !World.State.ClubActive;
 
     internal void ShowMessage(string text)
     {
@@ -838,7 +838,7 @@ public partial class Main : Node3D
         Ui.AddChild(top);
     }
 
-    /// <summary>Le tutoriel ne se sauvegarde pas.</summary>
+    /// <summary>La leçon ne se sauvegarde qu'une fois le club activé.</summary>
     public bool CanSave => !InTutorial;
 
     /// <summary>F5 : écrit l'emplacement rapide. Rend faux (et le dit à l'écran) si la sauvegarde n'a pas eu lieu.</summary>

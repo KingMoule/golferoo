@@ -109,8 +109,10 @@ public partial class SmokeTest : Node
     private void StartTutorial()
     {
         Main.TutorialMode = true;
+        Main.ArrivalsOverride = ArrivalParams.Default.AtMaxAttraction(); // la suite de la leçon attend des visiteurs : qu'ils arrivent vite
         _tutorial = GD.Load<PackedScene>("res://Main.tscn").Instantiate<Main>();
         AddChild(_tutorial);
+        Main.ArrivalsOverride = null;
         Main.TutorialMode = false;
     }
 
@@ -143,10 +145,30 @@ public partial class SmokeTest : Node
         var texts = new List<string> { tutorial.Text };
         Press(main, UiIds.Tutorial.Start, failures);
         var highlighted = new HashSet<string>();
-        for (var turn = 0; turn < 200 && Golferoo.Sim.Tutorial.TutorialSteps.Current(world) is var step && step != Golferoo.Sim.Tutorial.TutorialStep.Done; turn++)
+        var played = false;
+        for (var turn = 0; turn < 3000 && Golferoo.Sim.Tutorial.TutorialSteps.Current(world) is var step && step != Golferoo.Sim.Tutorial.TutorialStep.Done; turn++)
         {
             tutorial._Process(0);
             texts.Add(tutorial.Text);
+            if (step is Golferoo.Sim.Tutorial.TutorialStep.OpenHole or Golferoo.Sim.Tutorial.TutorialStep.WatchPair or Golferoo.Sim.Tutorial.TutorialStep.FirstGreenFee or Golferoo.Sim.Tutorial.TutorialStep.ReadThought)
+            {
+                // C19 : on attend l'évènement de l'étape, sans bouton à presser.
+                played |= step == Golferoo.Sim.Tutorial.TutorialStep.FirstGreenFee && world.Groups.Any(g => g.FromArrivals && g.Golfers.Any(o => o.Strokes > 0));
+                if (tutorial.Highlighted is not null || tutorial.Text.Length == 0)
+                {
+                    failures.Add($"tutoriel, étape {step} : un bouton mis en évidence ou un texte vide");
+                    break;
+                }
+
+                if (step == Golferoo.Sim.Tutorial.TutorialStep.ReadThought && world.Groups.SelectMany(g => g.Golfers).FirstOrDefault(world.CarriesThought) is { } thoughtful)
+                {
+                    main.Thoughts.Tip(thoughtful, Vector2.Zero); // le survol de l'info-bulle lit la pensée
+                }
+
+                main.StepTicks(100);
+                continue;
+            }
+
             if (tutorial.Highlighted is not { } id || main.Ui.Find(id) is not BaseButton { Visible: true } button || !button.IsVisibleInTree())
             {
                 failures.Add($"tutoriel, étape {step} : bouton mis en évidence « {tutorial.Highlighted} » absent de UiRoot ou caché");
@@ -169,9 +191,24 @@ public partial class SmokeTest : Node
 
         tutorial._Process(0);
         texts.Add(tutorial.Text);
-        if (!world.HoleOpen || tutorial.Phase != Golferoo.Game.Tutorial.TutorialPanel.Mode.Finished || tutorial.Highlighted != UiIds.Tutorial.Golfers)
+        if (!world.HoleOpen || tutorial.Phase != Golferoo.Game.Tutorial.TutorialPanel.Mode.Finished || tutorial.Highlighted != UiIds.Tutorial.Close)
         {
             failures.Add($"tutoriel : pas fini aux boutons (trou ouvert {world.HoleOpen}, phase {tutorial.Phase}, étape {Golferoo.Sim.Tutorial.TutorialSteps.Current(world)})");
+        }
+
+        // C19 critère 9 : la leçon va de la terre vierge au snack-bar posé, avec une paire qui a joué, et se sauvegarde alors.
+        if (!world.State.ClubActive || world.Clubhouse is null || !played || !world.State.ThoughtRead || world.PlacedBuildings.Count(b => b.Kind == BuildingKind.SnackBar) != 1 || world.State.Vouchers(BuildingKind.SnackBar) != 0)
+        {
+            failures.Add($"tutoriel C19 : club activé {world.State.ClubActive}, pavillon {world.Clubhouse is not null}, paire vue au jeu {played}, pensée lue {world.State.ThoughtRead}, snack-bars {world.PlacedBuildings.Count}");
+        }
+
+        using (var stream = new MemoryStream())
+        {
+            world.Save(stream);
+            if (!main.CanSave || World.Load(new MemoryStream(stream.ToArray())).Checksum() != world.Checksum())
+            {
+                failures.Add("tutoriel C19 : la leçon activée ne se sauvegarde pas à l'identique");
+            }
         }
 
         if (main.Ui.Find(UiIds.Tutorial.Ring) is not { Visible: true })
@@ -179,10 +216,10 @@ public partial class SmokeTest : Node
             failures.Add("tutoriel : l'anneau jaune ne se voit pas");
         }
 
-        Press(main, UiIds.Tutorial.Golfers, failures);
-        if (world.Groups.Count == 0 || tutorial.Phase != Golferoo.Game.Tutorial.TutorialPanel.Mode.Off)
+        Press(main, UiIds.Tutorial.Close, failures);
+        if (tutorial.Phase != Golferoo.Game.Tutorial.TutorialPanel.Mode.Off)
         {
-            failures.Add("tutoriel : « Lancer des golfeurs » ne lance personne ou laisse la bulle");
+            failures.Add("tutoriel : « Fermer » laisse la bulle");
         }
 
         main.StepTicks(20);
@@ -226,6 +263,8 @@ public partial class SmokeTest : Node
                 return true;
             case Golferoo.Sim.Tutorial.TutorialStep.PlaceTeeAndHole when main.PlaceTool.Active && !main.PlaceTool.NewHole:
                 return world.PlaceTee(main.CameraHole, tee) && world.PlaceHole(main.CameraHole, green);
+            case Golferoo.Sim.Tutorial.TutorialStep.PlaceSnackBar when main.BuildingTool.Kind == BuildingKind.SnackBar:
+                return BuildingSpot(world, world.Terrain!, BuildingKind.SnackBar) is { } spot && main.BuildingTool.TryPlace(spot) == BuildingPlacement.Placed;
             default:
                 return false;
         }

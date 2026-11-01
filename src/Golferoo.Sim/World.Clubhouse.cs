@@ -28,7 +28,7 @@ public sealed partial class World
     /// </summary>
     public bool TryMoveClubhouse(Point2 center, DoorSide door)
     {
-        if (Terrain is not { Blank: false } terrain || Flow is not { } flow)
+        if (!State.ClubActive || Terrain is not { } terrain || Flow is not { } flow)
         {
             return false;
         }
@@ -111,7 +111,7 @@ public sealed partial class World
     /// <summary>Place le pavillon au plus près du départ du trou 1 (cellules de centre par anneaux, la porte tournée vers le départ d'abord). Faux s'il n'y a nulle part.</summary>
     private bool PlaceClubhouseNearTee()
     {
-        if (Terrain is not { Blank: false } terrain || Flow is not { } flow)
+        if (!State.ClubActive || Terrain is not { } terrain || Flow is not { } flow)
         {
             return false;
         }
