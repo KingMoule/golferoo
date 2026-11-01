@@ -27,12 +27,14 @@ public class CourseTests
     // C21 lot 3 : les six sommes de coups changent encore, cause unique = la journée de 9 min (le vent suit la fraction de journée, donc
     // les mêmes 2000 ticks tombent plus tôt dans la journée et les coups voient un autre vent) ; les trois de « blank-coude », sans coup, non.
     // C15 lot 2b : les six sommes de coups changent encore, cause unique = la marche (×3) et le vol (×1,5) des golfeurs IA plus rapides (les coups tombent plus tôt) ; les trois de « blank-coude », sans coup, non.
-    [InlineData("proto-par4", 1UL, 351506926595650977UL)]
-    [InlineData("proto-par4", 2UL, 8499941740496119436UL)]
-    [InlineData("proto-par4", 3UL, 7565524161033630925UL)]
-    [InlineData("dogleg-par4", 1UL, 4432405616130991473UL)]
-    [InlineData("dogleg-par4", 2UL, 15889232794600245621UL)]
-    [InlineData("dogleg-par4", 3UL, 5122094939293701844UL)]
+    // C15 / le neuf (passages) : les six sommes de coups changent, cause unique = la marche des golfeurs IA recalée de ×3 à ×2,25 (aiWalkSpeedFactor) ; les trois de « blank-coude », sans coup, non.
+    // Contrôle (vérifié) : avec aiWalkSpeedFactor = 3,0 et les passages de CourseLoader.OpenPassages (qui ne touchent pas ces terrains d'un seul trou), les six cas redonnent exactement leurs sommes d'avant.
+    [InlineData("proto-par4", 1UL, 2715540955739167079UL)]
+    [InlineData("proto-par4", 2UL, 3212144370298018152UL)]
+    [InlineData("proto-par4", 3UL, 14075566786790754733UL)]
+    [InlineData("dogleg-par4", 1UL, 3586025108647270437UL)]
+    [InlineData("dogleg-par4", 2UL, 10347344728560884246UL)]
+    [InlineData("dogleg-par4", 3UL, 11234022354759925241UL)]
     [InlineData("blank-coude", 1UL, 6977119086498316254UL)]
     [InlineData("blank-coude", 2UL, 6838184519777748364UL)]
     [InlineData("blank-coude", 3UL, 4217163305829179422UL)]
