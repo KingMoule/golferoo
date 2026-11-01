@@ -55,7 +55,9 @@ public sealed partial class World
             return;
         }
 
-        if (_arrivalRng.NextDouble() < Arrivals.RatePerTick(Attraction))
+        // Leçon : tant qu'aucun groupe n'est venu, l'attrait vaut au moins 1 (pluie et un seul trou la ramenaient à 0,03 : une semaine d'attente).
+        var attraction = Terrain.Blank && Visitors.Next == 0 ? Math.Max(Attraction, 1.0) : Attraction;
+        if (_arrivalRng.NextDouble() < Arrivals.RatePerTick(attraction))
         {
             Arrive();
         }

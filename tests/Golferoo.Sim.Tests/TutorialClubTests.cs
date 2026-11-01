@@ -110,6 +110,15 @@ public class TutorialClubTests
         Assert.All(world.Groups, g => Assert.True(g.FromArrivals));
     }
 
+    [Fact]
+    public void Lesson_FirstGroupArrivesWithinTwoDays()
+    {
+        var world = OpenLesson();
+        StepUntil(world, () => world.Visitors.Next > 0, 2 * Golferoo.Sim.Time.Calendar.TicksPerDay);
+
+        Assert.True(world.Visitors.Next > 0);
+    }
+
     // ---- Critère 2 : les étapes ----
 
     [Fact]
