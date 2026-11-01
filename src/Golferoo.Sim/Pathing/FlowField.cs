@@ -94,9 +94,9 @@ public sealed class FlowField
         var nx = terrain.CellsX;
         var nz = terrain.CellsZ;
         var count = nx * nz;
-        var dist = new float[count];
+        var dist = GC.AllocateUninitializedArray<float>(count);
         Array.Fill(dist, float.PositiveInfinity);
-        var next = new sbyte[count];
+        var next = GC.AllocateUninitializedArray<sbyte>(count);
         Array.Fill(next, (sbyte)-1);
 
         var orth = (float)terrain.CellSize;
