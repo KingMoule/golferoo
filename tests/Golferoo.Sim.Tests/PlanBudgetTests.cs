@@ -96,4 +96,36 @@ public class PlanBudgetTests
 
         Assert.True(worst <= 2 * World.TicksPerSecond, $"un champ a attendu {worst} ticks");
     }
+
+    /// <summary>
+    /// Banc C12 : des destinations jamais vues, demandées ensemble par des marcheurs, ne donnent pas plus de <see cref="Pathing.FlowFieldCache.RebuildsPerTick"/> champs par tick ;
+    /// les autres attendent (entrent en attente, comme après une retouche) et sont tous servis, dans l'ordre, sans qu'un seul calcul manque.
+    /// </summary>
+    [Fact]
+    public void NewDestinations_AreCappedPerTick_AndAllServedInOrder()
+    {
+        var terrain = Dogleg();
+        var cache = new Pathing.FlowFieldCache(terrain);
+        var destinations = new List<Point2>();
+        for (var x = 6; destinations.Count < 10 && x < terrain.CellsX - 2; x += 5)
+        {
+            if (GridQueries.TryNearestWalkable(terrain, x, 6, out var nx, out var nz) && nx == x && nz == 6)
+            {
+                destinations.Add(new Point2((x + 0.5) * terrain.CellSize, 6.5 * terrain.CellSize));
+            }
+        }
+
+        Assert.True(destinations.Count >= 6, $"seulement {destinations.Count} destinations");
+        for (var tick = 0; tick < destinations.Count + 2; tick++)
+        {
+            var before = cache.Count;
+            cache.BeginTick();
+            var ready = destinations.Count(d => cache.TryGet(d) is not null);
+            Assert.True(cache.Count - before <= Pathing.FlowFieldCache.RebuildsPerTick, $"tick {tick} : {cache.Count - before} champs calculés");
+            Assert.Equal(Math.Min(destinations.Count, (tick + 1) * Pathing.FlowFieldCache.RebuildsPerTick), ready);
+        }
+
+        Assert.Empty(cache.Pending);
+        Assert.NotNull(cache.Get(destinations[^1]));
+    }
 }

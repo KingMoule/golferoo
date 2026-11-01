@@ -29,15 +29,17 @@ public class CourseTests
     // C15 lot 2b : les six sommes de coups changent encore, cause unique = la marche (×3) et le vol (×1,5) des golfeurs IA plus rapides (les coups tombent plus tôt) ; les trois de « blank-coude », sans coup, non.
     // C15 / le neuf (passages) : les six sommes de coups changent, cause unique = la marche des golfeurs IA recalée de ×3 à ×2,25 (aiWalkSpeedFactor) ; les trois de « blank-coude », sans coup, non.
     // Contrôle (vérifié) : avec aiWalkSpeedFactor = 3,0 et les passages de CourseLoader.OpenPassages (qui ne touchent pas ces terrains d'un seul trou), les six cas redonnent exactement leurs sommes d'avant.
-    [InlineData("proto-par4", 1UL, 2715540955739167079UL)]
-    [InlineData("proto-par4", 2UL, 3212144370298018152UL)]
-    [InlineData("proto-par4", 3UL, 14075566786790754733UL)]
-    [InlineData("dogleg-par4", 1UL, 3586025108647270437UL)]
-    [InlineData("dogleg-par4", 2UL, 10347344728560884246UL)]
-    [InlineData("dogleg-par4", 3UL, 11234022354759925241UL)]
-    [InlineData("blank-coude", 1UL, 6977119086498316254UL)]
-    [InlineData("blank-coude", 2UL, 6838184519777748364UL)]
-    [InlineData("blank-coude", 3UL, 4217163305829179422UL)]
+    // C12 / banc (p99) : les neuf sommes changent, y compris celles de « blank-coude » (la file d'attente des champs de flux, FlowFieldCache._pending, est dans la somme et des marcheurs de la charge de 6 en demandent) ;
+    // cause unique = le plafond de FlowFieldCache.RebuildsPerTick (2 vers 1) qui s'applique aussi aux destinations jamais vues. Contrôle (vérifié) : avec RebuildsPerTick = 1000, les neuf cas redonnent exactement leurs sommes d'avant.
+    [InlineData("proto-par4", 1UL, 5263286577009937603UL)]
+    [InlineData("proto-par4", 2UL, 5651807948435608490UL)]
+    [InlineData("proto-par4", 3UL, 8460637131202328157UL)]
+    [InlineData("dogleg-par4", 1UL, 10677425122269051893UL)]
+    [InlineData("dogleg-par4", 2UL, 4756295605687386864UL)]
+    [InlineData("dogleg-par4", 3UL, 15717991848727379613UL)]
+    [InlineData("blank-coude", 1UL, 14396232534195343460UL)]
+    [InlineData("blank-coude", 2UL, 10064500930177979151UL)]
+    [InlineData("blank-coude", 3UL, 8346970714173714978UL)]
     public void SingleHoleChecksumIsUnchanged(string hole, ulong seed, ulong expected)
     {
         var terrain = CourseLoader.Load(Path.Combine(HoleDir(), hole + ".json"), 2);

@@ -104,21 +104,11 @@ public sealed class FlowField
 
         // File à seaux (Dial) : la largeur d'un seau reste sous la plus petite arête, donc deux cellules d'un même seau
         // ne s'améliorent jamais l'une l'autre et l'ordre à l'intérieur du seau est sans effet : le résultat est celui de Dijkstra.
-        var minCost = float.PositiveInfinity;
-        var maxCost = 0f;
-        foreach (var c in costs)
-        {
-            if (!float.IsPositiveInfinity(c))
-            {
-                minCost = Math.Min(minCost, c);
-                maxCost = Math.Max(maxCost, c);
-            }
-        }
-
+        var work = scratch ??= new BuildScratch();
+        var (minCost, maxCost) = work.CostRange(costs);
         var width = orth * minCost * 0.99f;
         var invWidth = 1f / width;
         var bucketCount = (int)Math.Ceiling(diag * maxCost / width) + 2;
-        var work = scratch ??= new BuildScratch();
         var buckets = work.Buckets(bucketCount);
         var done = work.Done(count);
         var start = (dz * nx) + dx;
@@ -295,8 +285,31 @@ public sealed class FlowField
     /// <summary>Tampons réutilisés d'un calcul à l'autre sur un même thread : évite des allocations et des relances du GC.</summary>
     private sealed class BuildScratch
     {
+        private float[]? _costs;
+        private (float Min, float Max) _range;
         private List<int>[] _buckets = [];
         private bool[] _done = [];
+
+        /// <summary>Plus petit et plus grand coût franchissable ; relu seulement quand le tableau de coûts change (même instance = mêmes coûts, un tableau n'est jamais modifié après sa construction).</summary>
+        public (float Min, float Max) CostRange(float[] costs)
+        {
+            if (!ReferenceEquals(costs, _costs))
+            {
+                float min = float.PositiveInfinity, max = 0f;
+                foreach (var c in costs)
+                {
+                    if (!float.IsPositiveInfinity(c))
+                    {
+                        min = Math.Min(min, c);
+                        max = Math.Max(max, c);
+                    }
+                }
+
+                (_costs, _range) = (costs, (min, max));
+            }
+
+            return _range;
+        }
 
         public List<int>[] Buckets(int count)
         {

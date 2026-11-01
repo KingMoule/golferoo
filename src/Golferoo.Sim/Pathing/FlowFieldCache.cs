@@ -14,8 +14,11 @@ namespace Golferoo.Sim.Pathing;
 /// </summary>
 public sealed class FlowFieldCache
 {
-    /// <summary>Champs refaits par tick après une retouche des surfaces, pour les marcheurs (environ 0,7 ms chacun sur une carte de 90 000 cellules).</summary>
-    public const int RebuildsPerTick = 2;
+    /// <summary>
+    /// Champs calculés par tick pour les marcheurs, qu'il s'agisse d'une retouche des surfaces ou d'une destination jamais vue (environ 0,7 ms chacun sur une carte de 90 000 cellules,
+    /// 3,8 ms sur le parcours de 18 trous du banc). Sans ce plafond, plusieurs destinations neuves tombent dans le même tick quand des groupes circulent, et le p99 du tick dépasse 5 ms (C12).
+    /// </summary>
+    public const int RebuildsPerTick = 1;
 
     private readonly TerrainGrid _terrain;
     private readonly int _capacity;
@@ -24,6 +27,7 @@ public sealed class FlowFieldCache
     private readonly List<int> _pending = []; // destinations dont le champ est à refaire, dans l'ordre où elles étaient en cache
     private readonly List<CellRect> _obstacles = []; // emprises de bâtiments : infranchissables
     private long _version;
+    private int _builtThisTick;
     private float[] _costs;
 
     public FlowFieldCache(TerrainGrid terrain, int capacity = 64, IEnumerable<int>? pending = null, IEnumerable<int>? cached = null, IEnumerable<CellRect>? obstacles = null)
@@ -61,11 +65,13 @@ public sealed class FlowFieldCache
     internal void BeginTick()
     {
         Sync();
-        for (var n = 0; n < RebuildsPerTick && _pending.Count > 0; n++)
+        _builtThisTick = 0;
+        while (_builtThisTick < RebuildsPerTick && _pending.Count > 0)
         {
             var key = _pending[0];
             _pending.RemoveAt(0);
             Store(key);
+            _builtThisTick++;
         }
     }
 
@@ -76,7 +82,8 @@ public sealed class FlowFieldCache
 
     /// <summary>
     /// Comme <see cref="Get(Point2)"/>, mais un champ à refaire après une retouche n'est jamais refait ici : nul, le marcheur attend que
-    /// <see cref="BeginTick"/> le refasse à son tour. Une destination jamais vue se calcule tout de suite.
+    /// <see cref="BeginTick"/> le refasse à son tour. Une destination jamais vue se calcule tout de suite tant que le tick n'a pas
+    /// atteint <see cref="RebuildsPerTick"/> champs ; au-delà, elle entre en attente comme après une retouche.
     /// </summary>
     internal FlowField? TryGet(Point2 destination) => Resolve(_terrain.CellXOf(destination.X), _terrain.CellZOf(destination.Z), budgeted: true);
 
@@ -95,13 +102,25 @@ public sealed class FlowFieldCache
         }
 
         var waiting = _pending.IndexOf(key);
-        if (waiting >= 0)
+        if (budgeted)
         {
-            if (budgeted)
+            if (waiting < 0 && _builtThisTick < RebuildsPerTick)
             {
-                return null;
+                _builtThisTick++;
+                return Store(key);
             }
 
+            if (waiting < 0)
+            {
+                _pending.Add(key);
+                TrimPending();
+            }
+
+            return null;
+        }
+
+        if (waiting >= 0)
+        {
             _pending.RemoveAt(waiting);
         }
 
