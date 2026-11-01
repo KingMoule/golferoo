@@ -831,7 +831,7 @@ public partial class Captures : Node
 
     /// <summary>
     /// C17 lot 3 : un snack-bar à portée de la sortie du trou 5 (la portée est de 24 cellules). <c>c17-pose</c> : l'outil de pose pris dans le dock, le fantôme vert à cet endroit ;
-    /// <c>c17-pose-refus</c> : le même fantôme rouge sur le fairway du trou 5, avec la raison. <c>c17-visite</c> : un pro shop posé près du pavillon, un golfeur à sa porte.
+    /// <c>c17-pose-refus</c> : le même fantôme rouge sur le fairway du trou 5, avec la raison. <c>c17-visite</c> : un pro shop posé près du départ du trou 1, un golfeur à sa porte.
     /// </summary>
     private async Task BuildingViews(Main main)
     {
@@ -916,12 +916,12 @@ public partial class Captures : Node
 
         Save("c17-pose-refus");
 
-        // La visite : un pro shop près du pavillon (proposé avant le premier départ). Sur « Le neuf », la sortie du trou 5 est dans une poche que le champ
-        // de flux ne relie pas au reste : un golfeur y « visite » le snack-bar en sautant jusqu'à sa porte, on ne le verrait jamais marcher.
+        // La visite : un pro shop près du départ du trou 1 (proposé quand un groupe quitte la file, à portée de sa position). Sur « Le neuf », la sortie du trou 5
+        // est dans une poche que le champ de flux ne relie pas au reste : un golfeur y « visite » le snack-bar en sautant jusqu'à sa porte, on ne le verrait jamais marcher.
         main.Bar.Select(ToolFamily.None, toggle: false);
         main.Structures.HideGhost();
-        var club = world.Clubhouse!.DoorPosition(cell);
-        var (cx, cz) = (grid.CellXOf(club.X), grid.CellZOf(club.Z));
+        var tee = grid.Course[1].Tee;
+        var (cx, cz) = (grid.CellXOf(tee.X), grid.CellZOf(tee.Z));
         var shopSpots = Enumerable.Range(0, grid.CellsZ).SelectMany(z => Enumerable.Range(0, grid.CellsX).Select(x => (X: x, Z: z)))
             .Select(c => (Cell: c, Door: world.BuildingRules.At(BuildingKind.ProShop, c.X, c.Z, DoorSide.South)!.DoorCell))
             .Select(c => (c.Cell, Dist: Math.Sqrt(Math.Pow(c.Door.X - cx, 2) + Math.Pow(c.Door.Z - cz, 2))))
@@ -945,7 +945,7 @@ public partial class Captures : Node
 
         if (shop is null)
         {
-            GD.PrintErr("CAPTURES FAIL c17 : le pro shop ne se pose pas près du pavillon");
+            GD.PrintErr("CAPTURES FAIL c17 : le pro shop ne se pose pas près du départ du trou 1");
             _failures++;
             return;
         }
