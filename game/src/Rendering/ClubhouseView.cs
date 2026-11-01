@@ -59,14 +59,20 @@ public partial class ClubhouseView : Node3D
         }
 
         _shown = building;
-        var cell = _grid.CellSize;
+        _model.Transform = Fit(_grid, _bounds, building);
+    }
+
+    /// <summary>Place d'un modèle (façade +Z, de boîte <paramref name="bounds"/>) dans l'emprise de <paramref name="building"/> : mis à l'échelle, tourné vers la porte, posé sur le sol.</summary>
+    internal static Transform3D Fit(TerrainGrid grid, Aabb bounds, Building building)
+    {
+        var cell = grid.CellSize;
         var center = building.Position(cell);
         var width = (building.Footprint.MaxX - building.Footprint.MinX + 1) * cell;
         var depth = (building.Footprint.MaxZ - building.Footprint.MinZ + 1) * cell;
         var side = building.Side is DoorSide.East or DoorSide.West;
 
         // Le modèle (façade +Z) tient dans l'emprise tournée selon la porte.
-        var fit = (float)Math.Min((side ? depth : width) / _bounds.Size.X, (side ? width : depth) / _bounds.Size.Z);
+        var fit = (float)Math.Min((side ? depth : width) / bounds.Size.X, (side ? width : depth) / bounds.Size.Z);
         var yaw = building.Side switch
         {
             DoorSide.North => Mathf.Pi,
@@ -75,9 +81,8 @@ public partial class ClubhouseView : Node3D
             _ => 0f,
         };
         var basis = Basis.FromEuler(new Vector3(0f, yaw, 0f)).Scaled(Vector3.One * fit);
-        var mid = _bounds.GetCenter();
-        var ground = GroundOf(building);
-        _model.Transform = new Transform3D(basis, new Vector3((float)center.X, ground, (float)center.Z) - (basis * new Vector3(mid.X, _bounds.Position.Y, mid.Z)));
+        var mid = bounds.GetCenter();
+        return new Transform3D(basis, new Vector3((float)center.X, GroundOf(grid, building), (float)center.Z) - (basis * new Vector3(mid.X, bounds.Position.Y, mid.Z)));
     }
 
     /// <summary>Montre l'emprise de <paramref name="building"/> en vert (valide) ou rouge (refusée).</summary>
@@ -87,7 +92,7 @@ public partial class ClubhouseView : Node3D
         var center = building.Position(cell);
         var size = new Vector3((float)((building.Footprint.MaxX - building.Footprint.MinX + 1) * cell), 3f, (float)((building.Footprint.MaxZ - building.Footprint.MinZ + 1) * cell));
         ((BoxMesh)_preview.Mesh).Size = size;
-        _preview.Position = new Vector3((float)center.X, GroundOf(building) + (size.Y / 2f), (float)center.Z);
+        _preview.Position = new Vector3((float)center.X, GroundOf(_grid, building) + (size.Y / 2f), (float)center.Z);
         _previewMaterial.AlbedoColor = valid ? new Color(0.25f, 0.85f, 0.35f, 0.35f) : new Color(0.9f, 0.2f, 0.2f, 0.35f);
         PreviewValid = valid;
         _preview.Visible = true;
@@ -96,20 +101,20 @@ public partial class ClubhouseView : Node3D
     public void HidePreview() => _preview.Visible = false;
 
     /// <summary>Le sol sous l'emprise : sa plus haute cellule, pour que le bâtiment ne s'enfonce jamais.</summary>
-    private float GroundOf(Building b)
+    internal static float GroundOf(TerrainGrid grid, Building b)
     {
         var f = b.Footprint;
-        var cell = _grid.CellSize;
+        var cell = grid.CellSize;
         var high = double.MinValue;
         foreach (var (x, z) in new[] { (f.MinX, f.MinZ), (f.MaxX, f.MinZ), (f.MinX, f.MaxZ), (f.MaxX, f.MaxZ), ((f.MinX + f.MaxX) / 2, (f.MinZ + f.MaxZ) / 2) })
         {
-            high = Math.Max(high, _grid.Sample((x + 0.5) * cell, (z + 0.5) * cell));
+            high = Math.Max(high, grid.Sample((x + 0.5) * cell, (z + 0.5) * cell));
         }
 
         return (float)high;
     }
 
-    private static Aabb BoundsOf(Node3D root)
+    internal static Aabb BoundsOf(Node3D root)
     {
         var bounds = new Aabb();
         var first = true;

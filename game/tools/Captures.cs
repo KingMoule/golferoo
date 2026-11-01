@@ -3,6 +3,7 @@ using Golferoo.Game.Cameras;
 using Golferoo.Game.Rendering;
 using Golferoo.Game.Ui;
 using Golferoo.Sim;
+using Golferoo.Sim.Buildings;
 using Golferoo.Sim.Golfers;
 using Golferoo.Sim.Rating;
 using Golferoo.Sim.Shots;
@@ -39,7 +40,7 @@ public partial class Captures : Node
     private const int ProfileViewCount = 3;
     private const int FreeViewCount = 4;
     private const int SaveViewCount = 2;
-    private const int CourseViewCount = 14;
+    private const int CourseViewCount = 17;
     private const int GalleryViewCount = 1;
     private const int FinanceViewCount = 1;
     private const int ProViewCount = 2;
@@ -825,6 +826,159 @@ public partial class Captures : Node
         Save("c15-pavillon");
         await ThoughtsView(main);
         await ReactionsView(main);
+        await BuildingViews(main);
+    }
+
+    /// <summary>
+    /// C17 lot 3 : un snack-bar à portée de la sortie du trou 5 (la portée est de 24 cellules). <c>c17-pose</c> : l'outil de pose pris dans le dock, le fantôme vert à cet endroit ;
+    /// <c>c17-pose-refus</c> : le même fantôme rouge sur le fairway du trou 5, avec la raison. <c>c17-visite</c> : un pro shop posé près du départ du trou 1, un golfeur à sa porte.
+    /// </summary>
+    private async Task BuildingViews(Main main)
+    {
+        var world = main.World;
+        var grid = world.Terrain!;
+        var hole = grid.Course[5];
+        var cell = grid.CellSize;
+        var tool = main.BuildingTool;
+        tool.SetProcess(false); // le fantôme vient des captures, pas de la souris
+        main.Bar.Select(ToolFamily.Buildings, toggle: false);
+        tool.Select(BuildingKind.SnackBar);
+
+        // Le premier emplacement valide dont la porte est la plus proche de la sortie du trou 5 (comme les tests de la sim), à portée du snack-bar.
+        var exit = world.ExitPointOf(5);
+        var (gx, gz) = (grid.CellXOf(exit.X), grid.CellZOf(exit.Z));
+        var rect = world.BuildingRules.At(BuildingKind.SnackBar, 0, 0, DoorSide.South)!.Footprint;
+        (int X, int Z)? spot = null;
+        var verdicts = new Dictionary<BuildingPlacement, int>();
+        var candidates = Enumerable.Range(0, grid.CellsZ).SelectMany(z => Enumerable.Range(0, grid.CellsX).Select(x => (X: x, Z: z)))
+            .Select(c => (Cell: c, Door: world.BuildingRules.At(BuildingKind.SnackBar, c.X, c.Z, DoorSide.South)!.DoorCell))
+            .Select(c => (c.Cell, Dist: Math.Sqrt(Math.Pow(c.Door.X - gx, 2) + Math.Pow(c.Door.Z - gz, 2))))
+            .Where(c => c.Dist <= 30)
+            .OrderBy(c => c.Dist);
+        foreach (var c in candidates)
+        {
+            var verdict = world.CheckBuilding(BuildingKind.SnackBar, c.Cell.X, c.Cell.Z, DoorSide.South);
+            verdicts[verdict] = verdicts.GetValueOrDefault(verdict) + 1;
+            if (verdict == BuildingPlacement.Placed)
+            {
+                spot = c.Cell;
+                break;
+            }
+        }
+
+        if (spot is not { } at)
+        {
+            GD.PrintErr($"CAPTURES FAIL c17 : aucun emplacement valide pour un snack-bar près du trou 5 (sortie {gx},{gz}, ouverts {world.OpenHoles}, verdicts {string.Join(", ", verdicts.Select(v => $"{v.Key}={v.Value}"))})");
+            _failures++;
+            return;
+        }
+
+        var middle = new Point2((at.X + ((rect.MaxX + 1) / 2.0)) * cell, (at.Z + ((rect.MaxZ + 1) / 2.0)) * cell);
+        var focus = new Vector3((float)middle.X, (float)grid.Sample(middle.X, middle.Z), (float)middle.Z);
+        main.SunDayFraction = 0.4;
+        var shown = tool.ShowGhost(middle);
+        main.Camera.SetMode(CameraMode.Iso, instant: true);
+        main.Camera.SetView(45f, 60f, focus);
+        await Frames(SettleFrames);
+        GD.Print($"C17 pose snack-bar={at} sortie={gx},{gz} verdict={shown} fantome_valide={main.Structures.GhostValid} etat={tool.Status}");
+        if (shown != BuildingPlacement.Placed || !main.Structures.GhostVisible || !main.Structures.GhostValid)
+        {
+            GD.PrintErr("CAPTURES FAIL c17 : le fantôme n'est pas vert sur l'emplacement valide");
+            _failures++;
+        }
+
+        Save("c17-pose");
+
+        // Le refus : la première cellule de fairway entre le départ et le green du trou 5.
+        Point2? fairway = null;
+        for (var t = 0.1; t < 0.9 && fairway is null; t += 0.02)
+        {
+            var p = new Point2(hole.Tee.X + ((hole.Green.X - hole.Tee.X) * t), hole.Tee.Z + ((hole.Green.Z - hole.Tee.Z) * t));
+            fairway = grid.SurfaceAt(p.X, p.Z) == Surface.Fairway ? p : null;
+        }
+
+        if (fairway is not { } refused)
+        {
+            GD.PrintErr("CAPTURES FAIL c17 : pas de fairway entre le départ et le green du trou 5");
+            _failures++;
+            return;
+        }
+
+        shown = tool.ShowGhost(refused);
+        main.Camera.SetView(45f, 60f, new Vector3((float)refused.X, (float)grid.Sample(refused.X, refused.Z), (float)refused.Z));
+        await Frames(SettleFrames);
+        GD.Print($"C17 refus verdict={shown} fantome_valide={main.Structures.GhostValid} etat={tool.Status}");
+        if (shown == BuildingPlacement.Placed || main.Structures.GhostValid)
+        {
+            GD.PrintErr("CAPTURES FAIL c17 : le fantôme n'est pas rouge sur le fairway");
+            _failures++;
+        }
+
+        Save("c17-pose-refus");
+
+        // La visite : un pro shop près du départ du trou 1 (proposé quand un groupe quitte la file, à portée de sa position). Sur « Le neuf », la sortie du trou 5
+        // est dans une poche que le champ de flux ne relie pas au reste : un golfeur y « visite » le snack-bar en sautant jusqu'à sa porte, on ne le verrait jamais marcher.
+        main.Bar.Select(ToolFamily.None, toggle: false);
+        main.Structures.HideGhost();
+        var tee = grid.Course[1].Tee;
+        var (cx, cz) = (grid.CellXOf(tee.X), grid.CellZOf(tee.Z));
+        var shopSpots = Enumerable.Range(0, grid.CellsZ).SelectMany(z => Enumerable.Range(0, grid.CellsX).Select(x => (X: x, Z: z)))
+            .Select(c => (Cell: c, Door: world.BuildingRules.At(BuildingKind.ProShop, c.X, c.Z, DoorSide.South)!.DoorCell))
+            .Select(c => (c.Cell, Dist: Math.Sqrt(Math.Pow(c.Door.X - cx, 2) + Math.Pow(c.Door.Z - cz, 2))))
+            .Where(c => c.Dist <= 12)
+            .OrderBy(c => c.Dist)
+            .Select(c => c.Cell)
+            .ToList();
+        var shop = (Building?)null;
+        for (var i = 0; i < 200 && shop is null; i++)
+        {
+            var free = shopSpots.Where(c => world.CheckBuilding(BuildingKind.ProShop, c.X, c.Z, DoorSide.South) == BuildingPlacement.Placed).Take(1).ToList();
+            if (free.Count == 1 && world.PlaceBuilding(BuildingKind.ProShop, free[0].X, free[0].Z, DoorSide.South) == BuildingPlacement.Placed)
+            {
+                shop = world.PlacedBuildings[^1];
+            }
+            else
+            {
+                main.StepTicks(10); // un golfeur est dans l'emprise : on attend qu'il passe
+            }
+        }
+
+        if (shop is null)
+        {
+            GD.PrintErr("CAPTURES FAIL c17 : le pro shop ne se pose pas près du départ du trou 1");
+            _failures++;
+            return;
+        }
+
+        var door = shop.DoorPosition(cell);
+        // Pas fin quand un golfeur en visite approche de la porte : il y paie puis repart aussitôt, un pas de 4 ticks le manquerait.
+        GolferView? visitor = null;
+        for (var i = 0; i < 20000 && visitor is null; i++)
+        {
+            var near = world.Snapshot().Golfers.Where(g => g.State == GolferState.Visiting)
+                .Select(g => (View: g, Dist: Math.Abs(g.Position.X - door.X) + Math.Abs(g.Position.Z - door.Z))).OrderBy(v => v.Dist).ToList();
+            if (near.Count > 0 && near[0].Dist < 5.0)
+            {
+                visitor = near[0].View;
+            }
+            else
+            {
+                main.StepTicks(near.Count == 0 ? 16 : near[0].Dist < 15.0 ? 1 : 4); // chaque appel rend une image : on va vite tant que personne n'approche
+            }
+        }
+
+        if (visitor is not { } seen)
+        {
+            GD.PrintErr("CAPTURES FAIL c17 : aucun golfeur n'est venu à la porte du pro shop");
+            _failures++;
+            return;
+        }
+
+        var spotView = new Vector3((float)door.X, (float)grid.Sample(door.X, door.Z), (float)door.Z);
+        main.Camera.SetView(45f, 35f, spotView);
+        await Frames(SettleFrames);
+        GD.Print($"C17 visite golfeur={seen.Id} porte={door} position={seen.Position} etat={seen.State} bâtiments={world.PlacedBuildings.Count}");
+        Save("c17-visite");
     }
 
     /// <summary>

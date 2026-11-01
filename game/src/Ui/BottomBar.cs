@@ -42,7 +42,8 @@ public partial class BottomBar : Control
 
     /// <summary>La famille d'outils prise, déduite des outils eux-mêmes (une touche peut l'avoir changée).</summary>
     public ToolFamily Current =>
-        _main.PlaceTool.Active ? ToolFamily.Holes
+        _main.BuildingTool.Active ? ToolFamily.Buildings
+        : _main.PlaceTool.Active ? ToolFamily.Holes
         : _main.TreeTool.Active ? ToolFamily.Trees
         : !_main.Brush.Active ? ToolFamily.None
         : _main.Brush.BulldozerMode ? ToolFamily.Bulldozer
@@ -96,6 +97,7 @@ public partial class BottomBar : Control
 
         _main.TreeTool.SetActive(family == ToolFamily.Trees);
         _main.PlaceTool.SetActive(family == ToolFamily.Holes);
+        _main.BuildingTool.SetActive(family == ToolFamily.Buildings);
         Sync();
     }
 
@@ -192,12 +194,10 @@ public partial class BottomBar : Control
         build.AddChild(Family(ToolFamily.Holes, UiIds.Tool.Holes, "flag", "Trous", "Poser départs et drapeaux, ajouter ou retirer un trou."));
 
         var club = Group(tools);
-        foreach (var (id, icon, title) in new[] { (UiIds.Tool.Buildings, "building", "Bâtiments"), (UiIds.Tool.Amenities, "bench", "Aménagements") })
-        {
-            var later = UiToolButton.Create(id, icon, title, "Bientôt.");
-            later.Disabled = true;
-            club.AddChild(later);
-        }
+        club.AddChild(Family(ToolFamily.Buildings, UiIds.Tool.Buildings, "building", "Bâtiments", "Poser un snack-bar, un pro shop, un hangar d'entretien ou un banc ; clic droit sur un bâtiment pour le vendre."));
+        var amenities = UiToolButton.Create(UiIds.Tool.Amenities, "bench", "Aménagements", "Bientôt.");
+        amenities.Disabled = true;
+        club.AddChild(amenities);
 
         var care = Group(tools);
         _turf = UiToolButton.Create(UiIds.Tool.Turf, "wrench", "Gazon", "Consignes d'entretien : vitesse des greens, fermeté des fairways, hauteur du rough.");

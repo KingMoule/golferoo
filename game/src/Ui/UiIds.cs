@@ -70,6 +70,7 @@ public static class UiIds
         public const string TabRelief = "TabRelief";
         public const string TabTrees = "TabTrees";
         public const string TabHoles = "TabHoles";
+        public const string TabBuildings = "TabBuildings";
     }
 
     public static class Thumb
@@ -102,6 +103,9 @@ public static class UiIds
         public const string HolePrevious = "ActionHolesPrevious";
         public const string HoleNext = "ActionHolesNext";
         public const string Undo = "ActionUndo";
+
+        /// <summary>Bouton du tiroir Bâtiments (<paramref name="kind"/> : nom du genre dans la sim).</summary>
+        public static string Building(string kind) => $"ActionBuildings{kind}";
     }
 
     public static class Panel

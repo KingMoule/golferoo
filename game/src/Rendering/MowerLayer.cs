@@ -24,6 +24,7 @@ public partial class MowerLayer : Node3D
     private const float DaySeconds = Calendar.TicksPerDay * (float)World.TickSeconds;
 
     private readonly List<Mower> _mowers = [];
+    private Func<Point2, Point2?>? _depot;
     private TerrainGrid? _grid;
     private int _day = -1;
     private double _last;
@@ -33,7 +34,12 @@ public partial class MowerLayer : Node3D
     /// <summary>Position de la première tondeuse visible (pour les captures), sinon null.</summary>
     public Vector3? FirstPosition => Visible && _mowers.FirstOrDefault(m => m.Node.Visible)?.Node.Position is { } p ? p : null;
 
-    public void Build(TerrainGrid grid) => _grid = grid;
+    /// <summary><paramref name="depot"/> donne d'où part et où rentre la tondeuse d'une zone : la porte du hangar le plus proche, sinon celle du pavillon (<c>World.MowerDepot</c>).</summary>
+    public void Build(TerrainGrid grid, Func<Point2, Point2?> depot)
+    {
+        _grid = grid;
+        _depot = depot;
+    }
 
     /// <summary><paramref name="dayFraction"/> vaut 0 à minuit et 1 à la minute d'avant ; les golfeurs viennent de l'instantané courant.</summary>
     public void Update(int dayIndex, double dayFraction, WorldSnapshot current)
@@ -71,7 +77,7 @@ public partial class MowerLayer : Node3D
 
             var (p, dir) = m.At();
             // Le trajet suit l'enveloppe de la bande : cachée là où il sort de la zone (eau, sable, coude).
-            m.Node.Visible = _grid.SurfaceAt(p.X, p.Y) == m.Surface;
+            m.Node.Visible = m.InTransit || _grid.SurfaceAt(p.X, p.Y) == m.Surface;
             m.Node.Position = new Vector3(p.X, (float)_grid.Sample(p.X, p.Y), p.Y);
             m.Node.Rotation = new Vector3(0f, Mathf.Atan2(dir.X, dir.Y), 0f);
             if (!GolferNear(current, p))
@@ -133,7 +139,19 @@ public partial class MowerLayer : Node3D
 
             node.Scale = zone.Surface == Surface.Green ? Vector3.One * GreenMowerScale : Vector3.One;
             AddChild(node);
-            var mower = new Mower(node, zone.Path()) { Surface = zone.Surface };
+            var path = zone.Path();
+            var start = path[0];
+            var depot = _depot?.Invoke(new Point2(start.X, start.Y));
+            var lead = 0f;
+            var tail = 0f;
+            if (depot is { } d)
+            {
+                var home = new Vector2((float)d.X, (float)d.Z);
+                (lead, tail) = (home.DistanceTo(start), home.DistanceTo(path[^1]));
+                path = [home, .. path, home];
+            }
+
+            var mower = new Mower(node, path) { Surface = zone.Surface, Lead = lead, Tail = tail };
             mower.S = (float)(dayFraction * DaySeconds * Speed);
             _mowers.Add(mower);
         }
@@ -262,6 +280,13 @@ public partial class MowerLayer : Node3D
         public Surface Surface { get; init; }
 
         public float Length { get; }
+
+        /// <summary>Longueur du trajet du dépôt à la zone, puis de la zone au dépôt : la tondeuse s'y voit partout.</summary>
+        public float Lead { get; init; }
+
+        public float Tail { get; init; }
+
+        public bool InTransit => S < Lead || S > Length - Tail;
 
         /// <summary>Distance parcourue sur le trajet, en m.</summary>
         public float S { get; set; }

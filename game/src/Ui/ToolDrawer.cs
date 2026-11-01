@@ -1,5 +1,7 @@
 using Godot;
+using Golferoo.Game.Rendering;
 using Golferoo.Game.Tools;
+using Golferoo.Sim.Buildings;
 using Golferoo.Sim.Terrain;
 using Golferoo.Sim.Trees;
 
@@ -13,6 +15,7 @@ public enum ToolFamily
     Relief,
     Trees,
     Holes,
+    Buildings,
     Bulldozer,
 }
 
@@ -41,6 +44,7 @@ public partial class ToolDrawer : PanelContainer
         (ToolFamily.Relief, UiIds.Drawer.TabRelief, "Relief"),
         (ToolFamily.Trees, UiIds.Drawer.TabTrees, "Arbres"),
         (ToolFamily.Holes, UiIds.Drawer.TabHoles, "Trous"),
+        (ToolFamily.Buildings, UiIds.Drawer.TabBuildings, "Bâtiments"),
     ];
 
     private readonly Dictionary<ToolFamily, Control> _pages = [];
@@ -48,6 +52,8 @@ public partial class ToolDrawer : PanelContainer
     private readonly Dictionary<Surface, UiThumb> _surfaceThumbs = [];
     private readonly Dictionary<(TreeSpeciesId, TreePlantStage), UiThumb> _treeThumbs = [];
     private readonly Dictionary<string, Button> _actions = [];
+    private readonly Dictionary<BuildingKind, UiThumb> _buildingThumbs = [];
+    private ToolFamily _lastFamily;
     private Main _main = null!;
     private BottomBar _bar = null!;
     private Label _title = null!;
@@ -132,8 +138,10 @@ public partial class ToolDrawer : PanelContainer
         _pages[ToolFamily.Terrain] = TerrainPage();
         _pages[ToolFamily.Trees] = TreesPage(thumbnails);
         _pages[ToolFamily.Holes] = HolesPage();
+        _pages[ToolFamily.Buildings] = BuildingsPage(thumbnails);
         foreach (var page in _pages.Values)
         {
+            page.Visible = false; // montrée par Sync : sinon toutes les pages empilées donnent au tiroir sa taille avant la première mise à jour
             content.AddChild(page);
         }
 
@@ -204,6 +212,31 @@ public partial class ToolDrawer : PanelContainer
         return page;
     }
 
+    private HBoxContainer BuildingsPage(ThumbnailRenderer thumbnails)
+    {
+        var page = new HBoxContainer();
+        page.AddThemeConstantOverride("separation", 12);
+        var world = _main.World;
+        foreach (var kind in BuildingTool.Kinds)
+        {
+            var name = UiNames.BuildingName(kind);
+            var thumb = UiThumb.Create(UiIds.Action.Building(kind.ToString()), name, thumbnails.Render(BuildingLayer.ModelPath(kind)));
+            var cost = UiMoney.Format(world.BuildingCost(kind) ?? 0);
+            thumb.Description = UiNames.BuildingTip(kind);
+            thumb.Costs = [("Construction", cost), ("Vente", UiMoney.Format((world.BuildingCost(kind) ?? 0) / 2))];
+            thumb.Pressed += () =>
+            {
+                _main.BuildingTool.Select(kind);
+                _bar.Sync();
+            };
+            thumb.SizeFlagsVertical = SizeFlags.ShrinkBegin;
+            _buildingThumbs[kind] = thumb;
+            page.AddChild(thumb);
+        }
+
+        return page;
+    }
+
     private HBoxContainer HolesPage()
     {
         var page = new HBoxContainer();
@@ -242,6 +275,7 @@ public partial class ToolDrawer : PanelContainer
         var brush = _main.Brush;
         var trees = _main.TreeTool;
         var place = _main.PlaceTool;
+        var buildings = _main.BuildingTool;
         _title.Text = family switch
         {
             ToolFamily.Bulldozer => "Bulldozer",
@@ -259,7 +293,13 @@ public partial class ToolDrawer : PanelContainer
             page.Visible = f == family;
         }
 
-        _sizeRow.Visible = family != ToolFamily.Holes;
+        if (family != _lastFamily)
+        {
+            _lastFamily = family;
+            ResetSize(); // la mise en page ne passe qu'à l'image suivante : le tiroir prend tout de suite la taille de sa nouvelle page
+        }
+
+        _sizeRow.Visible = family is not (ToolFamily.Holes or ToolFamily.Buildings);
         var undo = _actions[UiIds.Action.Undo];
         undo.Visible = (family is ToolFamily.Terrain or ToolFamily.Relief or ToolFamily.Bulldozer) && brush.UndoOffered;
         if (undo.Visible)
@@ -276,6 +316,19 @@ public partial class ToolDrawer : PanelContainer
         foreach (var (surface, thumb) in _surfaceThumbs)
         {
             thumb.Chosen = surface == brush.PaintedSurface;
+        }
+
+        foreach (var (kind, thumb) in _buildingThumbs)
+        {
+            var unlocked = _main.World.IsUnlocked(kind);
+            var wanted = unlocked ? UiMoney.Format(_main.World.BuildingCost(kind) ?? 0) : $"{_main.World.BuildingRules.Spec(kind)!.UnlockHoles} trous ouverts";
+            if (thumb.Price.Text != wanted)
+            {
+                thumb.Price.Text = wanted;
+            }
+
+            thumb.Disabled = !unlocked;
+            thumb.Chosen = buildings.Kind == kind;
         }
 
         var planting = trees.Mode is TreeTool.ClickMode.Sapling or TreeTool.ClickMode.Mound;
@@ -297,6 +350,7 @@ public partial class ToolDrawer : PanelContainer
             ToolFamily.Bulldozer => "Efface ce qui a été posé : la surface revient au rough, les arbres sont rasés.",
             ToolFamily.Trees => trees.Describe(),
             ToolFamily.Holes => place.Status,
+            ToolFamily.Buildings => buildings.Kind is null ? "Choisissez un bâtiment, puis cliquez sur le rough pour le poser." : buildings.Status,
             _ => "",
         };
         if (_status.Text != status)

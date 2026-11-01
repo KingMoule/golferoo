@@ -1,3 +1,6 @@
+using Golferoo.Sim;
+using Golferoo.Sim.Buildings;
+
 namespace Golferoo.Game.Ui;
 
 /// <summary>Les noms affichés du calendrier et du ciel, en minuscules, dans l'ordre des énumérations de la sim : une seule table pour tout l'écran.</summary>
@@ -17,6 +20,38 @@ public static class UiNames
     ];
 
     public static readonly string[] Skies = ["soleil", "nuages", "pluie", "forte pluie"];
+
+    public static string BuildingName(BuildingKind kind) => kind switch
+    {
+        BuildingKind.SnackBar => "Snack-bar",
+        BuildingKind.ProShop => "Pro shop",
+        BuildingKind.MaintenanceShed => "Hangar d'entretien",
+        BuildingKind.Bench => "Banc",
+        _ => "Pavillon",
+    };
+
+    public static string BuildingTip(BuildingKind kind) => kind switch
+    {
+        BuildingKind.SnackBar => "Les golfeurs y font une pause au virage : une visite rapporte un peu et remonte l'humeur.",
+        BuildingKind.ProShop => "Les golfeurs y passent avant leur départ : une visite rapporte un peu et affine leur jeu.",
+        BuildingKind.MaintenanceShed => "Réduit l'entretien mensuel du parcours et abrite les tondeuses.",
+        BuildingKind.Bench => "Un petit coin de repos : il embellit les environs.",
+        _ => "",
+    };
+
+    /// <summary>Pourquoi la sim refuse une pose.</summary>
+    public static string Refusal(BuildingPlacement result) => result switch
+    {
+        BuildingPlacement.Placed => "",
+        BuildingPlacement.Locked => "Pas encore débloqué : ouvrez plus de trous.",
+        BuildingPlacement.OutOfMap => "Hors de la carte.",
+        BuildingPlacement.BadSurface => "Il faut du rough ou du sous-bois, et une porte praticable.",
+        BuildingPlacement.Occupied => "Un autre bâtiment est déjà là.",
+        BuildingPlacement.Golfer => "Un golfeur ou une balle est dans l'emprise.",
+        BuildingPlacement.NoPath => "La porte n'aurait plus de chemin vers le départ du trou 1.",
+        BuildingPlacement.Funds => "Solde insuffisant.",
+        _ => "Impossible de poser ici.",
+    };
 
     /// <summary>« Printemps » pour « printemps ».</summary>
     public static string Capitalized(string text) => char.ToUpperInvariant(text[0]) + text[1..];

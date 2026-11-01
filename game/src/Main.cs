@@ -107,6 +107,9 @@ public partial class Main : Node3D
 
     public ClubhouseView Clubhouse { get; private set; } = null!;
 
+    /// <summary>Les bâtiments posés par le joueur et le fantôme de l'outil de pose (C17).</summary>
+    public BuildingLayer Structures { get; private set; } = null!;
+
     /// <summary>Groupe de la file choisi d'un clic (aucun : −1).</summary>
     public int ChosenGroupId { get; private set; } = -1;
 
@@ -163,6 +166,8 @@ public partial class Main : Node3D
     public ProPanel? ProPanel { get; private set; }
 
     public PlaceTool PlaceTool { get; private set; } = null!;
+
+    public BuildingTool BuildingTool { get; private set; } = null!;
 
     public TutorialPanel? Tutorial { get; private set; }
 
@@ -312,9 +317,14 @@ public partial class Main : Node3D
         Clubhouse.Build(grid);
         Clubhouse.Update(World.Clubhouse);
 
+        Structures = new BuildingLayer { Name = "Structures" };
+        AddChild(Structures);
+        Structures.Build(grid);
+        Structures.Update(World.PlacedBuildings);
+
         Mowers = new MowerLayer { Name = "Mowers" };
         AddChild(Mowers);
-        Mowers.Build(grid);
+        Mowers.Build(grid, World.MowerDepot);
 
         var width = (float)(grid.CellsX * grid.CellSize);
         var depth = (float)(grid.CellsZ * grid.CellSize);
@@ -363,6 +373,9 @@ public partial class Main : Node3D
         PlaceTool = new PlaceTool { Name = "PlaceTool" };
         AddChild(PlaceTool);
         PlaceTool.Init(this);
+        BuildingTool = new BuildingTool { Name = "BuildingTool" };
+        AddChild(BuildingTool);
+        BuildingTool.Init(this);
         BuildUi();
         Birdie = new Birdie { Name = "Birdie" };
         AddChild(Birdie);
@@ -468,7 +481,15 @@ public partial class Main : Node3D
     {
         if (@event.IsActionPressed("camera_follow_next"))
         {
-            CameraFollowNext();
+            if (BuildingTool.Active && BuildingTool.Kind is not null)
+            {
+                BuildingTool.Rotate(); // l'outil de pose prend Tab pour le quart de tour
+            }
+            else
+            {
+                CameraFollowNext();
+            }
+
             GetViewport().SetInputAsHandled();
         }
     }
@@ -483,6 +504,13 @@ public partial class Main : Node3D
             case InputEventMouseButton { Pressed: true, ButtonIndex: MouseButton.Left } click when ProAim.HandleClick(click.Position):
                 break;
             case InputEventMouseButton { Pressed: true, ButtonIndex: MouseButton.Left } click when PlaceTool.HandleClick(click.Position):
+                break;
+            case InputEventMouseButton { Pressed: true, ButtonIndex: MouseButton.Left } click when BuildingTool.HandleClick(click.Position):
+                break;
+            case InputEventMouseButton { Pressed: true, ButtonIndex: MouseButton.Right } click when BuildingTool.HandleRightClick(click.Position):
+                break;
+            case InputEventMouseButton { Pressed: true, ButtonIndex: MouseButton.WheelUp or MouseButton.WheelDown } when BuildingTool.Active && BuildingTool.Kind is not null:
+                BuildingTool.Rotate();
                 break;
             case InputEventMouseButton { Pressed: true, ButtonIndex: MouseButton.Left } click when !Brush.Active && !TreeTool.Active && ChooseQueuedGroupAt(click.Position):
                 break;
@@ -611,6 +639,7 @@ public partial class Main : Node3D
             return;
         }
 
+        BuildingTool.HandleKey(key);
         if (ProAim.HandleKey(key) || PlaceTool.HandleKey(key) || TreeTool.HandleKey(key))
         {
             return;
@@ -973,6 +1002,7 @@ public partial class Main : Node3D
         FlushTerrainEdits();
         Actors.Update(_current, _previous, alpha, _previousChanged);
         Clubhouse.Update(World.Clubhouse);
+        Structures.Update(World.PlacedBuildings);
         Mowers.Update(World.DayIndex, SunDayFraction ?? World.Date.DayFraction, _current);
         _previousChanged = false;
     }
