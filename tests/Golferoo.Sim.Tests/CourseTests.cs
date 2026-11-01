@@ -146,6 +146,19 @@ public class CourseTests
         Assert.Equal(2, terrain.Course.Count);
     }
 
+    /// <summary>Sur « Le neuf », les bordures de bois des trous 4 à 8 fermaient un enclos : on y entrait et en sortait par téléportation. Chaque départ et chaque green se rejoignent à pied.</summary>
+    [Fact]
+    public void EveryTeeAndGreenIsReachableOnFootFromTheFirstTee()
+    {
+        var terrain = ClubhouseTests.LeNeuf();
+        var field = Golferoo.Sim.Pathing.FlowField.Build(terrain, terrain.CellXOf(terrain.Course[1].Tee.X), terrain.CellZOf(terrain.Course[1].Tee.Z));
+        foreach (var hole in terrain.Course.Holes)
+        {
+            Assert.True(field.IsReachable(terrain.CellXOf(hole.Tee.X), terrain.CellZOf(hole.Tee.Z)), $"départ du trou {hole.Number}");
+            Assert.True(field.IsReachable(terrain.CellXOf(hole.Green.X), terrain.CellZOf(hole.Green.Z)), $"green du trou {hole.Number}");
+        }
+    }
+
     [Theory]
     [InlineData(100000)]
     [InlineData(30000)]

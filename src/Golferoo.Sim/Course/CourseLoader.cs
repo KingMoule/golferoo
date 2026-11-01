@@ -149,6 +149,7 @@ public static class CourseLoader
             trees.AddRange(piece.Trees.Select(t => t with { X = t.X + mx, Z = t.Z + mz }));
         }
 
+        OpenPassages(cells, cellsX, cellsZ, holes.SelectMany(h => new[] { h.Tee, h.Green }).Select(p => ((int)(p.X / (tileSize!.Value / factor)), (int)(p.Z / (tileSize.Value / factor)))).ToList());
         var heights = new HeightField(cellsX, cellsZ, tileSize!.Value / factor);
         for (var j = 0; j <= cellsZ; j++)
         {
@@ -172,6 +173,120 @@ public static class CourseLoader
     }
 
     private static Point2 Shift(Point2 p, double dx, double dz) => new(p.X + dx, p.Z + dz);
+
+    /// <summary>
+    /// Les bordures de bois de trous voisins peuvent fermer un enclos que personne ne peut quitter à pied (sur « Le neuf », les trous 4 à 8). Chaque départ
+    /// et chaque green est relié à celui du trou 1 : le chemin qui traverse le moins de cellules de bois passe en rough. L'eau ne s'ouvre jamais.
+    /// </summary>
+    private static void OpenPassages(Surface[] cells, int cellsX, int cellsZ, List<(int X, int Z)> features)
+    {
+        bool Walkable(int i) => SurfaceTable.Get(cells[i]).Walkable;
+        var (sx, sz) = features[0];
+        var main = Reach(sz * cellsX + sx);
+        foreach (var (fx, fz) in features)
+        {
+            var start = fz * cellsX + fx;
+            if (main[start])
+            {
+                continue;
+            }
+
+            // 0-1 BFS depuis l'élément isolé : une cellule franchissable coûte 0, une cellule de bois 1 ; arrêt au premier atteint du trou 1.
+            var cost = new int[cells.Length];
+            Array.Fill(cost, int.MaxValue);
+            var from = new int[cells.Length];
+            var queue = new LinkedList<int>();
+            cost[start] = 0;
+            from[start] = -1;
+            queue.AddFirst(start);
+            var end = -1;
+            while (queue.Count > 0 && end < 0)
+            {
+                var i = queue.First!.Value;
+                queue.RemoveFirst();
+                foreach (var j in Neighbours(i))
+                {
+                    var step = Walkable(j) ? 0 : cells[j] == Surface.Trees ? 1 : -1;
+                    if (step < 0 || cost[i] + step >= cost[j])
+                    {
+                        continue;
+                    }
+
+                    cost[j] = cost[i] + step;
+                    from[j] = i;
+                    if (main[j])
+                    {
+                        end = j;
+                        break;
+                    }
+
+                    if (step == 0)
+                    {
+                        queue.AddFirst(j);
+                    }
+                    else
+                    {
+                        queue.AddLast(j);
+                    }
+                }
+            }
+
+            for (var i = end; i >= 0; i = from[i])
+            {
+                if (cells[i] == Surface.Trees)
+                {
+                    cells[i] = Surface.Rough;
+                }
+            }
+
+            main = Reach(sz * cellsX + sx);
+        }
+
+        bool[] Reach(int origin)
+        {
+            var seen = new bool[cells.Length];
+            var stack = new Stack<int>();
+            seen[origin] = true;
+            stack.Push(origin);
+            while (stack.Count > 0)
+            {
+                foreach (var j in Neighbours(stack.Pop()))
+                {
+                    if (!seen[j] && Walkable(j))
+                    {
+                        seen[j] = true;
+                        stack.Push(j);
+                    }
+                }
+            }
+
+            return seen;
+        }
+
+        IEnumerable<int> Neighbours(int i)
+        {
+            var (x, z) = (i % cellsX, i / cellsX);
+            if (x > 0)
+            {
+                yield return i - 1;
+            }
+
+            if (x < cellsX - 1)
+            {
+                yield return i + 1;
+            }
+
+            if (z > 0)
+            {
+                yield return i - cellsX;
+            }
+
+            if (z < cellsZ - 1)
+            {
+                yield return i + cellsX;
+            }
+        }
+    }
 
     /// <summary>Pose le trou : rough et bois cèdent la place, deux surfaces de jeu au même endroit lèvent l'erreur. Les hauteurs d'un coin déjà pris par un trou précédent ne changent pas.</summary>
     private static void Paste(Piece p, int ox, int oz, int number, int factor, Surface[] cells, int cellsX, double[] corners, bool[] locked)
