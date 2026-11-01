@@ -49,8 +49,8 @@ public sealed partial class World
     /// <summary>Bâtiments et bancs posés, dans l'ordre de pose (le pavillon n'y est pas).</summary>
     public IReadOnlyList<Building> PlacedBuildings => _placed;
 
-    /// <summary>Vrai si assez de trous sont ouverts pour poser ce genre (<see cref="OpenHoles"/> au moins le seuil du genre).</summary>
-    public bool IsUnlocked(BuildingKind kind) => BuildingRules.Spec(kind) is { } s && OpenHoles >= s.UnlockHoles;
+    /// <summary>Vrai si assez de trous sont ouverts pour poser ce genre (<see cref="OpenHoles"/> au moins le seuil du genre), ou si un bon de pose de ce genre est en main : le bon lève le seuil pour son seul genre (C19).</summary>
+    public bool IsUnlocked(BuildingKind kind) => BuildingRules.Spec(kind) is { } s && (OpenHoles >= s.UnlockHoles || State.Vouchers(kind) > 0);
 
     /// <summary>Prix de pose, hors défrichage ; nul pour le pavillon.</summary>
     public long? BuildingCost(BuildingKind kind) => BuildingRules.Spec(kind)?.Cost;
@@ -125,7 +125,7 @@ public sealed partial class World
     private BuildingPlacement CheckBuilding(BuildingKind kind, int minX, int minZ, DoorSide side, out Building? building)
     {
         building = BuildingRules.At(kind, minX, minZ, side);
-        if (building is null || Terrain is not { Blank: false } terrain || Flow is not { } flow)
+        if (building is null || !State.ClubActive || Terrain is not { } terrain || Flow is not { } flow)
         {
             return BuildingPlacement.Unknown;
         }

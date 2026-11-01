@@ -321,7 +321,7 @@ public partial class ToolDrawer : PanelContainer
         foreach (var (kind, thumb) in _buildingThumbs)
         {
             var unlocked = _main.World.IsUnlocked(kind);
-            var wanted = unlocked ? UiMoney.Format(_main.World.BuildingCost(kind) ?? 0) : $"{_main.World.BuildingRules.Spec(kind)!.UnlockHoles} trous ouverts";
+            var wanted = unlocked ? (_main.World.State.Vouchers(kind) > 0 ? "Offert" : UiMoney.Format(_main.World.BuildingCost(kind) ?? 0)) : $"{_main.World.BuildingRules.Spec(kind)!.UnlockHoles} trous ouverts";
             if (thumb.Price.Text != wanted)
             {
                 thumb.Price.Text = wanted;

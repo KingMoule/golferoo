@@ -29,6 +29,28 @@ public sealed partial class World
 
     private static bool HasMood(Golfer g) => g.VisitorId >= 0;
 
+    /// <summary>
+    /// Vrai si le golfeur porte une pensée : un visiteur du vivier à qui un évènement d'humeur est arrivé (une contrariété mineure compte à partir de sa
+    /// <see cref="MoodParams.RepeatThreshold"/>-ième occurrence, comme pour la bulle).
+    /// </summary>
+    public bool CarriesThought(Golfer g) => HasMood(g) && Moods.Definitions.Any(d => g.Occurrences[(int)d.Event] >= (d.Minor ? Moods.RepeatThreshold : 1));
+
+    /// <summary>
+    /// Le joueur ouvre la fiche ou l'info-bulle du golfeur <paramref name="golferId"/> (C19) : si ce golfeur porte une pensée, <see cref="GameState.ThoughtRead"/> passe à vrai.
+    /// Faux, et sans effet, pour un golfeur inconnu ou sans pensée.
+    /// </summary>
+    public bool ReadThought(int golferId)
+    {
+        var golfer = _groups.SelectMany(g => g.Golfers).Concat(_roamers).FirstOrDefault(g => g.Id == golferId);
+        if (golfer is null || !CarriesThought(golfer))
+        {
+            return false;
+        }
+
+        State.ThoughtRead = true;
+        return true;
+    }
+
     private (int X, int Z) CellOf(Point2 p) => (Terrain!.CellXOf(p.X), Terrain.CellZOf(p.Z));
 
     /// <summary>

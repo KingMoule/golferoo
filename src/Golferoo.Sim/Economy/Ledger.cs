@@ -80,6 +80,9 @@ public sealed class Ledger
     /// <summary>Total signé de la catégorie pour le mois en cours.</summary>
     public long Current(LedgerCategory category) => _current[(int)category];
 
+    /// <summary>Vrai si la catégorie a rapporté quelque chose ce mois-ci ou dans un mois gardé.</summary>
+    public bool HasEarned(LedgerCategory category) => _current[(int)category] > 0 || _months.Any(m => m.Total(category) > 0);
+
     /// <summary>Formate un montant en dollars (cents facultatifs), pour l'affichage.</summary>
     public static string Dollars(long cents) => FormattableString.Invariant($"{cents / 100m:0.##} $");
 

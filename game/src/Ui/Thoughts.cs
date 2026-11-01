@@ -308,6 +308,11 @@ public partial class Thoughts : Node
 
     public void OpenCard(int visitorId)
     {
+        if (!_main.World.State.ThoughtRead && _main.World.Groups.SelectMany(g => g.Golfers).FirstOrDefault(g => g.VisitorId == visitorId) is { } playing)
+        {
+            _main.World.ReadThought(playing.Id); // la fiche montre la pensée : la leçon l'attend (C19)
+        }
+
         _cardVisitor = visitorId;
         BuildCard(visitorId);
         _main.Panels.Open(_card);

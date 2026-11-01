@@ -83,7 +83,7 @@ public sealed partial class World
         Economy = economy ?? EconomyParams.Facile;
         Progression = progression ?? ProgressionParams.Default;
         Ledger = new Ledger(Economy.StartingMoney);
-        State = new GameState(Economy.StartingMoney, objectives);
+        State = new GameState(Economy.StartingMoney, objectives, clubActive: terrain is not { Blank: true });
         if (terrain is not null)
         {
             _holesOpen = [.. terrain.Course.Holes.Select(_ => !terrain.Blank)];
@@ -467,7 +467,13 @@ public sealed partial class World
         AfterHole(group);
         foreach (var g in group.Active)
         {
-            Ledger.Post(LedgerCategory.GreenFees, GreenFee(g));
+            var fee = GreenFee(g);
+            if (fee > 0 && Terrain is { Blank: true } && !Ledger.HasEarned(LedgerCategory.GreenFees))
+            {
+                State.AddVoucher(BuildingKind.SnackBar); // la leçon offre le snack-bar au premier green fee (C19)
+            }
+
+            Ledger.Post(LedgerCategory.GreenFees, fee);
             if (g.PickedUp)
             {
                 g.Card!.PickUp(group.Hole - 1);

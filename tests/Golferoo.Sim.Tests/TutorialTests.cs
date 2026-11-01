@@ -9,14 +9,14 @@ public class TutorialTests
 {
     private static string HolesDir => Path.GetDirectoryName(TerrainTests.HolePath())!;
 
-    private static TerrainGrid Load(string file) => HoleLoader.Load(Path.Combine(HolesDir, file), 2);
+    internal static TerrainGrid Load(string file) => HoleLoader.Load(Path.Combine(HolesDir, file), 2);
 
-    private static World BlankWorld() => new(1, Load("blank-coude.json"));
+    internal static World BlankWorld() => new(1, Load("blank-coude.json"));
 
-    private static readonly Point2 TeeSpot = new(28, 244);
-    private static readonly Point2 GreenSpot = new(268, 56);
+    internal static readonly Point2 TeeSpot = new(28, 244);
+    internal static readonly Point2 GreenSpot = new(268, 56);
 
-    private static void Raze(World world)
+    internal static void Raze(World world)
     {
         foreach (var p in world.Terrain!.IsolatedTrees)
         {
@@ -26,13 +26,13 @@ public class TutorialTests
         world.Step();
     }
 
-    private static void Plant(World world)
+    internal static void Plant(World world)
     {
         world.PlantTree(64, 208, TreeSpeciesId.Oak, TreePlantStage.Sapling);
         world.Step();
     }
 
-    private static void PaintTeeAndFairway(World world)
+    internal static void PaintTeeAndFairway(World world)
     {
         world.PaintSurface(TeeSpot, 6, Surface.Tee);
         foreach (var x in new[] { 100.0, 160.0, 220.0 })
@@ -43,7 +43,7 @@ public class TutorialTests
         world.Step();
     }
 
-    private static void PaintGreen(World world)
+    internal static void PaintGreen(World world)
     {
         world.PaintSurface(GreenSpot, 11, Surface.Green);
         world.Step();
@@ -60,7 +60,7 @@ public class TutorialTests
         Assert.True(world.PlaceTee(1, TeeSpot));
         Assert.True(world.PlaceHole(1, GreenSpot));
         world.Step();
-        Assert.Equal(TutorialStep.Done, TutorialSteps.Current(world));
+        Assert.Equal(TutorialStep.OpenHole, TutorialSteps.Current(world));
         Assert.True(world.HoleOpen);
         world.Step(40);
         return world.Checksum();
@@ -199,7 +199,7 @@ public class TutorialTests
         world.PlaceTee(1, TeeSpot);
         world.PlaceHole(1, GreenSpot);
         world.Step();
-        Assert.Equal(TutorialStep.Done, TutorialSteps.Current(world));
+        Assert.Equal(TutorialStep.OpenHole, TutorialSteps.Current(world));
 
         world.PaintSurface(GreenSpot, 15, Surface.Rough);
         world.Step();

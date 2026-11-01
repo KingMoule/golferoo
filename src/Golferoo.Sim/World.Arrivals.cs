@@ -50,7 +50,7 @@ public sealed partial class World
     /// <summary>Un tirage par tick, à taux constant sur la journée.</summary>
     private void StepArrivals()
     {
-        if (Clubhouse is null || Terrain is not { Blank: false } || !HoleOpen)
+        if (Clubhouse is null || !State.ClubActive || Terrain is null || !HoleOpen)
         {
             return;
         }
