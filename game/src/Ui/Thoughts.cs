@@ -287,11 +287,6 @@ public partial class Thoughts : Node
         }
 
         _tip.AddChild(box);
-        if (!_main.World.State.ThoughtRead)
-        {
-            _main.World.ReadThought(golfer.Id); // la leçon attend qu'on lise une pensée (C19)
-        }
-
         _tip.Visible = true;
         _tip.Position = at + new Vector2(18f, 18f);
         _tip.ResetSize();
@@ -315,7 +310,7 @@ public partial class Thoughts : Node
     {
         if (!_main.World.State.ThoughtRead && _main.World.Groups.SelectMany(g => g.Golfers).FirstOrDefault(g => g.VisitorId == visitorId) is { } playing)
         {
-            _main.World.ReadThought(playing.Id);
+            _main.World.ReadThought(playing.Id); // la fiche montre la pensée : la leçon l'attend (C19)
         }
 
         _cardVisitor = visitorId;

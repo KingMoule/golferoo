@@ -46,7 +46,7 @@ public static class UiNames
         Golferoo.Sim.Tutorial.TutorialStep.OpenHole => "le trou est valide, votre club ouvre ! Le pavillon est posé près du départ ; les premiers golfeurs ne vont pas tarder. Laissez le temps passer, regardez-les arriver.",
         Golferoo.Sim.Tutorial.TutorialStep.WatchPair => "une première paire est arrivée au pavillon. Regardez-la prendre le départ.",
         Golferoo.Sim.Tutorial.TutorialStep.FirstGreenFee => "la paire joue votre trou. Chaque golfeur paie son green fee à la fin du trou : patientez, vous pouvez accélérer le temps.",
-        Golferoo.Sim.Tutorial.TutorialStep.ReadThought => "premier green fee encaissé ! Les golfeurs pensent à voix haute quand quelque chose leur plaît ou les contrarie. Survolez un golfeur ou cliquez sur lui pour lire sa pensée : c'est ce que vous corrigez sur le terrain.",
+        Golferoo.Sim.Tutorial.TutorialStep.ReadThought => "premier green fee encaissé ! Les golfeurs pensent à voix haute quand quelque chose leur plaît ou les contrarie. Cliquez sur un golfeur pour ouvrir sa fiche et lire ses dernières pensées : c'est ce que vous corrigez sur le terrain.",
         Golferoo.Sim.Tutorial.TutorialStep.PlaceSnackBar => "le club vous offre un snack-bar. Cliquez sur [b]Bâtiments[/b], choisissez le [b]Snack-bar[/b], puis cliquez sur du rough près du parcours.",
         _ => string.Empty,
     };

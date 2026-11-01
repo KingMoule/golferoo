@@ -162,7 +162,7 @@ public partial class SmokeTest : Node
 
                 if (step == Golferoo.Sim.Tutorial.TutorialStep.ReadThought && world.Groups.SelectMany(g => g.Golfers).FirstOrDefault(world.CarriesThought) is { } thoughtful)
                 {
-                    main.Thoughts.Tip(thoughtful, Vector2.Zero); // le survol de l'info-bulle lit la pensée
+                    main.Thoughts.OpenCard(thoughtful.VisitorId); // la fiche affiche la pensée : c'est elle qui la lit
                 }
 
                 main.StepTicks(100);
