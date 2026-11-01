@@ -831,7 +831,7 @@ public partial class Captures : Node
 
     /// <summary>
     /// C17 lot 3 : un snack-bar à portée de la sortie du trou 5 (la portée est de 24 cellules). <c>c17-pose</c> : l'outil de pose pris dans le dock, le fantôme vert à cet endroit ;
-    /// <c>c17-pose-refus</c> : le même fantôme rouge sur le fairway du trou 5, avec la raison. <c>c17-visite</c> : le snack-bar posé, un golfeur à sa porte.
+    /// <c>c17-pose-refus</c> : le même fantôme rouge sur le fairway du trou 5, avec la raison. <c>c17-visite</c> : un pro shop posé près du pavillon, un golfeur à sa porte.
     /// </summary>
     private async Task BuildingViews(Main main)
     {
@@ -916,15 +916,26 @@ public partial class Captures : Node
 
         Save("c17-pose-refus");
 
-        // La visite : le snack-bar posé (par la sim, sur ce même emplacement ou le plus proche libre), on avance jusqu'à ce qu'un golfeur soit à sa porte.
+        // La visite : un pro shop près du pavillon (proposé avant le premier départ). Sur « Le neuf », la sortie du trou 5 est dans une poche que le champ
+        // de flux ne relie pas au reste : un golfeur y « visite » le snack-bar en sautant jusqu'à sa porte, on ne le verrait jamais marcher.
         main.Bar.Select(ToolFamily.None, toggle: false);
         main.Structures.HideGhost();
-        var snack = (Golferoo.Sim.Buildings.Building?)null;
-        for (var i = 0; i < 200 && snack is null; i++)
+        var club = world.Clubhouse!.DoorPosition(cell);
+        var (cx, cz) = (grid.CellXOf(club.X), grid.CellZOf(club.Z));
+        var shopSpots = Enumerable.Range(0, grid.CellsZ).SelectMany(z => Enumerable.Range(0, grid.CellsX).Select(x => (X: x, Z: z)))
+            .Select(c => (Cell: c, Door: world.BuildingRules.At(BuildingKind.ProShop, c.X, c.Z, DoorSide.South)!.DoorCell))
+            .Select(c => (c.Cell, Dist: Math.Sqrt(Math.Pow(c.Door.X - cx, 2) + Math.Pow(c.Door.Z - cz, 2))))
+            .Where(c => c.Dist <= 12)
+            .OrderBy(c => c.Dist)
+            .Select(c => c.Cell)
+            .ToList();
+        var shop = (Golferoo.Sim.Buildings.Building?)null;
+        for (var i = 0; i < 200 && shop is null; i++)
         {
-            if (world.PlaceBuilding(BuildingKind.SnackBar, at.X, at.Z, DoorSide.South) == BuildingPlacement.Placed)
+            var free = shopSpots.Where(c => world.CheckBuilding(BuildingKind.ProShop, c.X, c.Z, DoorSide.South) == BuildingPlacement.Placed).Take(1).ToList();
+            if (free.Count == 1 && world.PlaceBuilding(BuildingKind.ProShop, free[0].X, free[0].Z, DoorSide.South) == BuildingPlacement.Placed)
             {
-                snack = world.PlacedBuildings[^1];
+                shop = world.PlacedBuildings[^1];
             }
             else
             {
@@ -932,14 +943,14 @@ public partial class Captures : Node
             }
         }
 
-        if (snack is null)
+        if (shop is null)
         {
-            GD.PrintErr("CAPTURES FAIL c17 : le snack-bar ne se pose pas");
+            GD.PrintErr("CAPTURES FAIL c17 : le pro shop ne se pose pas près du pavillon");
             _failures++;
             return;
         }
 
-        var door = snack.DoorPosition(cell);
+        var door = shop.DoorPosition(cell);
         // Pas fin quand un golfeur en visite approche de la porte : il y paie puis repart aussitôt, un pas de 4 ticks le manquerait.
         GolferView? visitor = null;
         for (var i = 0; i < 20000 && visitor is null; i++)
@@ -958,7 +969,7 @@ public partial class Captures : Node
 
         if (visitor is not { } seen)
         {
-            GD.PrintErr("CAPTURES FAIL c17 : aucun golfeur n'est venu à la porte du snack-bar en 80 000 ticks");
+            GD.PrintErr("CAPTURES FAIL c17 : aucun golfeur n'est venu à la porte du pro shop");
             _failures++;
             return;
         }
