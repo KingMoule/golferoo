@@ -177,14 +177,12 @@ public partial class BuildingTool : Node
     }
 
     /// <summary>Gère une touche ; ne consomme rien, mais V, B et T (les autres outils) éteignent celui-ci.</summary>
-    public bool HandleKey(Key key)
+    public void HandleKey(Key key)
     {
         if (Active && key is Key.V or Key.B or Key.T)
         {
             SetActive(false);
         }
-
-        return false;
     }
 
     /// <summary>Clic gauche : pose le genre choisi ; vrai s'il a été consommé.</summary>

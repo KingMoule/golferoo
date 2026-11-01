@@ -223,7 +223,6 @@ public partial class ToolDrawer : PanelContainer
             var thumb = UiThumb.Create(UiIds.Action.Building(kind.ToString()), name, thumbnails.Render(BuildingLayer.ModelPath(kind)));
             var cost = UiMoney.Format(world.BuildingCost(kind) ?? 0);
             thumb.Description = UiNames.BuildingTip(kind);
-            thumb.Price.Text = cost;
             thumb.Costs = [("Construction", cost), ("Vente", UiMoney.Format((world.BuildingCost(kind) ?? 0) / 2))];
             thumb.Pressed += () =>
             {

@@ -929,7 +929,7 @@ public partial class Captures : Node
             .OrderBy(c => c.Dist)
             .Select(c => c.Cell)
             .ToList();
-        var shop = (Golferoo.Sim.Buildings.Building?)null;
+        var shop = (Building?)null;
         for (var i = 0; i < 200 && shop is null; i++)
         {
             var free = shopSpots.Where(c => world.CheckBuilding(BuildingKind.ProShop, c.X, c.Z, DoorSide.South) == BuildingPlacement.Placed).Take(1).ToList();
