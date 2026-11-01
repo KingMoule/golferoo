@@ -149,7 +149,7 @@ public static class CourseLoader
             trees.AddRange(piece.Trees.Select(t => t with { X = t.X + mx, Z = t.Z + mz }));
         }
 
-        OpenPassages(cells, cellsX, cellsZ, holes.SelectMany(h => new[] { h.Tee, h.Green }).Select(p => ((int)(p.X / (tileSize!.Value / factor)), (int)(p.Z / (tileSize.Value / factor)))).ToList());
+        OpenPassages(cells, cellsX, cellsZ, tileSize!.Value / factor, holes.SelectMany(h => new[] { h.Tee, h.Green }).Select(p => ((int)(p.X / (tileSize!.Value / factor)), (int)(p.Z / (tileSize.Value / factor)))).ToList());
         var heights = new HeightField(cellsX, cellsZ, tileSize!.Value / factor);
         for (var j = 0; j <= cellsZ; j++)
         {
@@ -177,19 +177,27 @@ public static class CourseLoader
     /// <summary>Coût d'une cellule de bois dans <see cref="OpenPassages"/>, en cellules de marche : on perce un mur plutôt que d'en faire le tour dès que le détour dépasse ce nombre de cellules.</summary>
     private const int WoodCost = 25;
 
+    /// <summary>Deux éléments (départ ou green) à moins de cette distance en mètres, sur chaque axe, sont aussi reliés : la balle d'un trou peut finir sur le green d'un autre.</summary>
+    private const double PassageReach = 150;
+
     /// <summary>
     /// Les bordures de bois de trous voisins peuvent fermer un enclos que personne ne quitte à pied (sur « Le neuf », les trous 4 à 8), ou n'ouvrir qu'un détour de plus d'un kilomètre
     /// entre un green et le départ suivant. Dans l'ordre du jeu (départ, green, départ suivant…), le plus court chemin entre deux éléments consécutifs, un mur coûtant
     /// <see cref="WoodCost"/> cellules par cellule de bois, passe en rough là où il perce un mur. L'eau ne s'ouvre jamais.
     /// </summary>
-    private static void OpenPassages(Surface[] cells, int cellsX, int cellsZ, List<(int X, int Z)> features)
+    private static void OpenPassages(Surface[] cells, int cellsX, int cellsZ, double cellSize, List<(int X, int Z)> features)
     {
         var cost = new int[cells.Length];
         var from = new int[cells.Length];
-        for (var k = 1; k < features.Count; k++)
+        var near = PassageReach / cellSize;
+        var pairs = from a in Enumerable.Range(0, features.Count)
+                    from b in Enumerable.Range(a + 1, features.Count - a - 1)
+                    where b == a + 1 || Math.Abs(features[a].X - features[b].X) <= near && Math.Abs(features[a].Z - features[b].Z) <= near
+                    select (features[a], features[b]);
+        foreach (var (first, second) in pairs)
         {
-            var start = (features[k - 1].Z * cellsX) + features[k - 1].X;
-            var goal = (features[k].Z * cellsX) + features[k].X;
+            var start = (first.Z * cellsX) + first.X;
+            var goal = (second.Z * cellsX) + second.X;
             Array.Fill(cost, int.MaxValue);
             cost[start] = 0;
             from[start] = -1;
