@@ -147,9 +147,15 @@ public sealed class Ledger
 
     private static void MixTotals(ref ulong hash, IReadOnlyList<long> totals)
     {
-        foreach (var v in totals)
+        for (var i = 0; i < totals.Count; i++)
         {
-            World.Mix(ref hash, (ulong)v);
+            // Objectives (v20) n'entre dans le hash que s'il est non nul : un club sans objectif garde son Checksum d'avant.
+            if (i == (int)LedgerCategory.Objectives && totals[i] == 0)
+            {
+                continue;
+            }
+
+            World.Mix(ref hash, (ulong)totals[i]);
         }
     }
 

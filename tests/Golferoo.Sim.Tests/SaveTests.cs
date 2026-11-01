@@ -1127,7 +1127,7 @@ public class SaveTests
         Assert.Equal(world.Checksum(), loaded.Checksum());
     }
 
-    public static TheoryData<string> GameStateMutations => new() { "complete", "bankrupt", "continued", "monthsBelow", "yearStart", "exit", "voucher", "report" };
+    public static TheoryData<string> GameStateMutations => new() { "complete", "bankrupt", "continued", "monthsBelow", "yearStart", "exit", "golfersOnly", "moodOnly", "voucher", "report" };
 
     private static string Describe(GameState s) => string.Join('|', s.ObjectivesOn, s.Completed, s.Bankrupt, s.ContinuedAfterBankruptcy, s.MonthsBelow, s.YearStartBalance, s.YearGolfers, s.YearMoodTotal, s.YearObjectives,
         string.Join(',', Enum.GetValues<BuildingKind>().Select(s.Vouchers)), string.Join(';', s.Reports.Select(r => $"{r.Year},{string.Join(',', r.Totals)},{r.OpeningBalance},{r.ClosingBalance},{r.Golfers},{r.Members},{r.MoodTotal},{r.ObjectivesDone}")));
@@ -1147,6 +1147,8 @@ public class SaveTests
             "monthsBelow" => s => s.MonthsBelow = 3,
             "yearStart" => s => s.YearStartBalance += 5,
             "exit" => s => s.RecordExit(3, -7),
+            "golfersOnly" => s => s.RecordExit(1, 0),
+            "moodOnly" => s => s.RecordExit(0, -7),
             "voucher" => s => s.AddVoucher(BuildingKind.ProShop),
             _ => s => s.CloseYear(new YearReport(1, [.. Enumerable.Range(1, Enum.GetValues<LedgerCategory>().Length).Select(i => (long)i)], 11, 22, 3, 4, -5, 6)),
         };
