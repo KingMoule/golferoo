@@ -15,6 +15,8 @@
     <EmbeddedResource Include="..\..\data\objectives\objectives.json" LogicalName="objectives.json" />
     <!-- Progression du pro (C25) : source de vérité dans data/pro/. -->
     <EmbeddedResource Include="..\..\data\pro\progression.json" LogicalName="progression.json" />
+    <!-- Conseils du pro (C19 lot 2) : source de vérité dans data/pro/. -->
+    <EmbeddedResource Include="..\..\data\pro\advice.json" LogicalName="advice.json" />
     <!-- Pénalité de lie (C25 lot 2) : source de vérité dans data/shots/. -->
     <EmbeddedResource Include="..\..\data\shots\lie.json" LogicalName="lie.json" />
     <!-- Arrivées au pavillon (C15 lot 2) : source de vérité dans data/golfers/. -->

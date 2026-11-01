@@ -465,6 +465,7 @@ public sealed partial class World
     private void RecordHole(Group group)
     {
         AfterHole(group);
+        MarkHolePlayed(group.Hole);
         foreach (var g in group.Active)
         {
             var fee = GreenFee(g);
@@ -572,6 +573,7 @@ public sealed partial class World
 
             RefreshSoil();
             EvaluateObjectives();
+            EvaluateAdvice();
             if (League?.OnNewDay(DayIndex, WeatherOn(DayIndex).Sky == Sky.HeavyRain, Tick) is { } round)
             {
                 for (var n = 0; n < round.Pairs.Count; n++)

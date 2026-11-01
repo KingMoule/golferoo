@@ -38,6 +38,9 @@ Mesuré sur le code de `main` (test `Voucher_LiftsTheUnlockThreshold_ForItsKindO
 
 « Se rembourse » du critère 4 est lu comme « se consomme, et le bâtiment n'est pas facturé » (le défrichage l'est toujours).
 
+## Seuils du lot 2 (`data/pro/advice.json`)
+`firstWalkout` : 1 abandon (le premier suffit, c'est le sens du conseil). `lowCash` : 25 000 $ (2 500 000 cents), de quoi payer un pro shop (20 000 $) avec une marge ; au-dessous, le prochain achat risque le découvert. `unplayedHole` : 3 jours ouverts sans partie finie (une journée creuse arrive, trois non). `wornTurf` : 15 % des cellules de fairway et de green usées au seuil des pensées (`mood.json`, 100), avant que la moitié d'un trou le soit (déclencheur de la pensée des golfeurs). Année 1 = l'année 1 du calendrier (d'avril à décembre) ; le suivi des trous et les conseils n'existent que pour un club vivant (activé, avec pavillon), ce qui laisse intactes les sommes de contrôle des parcours de démonstration.
+
 ## Critères d'acceptation
 1. `ClubActive` : faux sur la terre vierge tant que le trou est fermé (aucune arrivée, aucun pavillon) ; vrai dès la première ouverture, qui pose le pavillon une fois ; défaire le green après coup ne le retire pas (test sur le vrai `World`).
 2. Chaque étape de suite se déclenche par son évènement précis (test par étape, sur la vraie date de `Calendar` et le vrai `Ledger`), dans l'ordre, sans état propre hors drapeaux sauvegardés.

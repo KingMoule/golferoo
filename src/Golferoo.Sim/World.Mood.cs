@@ -314,6 +314,7 @@ public sealed partial class World
         while (group.Active.FirstOrDefault(g => HasMood(g) && g.Mood < 0) is { } quitter)
         {
             quitter.Quit = true;
+            State.Walkouts++;
             quitter.State = GolferState.Quitting;
             ResignIfMember(quitter);
             foreach (var partner in group.Active)
