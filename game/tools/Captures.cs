@@ -940,15 +940,19 @@ public partial class Captures : Node
         }
 
         var door = snack.DoorPosition(cell);
-        // Pas fin dès qu'un golfeur est en visite : il paie à la porte puis repart aussitôt, un pas de 4 ticks le manquerait.
+        // Pas fin quand un golfeur en visite approche de la porte : il y paie puis repart aussitôt, un pas de 4 ticks le manquerait.
         GolferView? visitor = null;
-        for (var i = 0; i < 80000 && visitor is null; i++)
+        for (var i = 0; i < 20000 && visitor is null; i++)
         {
-            var visiting = world.Snapshot().Golfers.Where(g => g.State == GolferState.Visiting).ToList();
-            visitor = visiting.Where(g => Math.Abs(g.Position.X - door.X) + Math.Abs(g.Position.Z - door.Z) < 5.0).Select(g => (GolferView?)g).FirstOrDefault();
-            if (visitor is null)
+            var near = world.Snapshot().Golfers.Where(g => g.State == GolferState.Visiting)
+                .Select(g => (View: g, Dist: Math.Abs(g.Position.X - door.X) + Math.Abs(g.Position.Z - door.Z))).OrderBy(v => v.Dist).ToList();
+            if (near.Count > 0 && near[0].Dist < 5.0)
             {
-                main.StepTicks(visiting.Count > 0 ? 1 : 4);
+                visitor = near[0].View;
+            }
+            else
+            {
+                main.StepTicks(near.Count == 0 ? 16 : near[0].Dist < 15.0 ? 1 : 4); // chaque appel rend une image : on va vite tant que personne n'approche
             }
         }
 
