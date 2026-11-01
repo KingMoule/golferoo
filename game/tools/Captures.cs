@@ -940,26 +940,16 @@ public partial class Captures : Node
         }
 
         var door = snack.DoorPosition(cell);
+        // Pas fin dès qu'un golfeur est en visite : il paie à la porte puis repart aussitôt, un pas de 4 ticks le manquerait.
         GolferView? visitor = null;
-        var visited = 0;
-        void OnMood(MoodChange m)
+        for (var i = 0; i < 80000 && visitor is null; i++)
         {
-            if (m.Event == MoodEvent.ServiceVisited && visited == 0)
+            var visiting = world.Snapshot().Golfers.Where(g => g.State == GolferState.Visiting).ToList();
+            visitor = visiting.Where(g => Math.Abs(g.Position.X - door.X) + Math.Abs(g.Position.Z - door.Z) < 5.0).Select(g => (GolferView?)g).FirstOrDefault();
+            if (visitor is null)
             {
-                visited = m.Golfer.Id;
+                main.StepTicks(visiting.Count > 0 ? 1 : 4);
             }
-        }
-
-        world.MoodChanged += OnMood;
-        for (var i = 0; i < 20000 && visited == 0; i++)
-        {
-            main.StepTicks(4);
-        }
-
-        world.MoodChanged -= OnMood;
-        if (visited != 0)
-        {
-            visitor = world.Snapshot().Golfers.Where(g => g.Id == visited).Select(g => (GolferView?)g).FirstOrDefault();
         }
 
         if (visitor is not { } seen)
