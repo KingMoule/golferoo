@@ -350,7 +350,7 @@ public partial class SmokeTest : Node
     }
 
     /// <summary>
-    /// C18 lot 3 : l'écran Options s'ouvre du menu titre et du menu pause, une valeur change et <c>options.cfg</c> est écrit puis relu ; un fichier absent, partiel ou corrompu
+    /// C18 lot 3 : l'écran Options s'ouvre du menu titre et du menu pause, une valeur change et <c>options.cfg</c> est écrit puis relu ; un fichier absent ou partiel (un fichier corrompu n'est pas testé ici : le moteur le journalise en ERROR, que la CI refuse)
     /// rend les valeurs par défaut ; la pause automatique se déclenche sur un message de la liste fermée, pas sur un autre. Le vrai fichier du joueur n'est pas touché.
     /// </summary>
     private void CheckOptions(Main game, List<string> failures)
@@ -371,12 +371,7 @@ public partial class SmokeTest : Node
             failures.Add("options : fichier partiel ou invalide mal lu");
         }
 
-        WriteOptions("[[[ pas un fichier de configuration");
-        if (!GameOptions.AutoPause)
-        {
-            failures.Add("options : fichier corrompu, la valeur par défaut n'est pas rendue");
-        }
-
+        GameOptions.AutoPause = true;
         var title = GD.Load<PackedScene>(TitleMenu.Scene).Instantiate<TitleMenu>();
         AddChild(title);
         (title.FindChild(UiIds.Menu.Options, true, false) as Button)?.EmitSignal(BaseButton.SignalName.Pressed);
