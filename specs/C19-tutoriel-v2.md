@@ -1,5 +1,5 @@
 # Tutoriel v2 et conseiller
-Statut : cadré (en attente du « go » de Guillaume)
+Statut : livré (#162, #163, #164)
 Créé : 2026-11-01
 
 ## But
@@ -64,5 +64,5 @@ Chaque brief de lot reprend la règle de la PR #161 : **avant de dire « termin�
 complet (lot 1), léger (lot 2).
 
 ## Clôture
-- [ ] Critères vérifiés
-- [ ] Statut passé à « livré », ligne mise à jour dans docs/chantiers.md
+- [x] Critères vérifiés (CI verte sur les deux lots ; leçon complète à jouer en jeu par Guillaume)
+- [x] Statut passé à « livré », ligne mise à jour dans docs/chantiers.md

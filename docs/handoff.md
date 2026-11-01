@@ -1,9 +1,11 @@
-Mis à jour : 2026-11-01 (C18 livré, #157 à #160)
+Mis à jour : 2026-11-01 (C19 livré, #162 à #164)
 
 ## État
-Vague 3 : C18 (une partie du début à la fin) livré en 3 lots : menu titre, nouvelle partie sur un terrain plat provisoire (C24 le remplacera), 3 emplacements + auto avec vignette, pause (Échap), objectifs (7, bons de pose), faillite avec « continuer quand même », bilan annuel, options et pause automatique. Sauvegarde en v20.
+Vague 3 : C18 (une partie du début à la fin) livré en 3 lots : menu titre, nouvelle partie sur un terrain plat provisoire (C24 le remplacera), 3 emplacements + auto avec vignette, pause (Échap), objectifs (7, bons de pose), faillite avec « continuer quand même », bilan annuel, options et pause automatique. Sauvegarde en v22 (C19).
 
 ## À signaler à Guillaume
+- C19 : le tutoriel continue après le premier trou dans le même monde (club activé à l'ouverture, paire, premier green fee, fiche d'un golfeur ouverte, bon de pose du snack-bar), puis 4 conseils du pro la première année (abandon, trésorerie sous 25 000 $, trou 3 jours sans partie, gazon usé à 15 %), option « Conseils du pro ». Sauvegarde en v22. Un bon de pose lève désormais le seuil de déblocage de son genre (y compris les bons d'objectifs de C18). Réserves connues : pavillon non posé si le terrain est encombré, leçon bloquée si un green fee vaut 0, premier abandon testé en posant le compteur. Seuils et textes des conseils à relire en jeu.
+- Banc : `puddleFlood` (limite 20 ms) a échoué deux fois sur des runs parallèles de CI (33 à 36 ms, bruit 8 ms) puis est repassé au vert sans changement ; sans lien avec C19, à regarder en C22.
 - C18 : la faillite n'arrive qu'à un club sans visiteurs (sous −100 000 $ au mois 25, `Bankrupt` au mois 30 ; avec des visiteurs le solde reste vers +340 000 $ au mois 12). Revente d'un bâtiment offert par un bon : +23 500 $ au total, toléré. `golferDemand` branché sur l'humeur requise d'une sortie parfaite : à confirmer. « Trésorerie basse » de la pause automatique = achat refusé. Vignettes des emplacements non vérifiées en headless.
 - C17 : la capture `c17-visite` montre le pro shop (le snack-bar était dans l'enclos) ; les noms des bâtiments sont dans `UiNames`, pas dans les données. Écarts acceptés, notés dans la spec.
 - Marche IA gardée à ×3,0 (décision de Guillaume) : un groupe seul marche 36 à 43 % de sa partie, borne du test 33 à 55 %. Le garde-fou « au moins un abandon en 8 jours » est retiré : 0 abandon sur 8 jours, 2 à 4 % sur 30 jours.
@@ -26,4 +28,4 @@ Vague 3 : C18 (une partie du début à la fin) livré en 3 lots : menu titre, no
 - Captures : la suite prend environ 600 s sur 720 en CI ; une nouvelle capture qui attend la sim doit choisir une scène rapide.
 
 ## Prochaine étape
-EN ATTENTE de Guillaume : séance de jeu (menu, nouvelle partie, objectifs, options ; artefact `golferoo-windows`), puis cadrage de C19, C20, C22 ou C24 (génération de la propriété, qui remplace le terrain plat).
+EN ATTENTE de Guillaume : séance de jeu (menu, nouvelle partie, objectifs, options ; artefact `golferoo-windows`), puis cadrage de C20, C22 ou C24 (génération de la propriété, qui remplace le terrain plat).
