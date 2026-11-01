@@ -149,8 +149,9 @@ public static class CourseLoader
             trees.AddRange(piece.Trees.Select(t => t with { X = t.X + mx, Z = t.Z + mz }));
         }
 
-        OpenPassages(cells, cellsX, cellsZ, tileSize!.Value / factor, holes.SelectMany(h => new[] { h.Tee, h.Green }).Select(p => ((int)(p.X / (tileSize!.Value / factor)), (int)(p.Z / (tileSize.Value / factor)))).ToList());
-        var heights = new HeightField(cellsX, cellsZ, tileSize!.Value / factor);
+        var cellSize = tileSize!.Value / factor;
+        OpenPassages(cells, cellsX, cellsZ, cellSize, holes.SelectMany(h => new[] { h.Tee, h.Green }).Select(p => ((int)(p.X / cellSize), (int)(p.Z / cellSize))).ToList());
+        var heights = new HeightField(cellsX, cellsZ, cellSize);
         for (var j = 0; j <= cellsZ; j++)
         {
             for (var i = 0; i <= cellsX; i++)

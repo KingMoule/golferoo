@@ -1118,7 +1118,7 @@ public sealed partial class World
     {
         if (Flow!.TryGet(target) is not { } field)
         {
-            return false; // son champ de flux attend d'être refait après une retouche : il reste sur place ce tick-là
+            return false; // son champ de flux attend son tour (retouche, ou budget de constructions du tick épuisé) : il reste sur place ce tick-là
         }
 
         var pos = g.Position;
