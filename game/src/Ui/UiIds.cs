@@ -160,6 +160,11 @@ public static class UiIds
         public const string Load = "MenuLoad";
         public const string Demo = "MenuDemo";
         public const string Options = "MenuOptions";
+        public const string OptionsScreen = "OptionsScreen";
+        public const string OptionsResolution = "OptionsResolution";
+        public const string OptionsFullscreen = "OptionsFullscreen";
+        public const string OptionsScale = "OptionsScale";
+        public const string OptionsAutoPause = "OptionsAutoPause";
         public const string Quit = "MenuQuit";
         public const string Pause = "PauseMenu";
         public const string Resume = "MenuResume";

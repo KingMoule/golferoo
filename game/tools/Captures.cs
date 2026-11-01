@@ -44,6 +44,7 @@ public partial class Captures : Node
     private const int GalleryViewCount = 1;
     private const int FinanceViewCount = 1;
     private const int ProViewCount = 2;
+    private const int C18ViewCount = 7;
 
     /// <summary>Lisière sud de la forêt du coude, la balle de <c>ForestExitTests.Edge</c> (tuile 18,5 / 26,5 de 8 m).</summary>
     private static readonly Point2 ForestEdge = new(18.5 * 8, 26.5 * 8);
@@ -114,6 +115,12 @@ public partial class Captures : Node
             // Mise au point d'un écran de « Le neuf » (c12, c13) sans attendre les vues d'avant : `-- --only course`.
             await CourseViews();
             return _failures == 0 ? 0 : 1;
+        }
+
+        if (Main.CommandLineOption("--only") == "c18")
+        {
+            await C18Views(); // mise au point des écrans de C18 : `-- --only c18`
+            return _failures == 0 && _index == C18ViewCount ? 0 : 1;
         }
 
         var main = GD.Load<PackedScene>("res://Main.tscn").Instantiate<Main>();
@@ -322,7 +329,8 @@ public partial class Captures : Node
         await SaveViews(await FreeViews(await TutorialViews(await ProfileViews(await AimView(await LeagueViews(main))))));
         await CourseViews();
         await GalleryView();
-        if (_failures == 0 && _index == expected + LeagueViewCount + TutorialViewCount + ProfileViewCount + FreeViewCount + SaveViewCount + CourseViewCount + GalleryViewCount + FinanceViewCount + ProViewCount)
+        await C18Views();
+        if (_failures == 0 && _index == expected + LeagueViewCount + TutorialViewCount + ProfileViewCount + FreeViewCount + SaveViewCount + CourseViewCount + GalleryViewCount + FinanceViewCount + ProViewCount + C18ViewCount)
         {
             GD.Print($"CAPTURES OK {_index} images");
             return 0;
@@ -1260,6 +1268,63 @@ public partial class Captures : Node
     }
 
     /// <summary>C13 lot 1 : l'écran témoin des composants d'interface (<c>res://tools/UiGallery.tscn</c>), seul à l'écran.</summary>
+    /// <summary>
+    /// C18 : une nouvelle partie sur la propriété vierge (rapide : pas de « Le neuf »). <c>c18-objectifs</c>, <c>c18-bilan</c> (clôture de décembre), <c>c18-pause</c>,
+    /// <c>c18-options</c> (depuis le menu pause) et <c>c18-fin</c> (écran de faillite) ; puis, scène titre, <c>c18-menu</c> et <c>c18-charger</c> (l'emplacement 1 écrit au passage).
+    /// </summary>
+    private async Task C18Views()
+    {
+        foreach (var old in GetChildren().OfType<Main>())
+        {
+            old.QueueFree();
+        }
+
+        await Frames(2);
+        Main.Request = Main.GameRequest.NewGame;
+        Main.NewGameSeed = 18;
+        var main = GD.Load<PackedScene>("res://Main.tscn").Instantiate<Main>();
+        AddChild(main);
+        main.Paused = true;
+        main.StepTicks(40);
+        main.SunDayFraction = 0.5;
+        main.SaveToSlot("slot1", ThumbnailRenderer.CaptureJpg(GetViewport()));
+        main.Ui.Find(UiIds.Hud.ObjectivesPill)!.EmitSignal(BaseButton.SignalName.Pressed);
+        await Frames(SettleFrames);
+        Save("c18-objectifs");
+        main.Panels.Close(main.Flow.ObjectivesPanel!);
+        for (var i = 0; i < 9; i++)
+        {
+            main.World.SkipToNextMonth(); // d'avril à décembre : le bilan s'ouvre
+        }
+
+        await Frames(SettleFrames);
+        Save("c18-bilan");
+        main.Panels.Close(main.Flow.ReportPanel);
+        main.PauseMenu.Toggle();
+        await Frames(SettleFrames);
+        Save("c18-pause");
+        main.Ui.Find(UiIds.Menu.Options)!.EmitSignal(BaseButton.SignalName.Pressed);
+        await Frames(SettleFrames);
+        Save("c18-options");
+        main.PauseMenu.Toggle();
+        main.PauseMenu.Toggle();
+        main.Flow.OpenEnd();
+        await Frames(SettleFrames);
+        Save("c18-fin");
+        main.QueueFree();
+        await Frames(2);
+
+        var title = GD.Load<PackedScene>(TitleMenu.Scene).Instantiate<TitleMenu>();
+        AddChild(title);
+        await Frames(SettleFrames);
+        Save("c18-menu");
+        title.FindChild(UiIds.Menu.Load, true, false)!.EmitSignal(BaseButton.SignalName.Pressed);
+        await Frames(SettleFrames);
+        Save("c18-charger");
+        title.QueueFree();
+        await Frames(1);
+    }
+
     private async Task GalleryView()
     {
         foreach (var old in GetChildren().OfType<Main>())
