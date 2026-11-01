@@ -146,16 +146,22 @@ public class CourseTests
         Assert.Equal(2, terrain.Course.Count);
     }
 
-    /// <summary>Sur « Le neuf », les bordures de bois des trous 4 à 8 fermaient un enclos : on y entrait et en sortait par téléportation. Chaque départ et chaque green se rejoignent à pied.</summary>
+    /// <summary>
+    /// Sur « Le neuf », les bordures de bois des trous 4 à 8 fermaient un enclos (on y entrait et en sortait par téléportation), et celles des trous 1 à 3 et 8 à 9 ne laissaient
+    /// qu'un détour de 1,2 à 3,2 km entre un green et le départ suivant. Chaque green se rejoint à pied, depuis le départ suivant, à une distance pondérée par le coût de marche des surfaces (3,1 fois le vol d'oiseau au pire, plus de 17 fois avant) de moins de 4 fois la distance à vol d'oiseau.
+    /// </summary>
     [Fact]
-    public void EveryTeeAndGreenIsReachableOnFootFromTheFirstTee()
+    public void EveryGreenIsCloseOnFootToTheNextTee()
     {
         var terrain = ClubhouseTests.LeNeuf();
-        var field = Golferoo.Sim.Pathing.FlowField.Build(terrain, terrain.CellXOf(terrain.Course[1].Tee.X), terrain.CellZOf(terrain.Course[1].Tee.Z));
-        foreach (var hole in terrain.Course.Holes)
+        var holes = terrain.Course.Holes;
+        for (var i = 0; i + 1 < holes.Count; i++)
         {
-            Assert.True(field.IsReachable(terrain.CellXOf(hole.Tee.X), terrain.CellZOf(hole.Tee.Z)), $"départ du trou {hole.Number}");
-            Assert.True(field.IsReachable(terrain.CellXOf(hole.Green.X), terrain.CellZOf(hole.Green.Z)), $"green du trou {hole.Number}");
+            var (tee, green) = (holes[i + 1].Tee, holes[i].Green);
+            var field = Golferoo.Sim.Pathing.FlowField.Build(terrain, terrain.CellXOf(tee.X), terrain.CellZOf(tee.Z));
+            var walk = field.DistanceAt(terrain.CellXOf(green.X), terrain.CellZOf(green.Z));
+            var direct = Math.Sqrt(Math.Pow(green.X - tee.X, 2) + Math.Pow(green.Z - tee.Z, 2));
+            Assert.True(walk < 4 * direct + 20, $"du green {holes[i].Number} au départ {holes[i + 1].Number} : {walk:0} m pondérés pour {direct:0} m à vol d'oiseau");
         }
     }
 

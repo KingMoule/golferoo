@@ -174,116 +174,53 @@ public static class CourseLoader
 
     private static Point2 Shift(Point2 p, double dx, double dz) => new(p.X + dx, p.Z + dz);
 
+    /// <summary>Coût d'une cellule de bois dans <see cref="OpenPassages"/>, en cellules de marche : on perce un mur plutôt que d'en faire le tour dès que le détour dépasse ce nombre de cellules.</summary>
+    private const int WoodCost = 25;
+
     /// <summary>
-    /// Les bordures de bois de trous voisins peuvent fermer un enclos que personne ne peut quitter à pied (sur « Le neuf », les trous 4 à 8). Chaque départ
-    /// et chaque green est relié à celui du trou 1 : le chemin qui traverse le moins de cellules de bois passe en rough. L'eau ne s'ouvre jamais.
+    /// Les bordures de bois de trous voisins peuvent fermer un enclos que personne ne quitte à pied (sur « Le neuf », les trous 4 à 8), ou n'ouvrir qu'un détour de plus d'un kilomètre
+    /// entre un green et le départ suivant. Dans l'ordre du jeu (départ, green, départ suivant…), le plus court chemin entre deux éléments consécutifs, un mur coûtant
+    /// <see cref="WoodCost"/> cellules par cellule de bois, passe en rough là où il perce un mur. L'eau ne s'ouvre jamais.
     /// </summary>
     private static void OpenPassages(Surface[] cells, int cellsX, int cellsZ, List<(int X, int Z)> features)
     {
-        bool Walkable(int i) => SurfaceTable.Get(cells[i]).Walkable;
-        var (sx, sz) = features[0];
-        var main = Reach(sz * cellsX + sx);
-        foreach (var (fx, fz) in features)
+        var cost = new int[cells.Length];
+        var from = new int[cells.Length];
+        for (var k = 1; k < features.Count; k++)
         {
-            var start = fz * cellsX + fx;
-            if (main[start])
-            {
-                continue;
-            }
-
-            // 0-1 BFS depuis l'élément isolé : une cellule franchissable coûte 0, une cellule de bois 1 ; arrêt au premier atteint du trou 1.
-            var cost = new int[cells.Length];
+            var start = (features[k - 1].Z * cellsX) + features[k - 1].X;
+            var goal = (features[k].Z * cellsX) + features[k].X;
             Array.Fill(cost, int.MaxValue);
-            var from = new int[cells.Length];
-            var queue = new LinkedList<int>();
             cost[start] = 0;
             from[start] = -1;
-            queue.AddFirst(start);
-            var end = -1;
-            while (queue.Count > 0 && end < 0)
+            var queue = new PriorityQueue<int, int>();
+            queue.Enqueue(start, 0);
+            while (queue.TryDequeue(out var i, out var c) && i != goal)
             {
-                var i = queue.First!.Value;
-                queue.RemoveFirst();
-                foreach (var j in Neighbours(i))
+                if (c > cost[i])
                 {
-                    var step = Walkable(j) ? 0 : cells[j] == Surface.Trees ? 1 : -1;
-                    if (step < 0 || cost[i] + step >= cost[j])
-                    {
-                        continue;
-                    }
+                    continue;
+                }
 
-                    cost[j] = cost[i] + step;
-                    from[j] = i;
-                    if (main[j])
+                var (x, z) = (i % cellsX, i / cellsX);
+                foreach (var j in new[] { x > 0 ? i - 1 : -1, x < cellsX - 1 ? i + 1 : -1, z > 0 ? i - cellsX : -1, z < cellsZ - 1 ? i + cellsX : -1 })
+                {
+                    var step = j < 0 ? 0 : SurfaceTable.Get(cells[j]).Walkable ? 1 : cells[j] == Surface.Trees ? WoodCost : 0;
+                    if (step > 0 && c + step < cost[j])
                     {
-                        end = j;
-                        break;
-                    }
-
-                    if (step == 0)
-                    {
-                        queue.AddFirst(j);
-                    }
-                    else
-                    {
-                        queue.AddLast(j);
+                        cost[j] = c + step;
+                        from[j] = i;
+                        queue.Enqueue(j, cost[j]);
                     }
                 }
             }
 
-            for (var i = end; i >= 0; i = from[i])
+            for (var i = goal; i >= 0 && cost[i] != int.MaxValue; i = from[i])
             {
                 if (cells[i] == Surface.Trees)
                 {
                     cells[i] = Surface.Rough;
                 }
-            }
-
-            main = Reach(sz * cellsX + sx);
-        }
-
-        bool[] Reach(int origin)
-        {
-            var seen = new bool[cells.Length];
-            var stack = new Stack<int>();
-            seen[origin] = true;
-            stack.Push(origin);
-            while (stack.Count > 0)
-            {
-                foreach (var j in Neighbours(stack.Pop()))
-                {
-                    if (!seen[j] && Walkable(j))
-                    {
-                        seen[j] = true;
-                        stack.Push(j);
-                    }
-                }
-            }
-
-            return seen;
-        }
-
-        IEnumerable<int> Neighbours(int i)
-        {
-            var (x, z) = (i % cellsX, i / cellsX);
-            if (x > 0)
-            {
-                yield return i - 1;
-            }
-
-            if (x < cellsX - 1)
-            {
-                yield return i + 1;
-            }
-
-            if (z > 0)
-            {
-                yield return i - cellsX;
-            }
-
-            if (z < cellsZ - 1)
-            {
-                yield return i + cellsX;
             }
         }
     }
