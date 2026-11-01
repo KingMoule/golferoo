@@ -8,6 +8,21 @@ public class NewHoleTests
 {
     private static (Point2 Tee, Point2 Pin) FourthHole(TerrainGrid t) => (t.Course[2].Tee, t.Course[2].Hole);
 
+    /// <summary>
+    /// Un vert entouré d'eau dans un coin libre de la carte : le seul genre de pin que ni les bois (OpenPassages les ouvre vers le trou 1) ni la marche ne relient à un départ.
+    /// Peint en file (appliqué au prochain tick) ; retourne le drapeau.
+    /// </summary>
+    private static Point2 IslandPin(World world)
+    {
+        var t = world.Terrain!;
+        var pin = new Point2(t.CellsX * t.CellSize * 0.1, t.CellsZ * t.CellSize * 0.9);
+        world.PaintSurface(pin, 20, Surface.Water);
+        world.Step();
+        world.PaintSurface(pin, 11, Surface.Green);
+        world.Step();
+        return pin;
+    }
+
     private static void PlayOut(World world)
     {
         for (var i = 0; i < 120_000 && !(world.Groups.Count > 0 && world.Groups.All(g => g.Finished)); i++)
@@ -84,7 +99,7 @@ public class NewHoleTests
         var (tee, pin) = FourthHole(world.Terrain!);
         Assert.False(world.AddHole(pin, pin));
         Assert.False(world.AddHole(tee, tee));
-        Assert.False(world.AddHole(world.Terrain!.Course[1].Tee, pin));
+        Assert.False(world.AddHole(world.Terrain!.Course[1].Tee, IslandPin(world))); // aucun chemin à pied jusqu'à l'îlot
         Assert.False(world.AddHole(new Point2(double.NaN, 0), pin));
         world.SpawnGroup();
         Assert.False(world.RemoveLastHole()); // le groupe a le trou 3 dans sa carte
@@ -237,7 +252,7 @@ public class NewHoleTests
         var near = HoleCheck.AreaNear(t, Surface.Green, pin, pin, HoleCheck.GreenReach);
         Assert.InRange(near, HoleCheck.MinGreenArea, HoleCheck.Area(t, Surface.Green) - 1);
         Assert.Empty(HoleCheck.Check(t, t.Course[1], true));
-        Assert.Contains(HoleIssue.NoPath, world.NewHoleIssues(t.Course[1].Tee, t.Course[2].Hole));
+        Assert.Contains(HoleIssue.NoPath, world.NewHoleIssues(t.Course[1].Tee, IslandPin(world)));
     }
 
     [Fact]

@@ -305,6 +305,21 @@ public class SaveTests
         Assert.True(league is null || league.Members.Count == 1);
         raw = raw[..^4]; // ni bâtiments posés (v17)
         raw = raw[..^4]; // ni commandes du pro (v15)
+        if (world.Flow is { } flow && (flow.Pending.Count > 0 || flow.Count > 0))
+        {
+            var cached = flow.Cached.ToList();
+            var keys = Bytes(w =>
+            {
+                w.List(flow.Pending, p => { w.Int(p.Key); w.Int(p.Origin); });
+                w.List(cached, p => { w.Int(p.Key); w.Int(p.Origin); });
+            });
+            raw = ReplaceOnce(raw, keys, Bytes(w =>
+            {
+                w.List(flow.Pending.Select(p => p.Key).ToList(), w.Int);
+                w.List(flow.CachedKeys, w.Int);
+            })); // champs sans origine de borne (v19) : relus complets
+        }
+
         if (version == 13)
         {
             raw = raw[..^Bytes(w => world.Reactions.Write(w)).Length]; // ni réactions (v14)
@@ -474,7 +489,7 @@ public class SaveTests
     public void Load_UnknownVersion_Throws()
     {
         var bytes = Save(Build(1, "proto", "start"));
-        bytes[4] = 19;
+        bytes[4] = 20;
 
         Assert.Throws<InvalidDataException>(() => Load(bytes));
     }
@@ -612,6 +627,28 @@ public class SaveTests
         var loaded = Load(bytes);
         Assert.Equal(original.Checksum(), loaded.Checksum());
         Assert.Equal(bytes, Save(loaded));
+        original.Step(600);
+        loaded.Step(600);
+
+        Assert.Equal(original.Checksum(), loaded.Checksum());
+    }
+
+    /// <summary>
+    /// Banc C12 : les champs en cache des marcheurs sont bornés par la cellule de qui les a fait calculer ; la sauvegarde garde cette origine,
+    /// pour que la couverture (donc qui attend un champ élargi) se refasse à l'identique.
+    /// La preuve est l'égalité des champs en cache (origine comprise) : dans ce scénario, la somme après quelques centaines de ticks ne diverge pas sans l'origine.
+    /// </summary>
+    [Fact]
+    public void BoundedFlowFields_ReloadWithTheirOrigin()
+    {
+        var original = new World(4, Hole("dogleg"));
+        original.SetLoadMode(40);
+        original.SpawnGroup();
+        original.Step(300);
+        Assert.Contains(original.Flow!.Cached, p => p.Origin >= 0);
+
+        var loaded = Load(Save(original));
+        Assert.Equal(original.Flow.Cached, loaded.Flow!.Cached);
         original.Step(600);
         loaded.Step(600);
 

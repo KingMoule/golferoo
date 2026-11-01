@@ -149,7 +149,9 @@ public static class CourseLoader
             trees.AddRange(piece.Trees.Select(t => t with { X = t.X + mx, Z = t.Z + mz }));
         }
 
-        var heights = new HeightField(cellsX, cellsZ, tileSize!.Value / factor);
+        var cellSize = tileSize!.Value / factor;
+        OpenPassages(cells, cellsX, cellsZ, cellSize, holes.SelectMany(h => new[] { h.Tee, h.Green }).Select(p => ((int)(p.X / cellSize), (int)(p.Z / cellSize))).ToList());
+        var heights = new HeightField(cellsX, cellsZ, cellSize);
         for (var j = 0; j <= cellsZ; j++)
         {
             for (var i = 0; i <= cellsX; i++)
@@ -172,6 +174,65 @@ public static class CourseLoader
     }
 
     private static Point2 Shift(Point2 p, double dx, double dz) => new(p.X + dx, p.Z + dz);
+
+    /// <summary>Coût d'une cellule de bois dans <see cref="OpenPassages"/>, en cellules de marche : on perce un mur plutôt que d'en faire le tour dès que le détour dépasse ce nombre de cellules.</summary>
+    private const int WoodCost = 25;
+
+    /// <summary>Deux éléments (départ ou green) à moins de cette distance en mètres, sur chaque axe, sont aussi reliés : la balle d'un trou peut finir sur le green d'un autre.</summary>
+    private const double PassageReach = 150;
+
+    /// <summary>
+    /// Les bordures de bois de trous voisins peuvent fermer un enclos que personne ne quitte à pied (sur « Le neuf », les trous 4 à 8), ou n'ouvrir qu'un détour de plus d'un kilomètre
+    /// entre un green et le départ suivant. Dans l'ordre du jeu (départ, green, départ suivant…), le plus court chemin entre deux éléments consécutifs, un mur coûtant
+    /// <see cref="WoodCost"/> cellules par cellule de bois, passe en rough là où il perce un mur. L'eau ne s'ouvre jamais.
+    /// </summary>
+    private static void OpenPassages(Surface[] cells, int cellsX, int cellsZ, double cellSize, List<(int X, int Z)> features)
+    {
+        var cost = new int[cells.Length];
+        var from = new int[cells.Length];
+        var near = PassageReach / cellSize;
+        var pairs = from a in Enumerable.Range(0, features.Count)
+                    from b in Enumerable.Range(a + 1, features.Count - a - 1)
+                    where b == a + 1 || Math.Abs(features[a].X - features[b].X) <= near && Math.Abs(features[a].Z - features[b].Z) <= near
+                    select (features[a], features[b]);
+        foreach (var (first, second) in pairs)
+        {
+            var start = (first.Z * cellsX) + first.X;
+            var goal = (second.Z * cellsX) + second.X;
+            Array.Fill(cost, int.MaxValue);
+            cost[start] = 0;
+            from[start] = -1;
+            var queue = new PriorityQueue<int, int>();
+            queue.Enqueue(start, 0);
+            while (queue.TryDequeue(out var i, out var c) && i != goal)
+            {
+                if (c > cost[i])
+                {
+                    continue;
+                }
+
+                var (x, z) = (i % cellsX, i / cellsX);
+                foreach (var j in new[] { x > 0 ? i - 1 : -1, x < cellsX - 1 ? i + 1 : -1, z > 0 ? i - cellsX : -1, z < cellsZ - 1 ? i + cellsX : -1 })
+                {
+                    var step = j < 0 ? 0 : SurfaceTable.Get(cells[j]).Walkable ? 1 : cells[j] == Surface.Trees ? WoodCost : 0;
+                    if (step > 0 && c + step < cost[j])
+                    {
+                        cost[j] = c + step;
+                        from[j] = i;
+                        queue.Enqueue(j, cost[j]);
+                    }
+                }
+            }
+
+            for (var i = goal; i >= 0 && cost[i] != int.MaxValue; i = from[i])
+            {
+                if (cells[i] == Surface.Trees)
+                {
+                    cells[i] = Surface.Rough;
+                }
+            }
+        }
+    }
 
     /// <summary>Pose le trou : rough et bois cèdent la place, deux surfaces de jeu au même endroit lèvent l'erreur. Les hauteurs d'un coin déjà pris par un trou précédent ne changent pas.</summary>
     private static void Paste(Piece p, int ox, int oz, int number, int factor, Surface[] cells, int cellsX, double[] corners, bool[] locked)

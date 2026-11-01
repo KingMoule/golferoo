@@ -143,8 +143,8 @@ public sealed partial class World
         w.Bool(League is not null);
         League?.Write(w);
         Pro?.Write(w);
-        w.List(Flow?.Pending ?? [], w.Int);
-        w.List(Flow?.CachedKeys ?? [], w.Int);
+        w.List(Flow?.Pending ?? [], p => WriteFlowKey(w, p));
+        w.List(Flow?.Cached.ToList() ?? [], p => WriteFlowKey(w, p));
         w.Bool(_manualPro);
         w.Bool(Clubhouse is not null);
         Clubhouse?.Write(w);
@@ -153,6 +153,15 @@ public sealed partial class World
         w.List(_joinCommands, w.Int);
         w.List(_placed, b => b.Write(w));
     }
+
+    /// <summary>Destination d'un champ de flux et origine de sa borne : la couverture d'un champ change qui attend son tour, elle se refait à l'identique.</summary>
+    private static void WriteFlowKey(SaveWriter w, (int Key, int Origin) p)
+    {
+        w.Int(p.Key);
+        w.Int(p.Origin);
+    }
+
+    private static (int Key, int Origin) ReadFlowKey(SaveReader r) => (r.Int(), r.Version >= 19 ? r.Int() : -1);
 
     private static void WriteRating(SaveWriter w, CourseRating r)
     {
@@ -265,8 +274,9 @@ public sealed partial class World
             _proMemberId = League.Members.First(m => m.IsPro).Id;
         }
 
-        var pendingFlow = r.List(r.Int);
-        var cachedFlow = r.List(r.Int);
+        // Avant la v19, tous les champs étaient complets (origine -1).
+        var pendingFlow = r.List(() => ReadFlowKey(r));
+        var cachedFlow = r.List(() => ReadFlowKey(r));
         _manualPro = r.Bool();
         if (_manualPro && League is null)
         {

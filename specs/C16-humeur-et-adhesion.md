@@ -95,7 +95,15 @@ Calage du lot 1, recalé au lot 2 (résolveur physique, « Le neuf », 30 jours,
 | 2 | 295 | 6 (2,0 %) | +7,10 | 106 sur 1 387 (7,6 %) |
 | 3 | 267 | 5 (1,9 %) | +5,11 | 4 sur 681 (0,6 %) |
 
-Le résolveur simplifié ne rend ni eau, ni arbre, ni bunker, ni mauvais coup : il donne 0 abandon et une sortie à 9,9. Il ne peut donc pas caler. La CI cale sur le résolveur physique, 8 jours (48 golfeurs, graine 1) : au moins un abandon, moins de 8 %, sortie entre 1 et 9, moins de 10 % de positifs écrêtés. Les trois graines sur 30 jours se lancent à la main (`GOLFEROO_LONG=1`).
+Le résolveur simplifié ne rend ni eau, ni arbre, ni bunker, ni mauvais coup : il donne 0 abandon et une sortie à 9,9. Il ne peut donc pas caler. La CI cale sur le résolveur physique, 8 jours (48 golfeurs, graine 1) : moins de 8 %, sortie entre 1 et 9, moins de 10 % de positifs écrêtés. Les trois graines sur 30 jours se lancent à la main (`GOLFEROO_LONG=1`). Recalage après `claude/le-neuf-passages` (les golfeurs marchent vraiment, plus de téléportation) : les données de `mood.json` restent (départ 7, baisse tous les 5 trous), la mesure de 30 jours sur les graines 1, 2, 3 tient le critère 3 :
+
+| Graine | Golfeurs | Abandons | Humeur de sortie moyenne | Positifs écrêtés au plafond |
+|---|---|---|---|---|
+| 1 | 288 | 6 (2,1 %) | +6,48 | 26 sur 1 120 (2,3 %) |
+| 2 | 293 | 11 (3,8 %) | +6,49 | 69 sur 1 366 (5,1 %) |
+| 3 | 267 | 9 (3,4 %) | +4,48 | 0 sur 677 (0 %) |
+
+En 8 jours, 0 abandon sur les trois graines (48, 60, 35 golfeurs ; 0 aussi en 12 jours sur la graine 1) : la borne CI « au moins un abandon » est retirée, la sortie moyenne gardant le calage trop indulgent. Balayage 8 jours, abandons sur graines 1/2/3 : départ 7 : 0/0/0 ; départ 6 : 0/0/1 ; départ 5 : 4/3/1 (8,3 % sur la graine 1, hors cible) ; départ 7, baisse tous les 4 trous : 0/0/0.
 
 ## Critères d'acceptation
 1. L'humeur, les compteurs de réactions, les niveaux et points d'adhésion et l'état de la ligue entrent dans `Checksum` et `Save` (v14), et un cas `SaveTests` échoue si l'un d'eux est oublié. Une sauvegarde v13 se charge : ses 40 membres deviennent des membres du vivier, avec le même handicap et la même division.

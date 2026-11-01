@@ -74,6 +74,18 @@ Hors périmètre :
 15. Les arrivées ont lieu tout au long de la journée : plus de fenêtre 6 h – 18 h, plus de dernier départ à 16 h, plus de vidage de la file à minuit.
 16. Le soleil avance pendant la journée, sans nuit (lot 3).
 17. La marche des golfeurs IA est accélérée pour qu'elle fasse environ 50 % de leur temps (mesure : un groupe de 2 isolé sur « Le neuf », 73 % avant). Le facteur est `aiWalkSpeedFactor` dans `data/golfers/arrivals.json` ; avec le vol de la décision 18, 3,0 donne 51 % (la marche des deux golfeurs se chevauche, donc ×2,7 ne suffisait pas). Le pro joué par le joueur garde sa marche.
+    Revu après `claude/le-neuf-passages` : les bordures de bois des trous 4 à 8 fermaient des enclos que les golfeurs quittaient par téléportation (`WalkResult.Stuck`), et les détours entre un green et le départ suivant allaient jusqu'à 3,2 km. `CourseLoader.OpenPassages` perce désormais les murs de bois (un mur coûte 25 cellules de détour), les golfeurs marchent vraiment, et à 3,0 la marche d'un groupe seul tombe à 43 % (graine 1) au lieu de 51 %. Balayage de `aiWalkSpeedFactor`, part de marche d'un groupe de 2 seul (graines 1, 2, 3) et durée du tour en ticks (graine 1) :
+
+    | Facteur | Graine 1 | Graine 2 | Graine 3 | Ticks (graine 1) |
+    |---|---|---|---|---|
+    | 1,5 | 65 % | 60 % | 60 % | 19 735 |
+    | 2,0 | 56 % | 49 % | 46 % | 16 129 |
+    | 2,25 | 52 % | 49 % | 47 % | 14 873 |
+    | 2,5 | 51 % | 43 % | 45 % | 13 638 |
+    | 2,75 | 48 % | 40 % | 42 % | 13 371 |
+    | **3,0** | **43 %** | **35 %** | **36 %** | **12 618** |
+
+    2,25 redonnerait un tour (14 873 ticks) proche de celui d'avant la correction (14 274 à 3,0 avec téléportations), mais Guillaume garde 3,0 : la borne basse de la part de marche du test `RhythmTests.IsolatedGroup_WalksAThirdToHalfOfItsRound` passe de 45 % à 33 %, juste sous le minimum mesuré (35,5 %, graine 2 ; avec les champs bornés, 42,6 / 35,5 / 35,8 % sur les graines 1 à 3), la borne haute reste 55 %.
 18. Le vol de balle des golfeurs IA est plus rapide, environ ×1,5 (`aiFlightSpeedFactor`, déterministe : la trajectoire et le point de chute ne changent pas, seule la cadence de lecture change). Le vol du pro joué ne change pas.
 19. La cible devient la capacité réelle du parcours. Diagnostic de « Le neuf » en physique (graine 1, 10 jours, groupsPerDay 8) : 49 coups par golfeur et par tour contre 32 en simplifié, des tours de 24 500 ticks contre 11 300, et 3,6 départs par jour contre 5,3. Les trous longs (330 à 470 m) ne laissent le groupe suivant tirer que lorsque le précédent est près du green, donc les par 3 et le départ du trou 1 fixent la cadence : le groupe de tête de la file attend dans la zone du départ pendant 41 % du temps. Les réglages essayés n'ont rien changé : budget de planification ×4 (+1 départ par jour mais le tick passe à 2,85 ms), `DepartureGap` 80 m (3,6), `AimReach` 200 m (3,8) et 120 m (3,9), vol IA jusqu'à ×2 (4,2). Marche ×3 et vol ×1,5 sont gardés ; le critère 4 final vise 3 à 5 départs par jour.
 20. Le choix d'un groupe de la file pour le pro est reporté à C16 : en C15, le clic sélectionne le groupe et la caméra le suit, mais le groupe ne passe pas en tête (`Main.ChosenGroupId` n'est pas encore lu par la sim).

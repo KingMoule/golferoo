@@ -37,13 +37,15 @@ public class RhythmTests(ITestOutputHelper output)
     }
 
     [Fact]
-    public void IsolatedGroup_WalksAboutHalfOfItsRound()
+    public void IsolatedGroup_WalksAThirdToHalfOfItsRound()
     {
+        // Borne basse 33 % : Guillaume garde la marche IA à ×3,0 (C15, décision 17). Avec les passages ouverts et les champs bornés, un groupe de 2 seul
+        // marche 42,6 % (graine 1, celle de ce test), 35,5 % (graine 2) et 35,8 % (graine 3) de son tour ; 33 % laisse une petite marge sous le minimum.
         var before = WalkShare(ArrivalParams.Default with { AiWalkSpeedFactor = 1.0, AiFlightSpeedFactor = 1.0 });
         var after = WalkShare();
         output.WriteLine($"facteur 1 : marche {before.Walk:P0}, vol {before.Flight:P0}, {before.Ticks} ticks ; facteur {ArrivalParams.Default.AiWalkSpeedFactor} : marche {after.Walk:P0}, vol {after.Flight:P0}, {after.Ticks} ticks");
 
-        Assert.InRange(after.Walk, 0.45, 0.55);
+        Assert.InRange(after.Walk, 0.33, 0.55);
     }
 
     /// <summary>« Le neuf » ouvert, graine 1, 30 jours de printemps et d'été : départs de visiteurs par jour, part de refus, réputation finale.</summary>

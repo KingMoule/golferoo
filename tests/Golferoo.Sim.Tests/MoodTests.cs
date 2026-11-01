@@ -347,7 +347,7 @@ public class MoodTests(ITestOutputHelper output)
     /// <summary>
     /// Critère 3 en CI. Le résolveur simplifié ne peut pas servir au calage : il ne rend ni eau, ni arbre, ni bunker, ni mauvais coup, donc personne n'abandonne
     /// et l'humeur reste au plafond (mesuré : 0 abandon, sortie à 9,9, 29 % des positifs écrêtés). On cale donc en CI sur le résolveur physique, 8 jours
-    /// (environ 50 golfeurs, graine 1), avec une borne qui échoue si le calage dérive : au moins un abandon, moins de 8 %, sortie positive et sous le plafond.
+    /// (environ 50 golfeurs, graine 1), avec une borne qui échoue si le calage dérive : moins de 8 % d'abandons, sortie positive et sous le plafond.
     /// </summary>
     [Fact]
     public void LeNeuf_PhysicalWeek_SomeQuitButFewAndTheyLeaveHappy()
@@ -355,7 +355,9 @@ public class MoodTests(ITestOutputHelper output)
         var run = PlainWeek.Value;
         output.WriteLine($"physique, 8 jours : {run.Golfers} golfeurs, {run.Quits} abandons ({run.QuitShare:P1}), humeur de sortie moyenne {run.MeanExit:0.00}, positifs écrêtés {run.Clipped}/{run.Positives} ({run.ClippedShare:P1})");
         Assert.True(run.Golfers >= 30, $"{run.Golfers} golfeurs seulement : l'échantillon est trop petit");
-        Assert.True(run.Quits >= 1, "aucun abandon : le calage est devenu trop indulgent");
+        // Plus de borne « au moins un abandon » : depuis que les golfeurs marchent vraiment sur « Le neuf » (passages dans les bois, plus de téléportation), le taux d'abandon
+        // mesuré sur 30 jours est de 2,1 / 3,8 / 3,4 % (graines 1, 2, 3), soit environ 1,4 abandon attendu pour 48 golfeurs : 0 abandon en 8 jours (mesuré, graine 1 comme 2 et 3,
+        // et encore 0 en 12 jours) n'a rien d'anormal. Le calage trop indulgent se lit à la sortie moyenne (9,9 au plafond), que la borne ci-dessous garde.
         Assert.True(run.QuitShare < 0.08, $"{run.QuitShare:P1} d'abandons");
         Assert.InRange(run.MeanExit, 1.0, 9.0);
         Assert.True(run.ClippedShare < 0.10, $"{run.ClippedShare:P1} des événements positifs perdus au plafond");

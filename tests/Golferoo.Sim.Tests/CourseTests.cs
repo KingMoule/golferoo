@@ -27,15 +27,22 @@ public class CourseTests
     // C21 lot 3 : les six sommes de coups changent encore, cause unique = la journée de 9 min (le vent suit la fraction de journée, donc
     // les mêmes 2000 ticks tombent plus tôt dans la journée et les coups voient un autre vent) ; les trois de « blank-coude », sans coup, non.
     // C15 lot 2b : les six sommes de coups changent encore, cause unique = la marche (×3) et le vol (×1,5) des golfeurs IA plus rapides (les coups tombent plus tôt) ; les trois de « blank-coude », sans coup, non.
-    [InlineData("proto-par4", 1UL, 351506926595650977UL)]
-    [InlineData("proto-par4", 2UL, 8499941740496119436UL)]
-    [InlineData("proto-par4", 3UL, 7565524161033630925UL)]
-    [InlineData("dogleg-par4", 1UL, 4432405616130991473UL)]
-    [InlineData("dogleg-par4", 2UL, 15889232794600245621UL)]
-    [InlineData("dogleg-par4", 3UL, 5122094939293701844UL)]
-    [InlineData("blank-coude", 1UL, 6977119086498316254UL)]
-    [InlineData("blank-coude", 2UL, 6838184519777748364UL)]
-    [InlineData("blank-coude", 3UL, 4217163305829179422UL)]
+    // C12 / banc (p99) : les neuf sommes changent, y compris celles de « blank-coude » (la file d'attente des champs de flux, FlowFieldCache._pending, est dans la somme et des marcheurs de la charge de 6 en demandent) ;
+    // cause unique = le plafond de FlowFieldCache.RebuildsPerTick (2 vers 1) qui s'applique aussi aux destinations jamais vues. Contrôle (vérifié) : avec RebuildsPerTick = 1000, les neuf cas redonnent exactement leurs sommes d'avant.
+    // C12 / banc (p99, champs bornés) : cinq sommes changent (dogleg-par4 graines 1 à 3, blank-coude graines 2 et 3) ; cause unique = les champs de flux des marcheurs bornés par leur cellule
+    // (FlowField.Origin), qui changent qui attend un champ élargi et entrent dans la somme par la file d'attente. Contrôle (vérifié) : avec l'origine -1 pour les marcheurs aussi
+    // (champs complets), les neuf cas redonnent exactement leurs sommes d'avant.
+    // C15 / le neuf (retour à ×3) : les six sommes de coups changent, cause unique = aiWalkSpeedFactor revenu de 2,25 à 3,0 (décision de Guillaume, C15 décision 17) ;
+    // les trois de « blank-coude », sans coup, non. Contrôle (vérifié) : avec aiWalkSpeedFactor = 2,25, les six cas redonnent exactement leurs sommes d'avant.
+    [InlineData("proto-par4", 1UL, 3711037144600937672UL)]
+    [InlineData("proto-par4", 2UL, 10179664884702043587UL)]
+    [InlineData("proto-par4", 3UL, 10182433686970319879UL)]
+    [InlineData("dogleg-par4", 1UL, 1780475286739419122UL)]
+    [InlineData("dogleg-par4", 2UL, 12697855671636058638UL)]
+    [InlineData("dogleg-par4", 3UL, 15100248235214984295UL)]
+    [InlineData("blank-coude", 1UL, 14396232534195343460UL)]
+    [InlineData("blank-coude", 2UL, 7501799876684053930UL)]
+    [InlineData("blank-coude", 3UL, 7192084681290619108UL)]
     public void SingleHoleChecksumIsUnchanged(string hole, ulong seed, ulong expected)
     {
         var terrain = CourseLoader.Load(Path.Combine(HoleDir(), hole + ".json"), 2);
@@ -144,6 +151,25 @@ public class CourseTests
         var json = CourseJson(70, 56, (1, 0, 0, 0), (2, 0, 15, 0));
         var terrain = CourseLoader.Parse(json, HoleDir(), 2);
         Assert.Equal(2, terrain.Course.Count);
+    }
+
+    /// <summary>
+    /// Sur « Le neuf », les bordures de bois des trous 4 à 8 fermaient un enclos (on y entrait et en sortait par téléportation), et celles des trous 1 à 3 et 8 à 9 ne laissaient
+    /// qu'un détour de 1,2 à 3,2 km entre un green et le départ suivant. Chaque green se rejoint à pied, depuis le départ suivant, à une distance pondérée par le coût de marche des surfaces (3,1 fois le vol d'oiseau au pire, plus de 17 fois avant) de moins de 4 fois la distance à vol d'oiseau.
+    /// </summary>
+    [Fact]
+    public void EveryGreenIsCloseOnFootToTheNextTee()
+    {
+        var terrain = ClubhouseTests.LeNeuf();
+        var holes = terrain.Course.Holes;
+        for (var i = 0; i + 1 < holes.Count; i++)
+        {
+            var (tee, green) = (holes[i + 1].Tee, holes[i].Green);
+            var field = Golferoo.Sim.Pathing.FlowField.Build(terrain, terrain.CellXOf(tee.X), terrain.CellZOf(tee.Z));
+            var walk = field.DistanceAt(terrain.CellXOf(green.X), terrain.CellZOf(green.Z));
+            var direct = Math.Sqrt(Math.Pow(green.X - tee.X, 2) + Math.Pow(green.Z - tee.Z, 2));
+            Assert.True(walk < 4 * direct + 20, $"du green {holes[i].Number} au départ {holes[i + 1].Number} : {walk:0} m pondérés pour {direct:0} m à vol d'oiseau");
+        }
     }
 
     [Theory]
