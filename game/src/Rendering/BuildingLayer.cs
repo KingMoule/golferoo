@@ -17,6 +17,7 @@ public partial class BuildingLayer : Node3D
     private TerrainGrid _grid = null!;
     private StandardMaterial3D _ghostMaterial = null!;
     private Node3D? _ghost;
+    private MeshInstance3D? _doorMarker;
 
     /// <summary>Nombre de modèles de bâtiments rendus, pour les tests.</summary>
     public int ShownCount => _shown.Count;
@@ -109,9 +110,36 @@ public partial class BuildingLayer : Node3D
         GhostValid = valid;
         _ghost.Transform = ClubhouseView.Fit(_grid, entry.Bounds, building);
         _ghost.Visible = true;
+        ShowDoorMarker(building);
     }
 
-    public void HideGhost() => _ghost?.Hide();
+    public void HideGhost()
+    {
+        _ghost?.Hide();
+        _doorMarker?.Hide();
+    }
+
+    /// <summary>Carreau jaune sur la cellule de la porte du fantôme, pour placer le bâtiment face au chemin.</summary>
+    private void ShowDoorMarker(Building building)
+    {
+        if (_doorMarker is null)
+        {
+            _doorMarker = new MeshInstance3D
+            {
+                Name = "DoorMarker",
+                CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
+                MaterialOverride = new StandardMaterial3D { ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded, AlbedoColor = new Color(1f, 0.85f, 0.1f), NoDepthTest = true },
+            };
+            AddChild(_doorMarker);
+        }
+
+        var size = (float)_grid.CellSize;
+        ((StandardMaterial3D)_doorMarker.MaterialOverride!).AlbedoColor = new Color(1f, 0.85f, 0.1f);
+        _doorMarker.Mesh = new BoxMesh { Size = new Vector3(size * 0.9f, 0.15f, size * 0.9f) };
+        var door = building.DoorPosition(_grid.CellSize);
+        _doorMarker.Position = new Vector3((float)door.X, (float)_grid.Sample(door.X, door.Z) + 0.1f, (float)door.Z);
+        _doorMarker.Visible = true;
+    }
 
     private static Node3D? Instantiate(BuildingKind kind) => GD.Load<PackedScene>(ModelPath(kind))?.Instantiate() as Node3D;
 }

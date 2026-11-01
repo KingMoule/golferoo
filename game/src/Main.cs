@@ -359,7 +359,7 @@ public partial class Main : Node3D
 
         Mowers = new MowerLayer { Name = "Mowers" };
         AddChild(Mowers);
-        Mowers.Build(grid, World.MowerDepot);
+        Mowers.Build(grid, World.MowerDepot, InsideBuilding);
 
         var width = (float)(grid.CellsX * grid.CellSize);
         var depth = (float)(grid.CellsZ * grid.CellSize);
@@ -783,6 +783,14 @@ public partial class Main : Node3D
     }
 
     /// <summary>La terre vierge du tutoriel tant que le club n'est pas activé (le trou valide, C19) : ni sauvegarde ni sauvegarde automatique.</summary>
+    /// <summary>Le point (x, z) en m est sous le pavillon ou un bâtiment posé (tondeuses : rendu seulement).</summary>
+    private bool InsideBuilding(Godot.Vector2 p)
+    {
+        var grid = World.Terrain!;
+        int cx = grid.CellXOf(p.X), cz = grid.CellZOf(p.Y);
+        return World.Clubhouse?.Footprint.Contains(cx, cz) == true || World.PlacedBuildings.Any(b => b.Footprint.Contains(cx, cz));
+    }
+
     private bool InTutorial => World.Terrain!.Blank && !World.State.ClubActive;
 
     internal void ShowMessage(string text)

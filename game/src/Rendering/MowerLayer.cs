@@ -25,6 +25,7 @@ public partial class MowerLayer : Node3D
 
     private readonly List<Mower> _mowers = [];
     private Func<Point2, Point2?>? _depot;
+    private Func<Vector2, bool>? _insideBuilding;
     private TerrainGrid? _grid;
     private int _day = -1;
     private double _last;
@@ -35,10 +36,11 @@ public partial class MowerLayer : Node3D
     public Vector3? FirstPosition => Visible && _mowers.FirstOrDefault(m => m.Node.Visible)?.Node.Position is { } p ? p : null;
 
     /// <summary><paramref name="depot"/> donne d'où part et où rentre la tondeuse d'une zone : la porte du hangar le plus proche, sinon celle du pavillon (<c>World.MowerDepot</c>).</summary>
-    public void Build(TerrainGrid grid, Func<Point2, Point2?> depot)
+    public void Build(TerrainGrid grid, Func<Point2, Point2?> depot, Func<Vector2, bool>? insideBuilding = null)
     {
         _grid = grid;
         _depot = depot;
+        _insideBuilding = insideBuilding;
     }
 
     /// <summary><paramref name="dayFraction"/> vaut 0 à minuit et 1 à la minute d'avant ; les golfeurs viennent de l'instantané courant.</summary>
@@ -77,7 +79,8 @@ public partial class MowerLayer : Node3D
 
             var (p, dir) = m.At();
             // Le trajet suit l'enveloppe de la bande : cachée là où il sort de la zone (eau, sable, coude).
-            m.Node.Visible = m.InTransit || _grid.SurfaceAt(p.X, p.Y) == m.Surface;
+            // Le trajet du dépôt à la zone est une droite : la tondeuse se cache là où elle traverserait un bâtiment.
+            m.Node.Visible = (m.InTransit || _grid.SurfaceAt(p.X, p.Y) == m.Surface) && _insideBuilding?.Invoke(p) != true;
             m.Node.Position = new Vector3(p.X, (float)_grid.Sample(p.X, p.Y), p.Y);
             m.Node.Rotation = new Vector3(0f, Mathf.Atan2(dir.X, dir.Y), 0f);
             if (!GolferNear(current, p))
