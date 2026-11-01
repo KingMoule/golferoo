@@ -171,6 +171,87 @@ public class PathingTests
         Assert.Same(c, cache.Get(new Point2(3, 3)));
     }
 
+    /// <summary>
+    /// Banc C12 : un champ borné par son origine couvre exactement les cellules du champ complet à au plus sa borne (1,5 fois la distance de l'origine,
+    /// plus une marge), avec les mêmes distances et les mêmes pas ; il s'arrête bien avant la carte entière.
+    /// </summary>
+    [Fact]
+    public void BoundedField_CoversExactlyTheFullFieldUpToItsBound()
+    {
+        var t = HoleLoader.Load(TerrainTests.HolePath(), 2);
+        var costs = FlowField.BuildCosts(t);
+        var (hx, hz) = (t.CellXOf(t.Hole.X), t.CellZOf(t.Hole.Z));
+        var full = FlowField.Build(t, costs, hx, hz);
+        var origin = (t.CellZOf(t.Hole.Z) * t.CellsX) + t.CellXOf(t.Hole.X) - 20;
+        var bounded = FlowField.Build(t, costs, hx, hz, origin);
+
+        Assert.True(full.IsComplete);
+        Assert.False(bounded.IsComplete);
+        Assert.Equal(origin, bounded.Origin);
+        Assert.True(bounded.Bound >= full.DistanceAt(origin % t.CellsX, origin / t.CellsX) * FlowField.BoundFactor);
+        var covered = 0;
+        var reachable = 0;
+        for (var z = 0; z < t.CellsZ; z++)
+        {
+            for (var x = 0; x < t.CellsX; x++)
+            {
+                reachable += full.IsReachable(x, z) ? 1 : 0;
+                if (full.DistanceAt(x, z) <= bounded.Bound)
+                {
+                    covered++;
+                    Assert.Equal(full.DistanceAt(x, z), bounded.DistanceAt(x, z));
+                    Assert.Equal(full.TryNextCell(x, z, out var fx, out var fz), bounded.TryNextCell(x, z, out var bx, out var bz));
+                    Assert.Equal((fx, fz), (bx, bz));
+                }
+                else
+                {
+                    Assert.False(bounded.IsReachable(x, z));
+                    Assert.False(bounded.TryNextCell(x, z, out _, out _));
+                }
+            }
+        }
+
+        Assert.InRange(covered, 1, reachable / 2);
+    }
+
+    /// <summary>
+    /// Un marcheur fait calculer un champ borné par sa cellule ; un autre, hors de sa couverture, le fait refaire complet (sous le budget du tick,
+    /// sinon il attend son tour) ; <see cref="FlowFieldCache.Get(int, int)"/> rend toujours un champ complet, qui ne lit jamais « inatteignable » une cellule reliée.
+    /// </summary>
+    [Fact]
+    public void Cache_BoundedFieldForWalkers_WidenedWhenNeeded_CompleteForGet()
+    {
+        var t = Flat(200, 20);
+        var cache = new FlowFieldCache(t);
+        var dest = t.CellCenter(10, 10);
+        var near = t.CellCenter(14, 10);
+        var far = t.CellCenter(190, 10);
+
+        cache.BeginTick();
+        var bounded = cache.TryGet(dest, near)!;
+        Assert.False(bounded.IsComplete);
+        Assert.False(bounded.IsReachable(190, 10));
+        Assert.Same(bounded, cache.TryGet(dest, t.CellCenter(12, 10))); // couvert : le même champ, sans calcul
+
+        // Hors de la couverture, le budget du tick déjà pris : il attend son tour, complet.
+        Assert.Null(cache.TryGet(dest, far));
+        Assert.Equal((10 * 200) + 10, Assert.Single(cache.Pending).Key);
+        Assert.Equal(-1, cache.Pending[0].Origin);
+        cache.BeginTick();
+        var widened = cache.TryGet(dest, far)!;
+        Assert.True(widened.IsComplete);
+        Assert.True(widened.IsReachable(190, 10));
+
+        // Le tick suivant, un autre champ borné, que Get refait complet à sa place.
+        var other = t.CellCenter(100, 5);
+        cache.BeginTick();
+        Assert.False(cache.TryGet(other, t.CellCenter(102, 5))!.IsComplete);
+        var complete = cache.Get(other);
+        Assert.True(complete.IsComplete);
+        Assert.True(complete.IsReachable(0, 0));
+        Assert.Equal(2, cache.Count);
+    }
+
     [Fact]
     public void Cache_EvictsOldestBeyondCapacity()
     {

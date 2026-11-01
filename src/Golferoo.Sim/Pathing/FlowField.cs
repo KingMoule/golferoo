@@ -5,6 +5,7 @@ namespace Golferoo.Sim.Pathing;
 /// <summary>
 /// Champ de flux vers une cellule de destination : distance pondérée de chaque cellule à la destination (Dijkstra, 8 voisins)
 /// et direction du pas suivant. Un pas en diagonale est refusé si l'un des deux voisins orthogonaux est infranchissable.
+/// Un champ borné (<see cref="Origin"/> donné) s'arrête à <see cref="Bound"/> : au-delà, les cellules ne sont pas couvertes et se lisent comme inatteignables.
 /// </summary>
 public sealed class FlowField
 {
@@ -20,8 +21,15 @@ public sealed class FlowField
     private readonly float[] _dist;
     private readonly sbyte[] _next;
 
-    private FlowField(int cellsX, int cellsZ, double cellSize, int destX, int destZ, long version, float[] dist, sbyte[] next)
+    /// <summary>Un champ borné couvre les cellules à au plus <c>BoundFactor</c> fois la distance de son origine, plus <see cref="BoundMarginCells"/> pas en diagonale au coût de l'origine.</summary>
+    internal const float BoundFactor = 1.5f;
+
+    internal const int BoundMarginCells = 4;
+
+    private FlowField(int cellsX, int cellsZ, double cellSize, int destX, int destZ, long version, float[] dist, sbyte[] next, int origin, float bound)
     {
+        Origin = origin;
+        Bound = bound;
         CellsX = cellsX;
         CellsZ = cellsZ;
         CellSize = cellSize;
@@ -45,6 +53,14 @@ public sealed class FlowField
 
     /// <summary>Version des surfaces (<see cref="TerrainGrid.SurfaceVersion"/>) au moment du calcul.</summary>
     public long TerrainVersion { get; }
+
+    /// <summary>Clé de la cellule du demandeur qui borne le champ ; -1 pour un champ complet demandé comme tel.</summary>
+    public int Origin { get; }
+
+    /// <summary>Distance au-delà de laquelle les cellules ne sont pas couvertes ; infinie si le champ est complet (sans origine, ou origine inatteignable).</summary>
+    public float Bound { get; }
+
+    public bool IsComplete => float.IsPositiveInfinity(Bound);
 
     /// <summary>
     /// Calcule le champ vers la cellule (destX, destZ). Si elle est infranchissable, on prend la cellule franchissable la plus proche.
@@ -84,7 +100,12 @@ public sealed class FlowField
         return costs;
     }
 
-    internal static FlowField Build(TerrainGrid terrain, float[] costs, int destX, int destZ)
+    /// <summary>
+    /// Avec <paramref name="origin"/> (clé d'une cellule), le calcul s'arrête quand toutes les cellules à au plus <see cref="Bound"/> de la destination sont fixées,
+    /// borne fixée en atteignant l'origine. Les cellules couvertes sont exactement celles du champ complet à au plus cette distance, avec les mêmes valeurs :
+    /// la couverture ne dépend que du terrain, des coûts, de la destination et de l'origine.
+    /// </summary>
+    internal static FlowField Build(TerrainGrid terrain, float[] costs, int destX, int destZ, int origin = -1)
     {
         if (!GridQueries.TryNearestWalkable(terrain, costs, destX, destZ, out var dx, out var dz))
         {
@@ -111,26 +132,35 @@ public sealed class FlowField
         var bucketCount = (int)Math.Ceiling(diag * maxCost / width) + 2;
         var buckets = work.Buckets(bucketCount);
         var done = work.Done(count);
+        var touched = work.Touched(); // cellules à distance provisoire, à effacer hors de la borne
+        var bound = float.PositiveInfinity;
+        var lastBucket = int.MaxValue;
         var start = (dz * nx) + dx;
         dist[start] = 0f;
         buckets[0].Add(start);
         var pending = 1;
-        for (var k = 0; pending > 0; k++)
+        for (var k = 0; pending > 0 && k <= lastBucket; k++)
         {
             var bucket = buckets[k % bucketCount];
             for (var n = 0; n < bucket.Count; n++)
             {
                 pending--;
                 var a = bucket[n];
-                if (done[a])
+                var d = dist[a];
+                if (done[a] || d > bound)
                 {
                     continue;
                 }
 
                 done[a] = true;
-                var d = dist[a];
                 var az = Math.DivRem(a, nx, out var ax);
                 var ca = costs[a];
+                if (a == origin)
+                {
+                    bound = (d * BoundFactor) + (BoundMarginCells * diag * ca); // coût de l'origine même : inchangé tant qu'aucune emprise ne la couvre
+                    lastBucket = (int)(bound * invWidth) + 1; // un seau de plus : l'arrondi d'un seau ne laisse aucune cellule sous la borne
+                }
+
                 for (var dir = 0; dir < 8; dir++)
                 {
                     var bx = ax + Dx[dir];
@@ -165,6 +195,11 @@ public sealed class FlowField
                     var nd = d + (len * 0.5f * (ca + cb));
                     if (nd < dist[b])
                     {
+                        if (origin >= 0 && float.IsPositiveInfinity(dist[b]))
+                        {
+                            touched.Add(b);
+                        }
+
                         dist[b] = nd;
                         next[b] = (sbyte)((dir + 4) & 7);
                         var slot = Math.Max((int)(nd * invWidth), k + 1) % bucketCount;
@@ -177,7 +212,25 @@ public sealed class FlowField
             bucket.Clear();
         }
 
-        return new FlowField(nx, nz, terrain.CellSize, dx, dz, terrain.SurfaceVersion, dist, next);
+        if (!float.IsPositiveInfinity(bound))
+        {
+            foreach (var b in buckets)
+            {
+                b.Clear();
+            }
+
+            foreach (var b in touched)
+            {
+                if (!done[b])
+                {
+                    dist[b] = float.PositiveInfinity;
+                    next[b] = -1;
+                }
+            }
+        }
+
+        touched.Clear();
+        return new FlowField(nx, nz, terrain.CellSize, dx, dz, terrain.SurfaceVersion, dist, next, origin, bound);
     }
 
     /// <summary>Distance pondérée de la cellule à la destination ; infinie si inatteignable ou hors grille.</summary>
@@ -289,6 +342,9 @@ public sealed class FlowField
         private (float Min, float Max) _range;
         private List<int>[] _buckets = [];
         private bool[] _done = [];
+        private readonly List<int> _touched = [];
+
+        public List<int> Touched() => _touched; // vidée en fin de calcul
 
         /// <summary>Plus petit et plus grand coût franchissable ; relu seulement quand le tableau de coûts change (même instance = mêmes coûts, un tableau n'est jamais modifié après sa construction).</summary>
         public (float Min, float Max) CostRange(float[] costs)

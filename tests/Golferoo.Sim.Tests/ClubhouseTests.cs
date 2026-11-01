@@ -234,7 +234,7 @@ public class ClubhouseTests
         Assert.Same(right, cache.Get(37, 2));
         Assert.Same(rightNear, cache.Get(25, 10));
         Assert.Single(cache.Pending);
-        Assert.Equal((10 * 40) + 2, cache.Pending[0]);
+        Assert.Equal((10 * 40) + 2, cache.Pending[0].Key);
 
         // Le champ de gauche, refait, contourne l'obstacle ; celui de droite reste identique à un calcul neuf.
         cache.Refresh();
@@ -247,7 +247,7 @@ public class ClubhouseTests
         // Libérer la même emprise : seul le champ de gauche (qui atteint l'anneau) est touché.
         cache.ChangeObstacle(new CellRect(8, 8, 11, 12), null);
         Assert.Same(right, cache.Get(37, 2));
-        Assert.Contains((10 * 40) + 2, cache.Pending);
+        Assert.Contains(cache.Pending, p => p.Key == (10 * 40) + 2);
     }
 
     /// <summary>Une emprise ajoutée loin des chemins d'un champ ne le touche pas, même dans sa région.</summary>

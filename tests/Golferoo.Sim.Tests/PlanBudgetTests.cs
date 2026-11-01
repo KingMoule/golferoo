@@ -89,7 +89,7 @@ public class PlanBudgetTests
             cache.BeginTick();
             for (var i = 0; i < destinations.Count; i++)
             {
-                waited[i] = cache.TryGet(destinations[i]) is null ? waited[i] + 1 : 0;
+                waited[i] = cache.TryGet(destinations[i], destinations[i]) is null ? waited[i] + 1 : 0;
                 worst = Math.Max(worst, waited[i]);
             }
         }
@@ -120,7 +120,7 @@ public class PlanBudgetTests
         {
             var before = cache.Count;
             cache.BeginTick();
-            var ready = destinations.Count(d => cache.TryGet(d) is not null);
+            var ready = destinations.Count(d => cache.TryGet(d, d) is not null);
             Assert.True(cache.Count - before <= Pathing.FlowFieldCache.RebuildsPerTick, $"tick {tick} : {cache.Count - before} champs calculés");
             Assert.Equal(Math.Min(destinations.Count, (tick + 1) * Pathing.FlowFieldCache.RebuildsPerTick), ready);
         }

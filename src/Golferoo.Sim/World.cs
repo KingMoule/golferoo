@@ -654,9 +654,13 @@ public sealed partial class World
         if (Flow is { Pending.Count: > 0 })
         {
             Mix(ref hash, (ulong)Flow.Pending.Count);
-            foreach (var key in Flow.Pending)
+            foreach (var (key, origin) in Flow.Pending)
             {
                 Mix(ref hash, (ulong)key);
+                if (origin >= 0)
+                {
+                    Mix(ref hash, (uint)origin | (1UL << 63)); // un champ borné : son origine décide de sa couverture
+                }
             }
         }
 
@@ -875,7 +879,7 @@ public sealed partial class World
         }
 
         var target = _waypoints[g.WaypointIndex];
-        if (Flow!.TryGet(target) is not { } field)
+        if (Flow!.TryGet(target, g.Position) is not { } field)
         {
             return;
         }
@@ -1116,7 +1120,7 @@ public sealed partial class World
 
     private bool Walk(TerrainGrid terrain, Golfer g, Point2 target)
     {
-        if (Flow!.TryGet(target) is not { } field)
+        if (Flow!.TryGet(target, g.Position) is not { } field)
         {
             return false; // son champ de flux attend son tour (retouche, ou budget de constructions du tick épuisé) : il reste sur place ce tick-là
         }
