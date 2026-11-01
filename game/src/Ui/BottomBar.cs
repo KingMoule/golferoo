@@ -370,7 +370,7 @@ public partial class BottomBar : Control
         Sync();
     }
 
-    /// <summary>L'écusson du club (SVG dans l'esprit SimGolf), qui déborde au-dessus de la barre ; l'objectif du club viendra dessous (C18).</summary>
+    /// <summary>L'écusson du club (SVG dans l'esprit SimGolf), qui déborde au-dessus de la barre ; le bouton des objectifs (C18) est dessous.</summary>
     private static TextureRect Crest(Main main)
     {
         var crest = new TextureRect
@@ -383,7 +383,7 @@ public partial class BottomBar : Control
             TooltipText = main.World.Terrain!.Name,
         };
         crest.SetAnchorsAndOffsetsPreset(LayoutPreset.BottomLeft);
-        (crest.OffsetLeft, crest.OffsetRight, crest.OffsetTop, crest.OffsetBottom) = (14f, 14f + 104f, -132f, -8f);
+        (crest.OffsetLeft, crest.OffsetRight, crest.OffsetTop, crest.OffsetBottom) = (14f, 14f + 104f, -162f, -38f);
         return crest;
     }
 }

@@ -1,0 +1,14 @@
+// Objectifs du club (C18) : chacun est coché une seule fois, quand son compteur atteint le seuil, évalué au changement de jour.
+// condition : openHoles (trous ouverts), members (membres du vivier), goldMembers (membres Gold ou mieux), positiveYears (bilans annuels positifs), proPromotions (montées de division de votre pro).
+// Récompense : l'argent vient du fichier de difficulté (objectiveRewards, même identifiant) ; voucher (facultatif) offre en plus la pose d'un bâtiment (snackBar, proShop, maintenanceShed, bench).
+{
+  "objectives": [
+    { "id": "holes3", "condition": "openHoles", "threshold": 3, "title": "Trois trous ouverts", "text": "Ouvrez trois trous aux golfeurs." },
+    { "id": "holes6", "condition": "openHoles", "threshold": 6, "title": "Six trous ouverts", "text": "Ouvrez six trous aux golfeurs." },
+    { "id": "holes9", "condition": "openHoles", "threshold": 9, "title": "Neuf trous ouverts", "text": "Ouvrez neuf trous aux golfeurs." },
+    { "id": "members10", "condition": "members", "threshold": 10, "title": "Dix membres", "text": "Réunissez dix membres au club.", "voucher": "snackBar" },
+    { "id": "gold", "condition": "goldMembers", "threshold": 1, "title": "Un membre Or", "text": "Amenez un membre au niveau Or.", "voucher": "proShop" },
+    { "id": "positiveYear", "condition": "positiveYears", "threshold": 1, "title": "Une année dans le vert", "text": "Bouclez une année civile avec un résultat positif." },
+    { "id": "proDivision", "condition": "proPromotions", "threshold": 1, "title": "Votre pro monte", "text": "Faites monter votre pro dans une division supérieure.", "voucher": "maintenanceShed" }
+  ]
+}

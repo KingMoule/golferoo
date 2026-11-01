@@ -2,6 +2,7 @@ using System.IO.Compression;
 using Golferoo.Sim.Buildings;
 using Golferoo.Sim.Economy;
 using Golferoo.Sim.Golfers;
+using Golferoo.Sim.Objectives;
 using Golferoo.Sim.Pro;
 using Golferoo.Sim.Rating;
 using Golferoo.Sim.Shots;
@@ -303,6 +304,8 @@ public class SaveTests
     {
         var league = world.League;
         Assert.True(league is null || league.Members.Count == 1);
+        raw = raw[..^Bytes(w => world.State.Write(w)).Length]; // ni état de partie (v20)
+        raw = ReplaceOnce(raw, Bytes(w => world.Ledger.Write(w)), LedgerBeforeV20(world)); // ni catégorie Objectives (v20)
         raw = raw[..^4]; // ni bâtiments posés (v17)
         raw = raw[..^4]; // ni commandes du pro (v15)
         if (world.Flow is { } flow && (flow.Pending.Count > 0 || flow.Count > 0))
@@ -382,6 +385,23 @@ public class SaveTests
         }
 
         return raw;
+    }
+
+    /// <summary>Le grand livre tel que la v19 l'écrivait : une catégorie de moins (Objectives) dans le mois en cours et dans chaque mois clos.</summary>
+    private static byte[] LedgerBeforeV20(World world)
+    {
+        var full = Bytes(w => world.Ledger.Write(w));
+        var n = Enum.GetValues<LedgerCategory>().Length;
+        var result = new List<byte>(full[..(20 + (8 * (n - 1)))]);
+        var at = 20 + (8 * n);
+        result.AddRange(full[at..(at + 4)]);
+        for (int i = 0, months = BitConverter.ToInt32(full, at); i < months; i++)
+        {
+            var start = at + 4 + (i * (8 + (8 * n)));
+            result.AddRange(full[start..(start + 8 + (8 * (n - 1)))]);
+        }
+
+        return [.. result];
     }
 
     private static byte[] LegacyFile(byte[] file, byte[] raw, int version)
@@ -489,7 +509,7 @@ public class SaveTests
     public void Load_UnknownVersion_Throws()
     {
         var bytes = Save(Build(1, "proto", "start"));
-        bytes[4] = 20;
+        bytes[4] = 21;
 
         Assert.Throws<InvalidDataException>(() => Load(bytes));
     }
@@ -1107,6 +1127,77 @@ public class SaveTests
         Assert.Equal(world.Checksum(), loaded.Checksum());
     }
 
+    public static TheoryData<string> GameStateMutations => new() { "complete", "bankrupt", "continued", "monthsBelow", "yearStart", "exit", "golfersOnly", "moodOnly", "voucher", "report" };
+
+    private static string Describe(GameState s) => string.Join('|', s.ObjectivesOn, s.Completed, s.Bankrupt, s.ContinuedAfterBankruptcy, s.MonthsBelow, s.YearStartBalance, s.YearGolfers, s.YearMoodTotal, s.YearObjectives,
+        string.Join(',', Enum.GetValues<BuildingKind>().Select(s.Vouchers)), string.Join(';', s.Reports.Select(r => $"{r.Year},{string.Join(',', r.Totals)},{r.OpeningBalance},{r.ClosingBalance},{r.Golfers},{r.Members},{r.MoodTotal},{r.ObjectivesDone}")));
+
+    /// <summary>C18 lot 2 (v20) : chaque champ de l'état de partie se sauve, se relit et change la somme de contrôle ; un champ oublié de <c>Save</c> ou du <c>Checksum</c> fait échouer son cas.</summary>
+    [Theory]
+    [MemberData(nameof(GameStateMutations))]
+    public void GameState_EveryField_IsSavedLoadedAndChecksummed(string field)
+    {
+        var world = new World(3, ClubhouseTests.LeNeuf(), new StubShotResolver(), league: true, placeClubhouse: true, objectives: true);
+        var before = world.Checksum();
+        Action<GameState> change = field switch
+        {
+            "complete" => s => s.Complete(2),
+            "bankrupt" => s => s.Bankrupt = true,
+            "continued" => s => s.ContinuedAfterBankruptcy = true,
+            "monthsBelow" => s => s.MonthsBelow = 3,
+            "yearStart" => s => s.YearStartBalance += 5,
+            "exit" => s => s.RecordExit(3, -7),
+            "golfersOnly" => s => s.RecordExit(1, 0),
+            "moodOnly" => s => s.RecordExit(0, -7),
+            "voucher" => s => s.AddVoucher(BuildingKind.ProShop),
+            _ => s => s.CloseYear(new YearReport(1, [.. Enumerable.Range(1, Enum.GetValues<LedgerCategory>().Length).Select(i => (long)i)], 11, 22, 3, 4, -5, 6)),
+        };
+        change(world.State);
+        Assert.NotEqual(before, world.Checksum());
+
+        var loaded = Load(Save(world));
+
+        Assert.Equal(Describe(world.State), Describe(loaded.State));
+        Assert.Equal(world.Checksum(), loaded.Checksum());
+        Assert.Equal(Save(world), Save(loaded));
+    }
+
+    [Fact]
+    public void GameState_ObjectivesFlag_IsSavedAndChecksummed()
+    {
+        var demo = new World(3, ClubhouseTests.LeNeuf(), new StubShotResolver(), placeClubhouse: true);
+        var career = new World(3, ClubhouseTests.LeNeuf(), new StubShotResolver(), placeClubhouse: true, objectives: true);
+        Assert.NotEqual(demo.Checksum(), career.Checksum());
+        Assert.True(Load(Save(career)).State.ObjectivesOn);
+        Assert.False(Load(Save(demo)).State.ObjectivesOn);
+    }
+
+    /// <summary>
+    /// Une vraie sauvegarde v19 produite par <c>main</c> (9f3b0f7, graine 3, trois jours et demi, pro shop et snack-bar posés) se charge avec un état de partie vierge,
+    /// la caisse et les bâtiments intacts, et la partie continue de la même façon que sa relecture.
+    /// </summary>
+    [Fact]
+    public void Load_RealV19Save_KeepsTheClub_WithAFreshGameState()
+    {
+        var dir = Path.Combine(AppContext.BaseDirectory, "Fixtures");
+        var expected = File.ReadAllLines(Path.Combine(dir, "v19-partie.txt"));
+        var world = Load(File.ReadAllBytes(Path.Combine(dir, "v19-partie.sav")));
+
+        Assert.Equal($"tick {world.Tick}", expected[0]);
+        Assert.Equal($"balance {world.Ledger.Balance}", expected[1]);
+        Assert.Equal(expected.Where(l => l.StartsWith("building ")), world.PlacedBuildings.Select(b => $"building {(int)b.Kind} {b.Footprint.MinX} {b.Footprint.MinZ} {b.Footprint.MaxX} {b.Footprint.MaxZ} {(int)b.Side}"));
+        Assert.False(world.State.ObjectivesOn);
+        Assert.Equal(0UL, world.State.Completed);
+        Assert.Empty(world.State.Reports);
+        Assert.Equal(world.Economy.StartingMoney, world.State.YearStartBalance);
+
+        var again = Load(Save(world));
+        Assert.Equal(world.Checksum(), again.Checksum());
+        world.Step(3000);
+        again.Step(3000);
+        Assert.Equal(world.Checksum(), again.Checksum());
+    }
+
     /// <summary>C15 lot 1 (v12) : le pavillon se sauve, se relit et entre dans la somme de contrôle ; un pavillon déplacé se relit à sa nouvelle place.</summary>
     [Fact]
     public void Clubhouse_IsSavedLoadedAndChecksummed()
@@ -1165,8 +1256,8 @@ public class SaveTests
         Assert.True(legacyJson.Remove("clubhouseMove"));
         raw = Replace(raw, Bytes(w => w.String(world.Economy.ToJson())), Bytes(w => w.String(legacyJson.ToJsonString())));
 
-        var ledger = Bytes(w => world.Ledger.Write(w));
-        var categories = Enum.GetValues<LedgerCategory>().Length;
+        var ledger = LedgerBeforeV20(world);
+        var categories = Enum.GetValues<LedgerCategory>().Length - 1;
         var legacyLedger = ledger[..(20 + (8 * (categories - 1)))].Concat(ledger[(20 + (8 * categories))..]).ToArray();
         raw = Replace(raw, ledger, legacyLedger);
 

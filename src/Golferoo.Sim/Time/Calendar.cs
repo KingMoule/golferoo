@@ -29,6 +29,13 @@ public static class Calendar
     /// <summary>Rang du mois (0 = le mois de départ de l'an 1) ; il change quand le mois change.</summary>
     public static long MonthIndex(long tick, int dayOffset) => ((tick / TicksPerDay) + dayOffset) / DaysPerMonth;
 
+    /// <summary>Année de jeu (à partir de 1) et mois (1 à 12) du mois de rang <paramref name="monthIndex"/>.</summary>
+    public static (int Year, int Month) YearAndMonth(long monthIndex)
+    {
+        var months = monthIndex + StartMonth - 1;
+        return ((int)(months / MonthsPerYear) + 1, (int)(months % MonthsPerYear) + 1);
+    }
+
     public static Date At(long tick, int dayOffset)
     {
         var day = (tick / TicksPerDay) + dayOffset;

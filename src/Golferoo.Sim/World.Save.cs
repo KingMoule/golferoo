@@ -2,6 +2,7 @@ using Golferoo.Sim.Buildings;
 using Golferoo.Sim.Economy;
 using Golferoo.Sim.Golfers;
 using Golferoo.Sim.League;
+using Golferoo.Sim.Objectives;
 using Golferoo.Sim.Pathing;
 using Golferoo.Sim.Pro;
 using Golferoo.Sim.Rating;
@@ -152,6 +153,7 @@ public sealed partial class World
         Reactions.Write(w);
         w.List(_joinCommands, w.Int);
         w.List(_placed, b => b.Write(w));
+        State.Write(w);
     }
 
     /// <summary>Destination d'un champ de flux et origine de sa borne : la couverture d'un champ change qui attend son tour, elle se refait à l'identique.</summary>
@@ -341,6 +343,12 @@ public sealed partial class World
             {
                 throw new InvalidDataException("Sauvegarde incohérente : bâtiment hors de la carte ou superposé.");
             }
+        }
+
+        State = r.Version >= 20 ? GameState.Read(r, Economy.StartingMoney) : new GameState(Economy.StartingMoney, false);
+        if (State.Completed >> ObjectiveCatalog.Default.Count != 0)
+        {
+            throw new InvalidDataException("Sauvegarde incohérente : objectif inconnu.");
         }
 
         if (League is not null && League.Members.Any(m => m.VisitorId >= Visitors.Next || (!m.IsPro && m.VisitorId < 0)))

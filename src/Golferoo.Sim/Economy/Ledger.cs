@@ -14,6 +14,7 @@ public enum LedgerCategory : byte
     GreenFees,
     Dues,
     Buildings,
+    Objectives,
 }
 
 /// <summary>Ligne d'un mois clos : son numéro (<see cref="Time.Calendar.MonthIndex"/>) et le total signé de chaque catégorie (dépenses négatives).</summary>
@@ -146,9 +147,15 @@ public sealed class Ledger
 
     private static void MixTotals(ref ulong hash, IReadOnlyList<long> totals)
     {
-        foreach (var v in totals)
+        for (var i = 0; i < totals.Count; i++)
         {
-            World.Mix(ref hash, (ulong)v);
+            // Objectives (v20) n'entre dans le hash que s'il est non nul : un club sans objectif garde son Checksum d'avant.
+            if (i == (int)LedgerCategory.Objectives && totals[i] == 0)
+            {
+                continue;
+            }
+
+            World.Mix(ref hash, (ulong)totals[i]);
         }
     }
 
@@ -189,7 +196,7 @@ public sealed class Ledger
     private static long[] ReadTotals(SaveReader r)
     {
         var totals = new long[CategoryCount];
-        for (var i = 0; i < (r.Version < 12 ? CategoryCount - 1 : CategoryCount); i++) // v11 : sans la catégorie Buildings
+        for (var i = 0; i < (r.Version < 12 ? CategoryCount - 2 : r.Version < 20 ? CategoryCount - 1 : CategoryCount); i++) // v11 : sans la catégorie Buildings, avant la v20 : sans Objectives
         {
             totals[i] = r.Long();
         }

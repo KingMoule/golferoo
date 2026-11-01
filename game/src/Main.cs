@@ -160,6 +160,9 @@ public partial class Main : Node3D
     /// <summary>Le menu pause (Échap), C18.</summary>
     public PauseMenu PauseMenu { get; private set; } = null!;
 
+    /// <summary>Objectifs, bilan annuel et écran de fin de la faillite (C18).</summary>
+    public GameFlow Flow { get; private set; } = null!;
+
     /// <summary>Échelle d'interface (<c>-- --ui-scale 1.25</c>) : 1, 1,25 ou 1,5.</summary>
     public static float UiScale => float.TryParse(CommandLineOption("--ui-scale"), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var scale) ? Math.Clamp(scale, 1f, 1.5f) : 1f;
 
@@ -302,7 +305,7 @@ public partial class Main : Node3D
         {
             grid = BlankProperty.Create();
             GD.Print($"NEWGAME seed={NewGameSeed}");
-            World = new World(NewGameSeed, grid, league: true, placeClubhouse: ClubhouseOnNewGame, arrivals: ArrivalsOverride);
+            World = new World(NewGameSeed, grid, league: true, placeClubhouse: ClubhouseOnNewGame, arrivals: ArrivalsOverride, objectives: true);
         }
         else
         {
@@ -421,6 +424,9 @@ public partial class Main : Node3D
         PauseMenu = new PauseMenu { Name = "PauseMenu" };
         AddChild(PauseMenu);
         PauseMenu.Init(this);
+        Flow = new GameFlow { Name = "GameFlow" };
+        AddChild(Flow);
+        Flow.Init(this);
         // L'échelle agrandit toute l'interface (calques 2D), pas le rendu 3D.
         GetWindow().ContentScaleFactor = UiScale;
 
@@ -664,6 +670,11 @@ public partial class Main : Node3D
     private void HandleKey(InputEventKey @event)
     {
         var key = @event.Keycode;
+        if (Flow.EndOpen)
+        {
+            return; // l'écran de fin garde le clavier : on en sort par ses boutons
+        }
+
         if (PauseMenu.IsOpen)
         {
             // Le menu pause garde le clavier : Échap le ferme, le reste attend.

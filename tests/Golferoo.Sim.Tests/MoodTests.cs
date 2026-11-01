@@ -14,7 +14,7 @@ public class MoodTests(ITestOutputHelper output)
     private const int Day = Calendar.TicksPerDay;
 
     /// <summary>Résolveur de test : <paramref name="script"/> décide du coup, ou rend nul pour laisser faire le résolveur provisoire.</summary>
-    private sealed class Scripted(Func<ShotRequest, TerrainGrid, ShotResult?> script) : IShotResolver
+    internal sealed class Scripted(Func<ShotRequest, TerrainGrid, ShotResult?> script) : IShotResolver
     {
         private readonly StubShotResolver _stub = new();
 

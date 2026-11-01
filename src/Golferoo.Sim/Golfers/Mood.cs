@@ -69,8 +69,8 @@ public sealed record MoodParams
     public static long FeeBasisPoints(int mood, long min, long max) =>
         mood >= 0 ? 10_000 + (mood * (max - 10_000) / Max) : 10_000 + (mood * (10_000 - min) / -Min);
 
-    /// <summary>Qualité d'une sortie de 0 (humeur −10) à 1 (humeur d'au moins <see cref="ReputationFullMood"/>) : ce que la réputation retient.</summary>
-    public double ExitScore(int mood) => Math.Clamp((mood - Min) / (double)(ReputationFullMood - Min), 0.0, 1.0);
+    /// <summary>Qualité d'une sortie de 0 (humeur −10) à 1 (humeur d'au moins <see cref="ReputationFullMood"/>) : ce que la réputation retient. <paramref name="demand"/> (difficulté) multiplie l'humeur qu'il faut pour une sortie parfaite : au-dessus de 1, golfeurs plus exigeants.</summary>
+    public double ExitScore(int mood, double demand = 1.0) => Math.Clamp((mood - Min) / Math.Max((ReputationFullMood - Min) * demand, 1e-9), 0.0, 1.0);
 
     private static readonly JsonSerializerOptions JsonOptions = new()
     {

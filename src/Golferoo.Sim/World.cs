@@ -2,6 +2,7 @@ using Golferoo.Sim.Buildings;
 using Golferoo.Sim.Economy;
 using Golferoo.Sim.Golfers;
 using Golferoo.Sim.League;
+using Golferoo.Sim.Objectives;
 using Golferoo.Sim.Pathing;
 using Golferoo.Sim.Pro;
 using Golferoo.Sim.Rating;
@@ -68,8 +69,9 @@ public sealed partial class World
     private Point2?[] _exitPoints = [];
     private long _exitPointVersion = -1;
 
-    public World(ulong seed, TerrainGrid? terrain = null, IShotResolver? resolver = null, bool league = false, EconomyParams? economy = null, ProgressionParams? progression = null, bool placeClubhouse = false, ArrivalParams? arrivals = null, MoodParams? mood = null, MembershipParams? membership = null, bool emptyClub = false, BuildingParams? buildings = null)
+    public World(ulong seed, TerrainGrid? terrain = null, IShotResolver? resolver = null, bool league = false, EconomyParams? economy = null, ProgressionParams? progression = null, bool placeClubhouse = false, ArrivalParams? arrivals = null, MoodParams? mood = null, MembershipParams? membership = null, bool emptyClub = false, BuildingParams? buildings = null, DifficultyParams? difficulty = null, bool objectives = false)
     {
+        Difficulty = difficulty ?? DifficultyParams.Facile;
         Seed = seed;
         Arrivals = arrivals ?? ArrivalParams.Default;
         Moods = mood ?? MoodParams.Default;
@@ -81,6 +83,7 @@ public sealed partial class World
         Economy = economy ?? EconomyParams.Facile;
         Progression = progression ?? ProgressionParams.Default;
         Ledger = new Ledger(Economy.StartingMoney);
+        State = new GameState(Economy.StartingMoney, objectives);
         if (terrain is not null)
         {
             _holesOpen = [.. terrain.Course.Holes.Select(_ => !terrain.Blank)];
@@ -562,6 +565,7 @@ public sealed partial class World
             }
 
             RefreshSoil();
+            EvaluateObjectives();
             if (League?.OnNewDay(DayIndex, WeatherOn(DayIndex).Sky == Sky.HeavyRain, Tick) is { } round)
             {
                 for (var n = 0; n < round.Pairs.Count; n++)
@@ -664,6 +668,7 @@ public sealed partial class World
             }
         }
 
+        State.Mix(ref hash);
         MixClubhouse(ref hash);
         MixBuildings(ref hash);
         MixArrivals(ref hash);

@@ -38,6 +38,7 @@ public static class UiIds
         public const string Bar = "BottomBar";
         public const string Crest = "ClubCrest";
         public const string Pause = "HudPause";
+        public const string ObjectivesPill = "HudObjectives";
         public const string Clock = "HudClock";
         public const string Weather = "HudWeather";
         public const string Club = "HudClub";
@@ -119,6 +120,8 @@ public static class UiIds
         public const string Finances = "PanelFinances";
         public const string Reactions = "PanelReactions";
         public const string Overdraft = "PanelOverdraft";
+        public const string Objectives = "PanelObjectives";
+        public const string YearReport = "PanelYearReport";
 
         /// <summary>La visée du pro, hors de la pile : elle suit le tour du pro.</summary>
         public const string Aim = "PanelAim";
@@ -164,6 +167,10 @@ public static class UiIds
         public const string ToTitle = "MenuToTitle";
         public const string Slots = "SlotsScreen";
         public const string Error = "MenuError";
+        public const string End = "EndScreen";
+        public const string EndLoad = "EndLoad";
+        public const string EndTitle = "EndToTitle";
+        public const string EndContinue = "EndContinue";
 
         /// <summary>Bouton de l'emplacement <paramref name="slot"/> (slot1, auto, rapide...).</summary>
         public static string Slot(string slot) => $"Slot_{slot}";
