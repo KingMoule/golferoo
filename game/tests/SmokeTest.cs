@@ -302,6 +302,7 @@ public partial class SmokeTest : Node
             failures.Add("nouvelle partie : graine, propriété ou pavillon inattendus");
         }
 
+        CheckGameFlow(game, failures);
         for (var i = 0; i < 40; i++)
         {
             game.World.Step();
@@ -350,6 +351,62 @@ public partial class SmokeTest : Node
         }
 
         GD.Print($"SMOKE menus : titre, nouvelle partie, pause, emplacement ({failures.Count} échec)");
+    }
+
+    /// <summary>
+    /// C18 lot 2 : une nouvelle partie porte ses objectifs sous l'écusson (le bouton ouvre le panneau, sept lignes), la clôture de décembre ouvre le bilan annuel,
+    /// et l'écran de fin de la faillite offre charger, menu titre et « Continuer quand même », qui le ferme et relance la partie.
+    /// </summary>
+    private static void CheckGameFlow(Main game, List<string> failures)
+    {
+        if (game.Ui.Find(UiIds.Hud.ObjectivesPill) is not Button pill || !game.World.State.ObjectivesOn)
+        {
+            failures.Add("objectifs : bouton sous l'écusson absent");
+            return;
+        }
+
+        pill.EmitSignal(BaseButton.SignalName.Pressed);
+        var rows = game.Flow.ObjectivesPanel?.Visible == true ? game.Flow.ObjectivesPanel.Content.GetChild(0).GetChildCount() : -1;
+        if (rows < Sim.Objectives.ObjectiveCatalog.Default.Count)
+        {
+            failures.Add($"objectifs : le panneau montre {rows} lignes");
+        }
+
+        game.Panels.Close(game.Flow.ObjectivesPanel!);
+
+        for (var i = 0; i < 9; i++)
+        {
+            game.World.SkipToNextMonth(); // d'avril à décembre
+        }
+
+        if (!game.Flow.ReportPanel.Visible || game.World.State.Reports.Count != 1)
+        {
+            failures.Add("bilan annuel : la clôture de décembre n'ouvre pas son panneau");
+        }
+
+        game.Panels.Close(game.Flow.ReportPanel);
+
+        game.Flow.OpenEnd();
+        foreach (var id in new[] { UiIds.Menu.EndLoad, UiIds.Menu.EndTitle, UiIds.Menu.EndContinue })
+        {
+            if (game.Ui.Find(id) is not Button { Disabled: false })
+            {
+                failures.Add($"écran de fin : bouton {id} absent ou grisé");
+            }
+        }
+
+        if (!game.Flow.EndOpen || !game.Paused)
+        {
+            failures.Add("écran de fin : ni ouvert ni en pause");
+        }
+
+        (game.Ui.Find(UiIds.Menu.EndContinue) as Button)?.EmitSignal(BaseButton.SignalName.Pressed);
+        if (game.Flow.EndOpen || game.Paused)
+        {
+            failures.Add("écran de fin : « Continuer quand même » ne le ferme pas");
+        }
+
+        GD.Print($"SMOKE objectifs : bouton, panneau {rows} lignes, bilan de décembre, écran de fin ({failures.Count} échec)");
     }
 
     /// <summary>C10 lot 1 : touches de caméra dans l'InputMap, Début centre sur le départ, Tab lance le suivi (vérifié par <see cref="CheckFollow"/>).</summary>

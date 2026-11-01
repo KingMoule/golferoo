@@ -187,6 +187,7 @@ public sealed partial class World
             visitors.Add(v);
         }
 
+        State.RecordExit(visitors.Count, group.Golfers.Where(HasMood).Sum(g => (long)g.Mood));
         Reputation += (ExitScore(group) - Reputation) * Arrivals.ReputationWeight;
         group.Left = true;
         _groupLeft = true;

@@ -45,12 +45,15 @@ public sealed partial class World
         }
 
         var before = g.Mood;
-        g.Mood = MoodParams.Clamp(before + def.Value);
+        g.Mood = MoodParams.Clamp(before + Drained(def.Value));
         g.LikedThisHole |= def.Value > 0 && e is not (MoodEvent.ProPlaysWithUs or MoodEvent.ServiceVisited);
         var cell = CellOf(at);
         Reactions.Add(hole, e, cell);
         MoodChanged?.Invoke(new MoodChange(g, e, hole, cell, g.Mood - before));
     }
+
+    /// <summary>Un changement d'humeur selon la difficulté : les baisses sont multipliées par <see cref="DifficultyParams.MoodDrain"/> (arrondi au plus loin de zéro, 1,0 ne change rien).</summary>
+    private int Drained(int delta) => delta < 0 ? (int)Math.Round(delta * Difficulty.MoodDrain, MidpointRounding.AwayFromZero) : delta;
 
     private static double Dist(Point2 a, Point2 b) => Math.Sqrt(Dist2(a, b));
 
@@ -184,7 +187,7 @@ public sealed partial class World
 
             if (group.Hole % Moods.DropEveryHoles == 0)
             {
-                g.Mood = MoodParams.Clamp(g.Mood - 1);
+                g.Mood = MoodParams.Clamp(g.Mood + Drained(-1));
             }
 
             if (g.LikedThisHole)
@@ -319,7 +322,7 @@ public sealed partial class World
     }
 
     /// <summary>Qualité de la sortie d'un groupe, de 0 à 1 : la moyenne de l'humeur de sortie de ses visiteurs, abandons compris (le pro n'a pas d'humeur).</summary>
-    private double ExitScore(Group group) => group.Golfers.Where(HasMood).Average(g => Moods.ExitScore(g.Mood));
+    private double ExitScore(Group group) => group.Golfers.Where(HasMood).Average(g => Moods.ExitScore(g.Mood, Difficulty.GolferDemand));
 
     private void MixMood(ref ulong hash)
     {

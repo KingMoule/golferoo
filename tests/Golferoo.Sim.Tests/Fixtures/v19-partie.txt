@@ -1,0 +1,4 @@
+tick 37800
+balance 11909370
+building 2 3 7 10 12 2
+building 1 101 99 106 103 2

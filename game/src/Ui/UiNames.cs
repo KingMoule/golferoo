@@ -1,5 +1,6 @@
 using Golferoo.Sim;
 using Golferoo.Sim.Buildings;
+using Golferoo.Sim.Objectives;
 
 namespace Golferoo.Game.Ui;
 
@@ -52,6 +53,14 @@ public static class UiNames
         BuildingPlacement.Funds => "Solde insuffisant.",
         _ => "Impossible de poser ici.",
     };
+
+    /// <summary>La récompense d'un objectif : l'argent de la difficulté, et le bon de pose s'il y en a un (« +5 000 $ et un bon : Snack-bar »).</summary>
+    public static string Reward(ObjectiveDef def, long cents)
+    {
+        var money = cents > 0 ? UiMoney.Format(cents, signed: true) : string.Empty;
+        var voucher = def.Voucher is { } kind ? $"un bon de pose : {BuildingName(kind).ToLowerInvariant()}" : string.Empty;
+        return money.Length > 0 && voucher.Length > 0 ? $"{money} et {voucher}" : money + voucher;
+    }
 
     /// <summary>« Printemps » pour « printemps ».</summary>
     public static string Capitalized(string text) => char.ToUpperInvariant(text[0]) + text[1..];

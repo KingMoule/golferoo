@@ -14,6 +14,7 @@ public enum LedgerCategory : byte
     GreenFees,
     Dues,
     Buildings,
+    Objectives,
 }
 
 /// <summary>Ligne d'un mois clos : son numéro (<see cref="Time.Calendar.MonthIndex"/>) et le total signé de chaque catégorie (dépenses négatives).</summary>
@@ -189,7 +190,7 @@ public sealed class Ledger
     private static long[] ReadTotals(SaveReader r)
     {
         var totals = new long[CategoryCount];
-        for (var i = 0; i < (r.Version < 12 ? CategoryCount - 1 : CategoryCount); i++) // v11 : sans la catégorie Buildings
+        for (var i = 0; i < (r.Version < 12 ? CategoryCount - 2 : r.Version < 20 ? CategoryCount - 1 : CategoryCount); i++) // v11 : sans la catégorie Buildings, avant la v20 : sans Objectives
         {
             totals[i] = r.Long();
         }

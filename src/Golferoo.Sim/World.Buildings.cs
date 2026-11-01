@@ -66,9 +66,15 @@ public sealed partial class World
 
         var cost = BuildingRules.Spec(kind)!.Cost;
         var cleared = ClearFootprint(terrain, building.Footprint, out var doomed, out var clearCost, out var undergrowth);
-        if (!TrySpend(LedgerCategory.Buildings, cost + clearCost))
+        var voucher = State.Vouchers(kind) > 0; // un bon de pose offre le prix du bâtiment, pas son défrichage
+        if (!TrySpend(LedgerCategory.Buildings, (voucher ? 0 : cost) + clearCost))
         {
             return BuildingPlacement.Funds;
+        }
+
+        if (voucher)
+        {
+            State.UseVoucher(kind);
         }
 
         if (doomed.Count > 0)

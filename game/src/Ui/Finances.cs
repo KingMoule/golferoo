@@ -58,6 +58,7 @@ public partial class Finances : Node
         LedgerCategory.Interest => "Intérêts",
         LedgerCategory.GreenFees => "Green fees",
         LedgerCategory.Buildings => "Bâtiments",
+        LedgerCategory.Objectives => "Objectifs",
         _ => "Cotisations",
     };
 
