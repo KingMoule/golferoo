@@ -1,0 +1,16 @@
+// Difficulté Facile (C18) : ce que l'économie (data/economy/facile.json) ne règle pas.
+// Multiplicateurs : 1,0 = le comportement actuel du jeu. objectiveRewards : récompense en cents par objectif (ids de la liste d'alpha).
+// Tous les paramètres sont obligatoires et positifs ou nuls : un oubli ou une valeur négative refuse le fichier.
+{
+  "golferDemand": 1.0,
+  "moodDrain": 1.0,
+  "objectiveRewards": {
+    "holes3": 500000,
+    "holes6": 1000000,
+    "holes9": 2000000,
+    "members10": 500000,
+    "gold": 1000000,
+    "positiveYear": 1500000,
+    "proDivision": 1000000
+  }
+}

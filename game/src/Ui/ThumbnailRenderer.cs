@@ -11,6 +11,27 @@ public partial class ThumbnailRenderer : Node
 {
     public static readonly Vector2I Size = new(UiTheme.ThumbWidth * 2, UiTheme.ThumbArtHeight * 2);
 
+    /// <summary>Taille de la vignette d'une sauvegarde (C18).</summary>
+    public static readonly Vector2I SaveSize = new(320, 180);
+
+    /// <summary>L'image que <paramref name="viewport"/> vient de dessiner, en JPEG de <see cref="SaveSize"/> ; nul si le moteur ne dessine rien (mode headless).</summary>
+    public static byte[]? CaptureJpg(Viewport viewport)
+    {
+        if (DisplayServer.GetName() == "headless")
+        {
+            return null;
+        }
+
+        var image = viewport.GetTexture()?.GetImage();
+        if (image is null || image.IsEmpty())
+        {
+            return null;
+        }
+
+        image.Resize(SaveSize.X, SaveSize.Y, Image.Interpolation.Lanczos);
+        return image.SaveJpgToBuffer(0.85f);
+    }
+
     private static readonly Color Background = new("5f9148");
 
     private readonly Dictionary<string, Texture2D> _cache = [];
