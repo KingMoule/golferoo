@@ -1,5 +1,5 @@
 # Une partie du début à la fin
-Statut : cadré (en attente du « go » de Guillaume)
+Statut : validé (go de Guillaume le 2026-11-01)
 Créé : 2026-11-01
 
 ## But
