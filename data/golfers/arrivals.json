@@ -13,7 +13,7 @@
   "maxGroupsPerHole": 2,
 
   // Facteur sur la marche des golfeurs IA (le vol de balle et le pro joué par le joueur gardent leur vitesse) : la marche fait environ la moitié de leur temps
-  "aiWalkSpeedFactor": 2.25,
+  "aiWalkSpeedFactor": 3.0,
 
   // Cadence de lecture du vol de balle des golfeurs IA (au moins 1) : la trajectoire ne change pas, la balle la parcourt plus vite
   "aiFlightSpeedFactor": 1.5,
