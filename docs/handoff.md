@@ -1,9 +1,10 @@
-Mis à jour : 2026-11-01 (C17 livré, passages de « Le neuf » #155)
+Mis à jour : 2026-11-01 (C18 livré, #157 à #160)
 
 ## État
-Vague 2 : C15, C16 et C17 (bâtiments : snack-bar, pro shop, hangar, bancs, #149 à #154) livrés. #155 a ouvert des passages dans les bois entre les trous de « Le neuf » : avant, les golfeurs sortaient des enclos des trous 4 à 8 par téléportation (130 en 8 jours, 0 depuis). Les champs de flux des marcheurs sont bornés à leur trajet (pire tick du banc 2,3 ms au lieu de 5,4). Sauvegarde en v19.
+Vague 3 : C18 (une partie du début à la fin) livré en 3 lots : menu titre, nouvelle partie sur un terrain plat provisoire (C24 le remplacera), 3 emplacements + auto avec vignette, pause (Échap), objectifs (7, bons de pose), faillite avec « continuer quand même », bilan annuel, options et pause automatique. Sauvegarde en v20.
 
 ## À signaler à Guillaume
+- C18 : la faillite n'arrive qu'à un club sans visiteurs (sous −100 000 $ au mois 25, `Bankrupt` au mois 30 ; avec des visiteurs le solde reste vers +340 000 $ au mois 12). Revente d'un bâtiment offert par un bon : +23 500 $ au total, toléré. `golferDemand` branché sur l'humeur requise d'une sortie parfaite : à confirmer. « Trésorerie basse » de la pause automatique = achat refusé. Vignettes des emplacements non vérifiées en headless.
 - C17 : la capture `c17-visite` montre le pro shop (le snack-bar était dans l'enclos) ; les noms des bâtiments sont dans `UiNames`, pas dans les données. Écarts acceptés, notés dans la spec.
 - Marche IA gardée à ×3,0 (décision de Guillaume) : un groupe seul marche 36 à 43 % de sa partie, borne du test 33 à 55 %. Le garde-fou « au moins un abandon en 8 jours » est retiré : 0 abandon sur 8 jours, 2 à 4 % sur 30 jours.
 - À relire en jeu : textes des bâtiments, pensées de `mood.json`, façade du pavillon, chemin de sortie le long du départ 9.
@@ -25,4 +26,4 @@ Vague 2 : C15, C16 et C17 (bâtiments : snack-bar, pro shop, hangar, bancs, #149
 - Captures : la suite prend environ 600 s sur 720 en CI ; une nouvelle capture qui attend la sim doit choisir une scène rapide.
 
 ## Prochaine étape
-EN ATTENTE de Guillaume : séance de jeu sur « Le neuf » avec les bâtiments (artefact `golferoo-windows`), puis cadrage de C18 (une partie du début à la fin).
+EN ATTENTE de Guillaume : séance de jeu (menu, nouvelle partie, objectifs, options ; artefact `golferoo-windows`), puis cadrage de C19, C20, C22 ou C24 (génération de la propriété, qui remplace le terrain plat).

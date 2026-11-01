@@ -272,17 +272,12 @@ public partial class SmokeTest : Node
     {
         var title = GD.Load<PackedScene>(TitleMenu.Scene).Instantiate<TitleMenu>();
         AddChild(title);
-        foreach (var id in new[] { UiIds.Menu.NewGame, UiIds.Menu.Load, UiIds.Menu.Demo, UiIds.Menu.Quit })
+        foreach (var id in new[] { UiIds.Menu.NewGame, UiIds.Menu.Load, UiIds.Menu.Demo, UiIds.Menu.Options, UiIds.Menu.Quit })
         {
             if (title.FindChild(id, true, false) is not Button { Disabled: false })
             {
                 failures.Add($"menu titre : bouton {id} absent ou grisé");
             }
-        }
-
-        if (title.FindChild(UiIds.Menu.Options, true, false) is not Button { Disabled: true })
-        {
-            failures.Add("menu titre : Options devrait être grisé jusqu'au lot 3");
         }
 
         (title.FindChild(UiIds.Menu.NewGame, true, false) as Button)?.EmitSignal(BaseButton.SignalName.Pressed);
@@ -315,7 +310,7 @@ public partial class SmokeTest : Node
             failures.Add("Échap n'ouvre pas le menu pause");
         }
 
-        foreach (var id in new[] { UiIds.Menu.Resume, UiIds.Menu.Save, UiIds.Menu.Load, UiIds.Menu.ToTitle, UiIds.Menu.Quit })
+        foreach (var id in new[] { UiIds.Menu.Resume, UiIds.Menu.Save, UiIds.Menu.Load, UiIds.Menu.Options, UiIds.Menu.ToTitle, UiIds.Menu.Quit })
         {
             if (game.Ui.Find(id) is not Button { Disabled: false })
             {
@@ -351,6 +346,92 @@ public partial class SmokeTest : Node
         }
 
         GD.Print($"SMOKE menus : titre, nouvelle partie, pause, emplacement ({failures.Count} échec)");
+        CheckOptions(game, failures);
+    }
+
+    /// <summary>
+    /// C18 lot 3 : l'écran Options s'ouvre du menu titre et du menu pause, une valeur change et <c>options.cfg</c> est écrit puis relu ; un fichier absent ou partiel (un fichier corrompu n'est pas testé ici : le moteur le journalise en ERROR, que la CI refuse)
+    /// rend les valeurs par défaut ; la pause automatique se déclenche sur un message de la liste fermée, pas sur un autre. Le vrai fichier du joueur n'est pas touché.
+    /// </summary>
+    private void CheckOptions(Main game, List<string> failures)
+    {
+        var before = failures.Count;
+        var (real, wasAuto) = (GameOptions.FilePath, GameOptions.AutoPause);
+        GameOptions.FilePath = "user://options-smoke.cfg";
+        DirAccess.RemoveAbsolute(GameOptions.FilePath);
+        GameOptions.Load();
+        if (GameOptions.Resolution != GameOptions.Resolutions[0] || GameOptions.Fullscreen || GameOptions.UiScale != 1f || !GameOptions.AutoPause)
+        {
+            failures.Add("options : fichier absent, les valeurs par défaut ne sont pas rendues");
+        }
+
+        WriteOptions("[options]\nauto_pause=false\nwidth=\"x\"\nui_scale=7.0\n");
+        if (GameOptions.AutoPause || GameOptions.Resolution != GameOptions.Resolutions[0] || GameOptions.UiScale != 1f)
+        {
+            failures.Add("options : fichier partiel ou invalide mal lu");
+        }
+
+        GameOptions.AutoPause = true;
+        var title = GD.Load<PackedScene>(TitleMenu.Scene).Instantiate<TitleMenu>();
+        AddChild(title);
+        (title.FindChild(UiIds.Menu.Options, true, false) as Button)?.EmitSignal(BaseButton.SignalName.Pressed);
+        if (title.FindChild(UiIds.Menu.OptionsAutoPause, true, false) is not CheckButton { ButtonPressed: true } toggle
+            || title.FindChild(UiIds.Menu.OptionsResolution, true, false) is null || title.FindChild(UiIds.Menu.OptionsFullscreen, true, false) is null || title.FindChild(UiIds.Menu.OptionsScale, true, false) is null)
+        {
+            failures.Add("options : l'écran ne s'ouvre pas du menu titre");
+        }
+        else
+        {
+            toggle.ButtonPressed = false;
+            GameOptions.AutoPause = true;
+            GameOptions.Load();
+            if (GameOptions.AutoPause || !Godot.FileAccess.FileExists(GameOptions.FilePath))
+            {
+                failures.Add("options : le changement n'est pas écrit dans options.cfg");
+            }
+        }
+
+        title.QueueFree();
+        (game.Ui.Find(UiIds.Menu.Options) as Button)?.EmitSignal(BaseButton.SignalName.Pressed);
+        if (game.Ui.Find(UiIds.Menu.OptionsScreen) is null)
+        {
+            failures.Add("options : l'écran ne s'ouvre pas du menu pause");
+        }
+
+        game.PauseMenu.Toggle(); // ferme l'écran Options
+        game.PauseMenu.Toggle(); // ferme le menu pause
+        GameOptions.AutoPause = true;
+        game.Paused = false;
+        if (game.AutoPause.Notify("meteo") || game.Paused)
+        {
+            failures.Add("pause automatique : un message hors liste met en pause");
+        }
+
+        if (!game.AutoPause.Notify("abandon") || !game.Paused)
+        {
+            failures.Add("pause automatique : un message de la liste ne met pas en pause");
+        }
+
+        game.Paused = false;
+        GameOptions.AutoPause = false;
+        if (game.AutoPause.Notify("abandon") || game.Paused)
+        {
+            failures.Add("pause automatique : l'option coupée met quand même en pause");
+        }
+
+        DirAccess.RemoveAbsolute(GameOptions.FilePath);
+        (GameOptions.FilePath, GameOptions.AutoPause) = (real, wasAuto);
+        GD.Print($"SMOKE options ({failures.Count - before} échec)");
+    }
+
+    private static void WriteOptions(string text)
+    {
+        using (var file = Godot.FileAccess.Open(GameOptions.FilePath, Godot.FileAccess.ModeFlags.Write))
+        {
+            file.StoreString(text);
+        }
+
+        GameOptions.Load();
     }
 
     /// <summary>

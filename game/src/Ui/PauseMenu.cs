@@ -3,7 +3,7 @@ using Godot;
 namespace Golferoo.Game.Ui;
 
 /// <summary>
-/// Menu pause (C18), ouvert par Échap quand rien d'autre n'est à fermer : Reprendre, Sauvegarder, Charger, Options (grisé jusqu'au lot 3), Menu titre, Quitter.
+/// Menu pause (C18), ouvert par Échap quand rien d'autre n'est à fermer : Reprendre, Sauvegarder, Charger, Options, Menu titre, Quitter.
 /// Il met le jeu en pause et rend l'état de pause d'avant en se fermant. La vignette d'une sauvegarde est prise à l'ouverture, avant que le menu n'assombrisse l'écran.
 /// </summary>
 public partial class PauseMenu : Node
@@ -30,9 +30,7 @@ public partial class PauseMenu : Node
         Add(UiIds.Menu.Resume, "Reprendre", Close);
         Add(UiIds.Menu.Save, "Sauvegarder", () => ShowSlots(saving: true)).Disabled = !main.CanSave;
         Add(UiIds.Menu.Load, "Charger", () => ShowSlots(saving: false));
-        var options = Add(UiIds.Menu.Options, "Options", () => { });
-        options.Disabled = true;
-        options.TooltipText = "Bientôt disponible";
+        Add(UiIds.Menu.Options, "Options", ShowOptions);
         Add(UiIds.Menu.ToTitle, "Menu titre", () => GetTree().ChangeSceneToFile(TitleMenu.Scene));
         Add(UiIds.Menu.Quit, "Quitter", () => GetTree().Quit());
         _status = new Label { Name = UiIds.Menu.Error, ThemeTypeVariation = "UiCaption", AutowrapMode = TextServer.AutowrapMode.WordSmart, Visible = false };
@@ -86,6 +84,14 @@ public partial class PauseMenu : Node
     {
         CloseSlots();
         _slots = SlotsScreen.Create(saving, slot => Pick(slot, saving), CloseSlots);
+        _menu.Visible = false;
+        _shade.AddChild(_slots);
+    }
+
+    private void ShowOptions()
+    {
+        CloseSlots();
+        _slots = OptionsScreen.Create(CloseSlots);
         _menu.Visible = false;
         _shade.AddChild(_slots);
     }

@@ -4,7 +4,7 @@ using Golferoo.Sim.Economy;
 namespace Golferoo.Game.Ui;
 
 /// <summary>
-/// Menu titre (C18), la scène de lancement : Nouvelle partie (graine, difficulté Facile), Charger, Parcours de démonstration (« Le neuf »), Options (grisé jusqu'au lot 3), Quitter.
+/// Menu titre (C18), la scène de lancement : Nouvelle partie (graine, difficulté Facile), Charger, Parcours de démonstration (« Le neuf »), Options, Quitter.
 /// Il dépose sa demande dans <see cref="Main"/> puis charge la scène du jeu. `--course`, `--tutorial`, `--load`, `--pro` et la mesure FPS le contournent (<see cref="Main.SkipsTitleMenu"/>).
 /// </summary>
 public partial class TitleMenu : Control
@@ -25,6 +25,7 @@ public partial class TitleMenu : Control
             return;
         }
 
+        GameOptions.Apply(GetWindow());
         Theme = UiTheme.Theme;
         var sky = new ColorRect { Color = new Color(0.55f, 0.75f, 0.92f), MouseFilter = MouseFilterEnum.Ignore };
         sky.SetAnchorsPreset(LayoutPreset.FullRect);
@@ -36,9 +37,7 @@ public partial class TitleMenu : Control
         Add(UiIds.Menu.NewGame, "Nouvelle partie", ShowNewGame);
         Add(UiIds.Menu.Load, "Charger", ShowLoad);
         Add(UiIds.Menu.Demo, "Parcours de démonstration", () => Launch(Main.GameRequest.Demo));
-        var options = Add(UiIds.Menu.Options, "Options", () => { });
-        options.Disabled = true;
-        options.TooltipText = "Bientôt disponible";
+        Add(UiIds.Menu.Options, "Options", () => Swap(OptionsScreen.Create(Back)));
         Add(UiIds.Menu.Quit, "Quitter", () => GetTree().Quit());
         _status = new Label { Name = UiIds.Menu.Error, ThemeTypeVariation = "UiCaption", AutowrapMode = TextServer.AutowrapMode.WordSmart, Visible = false };
         _menu.Content.AddChild(_status);

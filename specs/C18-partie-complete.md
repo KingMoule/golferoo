@@ -1,5 +1,5 @@
 # Une partie du début à la fin
-Statut : validé (go de Guillaume le 2026-11-01)
+Statut : livré (#158 à #160)
 Créé : 2026-11-01
 
 ## But
@@ -54,5 +54,5 @@ Hors périmètre :
 complet (lot 2), léger (lots 1 et 3).
 
 ## Clôture
-- [ ] Critères vérifiés
-- [ ] Statut passé à « livré », ligne mise à jour dans docs/chantiers.md
+- [x] Critères vérifiés (CI verte sur les trois lots ; vignette réelle et durée de la suite de captures à lire en jeu et en CI)
+- [x] Statut passé à « livré », ligne mise à jour dans docs/chantiers.md

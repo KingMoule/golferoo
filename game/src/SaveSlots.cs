@@ -58,8 +58,8 @@ public static class SaveSlots
     /// <summary>La vignette de l'emplacement, ou nulle s'il n'en a pas.</summary>
     public static Texture2D? Thumbnail(string slot)
     {
-        var image = Image.LoadFromFile(SaveSlotStore.ThumbPath(Dir, slot));
-        return image is null ? null : ImageTexture.CreateFromImage(image);
+        var path = SaveSlotStore.ThumbPath(Dir, slot);
+        return System.IO.File.Exists(path) && Image.LoadFromFile(path) is { } image ? ImageTexture.CreateFromImage(image) : null; // sans vignette (fumée sans écran) : pas d'erreur Godot
     }
 
     /// <summary>Les emplacements existants, le plus récent d'abord.</summary>

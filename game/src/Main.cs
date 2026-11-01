@@ -163,8 +163,11 @@ public partial class Main : Node3D
     /// <summary>Objectifs, bilan annuel et écran de fin de la faillite (C18).</summary>
     public GameFlow Flow { get; private set; } = null!;
 
-    /// <summary>Échelle d'interface (<c>-- --ui-scale 1.25</c>) : 1, 1,25 ou 1,5.</summary>
-    public static float UiScale => float.TryParse(CommandLineOption("--ui-scale"), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var scale) ? Math.Clamp(scale, 1f, 1.5f) : 1f;
+    /// <summary>La pause automatique sur les messages importants (C18).</summary>
+    public AutoPause AutoPause { get; private set; } = null!;
+
+    /// <summary>Échelle d'interface : <c>-- --ui-scale 1.25</c> (entre 1 et 1,5) l'emporte sur l'option du joueur (<see cref="GameOptions.UiScale"/>).</summary>
+    public static float UiScale => float.TryParse(CommandLineOption("--ui-scale"), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var scale) ? Math.Clamp(scale, 1f, 1.5f) : GameOptions.UiScale;
 
     /// <summary>La barre du bas, d'où part tout outil.</summary>
     public BottomBar Bar { get; private set; } = null!;
@@ -427,6 +430,9 @@ public partial class Main : Node3D
         Flow = new GameFlow { Name = "GameFlow" };
         AddChild(Flow);
         Flow.Init(this);
+        AutoPause = new AutoPause { Name = "AutoPause" };
+        AddChild(AutoPause);
+        AutoPause.Init(this);
         // L'échelle agrandit toute l'interface (calques 2D), pas le rendu 3D.
         GetWindow().ContentScaleFactor = UiScale;
 
