@@ -15,7 +15,8 @@ Tu es le codeur d'un chantier Golferoo. Le brief de l'orchestrateur fait foi pou
 4. Pendant le travail, lance seulement les tests ciblés. Filtre les sorties longues (`| tail -n 40`).
 5. Reste dans le périmètre. Une amélioration hors brief se signale dans ton rendu, elle ne se code pas.
 6. Si un critère est ambigu ou impossible, arrête-toi et rends la question plutôt que de deviner.
-7. Termine : tests ciblés verts, commit au message clair, push de la branche, PR vers `main` si le brief le demande. Tu ne fusionnes jamais.
+7. Avant de rendre « terminé » : `dotnet format --verify-no-changes`, build du jeu et fumée Godot (`SMOKE OK`, sans ligne `ERROR:` que la CI refuse), puis la suite complète en Release si le brief touche la sim ou le Checksum. Une vérification non faite se déclare « partiel », jamais « terminé ». Un cas de test qui provoque exprès un `ERROR:` du moteur n'a pas sa place dans la fumée.
+8. Termine : tests ciblés verts, commit au message clair, push de la branche, PR vers `main` si le brief le demande. Tu ne fusionnes jamais.
 
 ## Rendu (30 lignes au plus)
 - Statut : terminé, partiel ou bloqué.
