@@ -119,7 +119,8 @@ public sealed class FlowFieldCache
                 return _fields[key] = FlowField.Build(_terrain, _costs, nx, nz); // trop étroit : refait complet, à sa place dans l'ordre
             }
 
-            // Trop étroit et budget épuisé : il attend son tour, complet.
+            // Trop étroit et budget épuisé : il attend son tour, complet. Il sort du cache (une clé est en attente ou en cache, jamais les deux) :
+            // les marcheurs que l'ancien champ couvrait attendent eux aussi qu'il soit refait.
             _fields.Remove(key);
             _order.Remove(key);
             _pending.Add((key, -1));

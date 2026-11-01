@@ -636,6 +636,7 @@ public class SaveTests
     /// <summary>
     /// Banc C12 : les champs en cache des marcheurs sont bornés par la cellule de qui les a fait calculer ; la sauvegarde garde cette origine,
     /// pour que la couverture (donc qui attend un champ élargi) se refasse à l'identique.
+    /// La preuve est l'égalité des champs en cache (origine comprise) : dans ce scénario, la somme après quelques centaines de ticks ne diverge pas sans l'origine.
     /// </summary>
     [Fact]
     public void BoundedFlowFields_ReloadWithTheirOrigin()
