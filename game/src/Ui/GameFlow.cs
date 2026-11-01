@@ -2,6 +2,7 @@ using Godot;
 using Golferoo.Sim;
 using Golferoo.Sim.Economy;
 using Golferoo.Sim.Objectives;
+using Golferoo.Sim.Pro;
 
 namespace Golferoo.Game.Ui;
 
@@ -44,6 +45,7 @@ public partial class GameFlow : Node
 
         BuildReport();
         BuildEnd();
+        world.AdviceGiven += OnAdvice;
         world.YearClosed += OnYear;
         world.Bankrupt += OnBankrupt;
         if (world.State.Bankrupt && !world.State.ContinuedAfterBankruptcy)
@@ -57,6 +59,7 @@ public partial class GameFlow : Node
         if (_main?.World is { } world)
         {
             world.ObjectiveCompleted -= OnObjective;
+            world.AdviceGiven -= OnAdvice;
             world.YearClosed -= OnYear;
             world.Bankrupt -= OnBankrupt;
         }
@@ -70,6 +73,20 @@ public partial class GameFlow : Node
             _sinceRefresh = 0;
             RefreshObjectives();
         }
+    }
+
+    // ---- Conseils du pro (C19 lot 2) ----
+
+    /// <summary>Le pro conseille : bulle du pro et pause automatique, sauf si l'option « Conseils du pro » est coupée (la sim a donné le conseil quand même).</summary>
+    internal void OnAdvice(AdviceDef def, int hole)
+    {
+        if (!GameOptions.ProAdvice)
+        {
+            return;
+        }
+
+        _main.Birdie.Post(Birdie.Pro, def.Text.Replace("{hole}", hole.ToString(System.Globalization.CultureInfo.InvariantCulture), StringComparison.Ordinal), "#conseil");
+        _main.AutoPause.Notify("conseil");
     }
 
     // ---- Objectifs ----

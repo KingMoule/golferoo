@@ -509,7 +509,7 @@ public class SaveTests
     public void Load_UnknownVersion_Throws()
     {
         var bytes = Save(Build(1, "proto", "start"));
-        bytes[4] = 22;
+        bytes[4] = 23;
 
         Assert.Throws<InvalidDataException>(() => Load(bytes));
     }
@@ -1127,9 +1127,9 @@ public class SaveTests
         Assert.Equal(world.Checksum(), loaded.Checksum());
     }
 
-    public static TheoryData<string> GameStateMutations => new() { "complete", "bankrupt", "continued", "monthsBelow", "yearStart", "exit", "golfersOnly", "moodOnly", "voucher", "report", "clubActive", "thoughtRead" };
+    public static TheoryData<string> GameStateMutations => new() { "complete", "bankrupt", "continued", "monthsBelow", "yearStart", "exit", "golfersOnly", "moodOnly", "voucher", "report", "clubActive", "thoughtRead", "advice", "walkouts", "holeIdle" };
 
-    private static string Describe(GameState s) => string.Join('|', s.ClubActive, s.ThoughtRead, s.ObjectivesOn, s.Completed, s.Bankrupt, s.ContinuedAfterBankruptcy, s.MonthsBelow, s.YearStartBalance, s.YearGolfers, s.YearMoodTotal, s.YearObjectives,
+    private static string Describe(GameState s) => string.Join('|', s.ClubActive, s.ThoughtRead, s.AdviceGiven, s.Walkouts, s.HoleIdle(0), s.HoleIdle(3), s.ObjectivesOn, s.Completed, s.Bankrupt, s.ContinuedAfterBankruptcy, s.MonthsBelow, s.YearStartBalance, s.YearGolfers, s.YearMoodTotal, s.YearObjectives,
         string.Join(',', Enum.GetValues<BuildingKind>().Select(s.Vouchers)), string.Join(';', s.Reports.Select(r => $"{r.Year},{string.Join(',', r.Totals)},{r.OpeningBalance},{r.ClosingBalance},{r.Golfers},{r.Members},{r.MoodTotal},{r.ObjectivesDone}")));
 
     /// <summary>C18 lot 2 (v20) : chaque champ de l'état de partie se sauve, se relit et change la somme de contrôle ; un champ oublié de <c>Save</c> ou du <c>Checksum</c> fait échouer son cas.</summary>
@@ -1152,6 +1152,9 @@ public class SaveTests
             "voucher" => s => s.AddVoucher(BuildingKind.ProShop),
             "clubActive" => s => s.ClubActive = false, // un monde hors leçon est actif d'office : le contraire change la somme
             "thoughtRead" => s => s.ThoughtRead = true,
+            "advice" => s => s.GiveAdvice(2),
+            "walkouts" => s => s.Walkouts = 2,
+            "holeIdle" => s => s.SetHoleIdle(3, 4),
             _ => s => s.CloseYear(new YearReport(1, [.. Enumerable.Range(1, Enum.GetValues<LedgerCategory>().Length).Select(i => (long)i)], 11, 22, 3, 4, -5, 6)),
         };
         change(world.State);
@@ -1218,6 +1221,33 @@ public class SaveTests
         Assert.True(world.State.ClubActive);
         Assert.False(world.State.ThoughtRead);
         Assert.NotNull(world.Clubhouse);
+
+        var again = Load(Save(world));
+        Assert.Equal(world.Checksum(), again.Checksum());
+        world.Step(3000);
+        again.Step(3000);
+        Assert.Equal(world.Checksum(), again.Checksum());
+    }
+
+    /// <summary>
+    /// Une vraie sauvegarde v21 produite par <c>main</c> (559ac19, graine 3, trois jours et demi, pro shop et snack-bar posés, objectifs en cours) se charge sans conseil donné,
+    /// sans abandon compté ni jour sans partie, la caisse, les bâtiments et les objectifs intacts, et la partie continue de la même façon que sa relecture.
+    /// </summary>
+    [Fact]
+    public void Load_RealV21Save_KeepsTheGame_WithNoAdviceGivenYet()
+    {
+        var dir = Path.Combine(AppContext.BaseDirectory, "Fixtures");
+        var expected = File.ReadAllLines(Path.Combine(dir, "v21-partie.txt"));
+        var world = Load(File.ReadAllBytes(Path.Combine(dir, "v21-partie.sav")));
+
+        Assert.Equal($"tick {world.Tick}", expected[0]);
+        Assert.Equal($"balance {world.Ledger.Balance}", expected[1]);
+        Assert.Equal(expected.Where(l => l.StartsWith("building ")), world.PlacedBuildings.Select(b => $"building {(int)b.Kind} {b.Footprint.MinX} {b.Footprint.MinZ} {b.Footprint.MaxX} {b.Footprint.MaxZ} {(int)b.Side}"));
+        Assert.Equal($"state {world.State.Completed} {world.State.ObjectivesOn}", expected.Single(l => l.StartsWith("state ")));
+        Assert.Equal($"active {world.State.ClubActive} {world.State.ThoughtRead}", expected.Single(l => l.StartsWith("active ")));
+        Assert.Equal(0UL, world.State.AdviceGiven);
+        Assert.Equal(0, world.State.Walkouts);
+        Assert.Equal(0, world.State.HoleIdle(0));
 
         var again = Load(Save(world));
         Assert.Equal(world.Checksum(), again.Checksum());

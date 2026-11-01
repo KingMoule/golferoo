@@ -223,9 +223,40 @@ public partial class SmokeTest : Node
         }
 
         main.StepTicks(20);
+        CheckAdvice(main, failures);
         CheckNoKeys(main, failures, texts);
         GD.Print($"SMOKE tutoriel : fini aux boutons, {highlighted.Count} boutons mis en évidence ({string.Join(", ", highlighted)}), {failures.Count} échec");
         return failures;
+    }
+
+    /// <summary>
+    /// C19 lot 2 : un conseil du pro s'affiche en bulle du pro (avec la pause automatique si elle est active) ; l'option « Conseils du pro » coupée n'affiche plus rien
+    /// (la sim donne le conseil quand même : AdviceTests).
+    /// </summary>
+    private static void CheckAdvice(Main main, List<string> failures)
+    {
+        var chirps = main.Birdie.Chirps;
+        var shown = chirps.Count(c => c.Tag == "#conseil");
+        main.Paused = false;
+        GameOptions.ProAdvice = true;
+        GameOptions.AutoPause = true;
+        var def = Golferoo.Sim.Pro.AdviceCatalog.Default[0];
+        main.Flow.OnAdvice(def, 0); // la sim lève AdviceGiven au changement de jour (AdviceTests) : ici, ce que le jeu en fait
+        if (chirps.Count(c => c.Tag == "#conseil") != shown + 1 || chirps.Last(c => c.Tag == "#conseil").Text != def.Text || !main.Paused)
+        {
+            failures.Add($"conseil : le conseil ne donne pas la bulle du pro et la pause (bulles {chirps.Count(c => c.Tag == "#conseil") - shown}, pause {main.Paused})");
+        }
+
+        main.Paused = false;
+        GameOptions.ProAdvice = false;
+        main.Flow.OnAdvice(Golferoo.Sim.Pro.AdviceCatalog.Default[1], 0);
+        if (chirps.Count(c => c.Tag == "#conseil") != shown + 1 || main.Paused)
+        {
+            failures.Add("conseil : l'option coupée affiche encore le conseil");
+        }
+
+        GameOptions.ProAdvice = true;
+        GD.Print($"SMOKE conseil : bulle du pro et pause, option coupée sans affichage ({failures.Count} échec)");
     }
 
     /// <summary>Le clic sur le terrain de l'étape <paramref name="step"/>, l'outil déjà choisi aux boutons ; faux si l'outil n'est pas dans le bon état.</summary>
@@ -399,23 +430,23 @@ public partial class SmokeTest : Node
         GameOptions.FilePath = "user://options-smoke.cfg";
         DirAccess.RemoveAbsolute(GameOptions.FilePath);
         GameOptions.Load();
-        if (GameOptions.Resolution != GameOptions.Resolutions[0] || GameOptions.Fullscreen || GameOptions.UiScale != 1f || !GameOptions.AutoPause)
+        if (GameOptions.Resolution != GameOptions.Resolutions[0] || GameOptions.Fullscreen || GameOptions.UiScale != 1f || !GameOptions.AutoPause || !GameOptions.ProAdvice)
         {
             failures.Add("options : fichier absent, les valeurs par défaut ne sont pas rendues");
         }
 
-        WriteOptions("[options]\nauto_pause=false\nwidth=\"x\"\nui_scale=7.0\n");
-        if (GameOptions.AutoPause || GameOptions.Resolution != GameOptions.Resolutions[0] || GameOptions.UiScale != 1f)
+        WriteOptions("[options]\nauto_pause=false\npro_advice=false\nwidth=\"x\"\nui_scale=7.0\n");
+        if (GameOptions.AutoPause || GameOptions.ProAdvice || GameOptions.Resolution != GameOptions.Resolutions[0] || GameOptions.UiScale != 1f)
         {
             failures.Add("options : fichier partiel ou invalide mal lu");
         }
 
-        GameOptions.AutoPause = true;
+        GameOptions.AutoPause = GameOptions.ProAdvice = true;
         var title = GD.Load<PackedScene>(TitleMenu.Scene).Instantiate<TitleMenu>();
         AddChild(title);
         (title.FindChild(UiIds.Menu.Options, true, false) as Button)?.EmitSignal(BaseButton.SignalName.Pressed);
         if (title.FindChild(UiIds.Menu.OptionsAutoPause, true, false) is not CheckButton { ButtonPressed: true } toggle
-            || title.FindChild(UiIds.Menu.OptionsResolution, true, false) is null || title.FindChild(UiIds.Menu.OptionsFullscreen, true, false) is null || title.FindChild(UiIds.Menu.OptionsScale, true, false) is null)
+            || title.FindChild(UiIds.Menu.OptionsResolution, true, false) is null || title.FindChild(UiIds.Menu.OptionsFullscreen, true, false) is null || title.FindChild(UiIds.Menu.OptionsScale, true, false) is null || title.FindChild(UiIds.Menu.OptionsProAdvice, true, false) is not CheckButton { ButtonPressed: true })
         {
             failures.Add("options : l'écran ne s'ouvre pas du menu titre");
         }

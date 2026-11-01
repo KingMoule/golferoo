@@ -1,0 +1,12 @@
+// Conseils du pro (C19 lot 2) : la première année, le pro commente l'état du club, une fois chacun, évalués au changement de jour.
+// condition : firstWalkout (golfeurs ayant abandonné au moins "threshold"), lowCash (solde sous "threshold" cents), unplayedHole (un trou ouvert sans partie finie depuis "threshold" jours),
+//             wornTurf (part, en pour cent, des cellules de fairway et de green usées au moins "threshold").
+// text : la bulle du pro ; {hole} est remplacé par le numéro du trou concerné. L'ordre du fichier fixe le bit de chaque conseil dans la sauvegarde : n'insérer qu'à la fin.
+{
+  "advice": [
+    { "id": "firstWalkout", "condition": "firstWalkout", "threshold": 1, "text": "Un golfeur vient d'abandonner. Ouvrez la fiche d'un joueur contrarié : ses pensées disent ce qui l'a mis de mauvaise humeur, et c'est à corriger sur le terrain." },
+    { "id": "lowCash", "condition": "lowCash", "threshold": 2500000, "text": "La caisse passe sous 25 000 $. Gardez de quoi payer vos prochains achats : les green fees rentrent trou après trou, patientez avant de construire." },
+    { "id": "unplayedHole", "condition": "unplayedHole", "threshold": 3, "text": "Personne n'a fini le trou {hole} depuis trois jours. Vérifiez qu'on peut y aller à pied depuis le trou précédent, et que le départ et le green sont bien posés." },
+    { "id": "wornTurf", "condition": "wornTurf", "threshold": 15, "text": "Le gazon commence à s'user sur vos fairways et vos greens. Les tondeuses l'entretiennent, mais un hangar d'entretien ou un second départ répartira mieux le passage." }
+  ]
+}

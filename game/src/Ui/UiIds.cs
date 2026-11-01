@@ -164,6 +164,7 @@ public static class UiIds
         public const string OptionsFullscreen = "OptionsFullscreen";
         public const string OptionsScale = "OptionsScale";
         public const string OptionsAutoPause = "OptionsAutoPause";
+        public const string OptionsProAdvice = "OptionsProAdvice";
         public const string Quit = "MenuQuit";
         public const string Pause = "PauseMenu";
         public const string Resume = "MenuResume";

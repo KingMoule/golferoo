@@ -36,6 +36,10 @@ public static class OptionsScreen
             ThemeTypeVariation = "UiCaption",
             AutowrapMode = TextServer.AutowrapMode.WordSmart,
         });
+
+        var advice = Toggle(UiIds.Menu.OptionsProAdvice, GameOptions.ProAdvice);
+        advice.Toggled += on => Change(panel, () => GameOptions.ProAdvice = on);
+        panel.Content.AddChild(Row("Conseils du pro", advice));
         return panel;
     }
 

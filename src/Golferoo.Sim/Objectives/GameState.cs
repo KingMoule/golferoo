@@ -1,5 +1,6 @@
 using Golferoo.Sim.Buildings;
 using Golferoo.Sim.Economy;
+using Golferoo.Sim.Pro;
 using Golferoo.Sim.Save;
 
 namespace Golferoo.Sim.Objectives;
@@ -91,6 +92,31 @@ public sealed class GameState
     /// </summary>
     public bool ClubActive { get; internal set; }
 
+    /// <summary>Conseils du pro déjà donnés : le bit n est celui du conseil n de <see cref="Pro.AdviceCatalog"/> (C19 lot 2).</summary>
+    public ulong AdviceGiven { get; private set; }
+
+    /// <summary>Golfeurs qui ont abandonné depuis le début de la partie (condition du premier conseil).</summary>
+    public int Walkouts { get; internal set; }
+
+    private readonly List<int> _holeIdle = [];
+
+    /// <summary>Jours consécutifs où le trou (indice 0 pour le trou 1) est resté ouvert sans qu'aucune partie ne le finisse ; -1 le jour où l'on vient de le finir.</summary>
+    public int HoleIdle(int index) => index < _holeIdle.Count ? _holeIdle[index] : 0;
+
+    internal void SetHoleIdle(int index, int days)
+    {
+        while (_holeIdle.Count <= index)
+        {
+            _holeIdle.Add(0);
+        }
+
+        _holeIdle[index] = days;
+    }
+
+    public bool AdviceDone(int index) => (AdviceGiven & (1UL << index)) != 0;
+
+    internal void GiveAdvice(int index) => AdviceGiven |= 1UL << index;
+
     /// <summary>Le joueur a ouvert la fiche ou l'info-bulle d'un golfeur qui porte une pensée (étape « lire une pensée » de la leçon, C19).</summary>
     public bool ThoughtRead { get; internal set; }
 
@@ -162,7 +188,7 @@ public sealed class GameState
 
     /// <summary>Un état que rien n'a touché ne change pas la somme de contrôle (les mondes sans partie gardent leurs empreintes).</summary>
     internal bool Untouched =>
-        !ObjectivesOn && ClubActive == _clubActiveAtStart && !ThoughtRead && Completed == 0 && !Bankrupt && !ContinuedAfterBankruptcy && MonthsBelow == 0 && YearStartBalance == _startingBalance
+        !ObjectivesOn && ClubActive == _clubActiveAtStart && !ThoughtRead && AdviceGiven == 0 && Walkouts == 0 && _holeIdle.All(d => d == 0) && Completed == 0 && !Bankrupt && !ContinuedAfterBankruptcy && MonthsBelow == 0 && YearStartBalance == _startingBalance
         && YearGolfers == 0 && YearMoodTotal == 0 && YearObjectives == 0 && _reports.Count == 0 && _vouchers.All(v => v == 0);
 
     internal void Mix(ref ulong hash)
@@ -178,6 +204,13 @@ public sealed class GameState
         World.Mix(ref hash, (ulong)YearStartBalance);
         World.Mix(ref hash, ((ulong)(uint)YearGolfers << 32) | (uint)YearObjectives);
         World.Mix(ref hash, (ulong)YearMoodTotal);
+        World.Mix(ref hash, AdviceGiven);
+        World.Mix(ref hash, (ulong)Walkouts);
+        foreach (var d in _holeIdle)
+        {
+            World.Mix(ref hash, (ulong)d);
+        }
+
         foreach (var v in _vouchers)
         {
             World.Mix(ref hash, (ulong)v);
@@ -205,6 +238,9 @@ public sealed class GameState
         w.List(_reports, r => r.Write(w));
         w.Bool(ClubActive);
         w.Bool(ThoughtRead);
+        w.ULong(AdviceGiven);
+        w.Int(Walkouts);
+        w.List(_holeIdle, w.Int);
     }
 
     internal static GameState Read(SaveReader r, long startingBalance, bool clubActiveAtStart)
@@ -222,6 +258,16 @@ public sealed class GameState
         if (r.Version >= 21)
         {
             (state.ClubActive, state.ThoughtRead) = (r.Bool(), r.Bool());
+        }
+
+        if (r.Version >= 22)
+        {
+            (state.AdviceGiven, state.Walkouts) = (r.ULong(), r.Int());
+            state._holeIdle.AddRange(r.List(r.Int));
+            if (state.Walkouts < 0 || state._holeIdle.Count > 1024 || state._holeIdle.Any(d => d < -1) || state.AdviceGiven >> AdviceCatalog.Default.Count != 0)
+            {
+                throw new InvalidDataException("Sauvegarde incohérente : conseils ou jours sans partie.");
+            }
         }
 
         return state;

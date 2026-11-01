@@ -36,7 +36,7 @@ public partial class Captures : Node
     private const float TurfSize = 100f;
 
     private const int LeagueViewCount = 5;
-    private const int TutorialViewCount = 7;
+    private const int TutorialViewCount = 8;
     private const int ProfileViewCount = 3;
     private const int FreeViewCount = 4;
     private const int SaveViewCount = 2;
@@ -632,7 +632,7 @@ public partial class Captures : Node
         return await ClubViews(main);
     }
 
-    /// <summary>C19 lot 1 : la suite de la leçon dans le même monde, le club ouvert, la première paire, une pensée lue et le bon de pose du snack-bar (sim seule entre les images, pour rester rapide).</summary>
+    /// <summary>C19 lot 1 : la suite de la leçon dans le même monde, le club ouvert, la première paire, une pensée lue, le bon de pose du snack-bar et un conseil du pro (sim seule entre les images, pour rester rapide).</summary>
     private async Task<Main> ClubViews(Main main)
     {
         var world = main.World;
@@ -670,6 +670,9 @@ public partial class Captures : Node
         main.Camera.SetView(45f, 90f, new Vector3((float)club.X, 0f, (float)club.Z));
         await Frames(SettleFrames);
         Save("c19-bon-de-pose");
+        main.Flow.OnAdvice(Golferoo.Sim.Pro.AdviceCatalog.Default[3], 0); // c19-conseil : la bulle du pro (le gazon s'use)
+        await Frames(SettleFrames);
+        Save("c19-conseil");
         GD.Print($"C19 etape={Golferoo.Sim.Tutorial.TutorialSteps.Current(world)} bon={world.State.Vouchers(BuildingKind.SnackBar)} pensee={world.State.ThoughtRead}");
         return main;
     }

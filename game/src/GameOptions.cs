@@ -23,6 +23,7 @@ public static class GameOptions
         ("faillite", "Le club est en faillite"),
         ("objectif", "Un objectif est accompli"),
         ("tresorerie", "La trésorerie est trop basse pour un achat"),
+        ("conseil", "Votre pro donne un conseil"),
     ];
 
     public static string FilePath { get; set; } = "user://options.cfg";
@@ -35,12 +36,15 @@ public static class GameOptions
 
     public static bool AutoPause { get; set; } = true;
 
+    /// <summary>Les conseils du pro s'affichent (bulle et pause automatique) ; la sim les évalue de toute façon (C19).</summary>
+    public static bool ProAdvice { get; set; } = true;
+
     static GameOptions() => Load();
 
     /// <summary>Lit le fichier ; toute valeur absente ou invalide reprend sa valeur par défaut.</summary>
     public static void Load()
     {
-        (Resolution, Fullscreen, UiScale, AutoPause) = (Resolutions[0], false, 1f, true);
+        (Resolution, Fullscreen, UiScale, AutoPause, ProAdvice) = (Resolutions[0], false, 1f, true, true);
         var file = new ConfigFile();
         if (file.Load(FilePath) != Error.Ok)
         {
@@ -61,6 +65,7 @@ public static class GameOptions
 
         Fullscreen = Flag(file, "fullscreen", false);
         AutoPause = Flag(file, "auto_pause", true);
+        ProAdvice = Flag(file, "pro_advice", true);
     }
 
     public static void Save()
@@ -71,6 +76,7 @@ public static class GameOptions
         file.SetValue(Section, "fullscreen", Fullscreen);
         file.SetValue(Section, "ui_scale", UiScale);
         file.SetValue(Section, "auto_pause", AutoPause);
+        file.SetValue(Section, "pro_advice", ProAdvice);
         if (file.Save(FilePath) != Error.Ok)
         {
             GD.PrintErr($"Options non écrites : {FilePath}");
