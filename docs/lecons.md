@@ -15,3 +15,4 @@ Ajouter sans relire tout le fichier : `echo "- ..." >> docs/lecons.md`. `/amelio
 - Banc ou CI lancés en tâche de fond par un agent : CPU étranglé (~5 %), 70 min sans fin ; les lancer au premier plan (C15 lot 2).
 - Calage C16 lot 1 : humeur de départ au plafond (10) choisie par balayage, un tiers des positifs écrêtés ; un critère de calage doit aussi borner ce qui est perdu, pas seulement le taux visé.
 - Migration de sauvegarde (C16 lot 2) : un else rattaché au mauvais if a remis l'humeur v14 à 6, invisible car le test partait des valeurs par défaut ; archiver une vraie sauvegarde de main comme fixture à chaque montée de version.
+- Les tests ciblés passent mais les sommes de contrôle épinglées de CourseTests cassent la suite complète : tout nouvel état de GameState ne doit muter que si le club vit (C19 lot 2). Les .uid/.import de Godot ne sont pas ignorés par git et se glissent dans un git add de dossier (C19 lot 1).
