@@ -113,5 +113,8 @@ Lecture :
 Complet (lots 1 et 2), léger (lot 3).
 
 ## Clôture
-- [ ] Critères vérifiés
-- [ ] Statut passé à « livré », ligne mise à jour dans docs/chantiers.md
+- [x] Critères vérifiés (lots 1 et 2 : audits complets ; lot 3 : audit léger, #154), avec deux écarts acceptés :
+  - critère 9 : `c17-visite` montre un golfeur à la porte d'un pro shop posé près du départ du trou 1. À la livraison du lot 3, la sortie du trou 5 de « Le neuf » était enfermée par les bois et la visite au snack-bar s'y faisait par téléportation. #155 a ouvert les passages, la capture du snack-bar peut revenir.
+  - critère 10 : les noms, descriptions et raisons de refus des bâtiments sont en français mais dans `UiNames` et `BuildingTool`, comme les saisons et le ciel ; seuls les nombres sont dans `data/buildings/buildings.json`.
+- [x] Calage du lot 2 : les visites au snack-bar comptées ici passaient en partie par la téléportation de l'enclos. Depuis #155, `BuildingCalibrationTests` en mode court reste vert ; le mode long n'a pas été relancé.
+- [x] Statut passé à « livré », ligne mise à jour dans docs/chantiers.md
