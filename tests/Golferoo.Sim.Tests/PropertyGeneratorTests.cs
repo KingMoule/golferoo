@@ -100,8 +100,73 @@ public class PropertyGeneratorTests
             Assert.True(r.StreamLength >= p.StreamMinLength);
             Assert.True(r.Fords >= p.FordsMin);
             Assert.True(PropertyGenerator.MeanSlope(r.Terrain) <= p.MaxMeanSlope);
+            Assert.InRange(r.Hills, p.HillsMin, p.HillsMax);
             Assert.True(r.Terrain.Heights.MaxCornerHeight < TerrainGrid.MaxHeight);
         }
+    }
+
+    [Theory]
+    [InlineData(100.0)]
+    [InlineData(160.0)]
+    public void NoWater_CloserToTheClubhouseThanMinWaterDistance(double minWaterDistance)
+    {
+        var p = PropertyParams.Parkland with { MinWaterDistance = minWaterDistance };
+        for (ulong seed = 1; seed <= 30; seed++)
+        {
+            var t = PropertyGenerator.Generate(seed, p).Terrain;
+            for (var cz = 0; cz < t.CellsZ; cz++)
+            {
+                for (var cx = 0; cx < t.CellsX; cx++)
+                {
+                    var c = t.CellCenter(cx, cz);
+                    var distance = Math.Sqrt(Math.Pow(c.X - PropertyGenerator.Center.X, 2) + Math.Pow(c.Z - PropertyGenerator.Center.Z, 2));
+                    Assert.False(t.GetCellSurface(cx, cz) == Surface.Water && distance < minWaterDistance, $"graine {seed} : eau à {distance:F0} m");
+                }
+            }
+        }
+    }
+
+    [Theory]
+    [InlineData(4.0)]
+    [InlineData(10.0)]
+    public void ReliefAmplitude_IsTheSpanOfTheBaseRelief(double amplitude)
+    {
+        // Collines et creux réduits à presque rien : il reste le relief de fond, de hauteur crête à creux égale à l'amplitude (au-dessus de 5 m de base).
+        var p = PropertyParams.Parkland with { ReliefAmplitudeMin = amplitude, ReliefAmplitudeMax = amplitude, BumpHeightMin = 0.01, BumpHeightMax = 0.01 };
+        for (ulong seed = 1; seed <= 20; seed++)
+        {
+            var heights = PropertyGenerator.Generate(seed, p).Terrain.Heights;
+            double low = double.MaxValue, high = double.MinValue;
+            for (var j = 0; j <= heights.CellsZ; j++)
+            {
+                for (var i = 0; i <= heights.CellsX; i++)
+                {
+                    var h = heights.GetCornerHeight(i, j);
+                    (low, high) = (Math.Min(low, h), Math.Max(high, h));
+                }
+            }
+
+            // Les étangs et le ruisseau creusent sous le fond : seul le sommet est comparable.
+            Assert.InRange(high, 5 + (amplitude / 2) - 1.5, 5 + (amplitude / 2) + 0.5);
+        }
+    }
+
+    [Theory]
+    [InlineData(1)]
+    [InlineData(2)]
+    public void Ponds_FollowPondsMinAndMax(int ponds)
+    {
+        var p = PropertyParams.Parkland with { PondsMin = ponds, PondsMax = ponds };
+        for (ulong seed = 1; seed <= 20; seed++)
+        {
+            Assert.Equal(ponds, PropertyGenerator.Generate(seed, p).Ponds);
+        }
+    }
+
+    [Fact]
+    public void Hills_BothCountsOccurAcrossSeeds()
+    {
+        Assert.Equal([1, 2], Properties().Select(r => r.Hills).Distinct().Order());
     }
 
     [Fact]
@@ -153,7 +218,7 @@ public class PropertyGeneratorTests
     [Theory]
     [InlineData("{\n  \"unknownKey\": 1,", "{")]
     [InlineData("\"pondsMin\": 1", "\"pondsMin\": 3")]
-    [InlineData("\"maxMeanSlope\": 0.06", "\"maxMeanSlope\": -0.06")]
+    [InlineData("\"maxMeanSlope\": 0.04", "\"maxMeanSlope\": -0.04")]
     public void Parkland_UnknownKeyOrBadBounds_IsRefused(string from, string to)
     {
         var text = File.ReadAllText(ParklandPath());

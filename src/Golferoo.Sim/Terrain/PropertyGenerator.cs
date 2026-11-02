@@ -23,7 +23,7 @@ public static class PropertyGenerator
     private const int StreamMaxSteps = 800;
 
     /// <summary>Un terrain généré et ce qu'il contient, pour les tests et le banc.</summary>
-    internal readonly record struct Result(TerrainGrid Terrain, int Ponds, double StreamLength, int Fords, int Attempts);
+    internal readonly record struct Result(TerrainGrid Terrain, int Ponds, double StreamLength, int Fords, int Attempts, int Hills);
 
     public static TerrainGrid Create(ulong seed) => Generate(seed).Terrain;
 
@@ -74,7 +74,7 @@ public static class PropertyGenerator
     {
         var corners = new double[(CellsX + 1) * (CellsZ + 1)];
         AddRelief(corners, rng, p);
-        AddBumps(corners, rng, p);
+        var hills = AddBumps(corners, rng, p);
         FlattenClearing(corners, p);
 
         var ponds = DigPonds(corners, rng, p);
@@ -109,7 +109,7 @@ public static class PropertyGenerator
             return null;
         }
 
-        return new Result(terrain, ponds.Count, Length(path), playableFords, attempts);
+        return new Result(terrain, ponds.Count, Length(path), playableFords, attempts, hills);
     }
 
     // ---------- relief ----------
@@ -167,7 +167,7 @@ public static class PropertyGenerator
     }
 
     /// <summary>Collines (une à deux) et un creux, en gaussiennes.</summary>
-    private static void AddBumps(double[] corners, DeterministicRng rng, PropertyParams p)
+    private static int AddBumps(double[] corners, DeterministicRng rng, PropertyParams p)
     {
         var hills = p.HillsMin + (int)(rng.NextDouble() * (p.HillsMax - p.HillsMin + 1));
         for (var k = 0; k < hills + 1; k++)
@@ -179,6 +179,8 @@ public static class PropertyGenerator
             var sigma2 = radius * radius / 1.4;
             ForCornersWithin(at, radius * 3, (i, j, d) => corners[Index(i, j)] += height * Math.Exp(-d * d / (2 * sigma2)));
         }
+
+        return hills;
     }
 
     /// <summary>Clairière du pavillon : plan bombé, raccordé au relief par une couronne lissée.</summary>

@@ -5,7 +5,7 @@
   "reliefAmplitudeMin": 4.0,
   "reliefAmplitudeMax": 10.0,
   "reliefWavelength": 250.0,
-  "maxMeanSlope": 0.06,
+  "maxMeanSlope": 0.04,
   "hillsMin": 1,
   "hillsMax": 2,
   "bumpHeightMin": 2.0,
