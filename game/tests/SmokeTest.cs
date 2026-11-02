@@ -541,7 +541,7 @@ public partial class SmokeTest : Node
             failures.Add("musique : A puis B puis A rapides coupent le morceau relancé");
         }
 
-        fader.QueueFree();
+        fader.Free();
     }
 
     private static readonly string[] Lot1Ids = ["ui_click", "ui_select", "ui_refuse", "cash", "water", "objective", "advice", "quit"];

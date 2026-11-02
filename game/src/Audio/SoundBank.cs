@@ -26,11 +26,16 @@ public sealed class SoundBank
 
     public IReadOnlyCollection<SoundDef> Defs => _defs.Values;
 
-    /// <summary>Lâche les flux chargés (à la sortie, pour que le moteur ne signale pas de ressource encore utilisée).</summary>
+    /// <summary>Libère les flux chargés, à la sortie seulement : les enveloppes C# gardent sinon une référence que le moteur signale (« resources still in use »).</summary>
     public void Release()
     {
         foreach (var def in _defs.Values)
         {
+            foreach (var stream in def.Streams)
+            {
+                stream.Dispose();
+            }
+
             def.Streams.Clear();
         }
     }

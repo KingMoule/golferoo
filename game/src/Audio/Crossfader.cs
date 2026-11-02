@@ -11,7 +11,8 @@ public partial class Crossfader(string bus, double fade) : Node
     private const float Silent = -60f;
 
     private readonly AudioStreamPlayer[] _tracks = [new(), new()];
-    private readonly Tween?[] _tweens = new Tween?[2];
+    private readonly float[] _target = [Silent, Silent];
+    private readonly Action?[] _done = new Action?[2];
     private int _active;
     private string? _id;
     private float _db;
@@ -94,14 +95,30 @@ public partial class Crossfader(string bus, double fade) : Node
         }
     }
 
-    /// <summary>Joue tous les fondus de l'arbre en cours jusqu'à leur fin (les tests n'attendent pas les images).</summary>
-    public void Settle()
+    /// <summary>Avance les fondus de <paramref name="seconds"/> ; les tests s'en servent pour ne pas attendre les images.</summary>
+    public void Advance(double seconds)
     {
-        foreach (var tween in GetTree().GetProcessedTweens())
+        var step = (float)(seconds / fade * -Silent);
+        for (var i = 0; i < _tracks.Length; i++)
         {
-            tween.CustomStep(fade + 1.0);
+            var track = _tracks[i];
+            if (_done[i] is not { } done)
+            {
+                continue;
+            }
+
+            track.VolumeDb = Mathf.MoveToward(track.VolumeDb, _target[i], step);
+            if (track.VolumeDb == _target[i])
+            {
+                _done[i] = null;
+                done();
+            }
         }
     }
+
+    public override void _Process(double delta) => Advance(delta);
+
+    public void Settle() => Advance(fade + 1.0);
 
     public bool Playing(int track) => _tracks[track].Playing && !_tracks[track].StreamPaused;
 
@@ -109,14 +126,12 @@ public partial class Crossfader(string bus, double fade) : Node
 
     public float Db(int track) => _tracks[track].VolumeDb;
 
-    /// <summary>Un seul fondu par piste : le nouveau tue l'ancien, dont le rappel (arrêt, pause) ne doit plus tomber.</summary>
+    /// <summary>Un seul fondu par piste, sans objet à libérer : le nouveau remplace l'ancien, dont le rappel (arrêt, pause) ne tombe jamais.</summary>
     private void FadeTo(AudioStreamPlayer track, float db, bool stop, Action? then = null)
     {
         var index = Array.IndexOf(_tracks, track);
-        _tweens[index]?.Kill();
-        var tween = _tweens[index] = CreateTween();
-        tween.TweenProperty(track, "volume_db", db, fade);
-        tween.TweenCallback(Callable.From(() =>
+        _target[index] = db;
+        _done[index] = () =>
         {
             if (stop)
             {
@@ -124,6 +139,6 @@ public partial class Crossfader(string bus, double fade) : Node
             }
 
             then?.Invoke();
-        }));
+        };
     }
 }
