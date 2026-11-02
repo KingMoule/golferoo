@@ -9,7 +9,7 @@ Une nouvelle partie démarre aujourd'hui sur un terrain plat, vide et identique 
 1. **Propriété vierge, entièrement aléatoire, pavillon au centre.** Pas de premier trou tracé.
 2. **Tutoriel désactivé pour l'alpha, sans être effacé** : leçon de C07 et suite de C19 restent dans le code et les données, derrière un drapeau (`Main.TutorialEnabled`, faux par défaut) ; ni la proposition au menu ni la leçon ne se lancent, mais `-- --tutorial` et les tests continuent de les atteindre. Les conseils du pro de C19 restent actifs. Son avenir se décidera plus tard.
 3. **Arbres** : les trois arbres matures de `mature_species_8000` (chêne pédonculé 7 500 triangles, bouleau verruqueux 7 860, épicéa commun 7 998 ; textures d'atlas, un seul maillage chacun) deviennent les modèles principaux des essences existantes (Oak, Birch, Fir). Voir lot 4 et l'écart de budget plus bas.
-4. Le paysage (≈ 35 % de bois, un à deux étangs et un ruisseau) suit la recommandation du cadrage, à confirmer en jouant.
+4. Le paysage (≈ 25 % de bois, un à deux étangs et un ruisseau) suit la recommandation du cadrage, à confirmer en jouant.
 
 ## Périmètre et hors périmètre
 Dans le périmètre : générateur `PropertyGenerator.Create(seed)` et ses bornes en données ; pavillon au centre ; boisement ; arbres remarquables ; désactivation du tutoriel ; aperçu de la graine ; intégration des trois arbres matures ; captures `c24-*`.
@@ -19,7 +19,7 @@ Hors périmètre : autres thèmes que Parkland ; tailles de propriété variable
 ## Taille et limites de la propriété
 Ce que « vierge, aléatoire, pavillon au centre » impose :
 - **Taille fixe de 1 200 × 800 m** (300 × 200 cellules de 4 m, 96 ha), la même que « Le neuf » et que `BlankProperty`. Un 9 trous occupe 40 à 55 ha avec ses marges ; il reste donc la moitié de la propriété pour l'eau, les bois et de futurs trous. Tout est déjà calé sur cette grille (champs de flux, horizon, caméra, bancs), et la faire varier d'une graine à l'autre n'apporte rien à l'alpha : seul le contenu varie.
-- **Pavillon au centre (600 ; 400)** : les golfeurs partent et reviennent de là, donc les marches restent courtes. Mais du centre, le bord nord ou sud n'est qu'à 400 m : les couloirs de 400 m se trouvent surtout en est-ouest, ou en diagonale. Le générateur le garantit (voir limites).
+- **Pavillon au centre (600 ; 400)** : les golfeurs partent et reviennent de là, donc les marches restent courtes. Les trous peuvent partir dans toutes les directions, diagonales comprises (Guillaume) ; le générateur garantit des couloirs en plus d'une direction (voir limites).
 - **Limites en données** (`game/data/property/parkland.json`, mêmes règles que les autres fichiers : clé inconnue ou champ manquant refusent le fichier), valeurs de départ à caler par balayage :
 
 | Paramètre | Borne |
@@ -28,8 +28,8 @@ Ce que « vierge, aléatoire, pavillon au centre » impose :
 | Clairière du pavillon | rayon 30 m, plate (`ClubhouseMaxRelief`), sans eau ni flaque permanente |
 | Zone dégagée autour du pavillon | rayon 150 m, au plus 10 % d'arbres (le joueur y construit ses premiers trous) |
 | Étangs / ruisseau | 1 à 2 / 1 ; à plus de 40 m du pavillon ; au moins 2 gués de ruisseau dans la zone jouable |
-| Boisement | 30 à 40 % de la surface hors eau et hors zone dégagée |
-| Arbres à la génération | 5 000 au plus (budget du banc P1) |
+| Boisement | 20 à 30 % de la surface hors eau et hors zone dégagée (Guillaume : 35 % faisait trop) |
+| Arbres à la génération | 3 500 au plus (≈ 2 400 attendus à 25 %) ; le banc P1 garde son plafond de 5 000 |
 | Arbres remarquables | 10 à 20, très vieux, hors des massifs |
 | Surface constructible (sans eau, pente ≤ 8 %, arbres compris) | au moins 55 ha, d'un seul tenant autour du pavillon |
 | Couloirs de 400 m | au moins 3, partant à moins de 200 m du pavillon, sans eau, sous 8 % de pente, boisement compris (déboisable) ; au moins 2 directions distantes de 60° |
@@ -50,17 +50,17 @@ Un tirage qui rate une garantie est retenté avec le sel suivant (8 essais au pl
 - **Arbres matures** (lot 4) : voir ci-dessous.
 
 ## Les arbres matures : un écart de budget à trancher
-Les trois modèles font environ **10 fois les modèles actuels** (≈ 800 triangles) : 7 500 à 8 000 triangles, un GLB de 3,6 Mo avec 3 textures embarquées (écorce, normales, atlas de feuillage découpé par masque alpha), feuillage été seulement. Le jeu les charge aujourd'hui comme des maillages sans texture, en `MultiMesh` par essence et par stade. À 3 300 arbres, 8 000 triangles chacun feraient 26 millions de triangles : intenable, et la fumée plafonne les arbres à 800.
+Les trois modèles font environ **10 fois les modèles actuels** (≈ 800 triangles) : 7 500 à 8 000 triangles, un GLB de 3,6 Mo avec 3 textures embarquées (écorce, normales, atlas de feuillage découpé par masque alpha), feuillage été seulement. Le jeu les charge aujourd'hui comme des maillages sans texture, en `MultiMesh` par essence et par stade. À 2 400 arbres, 8 000 triangles chacun feraient 19 millions de triangles : intenable, et la fumée plafonne les arbres à 800.
 Proposition (lot 4, après la génération) :
 - le chargeur lit les matériaux et textures de ces GLB (matériaux `Foliage*` recolorables pour les saisons, comme le dit le README du pack) ;
-- **niveau de détail** : modèle mature à moins de ~80 m de la caméra (plafond d'instances à calibrer au banc, quelques centaines), modèle de 800 triangles au-delà ; le LOD de C10 existe déjà, on le réutilise ;
-- stade adulte seulement : jeunes plants, souches et troncs gardent leurs modèles ; les saisons d'automne, d'hiver et nues gardent les modèles actuels de chaque essence (le pack n'en fournit pas) : changement de modèle visible à l'automne, à juger en jeu ; demander les versions saisonnières aux autres IA si Guillaume veut les matures toute l'année ;
+- **niveau de détail**, deux voies essayées dans l'ordre : (a) le LOD automatique de Godot à l'import (le même modèle, simplifié par la distance, sans second fichier) ; (b) si (a) abîme le feuillage (les cartes de feuilles se simplifient mal) ou ne s'applique pas aux `MultiMesh`, le modèle mature à moins de ~80 m et le modèle de 800 triangles au-delà ; un billboard lointain reste possible ;
+- stade adulte seulement : jeunes plants, souches et troncs gardent leurs modèles ; les saisons d'automne, d'hiver et nues gardent les modèles actuels de chaque essence (le pack n'en fournit pas) : changement de modèle visible à l'automne, à juger en jeu ; demander les versions saisonnières aux autres IA si Guillaume les veut toute l'année après avoir jugé le look ;
 - budget et FPS mesurés avec `Mesurer FPS.bat` ; si le coût est trop haut, le lot 4 se repousse sans bloquer C24 (lots 1 à 3 autonomes).
 Le dépôt gagne ≈ 11 Mo de GLB : accepté sauf avis contraire. Les scripts `tools/blender/*_mature_atlas_8000_lowpoly.py` pèsent 2,6 à 2,9 Mo chacun (atlas en base64) : à ne pas versionner tels quels ; on garde les GLB, `LICENSES.md` ou `docs/assets-3d/catalogue.md` notent leur provenance.
 
 ## Critères d'acceptation
 1. Même graine, même terrain, mêmes arbres (somme de contrôle identique) ; deux graines différentes donnent des terrains différents (test).
-2. Sur **100 graines** : toutes les bornes du tableau tenues (surface constructible, couloirs de 400 m, zone dégagée, eau à 40 m du pavillon, boisement 30 à 40 %, ≤ 5 000 arbres) ; pavillon posé au centre et son champ de flux atteint la porte (tests).
+2. Sur **100 graines** : toutes les bornes du tableau tenues (surface constructible, couloirs de 400 m, zone dégagée, eau à 40 m du pavillon, boisement 20 à 30 %, ≤ 3 500 arbres) ; pavillon posé au centre et son champ de flux atteint la porte (tests).
 3. Au moins un étang et un ruisseau par graine ; arbres de plusieurs âges et de trois essences (test).
 4. Génération sous 1 s par graine en Release (banc).
 5. Une partie neuve sur chaque graine tient 30 jours avec ses arrivées sans exception ; le `Checksum` se recharge à l'identique (test).
