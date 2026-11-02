@@ -30,7 +30,7 @@ Les coûts sont en **lots** (un lot ≈ une PR d'agent), comme dans `docs/boucle
 ## État après C12 : ce qui existe
 | Domaine | Ce qui est là | Où |
 |---|---|---|
-| Terrain | 8 surfaces peintes, relief, flaques, beauté par cellule | `Terrain/`, `Brush.cs` (touches B, F1 à F9) |
+| Terrain | 8 surfaces peintes, relief, beauté par cellule | `Terrain/`, `Brush.cs` (touches B, F1 à F9) |
 | Arbres vivants | essences, croissance, saisons, chute, garder, raser, planter, **coûts déjà calculés** (`TreeCosts`, cumulés dans `TreeSpending` sans portefeuille) | `Trees/`, `TreeTool.cs` |
 | Temps et météo | calendrier, saisons, météo du jour, vent sur la balle, pluie | `Time/`, `Weather/` |
 | Gazon | hauteur, tonte, stimp, usure, consignes, tondeuses visibles | `Turf/`, `TurfPanel.cs` |

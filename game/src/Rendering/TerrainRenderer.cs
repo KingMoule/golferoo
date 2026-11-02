@@ -26,7 +26,6 @@ public partial class TerrainRenderer : Node3D
     private ulong _turfUploadMs;
     private ShaderMaterial? _terrainMaterial;
     private ShaderMaterial? _waterMaterial;
-    private ShaderMaterial? _puddleMaterial;
     private float[] _pondLevels = [];
     private TreeLayer? _trees;
 
@@ -52,8 +51,6 @@ public partial class TerrainRenderer : Node3D
     public void Build(TerrainGrid grid, TreeStand stand)
     {
         _grid = grid;
-        _puddles = null;
-        _puddlesFor = (-1, -1, -1);
         foreach (var child in GetChildren())
         {
             child.QueueFree();
@@ -80,7 +77,6 @@ public partial class TerrainRenderer : Node3D
         var water = GD.Load<Shader>("res://shaders/water.gdshader");
         _waterMaterial = new ShaderMaterial { Shader = water };
         _waterMaterial.SetShaderParameter("shore_mask", true);
-        _puddleMaterial = new ShaderMaterial { Shader = water };
         foreach (var material in new[] { _terrainMaterial, _waterMaterial })
         {
             // Terrain et plans d'eau lisent le même champ des surfaces : la rive de l'un est celle de l'autre.
@@ -114,57 +110,6 @@ public partial class TerrainRenderer : Node3D
         new(1.12f, 1.02f, 0.75f), // automne : un peu jaune
         new(1.05f, 0.9f, 0.8f), // hiver : terne
     ];
-
-    private (double Wetness, long Heights, long Surfaces) _puddlesFor = (-1, -1, -1);
-    private MeshInstance3D? _puddles;
-
-    /// <summary>Cellules en flaque affichées.</summary>
-    public int PuddleCells { get; private set; }
-
-    /// <summary>
-    /// Redessine les flaques (un carré d'eau par cellule, au niveau de sa flaque, shader d'eau) si l'humidité, le relief
-    /// ou les surfaces ont changé : au plus une fois par jour de jeu hors retouches. Rend vrai s'il a fallu redessiner.
-    /// </summary>
-    public bool RefreshPuddles()
-    {
-        if (_grid is null)
-        {
-            return false;
-        }
-
-        var key = (_grid.Soil.Wetness, _grid.HeightVersion, _grid.SurfaceVersion);
-        if (key == _puddlesFor)
-        {
-            return false;
-        }
-
-        _puddlesFor = key;
-        _puddles?.QueueFree();
-        _puddles = null;
-        var cells = new List<(int X, int Z, float Y)>();
-        if (_grid.Soil.Wetness > 0)
-        {
-            for (var cz = 0; cz < _grid.CellsZ; cz++)
-            {
-                for (var cx = 0; cx < _grid.CellsX; cx++)
-                {
-                    if (_grid.Puddles.LevelAt(cx, cz) is { } level)
-                    {
-                        cells.Add((cx, cz, (float)level));
-                    }
-                }
-            }
-        }
-
-        PuddleCells = cells.Count;
-        if (cells.Count > 0)
-        {
-            _puddles = new MeshInstance3D { Name = "Puddles", Mesh = Quads(_grid, cells), MaterialOverride = _puddleMaterial, CastShadow = GeometryInstance3D.ShadowCastingSetting.Off };
-            AddChild(_puddles);
-        }
-
-        return true;
-    }
 
     /// <summary>Surcouche d'état du gazon (touche H) : rouge usé, vert sain, jaune pour l'herbe trop haute.</summary>
     public void SetTurfOverlay(bool on) => _terrainMaterial?.SetShaderParameter("overlay", on ? 1f : 0f);
