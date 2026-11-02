@@ -22,4 +22,4 @@ Chaque fichier audio de ce dossier figure ici (la fumée Godot échoue sinon) : 
 | ball_sand.ogg | OpenSGolf `opensgolf-free`, `Golf_Sfx/Ball Drop Sand.ogg` (son synthétisé par OpenSGolf, sans échantillon tiers) | GPL-2.0-or-later (usage personnel, autorisé par Guillaume) | OpenSGolf |
 | music_menu.ogg | OpenSGolf `opensgolf-free`, `Music/Misc_Music/Jazz.ogg` (son synthétisé par OpenSGolf, sans échantillon tiers) | GPL-2.0-or-later (usage personnel, autorisé par Guillaume) | OpenSGolf |
 | music_game.ogg | OpenSGolf `opensgolf-free`, `Music/Links_Music/Harpsicord 2.ogg` (son synthétisé par OpenSGolf, sans échantillon tiers) | GPL-2.0-or-later (usage personnel, autorisé par Guillaume) | OpenSGolf |
-| ambience_birds.ogg | extrait bouclable de 40 s (ffmpeg, fondu enchaîné de 2 s) de `Birds_Wind_Synth_Final_B_Mix.ogg` | fournie par Guillaume, usage personnel | fournie par Guillaume |
+| ambience_birds.ogg | extrait bouclable de 40 s (ffmpeg, fondu enchaîné de 2 s) de `Birds_Wind_Synth_Final_B_Mix.ogg` | CC0, téléchargée par Guillaume sur l'un des sites de sons CC0 conseillés (Kenney, OpenGameArt ou Freesound : site exact non noté) | auteur non noté |
