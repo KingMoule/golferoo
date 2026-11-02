@@ -59,7 +59,6 @@ def main():
     write("ui_select.wav", mix((0, tone(660, 0.09, 35, (1, 0.3))), (0.04, tone(990, 0.09, 35, (1, 0.3)))))
     write("ui_refuse.wav", mix((0, tone(180, 0.18, 14, (1, 0.6, 0.3))), (0.09, tone(140, 0.2, 14, (1, 0.6, 0.3)))))
     write("cash.wav", mix((0, noise(rng, 0.03, 120)), (0.03, tone(2400, 0.45, 9, (1, 0.5, 0.25))), (0.09, tone(3200, 0.4, 10, (1, 0.4)))))
-    write("water.wav", mix((0, noise(rng, 0.7, 5, 0.8)), (0.02, noise(rng, 0.25, 14, 0.5)), (0.05, tone(320, 0.2, 18))))
     write("objective.wav", mix(*[(0.11 * i, tone(f, 0.35, 7, (1, 0.4, 0.15))) for i, f in enumerate((523.25, 659.25, 783.99, 1046.5))]))
     write("advice.wav", mix((0, tone(1318.5, 0.6, 6, (1, 0.3))), (0.0, tone(1318.5 * 2.756, 0.3, 14, (0.2,)))))
     write("quit.wav", mix(*[(0.16 * i, tone(440, 0.14, 12, (1, 0.7, 0.5, 0.3))) for i in range(3)]))

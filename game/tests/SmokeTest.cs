@@ -93,6 +93,7 @@ public partial class SmokeTest : Node
         if (failures.Count == 0)
         {
             GD.Print($"SMOKE OK frames={_frames} tick={_main!.World.Tick} checksum={_main.World.Checksum():x16}");
+            Sound.Audio.Shutdown();
             GetTree().Quit(0);
         }
         else
@@ -101,6 +102,8 @@ public partial class SmokeTest : Node
             {
                 GD.PrintErr($"SMOKE FAIL {failure}");
             }
+
+            Sound.Audio.Shutdown();
 
             GetTree().Quit(1);
         }
@@ -419,6 +422,8 @@ public partial class SmokeTest : Node
         GD.Print($"SMOKE menus : titre, nouvelle partie, pause, emplacement ({failures.Count} échec)");
         CheckOptions(game, failures);
         CheckAudio(game, failures);
+        CheckGolfSounds(game, failures);
+        CheckCrossfader(failures);
     }
 
     /// <summary>
@@ -440,9 +445,16 @@ public partial class SmokeTest : Node
         {
             failures.Add($"audio : {error}");
         }
-        else if (bank.Defs.Count == 0 || bank.Defs.Any(d => d.Streams.Count != d.Files.Length))
+        else if (bank.Defs.Count == 0 || bank.Defs.Any(d => Lot1Ids.Contains(d.Id) && d.Streams.Count != d.Files.Length))
         {
-            failures.Add("audio : un fichier de sounds.json ne se résout pas");
+            failures.Add("audio : un fichier des sons du lot 1 ne se résout pas");
+        }
+        else
+        {
+            foreach (var d in bank.Defs.Where(d => d.Streams.Count != d.Files.Length))
+            {
+                GD.Print($"SMOKE audio : avertissement, fichier absent pour {d.Id}");
+            }
         }
 
         const string one = "{\"id\":\"a\",\"files\":[\"absent.wav\"],\"bus\":\"Effets\",\"volume_db\":0,\"pitch_variation\":0.1,\"min_gap\":0.1";
@@ -504,11 +516,120 @@ public partial class SmokeTest : Node
         }
     }
 
+    /// <summary>Fondus du lecteur à deux pistes : pause puis reprise rapides, et A puis B puis A rapides, ne coupent pas le morceau.</summary>
+    private void CheckCrossfader(List<string> failures)
+    {
+        var bank = SoundBank.LoadFile(SoundBank.Path, out _);
+        if (bank?.Get("music_game") is not { Streams.Count: > 0 } a || bank.Get("music_menu") is not { Streams.Count: > 0 } b)
+        {
+            return;
+        }
+
+        var fader = new Crossfader("Musique", 1.5);
+        AddChild(fader);
+        fader.Set("a", a);
+        fader.Pause(true);
+        fader.Pause(false);
+        fader.Settle();
+        if (!fader.Playing(fader.Active) || fader.Db(fader.Active) < a.VolumeDb - 0.1f)
+        {
+            failures.Add("musique : une pause suivie d'une reprise rapide coupe ou assourdit le morceau");
+        }
+
+        fader.Set("b", b);
+        fader.Set("a", a);
+        fader.Settle();
+        if (!fader.Playing(fader.Active) || fader.Db(fader.Active) < a.VolumeDb - 0.1f)
+        {
+            failures.Add("musique : A puis B puis A rapides coupent le morceau relancé");
+        }
+
+        fader.Free();
+    }
+
+    private static readonly string[] Lot1Ids = ["ui_click", "ui_select", "ui_refuse", "cash", "water", "objective", "advice", "quit"];
+
     private sealed class SpySfx : ISfx
     {
         public List<string> Played { get; } = [];
 
+        public List<string?> Ambiences { get; } = [];
+
         public void Play(string id) => Played.Add(id);
+
+        public void Music(string? id)
+        {
+        }
+
+        public void Ambience(string? id) => Ambiences.Add(id);
+
+        public void PauseMusic(bool paused)
+        {
+        }
+    }
+
+    /// <summary>
+    /// C20 lot 2 : un vrai groupe joue sur le monde du jeu et le lecteur factice entend frappes et trou (golfeurs en vue seulement) ; rien en pause, hors vue ni à ×16 ;
+    /// le ciel du jour choisit la boucle d'ambiance (oiseaux au sec hors hiver, rien sous la pluie ni l'hiver).
+    /// </summary>
+    private void CheckGolfSounds(Main game, List<string> failures)
+    {
+        var real = Audio.Sfx;
+        var spy = new SpySfx();
+        Audio.Sfx = spy;
+        var inView = game.Sounds.InView;
+        game.Sounds.InView = _ => true;
+        game.SpawnGroup();
+        for (var i = 0; i < 20_000 && !spy.Played.Contains("strike_putt"); i++)
+        {
+            game.StepTicks(1);
+        }
+
+        var strikes = spy.Played.Where(p => p.StartsWith("strike_")).ToList();
+        if (!strikes.Contains("strike_putt") || !strikes.Any(p => p != "strike_putt"))
+        {
+            failures.Add($"golf : frappes entendues : {string.Join(",", strikes.Distinct())}");
+        }
+
+        foreach (var (muted, how) in new (Action, string)[] { (() => game.Paused = true, "pause"), (() => game.SetSpeed(16), "x16"), (() => game.Sounds.InView = _ => false, "hors vue") })
+        {
+            game.Paused = false;
+            game.SetSpeed(1);
+            game.Sounds.InView = _ => true;
+            muted();
+            spy.Played.Clear();
+            game.StepTicks(2_000);
+            var golf = spy.Played.Where(p => p != "cash").ToList();
+            if (golf.Count > 0)
+            {
+                failures.Add($"golf : {how}, des sons ont joué : {string.Join(",", golf.Distinct())}");
+            }
+        }
+
+        game.Paused = false;
+        game.SetSpeed(1);
+        game.Sounds.InView = inView;
+        spy.Ambiences.Clear();
+        game.Sounds.UpdateAmbience();
+        var expected = GameSounds.AmbienceFor(game.World.Weather.Sky, game.World.Season);
+        if (!spy.Ambiences.SequenceEqual([expected]))
+        {
+            failures.Add("ambiance : le ciel du jour ne choisit pas la boucle attendue");
+        }
+
+        foreach (var sky in Enum.GetValues<Golferoo.Sim.Weather.Sky>())
+        {
+            foreach (var season in Enum.GetValues<Golferoo.Sim.Trees.Season>())
+            {
+                var dry = sky is Golferoo.Sim.Weather.Sky.Sun or Golferoo.Sim.Weather.Sky.Clouds;
+                if (GameSounds.AmbienceFor(sky, season) != (dry && season != Golferoo.Sim.Trees.Season.Winter ? "amb_birds" : null))
+                {
+                    failures.Add($"ambiance : {sky} en {season}");
+                }
+            }
+        }
+
+        Audio.Sfx = real;
     }
 
     /// <summary>

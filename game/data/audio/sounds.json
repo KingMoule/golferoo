@@ -43,10 +43,10 @@
     {
       "id": "water",
       "files": [
-        "water.wav"
+        "ball_water.ogg"
       ],
       "bus": "Effets",
-      "volume_db": -4,
+      "volume_db": -6,
       "pitch_variation": 0.05,
       "min_gap": 0.2
     },
@@ -79,6 +79,107 @@
       "volume_db": -6,
       "pitch_variation": 0.0,
       "min_gap": 2.0
+    },
+    {
+      "id": "strike_drive",
+      "files": [
+        "strike_drive.ogg"
+      ],
+      "bus": "Effets",
+      "volume_db": -4,
+      "pitch_variation": 0.04,
+      "min_gap": 0.1
+    },
+    {
+      "id": "strike_iron",
+      "files": [
+        "strike_iron.ogg"
+      ],
+      "bus": "Effets",
+      "volume_db": -4,
+      "pitch_variation": 0.04,
+      "min_gap": 0.1
+    },
+    {
+      "id": "strike_chip",
+      "files": [
+        "strike_chip.ogg"
+      ],
+      "bus": "Effets",
+      "volume_db": -5,
+      "pitch_variation": 0.04,
+      "min_gap": 0.1
+    },
+    {
+      "id": "strike_putt",
+      "files": [
+        "strike_putt.ogg"
+      ],
+      "bus": "Effets",
+      "volume_db": -6,
+      "pitch_variation": 0.03,
+      "min_gap": 0.1
+    },
+    {
+      "id": "hole",
+      "files": [
+        "ball_in_hole.ogg"
+      ],
+      "bus": "Effets",
+      "volume_db": -4,
+      "pitch_variation": 0.02,
+      "min_gap": 0.3
+    },
+    {
+      "id": "tree",
+      "files": [
+        "ball_tree.ogg",
+        "ball_tree2.ogg"
+      ],
+      "bus": "Effets",
+      "volume_db": -5,
+      "pitch_variation": 0.04,
+      "min_gap": 0.2
+    },
+    {
+      "id": "bunker",
+      "files": [
+        "ball_sand.ogg"
+      ],
+      "bus": "Effets",
+      "volume_db": -6,
+      "pitch_variation": 0.04,
+      "min_gap": 0.3
+    },
+    {
+      "id": "amb_birds",
+      "files": [
+        "ambience_birds.ogg"
+      ],
+      "bus": "Ambiance",
+      "volume_db": -6,
+      "pitch_variation": 0.0,
+      "min_gap": 0
+    },
+    {
+      "id": "music_menu",
+      "files": [
+        "music_menu.ogg"
+      ],
+      "bus": "Musique",
+      "volume_db": -4,
+      "pitch_variation": 0.0,
+      "min_gap": 0
+    },
+    {
+      "id": "music_game",
+      "files": [
+        "music_game.ogg"
+      ],
+      "bus": "Musique",
+      "volume_db": -4,
+      "pitch_variation": 0.0,
+      "min_gap": 0
     }
   ]
 }

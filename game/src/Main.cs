@@ -1055,6 +1055,7 @@ public partial class Main : Node3D
         AutoSave();
         _league?.OnDayChanged();
         AnnounceDay();
+        Sounds.UpdateAmbience();
         var newMonth = World.Date.Month != _month;
         _month = World.Date.Month;
         // Un changement de feuillage refait déjà tous les blocs, croissance comprise.
@@ -1089,6 +1090,7 @@ public partial class Main : Node3D
         TickMsTotal += System.Diagnostics.Stopwatch.GetElapsedTime(t0).TotalMilliseconds;
         TickCount++;
         World.Snapshot(_current);
+        Sounds?.OnStep(_current);
         _previousChanged = true;
     }
 

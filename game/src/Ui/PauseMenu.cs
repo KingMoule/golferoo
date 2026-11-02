@@ -61,6 +61,7 @@ public partial class PauseMenu : Node
         _shot = ThumbnailRenderer.CaptureJpg(GetViewport());
         _wasPaused = _main.Paused;
         _main.Paused = true;
+        Sound.Audio.Sfx.PauseMusic(true);
         _status.Visible = false;
         _shade.Visible = true;
     }
@@ -70,6 +71,7 @@ public partial class PauseMenu : Node
         CloseSlots();
         _shade.Visible = false;
         _main.Paused = _wasPaused;
+        Sound.Audio.Sfx.PauseMusic(false);
     }
 
     private Button Add(string id, string text, Action pressed)

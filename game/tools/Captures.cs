@@ -92,6 +92,8 @@ public partial class Captures : Node
             GD.PrintErr($"CAPTURES FAIL exception {e}");
         }
 
+        Sound.Audio.Shutdown();
+
         GetTree().Quit(code);
     }
 
@@ -374,6 +376,7 @@ public partial class Captures : Node
         {
             // Les passes aux facteurs 3 et 4 ne gardent que les premières vues (rapport C01) : `-- --limit n` s'arrête après n images.
             GD.Print($"CAPTURES OK {_index} images (limite)");
+            Sound.Audio.Shutdown();
             GetTree().Quit(_failures == 0 && err == Error.Ok && stddev > 0.0001 ? 0 : 1);
         }
 

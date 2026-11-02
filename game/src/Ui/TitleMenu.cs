@@ -26,6 +26,7 @@ public partial class TitleMenu : Control
         }
 
         GameOptions.Apply(GetWindow());
+        Sound.Audio.Sfx.Music("music_menu");
         Theme = UiTheme.Theme;
         var sky = new ColorRect { Color = new Color(0.55f, 0.75f, 0.92f), MouseFilter = MouseFilterEnum.Ignore };
         sky.SetAnchorsPreset(LayoutPreset.FullRect);
