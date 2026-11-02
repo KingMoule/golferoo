@@ -21,7 +21,7 @@ public partial class TitleMenu : Control
     private Label _previewNote = null!;
     private Button _start = null!;
     private GeneratedProperty? _property;
-    private int _job;
+    private Task<(GeneratedProperty?, byte[]?)>? _pending;
 
     public override void _Ready()
     {
@@ -135,11 +135,10 @@ public partial class TitleMenu : Control
     private void RefreshPreview()
     {
         var seed = (ulong)_seed.Value;
-        var job = ++_job;
         _property = null;
         _start.Disabled = true;
         _previewNote.Text = "Génération de la propriété…";
-        Task.Run<(GeneratedProperty?, byte[]?)>(() =>
+        _pending = Task.Run<(GeneratedProperty?, byte[]?)>(() =>
         {
             try
             {
@@ -150,16 +149,21 @@ public partial class TitleMenu : Control
             {
                 return (null, null);
             }
-        }).ContinueWith(done => Callable.From(() => ShowPreview(job, done.Result.Item1, done.Result.Item2)).CallDeferred());
+        });
     }
 
-    private void ShowPreview(int job, GeneratedProperty? property, byte[]? pixels)
+    /// <summary>Le résultat de la génération se prend ici, sur le fil principal : aucun appel à Godot depuis le fil de calcul.</summary>
+    public override void _Process(double delta)
     {
-        if (job != _job || !IsInstanceValid(_seed))
+        if (_pending is { IsCompleted: true } done)
         {
-            return; // une graine plus récente est déjà demandée, ou l'écran est fermé
+            _pending = null;
+            ShowPreview(done.Result.Item1, done.Result.Item2);
         }
+    }
 
+    private void ShowPreview(GeneratedProperty? property, byte[]? pixels)
+    {
         if (property is null || pixels is null)
         {
             _seed.Value = Random.Shared.Next(1, 1_000_000); // relance l'aperçu
