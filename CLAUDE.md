@@ -10,7 +10,7 @@ Godot 4.7 (.NET) pour le rendu, l'UI et les outils ; toute la simulation dans `G
 - Captures : `godot --path game res://tools/Captures.tscn -- --out dossier [--factor n] [--thumbs] [--full]` (en CI : lignes `THUMB`/`FULL` en JPEG base64 du job « Captures », par `gh api --allow-escape-sequences repos/KingMoule/golferoo/actions/jobs/<id>/logs` ; `gh run view --log` tronque) ; export Windows : job CI « Export Windows », artefact `golferoo-windows` (`Mesurer FPS.bat` = `-- --fps-bench`)
 - Assets : `pip install bpy==5.2.3` (Python 3.13) puis `python -I tools/blender/tree_lowpoly.py` régénère `game/assets/trees/tree.glb`
 - Lint / format : `dotnet format Golferoo.sln --verify-no-changes` (le hook `post-edit-format.sh` formate les `.cs` si `dotnet` est présent)
-- Jamais de `using Godot` dans `src/Golferoo.Sim/`. Aucun fichier d'OpenSGolf ni d'EA n'est copié dans le dépôt : leurs docs et chiffres se citent.
+- Jamais de `using Godot` dans `src/Golferoo.Sim/`. Aucun fichier d'OpenSGolf ni d'EA n'est copié dans le dépôt : leurs docs et chiffres se citent. Exception (Guillaume, 2026-11-02, jeu à usage personnel non distribué) : les **sons** du pack `opensgolf-free` (GPL-2.0-or-later, synthétisés par OpenSGolf, sans rien d'EA) peuvent entrer dans `game/assets/audio/`, chacun listé dans `LICENSES.md` avec sa licence GPL. Rien d'autre d'OpenSGolf.
 
 ## Rôles et modèles
 | Rôle | Où | Modèle / effort | Quand |
