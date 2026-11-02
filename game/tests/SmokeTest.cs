@@ -2,6 +2,7 @@ using System.Globalization;
 using Godot;
 using Golferoo.Game.Cameras;
 using Golferoo.Game.Rendering;
+using Golferoo.Game.Sound;
 using Golferoo.Game.Tools;
 using Golferoo.Game.Ui;
 using Golferoo.Sim;
@@ -417,6 +418,97 @@ public partial class SmokeTest : Node
 
         GD.Print($"SMOKE menus : titre, nouvelle partie, pause, emplacement ({failures.Count} échec)");
         CheckOptions(game, failures);
+        CheckAudio(game, failures);
+    }
+
+    /// <summary>
+    /// C20 lot 1 : le bus layout se charge, <c>sounds.json</c> est lu sans erreur et chaque fichier se résout, la lecture est stricte (clé inconnue, champ manquant, bus inconnu refusés ;
+    /// fichier audio absent sauté), l'anti-rafale borne les sons par seconde, chaque évènement de gestion joue son id (lecteur factice) et chaque fichier audio figure dans LICENSES.md.
+    /// </summary>
+    private void CheckAudio(Main game, List<string> failures)
+    {
+        foreach (var bus in new[] { "Musique", "Effets", "Ambiance" })
+        {
+            if (AudioServer.GetBusIndex(bus) < 0)
+            {
+                failures.Add($"audio : bus {bus} absent");
+            }
+        }
+
+        var bank = SoundBank.LoadFile(SoundBank.Path, out var error);
+        if (bank is null)
+        {
+            failures.Add($"audio : {error}");
+        }
+        else if (bank.Defs.Count == 0 || bank.Defs.Any(d => d.Streams.Count != d.Files.Length))
+        {
+            failures.Add("audio : un fichier de sounds.json ne se résout pas");
+        }
+
+        const string one = "{\"id\":\"a\",\"files\":[\"absent.wav\"],\"bus\":\"Effets\",\"volume_db\":0,\"pitch_variation\":0.1,\"min_gap\":0.1";
+        var absent = SoundBank.Parse("{\"sounds\":[" + one + "}]}", out _);
+        if (absent?.Get("a") is not { Streams.Count: 0 })
+        {
+            failures.Add("audio : un fichier audio absent n'est pas sauté");
+        }
+
+        foreach (var bad in new[] { one + ",\"extra\":1}", one.Replace(",\"min_gap\":0.1", string.Empty) + "}", one.Replace("Effets", "Radio") + "}", one + "},{\"id\":\"a\"}" })
+        {
+            if (SoundBank.Parse("{\"sounds\":[" + bad + "]}", out _) is not null)
+            {
+                failures.Add($"audio : sounds.json invalide accepté : {bad}");
+            }
+        }
+
+        var gate = new SfxGate(8);
+        var played = Enumerable.Range(0, 1000).Count(i => gate.Allow($"s{i % 5}", 0, i / 1000.0));
+        if (played != 8 || new SfxGate(8) is var g && (!g.Allow("x", 0.5, 0) || g.Allow("x", 0.5, 0.2) || !g.Allow("x", 0.5, 0.6)))
+        {
+            failures.Add($"audio : anti-rafale ({played} sons en une seconde, 8 attendus)");
+        }
+
+        var real = Audio.Sfx;
+        var spy = new SpySfx();
+        Audio.Sfx = spy;
+        game.Sounds.OnRefused(LedgerCategory.Holes, 1);
+        game.Sounds.OnObjective(null!);
+        game.Sounds.OnFees(100);
+        game.Sounds.OnFees(100);
+        game.Sounds.OnFees(0);
+        game.Sounds.OnQuit(default);
+        game.Sounds.OnQuit(default);
+        GameOptions.ProAdvice = true;
+        game.Sounds.OnAdvice(null!, 1);
+        GameOptions.ProAdvice = false;
+        game.Sounds.OnAdvice(null!, 1);
+        GameOptions.ProAdvice = true;
+        Audio.Sfx = real;
+        if (!spy.Played.SequenceEqual(["ui_refuse", "objective", "cash", "quit", "advice"]))
+        {
+            failures.Add($"audio : sons de gestion joués : {string.Join(",", spy.Played)}");
+        }
+
+        if (real is not Sfx)
+        {
+            failures.Add("audio : l'autoload Sfx n'est pas en place");
+        }
+
+        real.Play("ui_click");
+        var licenses = Godot.FileAccess.GetFileAsString(SoundBank.AudioDir + "LICENSES.md");
+        foreach (var file in DirAccess.GetFilesAt(SoundBank.AudioDir).Where(f => f.EndsWith(".wav") || f.EndsWith(".ogg") || f.EndsWith(".mp3")))
+        {
+            if (!licenses.Contains(file, StringComparison.Ordinal))
+            {
+                failures.Add($"audio : {file} ne figure pas dans LICENSES.md");
+            }
+        }
+    }
+
+    private sealed class SpySfx : ISfx
+    {
+        public List<string> Played { get; } = [];
+
+        public void Play(string id) => Played.Add(id);
     }
 
     /// <summary>
@@ -441,6 +533,12 @@ public partial class SmokeTest : Node
             failures.Add("options : fichier partiel ou invalide mal lu");
         }
 
+        WriteOptions("[options]\nmusic_volume=30\nsfx_volume=500\nmaster_volume=\"x\"\n");
+        if (GameOptions.MusicVolume != 30 || GameOptions.SfxVolume != 80 || GameOptions.MasterVolume != 100 || GameOptions.AmbienceVolume != 60)
+        {
+            failures.Add("options : volumes mal lus (valeur invalide ou absente)");
+        }
+
         GameOptions.AutoPause = GameOptions.ProAdvice = true;
         var title = GD.Load<PackedScene>(TitleMenu.Scene).Instantiate<TitleMenu>();
         AddChild(title);
@@ -453,9 +551,10 @@ public partial class SmokeTest : Node
         else
         {
             toggle.ButtonPressed = false;
+            (title.FindChild(UiIds.Menu.OptionsMusicVolume, true, false) as HSlider)!.Value = 10;
             GameOptions.AutoPause = true;
             GameOptions.Load();
-            if (GameOptions.AutoPause || !Godot.FileAccess.FileExists(GameOptions.FilePath))
+            if (GameOptions.MusicVolume != 10 || GameOptions.AutoPause || !Godot.FileAccess.FileExists(GameOptions.FilePath))
             {
                 failures.Add("options : le changement n'est pas écrit dans options.cfg");
             }
@@ -2625,6 +2724,7 @@ public partial class SmokeTest : Node
         ["structures"] = 600,
         ["golfers"] = 2500, // le golfeur animé de C23 (tools/blender/golfer_anim.py)
         ["ui"] = 0, // polices et icônes de l'interface (C13) : aucun modèle 3D admis.
+        ["audio"] = 0, // sons (C20) : aucun modèle 3D admis.
     };
 
     /// <summary>

@@ -40,7 +40,25 @@ public static class OptionsScreen
         var advice = Toggle(UiIds.Menu.OptionsProAdvice, GameOptions.ProAdvice);
         advice.Toggled += on => Change(panel, () => GameOptions.ProAdvice = on);
         panel.Content.AddChild(Row("Conseils du pro", advice));
+
+        panel.Content.AddChild(Volume(panel, "Volume général", UiIds.Menu.OptionsMasterVolume, GameOptions.MasterVolume, v => GameOptions.MasterVolume = v));
+        panel.Content.AddChild(Volume(panel, "Musique", UiIds.Menu.OptionsMusicVolume, GameOptions.MusicVolume, v => GameOptions.MusicVolume = v));
+        panel.Content.AddChild(Volume(panel, "Effets", UiIds.Menu.OptionsSfxVolume, GameOptions.SfxVolume, v => GameOptions.SfxVolume = v));
+        panel.Content.AddChild(Volume(panel, "Ambiance", UiIds.Menu.OptionsAmbienceVolume, GameOptions.AmbienceVolume, v => GameOptions.AmbienceVolume = v));
         return panel;
+    }
+
+    /// <summary>Curseur de 0 à 100 % : le volume s'applique et s'écrit tout de suite.</summary>
+    private static HBoxContainer Volume(Control panel, string label, string id, int value, Action<int> set)
+    {
+        var slider = new HSlider { Name = id, MinValue = 0, MaxValue = 100, Step = 5, Value = value, CustomMinimumSize = new Vector2(160f, 0f), SizeFlagsVertical = Control.SizeFlags.ShrinkCenter, FocusMode = Control.FocusModeEnum.None };
+        slider.ValueChanged += v =>
+        {
+            set((int)v);
+            GameOptions.ApplyAudio();
+            GameOptions.Save();
+        };
+        return Row(label, slider);
     }
 
     private static void Change(Control panel, Action set)

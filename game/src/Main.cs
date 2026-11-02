@@ -166,6 +166,9 @@ public partial class Main : Node3D
     /// <summary>La pause automatique sur les messages importants (C18).</summary>
     public AutoPause AutoPause { get; private set; } = null!;
 
+    /// <summary>Les sons de gestion, branchés sur les évènements de la sim (C20).</summary>
+    public Sound.GameSounds Sounds { get; private set; } = null!;
+
     /// <summary>Échelle d'interface : <c>-- --ui-scale 1.25</c> (entre 1 et 1,5) l'emporte sur l'option du joueur (<see cref="GameOptions.UiScale"/>).</summary>
     public static float UiScale => float.TryParse(CommandLineOption("--ui-scale"), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var scale) ? Math.Clamp(scale, 1f, 1.5f) : GameOptions.UiScale;
 
@@ -433,6 +436,9 @@ public partial class Main : Node3D
         AutoPause = new AutoPause { Name = "AutoPause" };
         AddChild(AutoPause);
         AutoPause.Init(this);
+        Sounds = new Sound.GameSounds { Name = "GameSounds" };
+        AddChild(Sounds);
+        Sounds.Init(this);
         // L'échelle agrandit toute l'interface (calques 2D), pas le rendu 3D.
         GetWindow().ContentScaleFactor = UiScale;
 
