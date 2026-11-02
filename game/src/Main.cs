@@ -51,8 +51,11 @@ public partial class Main : Node3D
         set => _tutorialOverride = value;
     }
 
-    /// <summary>Le pro propose le tutoriel au démarrage ; la fumée et les captures l'éteignent pour garder l'écran net.</summary>
-    public static bool OfferTutorial { get; set; } = true;
+    /// <summary>Tutoriel désactivé pour l'alpha (C24), sans être effacé : faux, ni la proposition du pro ni la leçon ne se lancent en nouvelle partie. `-- --tutorial`, une sauvegarde de leçon et les tests l'atteignent toujours.</summary>
+    public static bool TutorialEnabled { get; set; }
+
+    /// <summary>Propriété générée par l'aperçu du menu titre pour la graine de la nouvelle partie ; la scène du jeu la prend (une seule fois), sinon elle la génère.</summary>
+    public static GeneratedProperty? NewGameProperty { get; set; }
 
     /// <summary>Une nouvelle partie place le pavillon, donc des groupes y arrivent ; les captures longues l'éteignent (elles avancent des semaines de jeu).</summary>
     public static bool ClubhouseOnNewGame { get; set; } = true;
@@ -309,9 +312,11 @@ public partial class Main : Node3D
         }
         else if (request == GameRequest.NewGame && !TutorialMode)
         {
-            grid = BlankProperty.Create();
+            var property = NewGameProperty ?? PropertyGenerator.CreateWithTrees(NewGameSeed);
+            NewGameProperty = null;
+            grid = property.Terrain;
             GD.Print($"NEWGAME seed={NewGameSeed}");
-            World = new World(NewGameSeed, grid, league: true, placeClubhouse: ClubhouseOnNewGame, arrivals: ArrivalsOverride, objectives: true);
+            World = new World(NewGameSeed, grid, league: true, placeClubhouse: ClubhouseOnNewGame, arrivals: ArrivalsOverride, objectives: true, plantedTrees: property.Trees);
         }
         else
         {
@@ -475,7 +480,7 @@ public partial class Main : Node3D
         {
             Tutorial = new TutorialPanel { Name = "Tutorial" };
             AddChild(Tutorial);
-            Tutorial.Init(this, loaded is { Terrain.Blank: true } && Golferoo.Sim.Tutorial.TutorialSteps.Current(loaded) != Golferoo.Sim.Tutorial.TutorialStep.Done ? TutorialPanel.Mode.Running : loaded is null && TutorialMode ? TutorialPanel.Mode.Welcome : loaded is null && OfferTutorial && OS.GetCmdlineUserArgs().Length == 0 ? TutorialPanel.Mode.Offer : TutorialPanel.Mode.Off);
+            Tutorial.Init(this, loaded is { Terrain.IsLesson: true } && Golferoo.Sim.Tutorial.TutorialSteps.Current(loaded) != Golferoo.Sim.Tutorial.TutorialStep.Done ? TutorialPanel.Mode.Running : loaded is null && TutorialMode ? TutorialPanel.Mode.Welcome : loaded is null && TutorialEnabled && OS.GetCmdlineUserArgs().Length == 0 ? TutorialPanel.Mode.Offer : TutorialPanel.Mode.Off);
         }
 
         _carryPlay = null;
@@ -517,6 +522,13 @@ public partial class Main : Node3D
         {
             _ratedHoles = rated.Course.Count; // trou ajouté ou retiré : la sim a invalidé la note, on la refait
             _ratingJob?.Touch();
+        }
+
+        if (_ratingJob is null && !FpsBench.Active && World.League is not null && World.HoleOpen && World.Terrain is { Blank: true } blank)
+        {
+            // Propriété générée : pas de trou, donc pas de note, jusqu'à ce que le premier soit ouvert.
+            _ratedHoles = blank.Course.Count;
+            _ratingJob = new RatingJob(blank, World.Trees, World.Seed, World.Season, World.SetCourseRating, dirty: World.CourseRating is null);
         }
 
         _ratingJob?.Process(delta, World.Season);
@@ -1224,7 +1236,7 @@ public partial class Main : Node3D
     private string RatingText() =>
         World.CourseRating is { } r
             ? $"Note {LeaguePanel.Decimal(r.Scratch18)} / slope {r.Slope}"
-            : World.Terrain!.Blank ? "pas de ligue sur la terre vierge" : "Note : calcul en cours";
+            : World.Terrain!.Blank ? (World.League is null ? "pas de ligue sur la terre vierge" : "pas encore de trou ouvert") : "Note : calcul en cours";
 
     private string WeatherText()
     {

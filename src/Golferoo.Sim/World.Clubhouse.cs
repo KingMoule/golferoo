@@ -108,15 +108,17 @@ public sealed partial class World
         return field.IsReachable(terrain.CellXOf(terrain.Tee.X), terrain.CellZOf(terrain.Tee.Z));
     }
 
-    /// <summary>Place le pavillon au plus près du départ du trou 1 (cellules de centre par anneaux, la porte tournée vers le départ d'abord). Faux s'il n'y a nulle part.</summary>
-    private bool PlaceClubhouseNearTee()
+    private bool PlaceClubhouseNearTee() => Terrain is { } terrain && PlaceClubhouseNear(terrain.Tee);
+
+    /// <summary>Place le pavillon au plus près de <paramref name="anchor"/> (départ du trou 1, ou centre de la clairière d'une propriété générée) : cellules de centre par anneaux, la porte tournée vers ce point d'abord. Faux s'il n'y a nulle part.</summary>
+    private bool PlaceClubhouseNear(Point2 anchor)
     {
         if (!State.ClubActive || Terrain is not { } terrain || Flow is not { } flow)
         {
             return false;
         }
 
-        var (tx, tz) = (terrain.CellXOf(terrain.Tee.X), terrain.CellZOf(terrain.Tee.Z));
+        var (tx, tz) = (terrain.CellXOf(anchor.X), terrain.CellZOf(anchor.Z));
         for (var ring = 0; ring <= Math.Max(terrain.CellsX, terrain.CellsZ); ring++)
         {
             var spots = new List<(int X, int Z)>();

@@ -1,50 +1,86 @@
 using Golferoo.Sim.Economy;
 using Golferoo.Sim.Save;
 using Golferoo.Sim.Terrain;
+using Golferoo.Sim.Time;
 
 namespace Golferoo.Sim.Tests;
 
-/// <summary>C18 lot 1 : propriété provisoire d'une nouvelle partie, difficulté en données, emplacements de sauvegarde.</summary>
+/// <summary>C18 lot 1 et C24 lot 3 : nouvelle partie sur la propriété générée, difficulté en données, emplacements de sauvegarde.</summary>
 public class NewGameTests
 {
-    private static World NewGame(ulong seed) => new(seed, BlankProperty.Create(), league: true, placeClubhouse: true);
+    private static World NewGame(ulong seed)
+    {
+        var property = PropertyGenerator.CreateWithTrees(seed);
+        return new World(seed, property.Terrain, league: true, placeClubhouse: true, plantedTrees: property.Trees);
+    }
+
+    private static readonly ulong[] Sample = [.. Enumerable.Range(1, 20).Select(i => (ulong)i * 37)];
 
     [Fact]
-    public void BlankProperty_SameSeed_SameMap_AndNothingElseOnIt()
+    public void GeneratedProperty_SameSeed_SameWorld_AndItsTreesAreThePlantedOnes()
     {
         var a = NewGame(7);
         var b = NewGame(7);
+        var property = PropertyGenerator.CreateWithTrees(7);
 
         Assert.Equal(a.Checksum(), b.Checksum());
-        var t = a.Terrain!;
-        Assert.Equal((300, 200, 4.0), (t.CellsX, t.CellsZ, t.CellSize));
-        Assert.Equal(0, a.Trees.Count);
-        for (var z = 0; z < t.CellsZ; z++)
-        {
-            for (var x = 0; x < t.CellsX; x++)
-            {
-                Assert.NotEqual(Surface.Water, t.GetCellSurface(x, z));
-                Assert.NotEqual(Surface.Trees, t.GetCellSurface(x, z));
-            }
-        }
+        Assert.NotEqual(a.Checksum(), NewGame(8).Checksum());
+        Assert.Equal(property.Trees.Count, a.Trees.Count);
+        Assert.Equal(property.Trees.Count(t => t.Remarkable), a.Trees.Trees.Count(t => t.Remarkable));
     }
 
     [Fact]
-    public void BlankProperty_OnHundredSeeds_ClubhouseIsPlacedNearAnEdge_AndReachesTheFirstTee()
+    public void GeneratedProperty_ClubhouseIsAtTheCenter_ReachesTheDoor_AndTheClubLivesWithoutAnyHole()
     {
-        for (ulong seed = 1; seed <= 100; seed++)
+        foreach (var seed in Sample)
         {
             var world = NewGame(seed);
             var terrain = world.Terrain!;
 
-            Assert.False(terrain.Blank);
-            Assert.Empty(HoleCheck.Check(terrain));
-            Assert.Equal(1, world.OpenHoles);
+            Assert.True(terrain.Blank);
+            Assert.False(terrain.IsLesson);
+            Assert.True(world.State.ClubActive);
+            Assert.NotNull(world.League);
+            Assert.False(world.HoleOpen);
             var clubhouse = world.Clubhouse;
             Assert.NotNull(clubhouse);
-            Assert.True(clubhouse.Footprint.MinX < terrain.CellsX / 10, $"graine {seed} : le pavillon est loin du bord");
-            var field = world.ClubhouseField!;
-            Assert.True(float.IsFinite(field.DistanceAt(terrain.CellXOf(terrain.Tee.X), terrain.CellZOf(terrain.Tee.Z))), $"graine {seed} : le départ est hors d'atteinte du pavillon");
+            var middle = clubhouse.Position(terrain.CellSize);
+            Assert.True(Math.Abs(middle.X - PropertyGenerator.Center.X) < 20 && Math.Abs(middle.Z - PropertyGenerator.Center.Z) < 20, $"graine {seed} : pavillon hors du centre");
+            Assert.True(float.IsFinite(world.ClubhouseField!.DistanceAt(terrain.CellXOf(PropertyGenerator.Center.X + 40), terrain.CellZOf(PropertyGenerator.Center.Z))));
+        }
+    }
+
+    [Fact]
+    public void GeneratedProperty_HoldsThirtyDays_WithoutException()
+    {
+        foreach (var seed in Sample)
+        {
+            var world = NewGame(seed);
+
+            world.Step(30 * Calendar.TicksPerDay);
+
+            Assert.NotNull(world.Clubhouse);
+            Assert.NotNull(world.League);
+        }
+    }
+
+    [Fact]
+    public void GeneratedProperty_SavedAndReloaded_KeepsItsChecksum_TreesIncluded()
+    {
+        foreach (var seed in Sample.Take(5))
+        {
+            var world = NewGame(seed);
+            world.Step(2 * Calendar.TicksPerDay);
+            using var stream = new MemoryStream();
+            world.Save(stream);
+            stream.Position = 0;
+
+            var loaded = World.Load(stream);
+
+            Assert.Equal(world.Checksum(), loaded.Checksum());
+            Assert.Equal(world.Trees.Count, loaded.Trees.Count);
+            Assert.Equal(world.Trees.Trees.Count(t => t.Remarkable), loaded.Trees.Trees.Count(t => t.Remarkable));
+            Assert.True(loaded.State.ClubActive);
         }
     }
 
@@ -98,7 +134,7 @@ public class NewGameTests
         Assert.Equal(meta, SaveSlotStore.ReadMeta(dir, "slot2"));
         Assert.Equal(world.Checksum(), meta.Checksum);
         Assert.Equal(15_000_000, meta.Money);
-        Assert.Equal(1, meta.OpenHoles);
+        Assert.Equal(0, meta.OpenHoles);
 
         SaveSlotStore.Write(dir, "slot2", bytes, meta, null);
         Assert.Equal(world.Checksum(), SaveSlotStore.Read(dir, "slot2").Checksum());

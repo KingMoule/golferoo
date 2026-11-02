@@ -81,6 +81,12 @@ Avant de dire « terminé », lancer la suite complète (`dotnet test Golferoo.s
 ## Niveau de contrôle
 complet (lot 1), léger (lots 2 à 4).
 
+## Écarts du lot 3
+- Le terrain généré reste `Blank` (« terre vierge », trou 1 fermé tant que `HoleCheck` y voit un manque), mais le club est actif dès le départ : `World` reçoit `plantedTrees` (les arbres générés, remarquables compris, sans replantation des cellules `Trees`), ce qui active le club, autorise la ligue et pose le pavillon au centre (`PlaceClubhouseNear`). Sans trou ouvert, personne n'arrive ; la note du parcours ne se calcule qu'à l'ouverture du premier trou (`Main`).
+- `TerrainGrid.IsLesson` (terre vierge portant les arbres du passage) distingue la leçon du tutoriel de la propriété générée là où `Blank` ne suffisait plus : pose du club au chargement (donc `Checksum` identique après rechargement), snack-bar offert, panneau du tutoriel. Aucun état nouveau, aucune version de sauvegarde.
+- `OfferTutorial` est remplacé par `Main.TutorialEnabled` (faux par défaut).
+- L'aperçu génère la propriété hors du fil principal et la remet à `Main` (`Main.NewGameProperty`) au lieu de la régénérer ; une graine sans propriété valide en tire une autre avec un message.
+
 ## Clôture
 - [ ] Critères vérifiés
 - [ ] Statut passé à « livré », ligne mise à jour dans docs/chantiers.md

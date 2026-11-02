@@ -345,7 +345,7 @@ public sealed partial class World
             }
         }
 
-        var clubActive = Terrain is not { Blank: true };
+        var clubActive = Terrain is not { IsLesson: true };
         State = r.Version >= 20 ? GameState.Read(r, Economy.StartingMoney, clubActive) : new GameState(Economy.StartingMoney, false, clubActive);
         if (r.Version < 21 && !clubActive && HoleOpen)
         {

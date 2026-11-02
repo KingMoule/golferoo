@@ -4,6 +4,7 @@ using Golferoo.Game.Cameras;
 using Golferoo.Game.Rendering;
 using Golferoo.Game.Sound;
 using Golferoo.Game.Tools;
+using Golferoo.Game.Tutorial;
 using Golferoo.Game.Ui;
 using Golferoo.Sim;
 using Golferoo.Sim.Buildings;
@@ -33,9 +34,6 @@ public partial class SmokeTest : Node
 
     public override void _Ready()
     {
-        // La proposition du tutoriel n'a rien à faire dans la fumée.
-        Main.OfferTutorial = false;
-
         // Sans écran, la fenêtre ferait 64 px : l'interface couvrirait tout. Taille du projet, pour que les clics simulés tombent où il faut.
         GetTree().Root.Size = new Vector2I(1280, 720);
         var scene = GD.Load<PackedScene>("res://Main.tscn");
@@ -360,15 +358,34 @@ public partial class SmokeTest : Node
             failures.Add("menu titre : Nouvelle partie n'ouvre pas le choix de la graine");
         }
 
+        if (title.FindChild(UiIds.Menu.Preview, true, false) is not TextureRect || title.FindChild(UiIds.Menu.OtherSeed, true, false) is not Button other)
+        {
+            failures.Add("menu titre : l'aperçu ou « Autre graine » manque");
+        }
+        else
+        {
+            var seed = (title.FindChild(UiIds.Menu.Seed, true, false) as SpinBox)?.Value;
+            other.EmitSignal(BaseButton.SignalName.Pressed);
+            if ((title.FindChild(UiIds.Menu.Seed, true, false) as SpinBox)?.Value == seed)
+            {
+                failures.Add("menu titre : « Autre graine » ne change pas la graine");
+            }
+        }
+
         title.QueueFree();
 
         Main.Request = Main.GameRequest.NewGame;
         Main.NewGameSeed = 42;
         var game = GD.Load<PackedScene>("res://Main.tscn").Instantiate<Main>();
         AddChild(game);
-        if (game.World.Seed != 42 || game.World.Terrain!.Name != "Nouvelle propriété" || game.World.Clubhouse is null)
+        if (game.World.Seed != 42 || game.World.Terrain!.Name != "Propriété" || game.World.Clubhouse is null || game.World.HoleOpen)
         {
             failures.Add("nouvelle partie : graine, propriété ou pavillon inattendus");
+        }
+
+        if (game.Tutorial is not { Phase: TutorialPanel.Mode.Off })
+        {
+            failures.Add("nouvelle partie : une offre ou une leçon de tutoriel s'ouvre");
         }
 
         CheckGameFlow(game, failures);
@@ -394,7 +411,7 @@ public partial class SmokeTest : Node
 
         (game.Ui.Find(UiIds.Menu.Save) as Button)?.EmitSignal(BaseButton.SignalName.Pressed);
         (game.Ui.Find(UiIds.Menu.Slot("slot1")) as Button)?.EmitSignal(BaseButton.SignalName.Pressed);
-        if (SaveSlots.Meta("slot1") is not { } meta || meta.Checksum != before || meta.OpenHoles != 1)
+        if (SaveSlots.Meta("slot1") is not { } meta || meta.Checksum != before || meta.OpenHoles != 0)
         {
             failures.Add("sauvegarde dans l'emplacement 1 : métadonnées absentes ou fausses");
         }
