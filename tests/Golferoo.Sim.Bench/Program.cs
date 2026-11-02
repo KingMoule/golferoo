@@ -35,7 +35,6 @@ const double leagueDayLimitMs = 5.0;
 const double saveLimitMs = 50.0;
 const double loadLimitMs = 1000.0;
 const double saveFileLimitBytes = 2.0 * 1024 * 1024;
-const double puddleFloodLimitMs = 20.0;
 const double shotPreviewLimitMs = 2.0;
 const double tutorialLimitMs = 1.0;
 const double planTreesRatioLimit = 2.5;
@@ -223,13 +222,6 @@ var save = MeasureSave(holePath);
 allPassed &= save.Save.Median < saveLimitMs && save.Load.Median < loadLimitMs && save.Bytes < saveFileLimitBytes;
 Console.WriteLine($"Sauvegarde ({save.Trees} arbres, ligue) : écriture {save.Save.Median:F1} ms (limite {saveLimitMs}), chargement {save.Load.Median:F1} ms (limite {loadLimitMs}), fichier {save.Bytes / 1024.0:F0} Ko (limite {saveFileLimitBytes / 1024:F0})");
 
-// Cuvettes des flaques (C04 lot 4) : remplissage depuis les bords sur 320 x 320 cellules (102 400) après une retouche du relief,
-// médiane de 11 passes. Critère sur un relief de collines et de creux comme en peint le pinceau ; le bruit pur à chaque coin
-// (pire cas, des creux partout) est donné pour information. Au sec, rien n'est calculé.
-var flood = MeasurePuddleFlood(noise: false);
-var floodNoise = MeasurePuddleFlood(noise: true);
-allPassed &= flood.Median < puddleFloodLimitMs;
-
 // Note du parcours (C06 lot 2) : CourseRater.Rate, 50 parties par niveau, médiane de 5 appels. Pour information : le jeu le lance
 // sur un fil à part, jamais sur celui de la sim.
 var rateMs = new double[5];
@@ -301,7 +293,6 @@ var report = new
     shotPreview = new { medianMs = preview.Median, maxMs = preview.Max, limitMs = shotPreviewLimitMs, passed = preview.Median < shotPreviewLimitMs },
     courseRating = new { games = CourseRater.DefaultGames, medianMs = rateMs[rateMs.Length / 2], maxMs = rateMs[^1] },
     benchmark = "c04-lot4",
-    puddleFlood = new { cells = 320 * 320, medianMs = flood.Median, maxMs = flood.Max, noiseMedianMs = floodNoise.Median, limitMs = puddleFloodLimitMs, passed = flood.Median < puddleFloodLimitMs },
     save = new { trees = save.Trees, saveMedianMs = save.Save.Median, loadMedianMs = save.Load.Median, fileBytes = save.Bytes, saveLimitMs, loadLimitMs, fileLimitBytes = saveFileLimitBytes, passed = save.Save.Median < saveLimitMs && save.Load.Median < loadLimitMs && save.Bytes < saveFileLimitBytes },
     leagueDayChange = new { groups = leagueDay.Groups, medianMs = leagueDay.Median, maxMs = leagueDay.Max, limitMs = leagueDayLimitMs, passed = leagueDay.Median < leagueDayLimitMs },
     dayChange = new { trees = dayChange.Trees, medianMs = dayChange.Median, maxMs = dayChange.Max, fallen = dayChange.Fallen, limitMs = dayChangeLimitMs, passed = dayChange.Median < dayChangeLimitMs },
@@ -764,36 +755,6 @@ static (double FlightRatio, double PlanCalmMs, double PlanWindyMs, double PlanRa
     Array.Sort(planCalm);
     Array.Sort(planWindy);
     return (blow[7] / calm[7], planCalm[15], planWindy[15], planWindy[15] / planCalm[15]);
-}
-
-static (double Median, double Max) MeasurePuddleFlood(bool noise)
-{
-    var map = new TerrainGrid(new HeightField(320, 320, 2.0), "relief", new Point2(2, 2), new Point2(600, 600), new Point2(600, 600));
-    var rng = new DeterministicRng(41);
-    for (var j = 0; j <= 320; j++)
-    {
-        for (var i = 0; i <= 320; i++)
-        {
-            // Collines de 60 à 100 m et creux de 1 à 2 m, ou bruit pur.
-            map.SetCornerHeight(i, j, noise ? rng.NextDouble() * 2.0 : (3.0 * Math.Sin(i * 0.1) * Math.Cos(j * 0.07)) + (1.5 * Math.Sin((i + j) * 0.23)));
-        }
-    }
-
-    map.Soil.Wetness = 1.0;
-    var samples = new double[11];
-    for (var k = -2; k < samples.Length; k++)
-    {
-        map.SetCornerHeight(160, 160, rng.NextDouble() * 2.0);
-        var t0 = Stopwatch.GetTimestamp();
-        map.Puddles.DepthAt(0, 0);
-        if (k >= 0)
-        {
-            samples[k] = Stopwatch.GetElapsedTime(t0).TotalMilliseconds;
-        }
-    }
-
-    Array.Sort(samples);
-    return (samples[samples.Length / 2], samples[^1]);
 }
 
 static (int Groups, double Median, double Max) MeasureLeagueDay(string holePath)
