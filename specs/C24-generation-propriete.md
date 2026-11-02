@@ -1,53 +1,85 @@
 # Génération de la propriété
 Statut : cadré (en attente du « go » de Guillaume)
-Créé : 2026-11-02
+Créé : 2026-11-02 · révisé le même jour après ses réponses
 
 ## But
-Une nouvelle partie démarre aujourd'hui sur un terrain plat, vide et identique à chaque graine (`BlankProperty`, provisoire depuis C18). C24 (manque M13 de `docs/plan-alpha.md`, décision 3) le remplace par une **propriété générée à partir de la graine** : relief doux, eau, boisements d'âges variés, une clairière pour le pavillon et un premier trou tracé. Tout vit dans la sim (`Golferoo.Sim`, sans Godot) ; le rendu lit déjà un `TerrainGrid` quelconque.
+Une nouvelle partie démarre aujourd'hui sur un terrain plat, vide et identique à chaque graine (`BlankProperty`, provisoire depuis C18). C24 (manque M13 de `docs/plan-alpha.md`, décision 3) le remplace par une **propriété vierge entièrement aléatoire**, tirée de la graine : relief doux, étangs et ruisseau, bois d'âges variés, le pavillon au milieu. Aucun trou n'est tracé : le joueur construit tout. La simulation vit dans `Golferoo.Sim` (sans Godot) ; le rendu lit déjà un `TerrainGrid` quelconque.
+
+## Choix tranchés par Guillaume (2026-11-02)
+1. **Propriété vierge, entièrement aléatoire, pavillon au centre.** Pas de premier trou tracé.
+2. **Tutoriel désactivé pour l'alpha, sans être effacé** : leçon de C07 et suite de C19 restent dans le code et les données, derrière un drapeau (`Main.TutorialEnabled`, faux par défaut) ; ni la proposition au menu ni la leçon ne se lancent, mais `-- --tutorial` et les tests continuent de les atteindre. Les conseils du pro de C19 restent actifs. Son avenir se décidera plus tard.
+3. **Arbres** : les trois arbres matures de `mature_species_8000` (chêne pédonculé 7 500 triangles, bouleau verruqueux 7 860, épicéa commun 7 998 ; textures d'atlas, un seul maillage chacun) deviennent les modèles principaux des essences existantes (Oak, Birch, Fir). Voir lot 4 et l'écart de budget plus bas.
+4. Le paysage (≈ 35 % de bois, un à deux étangs et un ruisseau) suit la recommandation du cadrage, à confirmer en jouant.
 
 ## Périmètre et hors périmètre
-Dans le périmètre : générateur déterministe `PropertyGenerator.Create(seed)` ; relief, eau, clairière, premier trou ; boisement et arbres remarquables ; aperçu de la graine dans l'écran de nouvelle partie ; captures `c24-*`.
+Dans le périmètre : générateur `PropertyGenerator.Create(seed)` et ses bornes en données ; pavillon au centre ; boisement ; arbres remarquables ; désactivation du tutoriel ; aperçu de la graine ; intégration des trois arbres matures ; captures `c24-*`.
 
-Hors périmètre : autres thèmes que Parkland ; propriété plus grande que 1 200 × 800 m ; bunkers générés ; chemins générés au-delà de la sortie du pavillon ; choix de taille ou de difficulté du terrain ; régénération en cours de partie. « Le neuf » reste le parcours de démonstration, inchangé.
+Hors périmètre : autres thèmes que Parkland ; tailles de propriété variables ; premier trou, bunkers et chemins générés ; régénération en cours de partie ; arbres matures nus ou d'automne (le pack n'en fournit pas : les saisons de C04 gardent les modèles actuels, voir lot 4). « Le neuf » reste le parcours de démonstration, inchangé.
 
-## Choix tranchés par Guillaume
-À confirmer par ses cartes du 2026-11-02 (les recommandations sont reprises ici en attendant) :
-1. **Départ** : le pavillon est posé dans une clairière près d'un bord et **un premier trou de 180 m est tracé** (départ, fairway, green) sur un couloir plat voisin, comme aujourd'hui : le tutoriel (C07, C19) marche tel quel.
-2. **Paysage** : environ **35 % de boisement** (massifs aux bords et dans les creux, centre plus dégagé), **un à deux étangs et un ruisseau**.
+## Taille et limites de la propriété
+Ce que « vierge, aléatoire, pavillon au centre » impose :
+- **Taille fixe de 1 200 × 800 m** (300 × 200 cellules de 4 m, 96 ha), la même que « Le neuf » et que `BlankProperty`. Un 9 trous occupe 40 à 55 ha avec ses marges ; il reste donc la moitié de la propriété pour l'eau, les bois et de futurs trous. Tout est déjà calé sur cette grille (champs de flux, horizon, caméra, bancs), et la faire varier d'une graine à l'autre n'apporte rien à l'alpha : seul le contenu varie.
+- **Pavillon au centre (600 ; 400)** : les golfeurs partent et reviennent de là, donc les marches restent courtes. Mais du centre, le bord nord ou sud n'est qu'à 400 m : les couloirs de 400 m se trouvent surtout en est-ouest, ou en diagonale. Le générateur le garantit (voir limites).
+- **Limites en données** (`game/data/property/parkland.json`, mêmes règles que les autres fichiers : clé inconnue ou champ manquant refusent le fichier), valeurs de départ à caler par balayage :
+
+| Paramètre | Borne |
+|---|---|
+| Relief (amplitude, 3 octaves) | 4 à 10 m ; pente moyenne ≤ 6 % ; 1 à 2 collines, 1 creux |
+| Clairière du pavillon | rayon 30 m, plate (`ClubhouseMaxRelief`), sans eau ni flaque permanente |
+| Zone dégagée autour du pavillon | rayon 150 m, au plus 10 % d'arbres (le joueur y construit ses premiers trous) |
+| Étangs / ruisseau | 1 à 2 / 1 ; à plus de 40 m du pavillon ; au moins 2 gués de ruisseau dans la zone jouable |
+| Boisement | 30 à 40 % de la surface hors eau et hors zone dégagée |
+| Arbres à la génération | 5 000 au plus (budget du banc P1) |
+| Arbres remarquables | 10 à 20, très vieux, hors des massifs |
+| Surface constructible (sans eau, pente ≤ 8 %, arbres compris) | au moins 55 ha, d'un seul tenant autour du pavillon |
+| Couloirs de 400 m | au moins 3, partant à moins de 200 m du pavillon, sans eau, sous 8 % de pente, boisement compris (déboisable) ; au moins 2 directions distantes de 60° |
+
+Un tirage qui rate une garantie est retenté avec le sel suivant (8 essais au plus, déterministe) ; si les 8 échouent, le test d'acceptation échoue : on corrige les bornes, pas le test.
+- **Coût du défrichage** : un boisement de 35 % sur 96 ha, ≈ 3 300 arbres à 100 à l'hectare, se rase à `TreeRaze` pièce (×multiplicateur pour un remarquable). À vérifier au lot 2 : l'argent de départ de « Facile » doit permettre de dégager un premier 3 trous ; sinon la zone dégagée s'élargit (réglage en données).
 
 ## Conception
-- **Fichier** : `src/Golferoo.Sim/Terrain/PropertyGenerator.cs`. Même grille que `BlankProperty` (300 × 200 cellules de 4 m). `BlankProperty` est supprimé quand le lot 3 branche `Main` sur le générateur ; ses tests deviennent ceux du générateur.
-- **Aléa** : `DeterministicRng` dérivé de la graine par un sel propre au terrain, sans toucher au flux de la météo, des arrivées ou de la ligue (qui continuent de lire la graine telle quelle). Même graine, même carte, au bit près.
-- **Relief** : bruit de valeur à 3 octaves sur les coins de `HeightField`, amplitude de l'ordre de 6 m, une colline douce et un creux ; pente moyenne bornée. Les zones de jeu (clairière, couloir du premier trou) sont aplanies après coup.
-- **Eau** : les étangs occupent les points bas du relief (cellules `Surface.Water`, bords en pente douce) ; le ruisseau suit la ligne de plus forte descente entre deux points bas, sur 2 à 3 cellules de large, avec au moins deux gués dans la zone jouable. Aucun plan d'eau à moins de 40 m du pavillon ni du premier trou.
-- **Clairière et pavillon** : un disque d'environ 30 m de rayon, au relief plat (`ClubhouseMaxRelief`), à moins de 120 m d'un bord, hors de toute flaque permanente (`Puddles`) ; le pavillon y est posé par le même chemin que `ClubhouseOnNewGame` aujourd'hui. Le générateur renvoie la clairière avec le terrain.
-- **Premier trou** : couloir de 180 m près du pavillon, choisi parmi les candidats par score (pente la plus faible, éloignement de l'eau) ; peint en Tee, Fairway, Green comme `BlankProperty.Create` et validé par `HoleCheck`.
-- **Boisement** (lot 2) : cellules `Surface.Trees` peintes par un bruit de seuil (≈ 35 % de la surface hors clairière, couloir et eau), puis `WoodlandGenerator.Fill` avec le RNG du terrain ; âges variés par le générateur existant ; 10 à 20 **arbres remarquables** (très vieux, hors massifs) près du centre. Garde : **au moins 3 couloirs de 400 m** sans eau, sans arbre et sous une pente bornée (valeurs à caler), sinon la graine est retentée avec le sel suivant (8 essais au plus, déterministe).
-- **Budget** : au plus 5 000 arbres à la génération ; le banc P1 de la sim garde son plafond.
-- **Sauvegarde** : le terrain et les arbres sont déjà sauvegardés en entier ; **aucun nouvel état de sim**, donc ni `Checksum` ni version de sauvegarde à toucher. Un test d'aller-retour sur une propriété générée le prouve.
-- **Aperçu** (lot 3) : l'écran de nouvelle partie (`TitleMenu`) affiche une miniature vue du dessus de la graine saisie (hauteur, eau et bois), mise à jour quand la graine change ; un bouton « Autre graine » tire au hasard.
+- **Fichier** : `src/Golferoo.Sim/Terrain/PropertyGenerator.cs` ; `BlankProperty` est supprimé au lot 3, ses tests deviennent ceux du générateur.
+- **Aléa** : `DeterministicRng` dérivé de la graine par un sel propre au terrain ; la météo, les arrivées et la ligue continuent de lire la graine telle quelle. Même graine, même carte, au bit près.
+- **Relief** : bruit de valeur sur les coins de `HeightField`, clairière aplanie après coup.
+- **Eau** : les étangs occupent les points bas (cellules `Surface.Water`, bords en pente douce) ; le ruisseau suit la plus forte descente entre deux points bas, sur 2 à 3 cellules.
+- **Pavillon** : posé au centre par le chemin existant (`PlaceClubhouseNearTee` devient `PlaceClubhouse` avec un point, le centre de la clairière, quand le terrain n'a pas de départ).
+- **Boisement** : cellules `Surface.Trees` par bruit de seuil, puis `WoodlandGenerator.Fill` (âges et essences variés), plus les arbres remarquables.
+- **Sauvegarde** : terrain et arbres sont déjà sauvegardés en entier ; **aucun nouvel état de sim**, donc ni `Checksum` ni version de sauvegarde. Un test d'aller-retour sur une propriété générée le prouve.
+- **Tutoriel** : un drapeau dans `Main`, le reste intact ; une fumée vérifie qu'une nouvelle partie n'ouvre ni offre ni leçon.
+- **Aperçu** (lot 3) : miniature vue du dessus de la graine dans l'écran de nouvelle partie (hauteur, eau, bois, pavillon), mise à jour quand la graine change ; bouton « Autre graine ».
+- **Arbres matures** (lot 4) : voir ci-dessous.
+
+## Les arbres matures : un écart de budget à trancher
+Les trois modèles font environ **10 fois les modèles actuels** (≈ 800 triangles) : 7 500 à 8 000 triangles, un GLB de 3,6 Mo avec 3 textures embarquées (écorce, normales, atlas de feuillage découpé par masque alpha), feuillage été seulement. Le jeu les charge aujourd'hui comme des maillages sans texture, en `MultiMesh` par essence et par stade. À 3 300 arbres, 8 000 triangles chacun feraient 26 millions de triangles : intenable, et la fumée plafonne les arbres à 800.
+Proposition (lot 4, après la génération) :
+- le chargeur lit les matériaux et textures de ces GLB (matériaux `Foliage*` recolorables pour les saisons, comme le dit le README du pack) ;
+- **niveau de détail** : modèle mature à moins de ~80 m de la caméra (plafond d'instances à calibrer au banc, quelques centaines), modèle de 800 triangles au-delà ; le LOD de C10 existe déjà, on le réutilise ;
+- stade adulte seulement : jeunes plants, souches et troncs gardent leurs modèles ; les saisons d'automne, d'hiver et nues gardent les modèles actuels de chaque essence (le pack n'en fournit pas) : changement de modèle visible à l'automne, à juger en jeu ; demander les versions saisonnières aux autres IA si Guillaume veut les matures toute l'année ;
+- budget et FPS mesurés avec `Mesurer FPS.bat` ; si le coût est trop haut, le lot 4 se repousse sans bloquer C24 (lots 1 à 3 autonomes).
+Le dépôt gagne ≈ 11 Mo de GLB : accepté sauf avis contraire. Les scripts `tools/blender/*_mature_atlas_8000_lowpoly.py` pèsent 2,6 à 2,9 Mo chacun (atlas en base64) : à ne pas versionner tels quels ; on garde les GLB, `LICENSES.md` ou `docs/assets-3d/catalogue.md` notent leur provenance.
 
 ## Critères d'acceptation
 1. Même graine, même terrain, mêmes arbres (somme de contrôle identique) ; deux graines différentes donnent des terrains différents (test).
-2. Sur **100 graines** : pavillon posable dans la clairière ; chemin du pavillon au premier départ possible (champ de flux atteint la porte) ; premier trou valide selon `HoleCheck` ; au moins 3 couloirs de 400 m ; aucune flaque permanente à moins de 40 m du pavillon (tests).
-3. Boisement entre 30 et 40 % hors eau ; au plus 5 000 arbres ; arbres de plusieurs âges et trois essences (test).
-4. Au moins un étang et un ruisseau sur chaque graine ; aucun à moins de 40 m du pavillon ni du premier trou (test).
-5. Génération sous 1 s par graine en Release (banc).
-6. Une partie neuve sur chaque graine tient 30 jours de jeu avec les arrivées sans exception ; le `Checksum` se recharge à l'identique (test).
-7. Le menu titre montre l'aperçu de la graine et « Autre graine » ; la fumée Godot (`SMOKE OK`) lance une partie neuve générée ; captures `c24-*` sur trois graines.
-8. `dotnet test Golferoo.sln` verte : les sommes épinglées de « Le neuf » inchangées ; `BlankProperty` supprimé sans test orphelin.
-9. Tous les textes en français.
+2. Sur **100 graines** : toutes les bornes du tableau tenues (surface constructible, couloirs de 400 m, zone dégagée, eau à 40 m du pavillon, boisement 30 à 40 %, ≤ 5 000 arbres) ; pavillon posé au centre et son champ de flux atteint la porte (tests).
+3. Au moins un étang et un ruisseau par graine ; arbres de plusieurs âges et de trois essences (test).
+4. Génération sous 1 s par graine en Release (banc).
+5. Une partie neuve sur chaque graine tient 30 jours avec ses arrivées sans exception ; le `Checksum` se recharge à l'identique (test).
+6. Nouvelle partie : pas d'offre de tutoriel ni de leçon ; `-- --tutorial` fonctionne encore (fumée).
+7. Le menu titre montre l'aperçu de la graine et « Autre graine » ; la fumée lance une partie neuve générée (`SMOKE OK`) ; captures `c24-*` sur trois graines.
+8. Lot 4 : les trois arbres matures s'affichent près de la caméra avec leurs textures ; arbres en dessous de la limite de budget fixée au banc ; FPS mesuré et reporté ; captures `c24-arbres-*`.
+9. `dotnet test Golferoo.sln` verte, sommes épinglées de « Le neuf » inchangées ; `BlankProperty` supprimé sans test orphelin ; textes en français.
 
 ## Lots
-1. **Relief, eau, clairière et premier trou** (sim) : `PropertyGenerator` sans arbres, tests sur 100 graines (critères 1, 2 sans les couloirs, 4, 5). Contrôle **complet**.
-2. **Boisement et arbres remarquables** : massifs, âges, couloirs de 400 m, reprise de graine, budget d'arbres, banc (critères 2 complet, 3, 6). Contrôle léger.
-3. **Branchement et aperçu** : `Main` appelle le générateur, `BlankProperty` supprimé, aperçu dans `TitleMenu`, fumée et captures `c24-*` sur trois graines (critères 7, 8). Contrôle léger.
+1. **Relief, eau, clairière et pavillon central** (sim) : `PropertyGenerator` sans arbres, bornes en données, tests sur 100 graines (critères 1, 2 hors boisement, 3 hors arbres, 4). Contrôle **complet**.
+2. **Boisement et arbres remarquables** : massifs, âges, zone dégagée, couloirs de 400 m, reprise de graine, budget d'arbres, coût du défrichage vs argent de départ (critères 2 complet, 3, 5). Contrôle léger.
+3. **Branchement, tutoriel et aperçu** : `Main` appelle le générateur, `BlankProperty` supprimé, tutoriel derrière le drapeau, aperçu dans `TitleMenu`, fumée et captures `c24-*` (critères 6, 7, 9). Contrôle léger.
+4. **Arbres matures** : import des trois GLB texturés, LOD mature/800, banc et FPS (critère 8). Contrôle léger. Peut passer après la séance de jeu de Guillaume.
 
 ## Règle de livraison (briefs du codeur)
-Avant de dire « terminé », lancer la suite complète (`dotnet test Golferoo.sln`) et, pour le lot 3, la fumée Godot (`SMOKE OK`), et montrer leur sortie. Le calage des seuils (pente, bruit, nombre de couloirs) se fait par balayage de paramètres sur les 100 graines, pas par essais successifs.
+Avant de dire « terminé », lancer la suite complète (`dotnet test Golferoo.sln`) et, pour les lots 3 et 4, la fumée Godot (`SMOKE OK`), et montrer leur sortie. Le calage des bornes se fait par balayage de paramètres sur les 100 graines, pas par essais successifs.
 
 ## Niveau de contrôle
-complet (lot 1), léger (lots 2 et 3).
+complet (lot 1), léger (lots 2 à 4).
 
 ## Clôture
 - [ ] Critères vérifiés
