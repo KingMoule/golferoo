@@ -1,9 +1,10 @@
-Mis à jour : 2026-11-02 (C20 livré, #166 à #170)
+Mis à jour : 2026-11-02 (C24 lots 1 à 3 livrés, #173 à #177)
 
 ## État
 Vague 3 : C18 (une partie du début à la fin) livré en 3 lots : menu titre, nouvelle partie sur un terrain plat provisoire (C24 le remplacera), 3 emplacements + auto avec vignette, pause (Échap), objectifs (7, bons de pose), faillite avec « continuer quand même », bilan annuel, options et pause automatique. Sauvegarde en v22 (C19).
 
 ## À signaler à Guillaume
+- C24 : propriété vierge générée de la graine (1 200 × 800 m, pavillon au centre, 1 à 2 étangs, un ruisseau, bois ≈ 25 % soit ~1 000 arbres et 10 à 20 remarquables), aperçu et « Autre graine » dans Nouvelle partie, tutoriel désactivé par `Main.TutorialEnabled` (faux, code gardé). Le trou 1 reste fermé : tu traces tout, personne n'arrive avant un trou ouvert. À juger en jouant : relief très doux (pente 1 à 3 %), peu d'arbres (44 à l'hectare, beaucoup de sapins), captures `c24-*` non regardées. Écarts dans la spec (`IsLesson`, `plantedTrees`).
 - C20 : son minimal livré en 2 lots. Volumes (général, musique, effets, ambiance) dans les options. Sons synthétisés (clics, caisse, refus, objectif, conseil, abandon) + sons d'`opensgolf-free` (GPL-2.0-or-later, exception de `CLAUDE.md` pour l'usage personnel) + ta boucle d'oiseaux (extrait de 40 s). Réserves : pas de pluie ni de vent seul (silence en hiver et sous la pluie) ; club des frappes déduit de la distance au drapeau ; eau, arbre et bunker pour les visiteurs seulement ; à écouter et à régler en jeu ; origine de la boucle oiseaux-vent à confirmer. Banc `puddleFlood` : faux rouge à chaque run de #166, #169, #170 (33 à 35 ms pour 20), repassé au vert à la relance : à traiter en C22.
 - C19 : le tutoriel continue après le premier trou dans le même monde (club activé à l'ouverture, paire, premier green fee, fiche d'un golfeur ouverte, bon de pose du snack-bar), puis 4 conseils du pro la première année (abandon, trésorerie sous 25 000 $, trou 3 jours sans partie, gazon usé à 15 %), option « Conseils du pro ». Sauvegarde en v22. Un bon de pose lève désormais le seuil de déblocage de son genre (y compris les bons d'objectifs de C18). Réserves connues : pavillon non posé si le terrain est encombré, leçon bloquée si un green fee vaut 0, premier abandon testé en posant le compteur. Seuils et textes des conseils à relire en jeu.
 - Flaques (« casual water », C04 lot 4) retirées le 2026-11-02, décision de Guillaume : code, rendu, tests et banc `puddleFlood` supprimés ; la balle reste où elle s'arrête. Humidité du sol, pluie et gazon inchangés (PR `claude/retirer-flaques`).
@@ -13,6 +14,7 @@ Vague 3 : C18 (une partie du début à la fin) livré en 3 lots : menu titre, no
 - À relire en jeu : textes des bâtiments, pensées de `mood.json`, façade du pavillon, chemin de sortie le long du départ 9.
 
 ## En cours
+- **C24 lot 4** : arbres matures de 8 000 triangles (`mature_species_8000`) et LOD, après que Guillaume a jugé la propriété en jeu. [guillaume]
 - **C23 lot 2** : attend les animations de Guillaume. [guillaume]
 - À vérifier par Guillaume : FPS avec `Mesurer FPS.bat`, drapeau sans scintillement, pente de la rive. [guillaume]
 
