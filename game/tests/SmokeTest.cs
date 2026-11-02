@@ -616,7 +616,8 @@ public partial class SmokeTest : Node
             muted();
             spy.Played.Clear();
             game.StepTicks(2_000);
-            var golf = spy.Played.Where(p => p != "cash").ToList();
+            // La caisse et le ding du pro sont des sons de gestion, ni liés à la vue ni à la vitesse : seuls les sons de golf sont contrôlés.
+            var golf = spy.Played.Where(p => p is not ("cash" or "advice")).ToList();
             if (golf.Count > 0)
             {
                 failures.Add($"golf : {how}, des sons ont joué : {string.Join(",", golf.Distinct())}");
