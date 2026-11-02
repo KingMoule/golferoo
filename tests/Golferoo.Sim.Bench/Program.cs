@@ -37,6 +37,7 @@ const double loadLimitMs = 1000.0;
 const double saveFileLimitBytes = 2.0 * 1024 * 1024;
 const double shotPreviewLimitMs = 2.0;
 const double tutorialLimitMs = 1.0;
+const double propertyGenerationLimitMs = 1000.0;
 const double planTreesRatioLimit = 2.5;
 const double playMapDoglegLimitMs = 5.0;
 const double playMap512LimitMs = 150.0;
@@ -245,6 +246,22 @@ var holeCheck = Measure(200, 20, () => HoleCheck.Check(blankWorld.Terrain!));
 var tutorialStep = Measure(200, 20, () => TutorialSteps.Current(blankWorld));
 allPassed &= holeCheck.Median < tutorialLimitMs && tutorialStep.Median < tutorialLimitMs;
 
+// Propriété générée (C24, critère 4) : terrain et arbres des graines 1 à 100, au pire sous 1 s (échauffement du JIT sur la graine 0).
+_ = PropertyGenerator.CreateWithTrees(0);
+var propertyTimes = new double[100];
+var propertyTrees = new int[100];
+for (var seed = 1; seed <= 100; seed++)
+{
+    var clock = Stopwatch.StartNew();
+    propertyTrees[seed - 1] = PropertyGenerator.CreateWithTrees((ulong)seed).Trees.Count;
+    propertyTimes[seed - 1] = clock.Elapsed.TotalMilliseconds;
+}
+
+var propertyMean = propertyTimes.Average();
+var propertyWorst = propertyTimes.Max();
+Console.WriteLine($"Propriété générée (100 graines, {propertyTrees.Average():F0} arbres en moyenne, de {propertyTrees.Min()} à {propertyTrees.Max()}) : {propertyMean:F0} ms en moyenne, pire {propertyWorst:F0} ms (limite {propertyGenerationLimitMs:F0})");
+allPassed &= propertyWorst < propertyGenerationLimitMs;
+
 // Planification avec arbres (C09 lot 1) : un drive planifié sur le dogleg avec ses arbres contre le même planificateur qui les ignore
 // (le temps d'avant le lot), médianes de passes alternées. Limite : 2,5 fois. Depuis la lisière de la forêt (ligne du trou bouchée, directions
 // élargies), la mesure est donnée pour information.
@@ -290,6 +307,7 @@ var report = new
     planProfiles = new { teeMedianMs = planProfiles.ToDictionary(p => p.Profile.ToString(), p => p.Ms), worstRatio = planProfileWorst, limit = planProfileRatioLimit, passed = planProfileWorst <= planProfileRatioLimit },
     playMap = new { doglegMedianMs = mapDogleg.Median, doglegLimitMs = playMapDoglegLimitMs, map512MedianMs = map512.Median, map512LimitMs = playMap512LimitMs, passed = mapDogleg.Median < playMapDoglegLimitMs && map512.Median < playMap512LimitMs },
     tutorial = new { holeCheckMedianMs = holeCheck.Median, stepMedianMs = tutorialStep.Median, limitMs = tutorialLimitMs, passed = holeCheck.Median < tutorialLimitMs && tutorialStep.Median < tutorialLimitMs },
+    property = new { seeds = 100, meanMs = propertyMean, worstMs = propertyWorst, limitMs = propertyGenerationLimitMs, meanTrees = propertyTrees.Average(), maxTrees = propertyTrees.Max(), passed = propertyWorst < propertyGenerationLimitMs },
     shotPreview = new { medianMs = preview.Median, maxMs = preview.Max, limitMs = shotPreviewLimitMs, passed = preview.Median < shotPreviewLimitMs },
     courseRating = new { games = CourseRater.DefaultGames, medianMs = rateMs[rateMs.Length / 2], maxMs = rateMs[^1] },
     benchmark = "c04-lot4",

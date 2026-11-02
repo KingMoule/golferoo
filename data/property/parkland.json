@@ -1,4 +1,4 @@
-// Propriété Parkland générée (C24 lot 1) : bornes du relief, de l'eau et de la clairière du pavillon.
+// Propriété Parkland générée (C24 lots 1 et 2) : bornes du relief, de l'eau, de la clairière du pavillon, du boisement et des garanties de jeu.
 // Tous les paramètres sont obligatoires : un oubli, une clé inconnue ou une borne incohérente refuse le fichier.
 // Longueurs en mètres. Calé par balayage sur 100 graines (tests/Golferoo.Sim.Tests/PropertyGeneratorTests.cs).
 {
@@ -29,5 +29,32 @@
   "fordSpacing": 70.0,
   "fordHalfLength": 8.0,
   "fordsMin": 2,
-  "playableRadius": 300.0
+  "playableRadius": 300.0,
+
+  // Boisement : part des cellules sans eau hors zone dégagée (tirée dans [min, max]), bruit de seuil
+  "woodWavelength": 100.0,
+  "woodShareMin": 0.22,
+  "woodShareMax": 0.28,
+  "clearedRadius": 150.0,
+  "clearedWoodShare": 0.05,
+  "maxTrees": 3500,
+
+  // Arbres remarquables : très vieux, isolés (loin de l'eau et des massifs), près du centre
+  "remarkablesMin": 10,
+  "remarkablesMax": 20,
+  "remarkableAgeFactorMin": 1.6,
+  "remarkableAgeFactorMax": 2.2,
+  "remarkableIsolation": 12.0,
+  "remarkableMaxDistance": 260.0,
+  "remarkableSpacing": 25.0,
+
+  // Garanties de jeu (le boisement est déboisable : il ne compte pas)
+  "buildableMinHa": 55.0,
+  "buildableMaxSlope": 0.08,
+  "corridorsMin": 3,
+  "corridorSpreadDegrees": 60,
+  "corridorLength": 400.0,
+  "corridorHalfWidth": 15.0,
+  "corridorMaxSlope": 0.08,
+  "corridorStartRadius": 200.0
 }

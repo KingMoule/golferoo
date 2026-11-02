@@ -4,20 +4,14 @@ using Golferoo.Sim.Terrain;
 
 namespace Golferoo.Sim.Tests;
 
-/// <summary>C24 lot 1 : propriété générée (relief, eau, clairière, pavillon central), sans arbres.</summary>
+/// <summary>C24 lot 1 : propriété générée (relief, eau, clairière, pavillon central). Le boisement du lot 2 est dans <see cref="PropertyWoodlandTests"/>.</summary>
 public class PropertyGeneratorTests
 {
     private const int Seeds = 100;
 
     private static string ParklandPath() => Path.Combine(Path.GetDirectoryName(EconomyTests.FacilePath())!, "..", "property", "parkland.json");
 
-    private static IEnumerable<PropertyGenerator.Result> Properties()
-    {
-        for (ulong seed = 1; seed <= Seeds; seed++)
-        {
-            yield return PropertyGenerator.Generate(seed);
-        }
-    }
+    private static IEnumerable<PropertyGenerator.Result> Properties() => PropertyWoodlandTests.AllProperties;
 
     [Fact]
     public void SameSeed_SameTerrain_DifferentSeeds_DifferentTerrains()
@@ -30,7 +24,7 @@ public class PropertyGeneratorTests
     }
 
     [Fact]
-    public void Terrain_HasTheFixedGrid_NoTreesAndNoHole()
+    public void Terrain_HasTheFixedGrid_NoIsolatedTreesAndNoHole()
     {
         foreach (var r in Properties())
         {
@@ -42,7 +36,7 @@ public class PropertyGeneratorTests
             {
                 for (var cx = 0; cx < t.CellsX; cx++)
                 {
-                    Assert.True(t.GetCellSurface(cx, cz) is Surface.Rough or Surface.Water);
+                    Assert.True(t.GetCellSurface(cx, cz) is Surface.Rough or Surface.Water or Surface.Trees);
                 }
             }
         }
@@ -208,6 +202,11 @@ public class PropertyGeneratorTests
     [InlineData("pondsMax")]
     [InlineData("playableRadius")]
     [InlineData("reliefWavelength")]
+    [InlineData("woodShareMax")]
+    [InlineData("maxTrees")]
+    [InlineData("remarkableSpacing")]
+    [InlineData("corridorStartRadius")]
+    [InlineData("buildableMinHa")]
     public void Parkland_MissingField_IsRefused(string field)
     {
         var json = System.Text.RegularExpressions.Regex.Replace(File.ReadAllText(ParklandPath()), $"\"{field}\":[^,\\n]*,?", "");
@@ -219,6 +218,12 @@ public class PropertyGeneratorTests
     [InlineData("{\n  \"unknownKey\": 1,", "{")]
     [InlineData("\"pondsMin\": 1", "\"pondsMin\": 3")]
     [InlineData("\"maxMeanSlope\": 0.04", "\"maxMeanSlope\": -0.04")]
+    [InlineData("\"woodShareMin\": 0.22", "\"woodShareMin\": 0.3")]
+    [InlineData("\"clearedWoodShare\": 0.05", "\"clearedWoodShare\": 1.5")]
+    [InlineData("\"remarkablesMin\": 10", "\"remarkablesMin\": 30")]
+    [InlineData("\"remarkableAgeFactorMin\": 1.6", "\"remarkableAgeFactorMin\": 1.2")]
+    [InlineData("\"corridorSpreadDegrees\": 60", "\"corridorSpreadDegrees\": 200")]
+    [InlineData("\"corridorLength\": 400.0", "\"corridorLength\": 0.0")]
     public void Parkland_UnknownKeyOrBadBounds_IsRefused(string from, string to)
     {
         var text = File.ReadAllText(ParklandPath());
