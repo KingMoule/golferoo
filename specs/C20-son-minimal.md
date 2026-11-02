@@ -1,5 +1,5 @@
 # Son minimal
-Statut : cadré (en attente du « go » de Guillaume)
+Statut : livré (#169, #170)
 Créé : 2026-11-01
 
 ## But
@@ -52,5 +52,5 @@ Chaque brief reprend la règle de la PR #161 : **avant de dire « terminé », l
 léger (lots 1 et 2).
 
 ## Clôture
-- [ ] Critères vérifiés
-- [ ] Statut passé à « livré », ligne mise à jour dans docs/chantiers.md
+- [x] Critères vérifiés (CI verte sur les deux lots ; l'oreille et le FPS en jeu restent à Guillaume ; écarts du lot 2 : pas de pluie ni de vent seul, club déduit de la distance, eau/arbre/bunker pour les visiteurs seulement)
+- [x] Statut passé à « livré », ligne mise à jour dans docs/chantiers.md
