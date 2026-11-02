@@ -30,8 +30,13 @@ public partial class Crossfader(string bus, double fade) : Node
         }
     }
 
-    public override void _ExitTree()
+    public override void _ExitTree() => Release();
+
+    /// <summary>Arrête les deux pistes et lâche leurs flux.</summary>
+    public void Release()
     {
+        _done[0] = _done[1] = null;
+        _id = null;
         foreach (var track in _tracks)
         {
             track.Stop();

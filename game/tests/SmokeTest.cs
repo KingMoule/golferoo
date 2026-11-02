@@ -93,6 +93,7 @@ public partial class SmokeTest : Node
         if (failures.Count == 0)
         {
             GD.Print($"SMOKE OK frames={_frames} tick={_main!.World.Tick} checksum={_main.World.Checksum():x16}");
+            Sound.Audio.Shutdown();
             GetTree().Quit(0);
         }
         else
@@ -101,6 +102,8 @@ public partial class SmokeTest : Node
             {
                 GD.PrintErr($"SMOKE FAIL {failure}");
             }
+
+            Sound.Audio.Shutdown();
 
             GetTree().Quit(1);
         }

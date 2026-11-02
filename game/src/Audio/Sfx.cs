@@ -43,6 +43,9 @@ public static class Audio
     public static ISfx Sfx { get; set; } = None;
 
     public static void Play(string id) => Sfx.Play(id);
+
+    /// <summary>Arrête tout et libère les flux ; à appeler juste avant <c>GetTree().Quit()</c> (le moteur signale sinon des ressources encore utilisées).</summary>
+    public static void Shutdown() => (Sfx as Sfx)?.Shutdown();
 }
 
 /// <summary>Anti-rafale : un délai minimal par id et une borne globale de sons par seconde (le jeu à ×16 ne doit pas faire de brouhaha). Horloge passée en paramètre.</summary>
@@ -111,12 +114,19 @@ public partial class Sfx : Node, ISfx
     public override void _ExitTree()
     {
         GetTree().NodeAdded -= OnNodeAdded;
+        Shutdown();
+    }
+
+    public void Shutdown()
+    {
         foreach (var player in _pool)
         {
             player.Stop();
             player.Stream = null;
         }
 
+        _music.Release();
+        _ambience.Release();
         _bank?.Release();
         _bank = null;
         if (Audio.Sfx == this)
