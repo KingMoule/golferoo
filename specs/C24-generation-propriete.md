@@ -35,7 +35,7 @@ Ce que « vierge, aléatoire, pavillon au centre » impose :
 | Couloirs de 400 m | au moins 3, partant à moins de 200 m du pavillon, sans eau, sous 8 % de pente, boisement compris (déboisable) ; au moins 2 directions distantes de 60° |
 
 Un tirage qui rate une garantie est retenté avec le sel suivant (8 essais au plus, déterministe) ; si les 8 échouent, le test d'acceptation échoue : on corrige les bornes, pas le test.
-- **Coût du défrichage** : un boisement de 35 % sur 96 ha, ≈ 3 300 arbres à 100 à l'hectare, se rase à `TreeRaze` pièce (×multiplicateur pour un remarquable). À vérifier au lot 2 : l'argent de départ de « Facile » doit permettre de dégager un premier 3 trous ; sinon la zone dégagée s'élargit (réglage en données).
+- **Coût du défrichage** : un boisement de 25 % sur 96 ha, ≈ 2 400 arbres à 100 à l'hectare, se rase à `TreeRaze` pièce (×multiplicateur pour un remarquable). À vérifier au lot 2 : l'argent de départ de « Facile » doit permettre de dégager un premier 3 trous ; sinon la zone dégagée s'élargit (réglage en données).
 
 ## Conception
 - **Fichier** : `src/Golferoo.Sim/Terrain/PropertyGenerator.cs` ; `BlankProperty` est supprimé au lot 3, ses tests deviennent ceux du générateur.
