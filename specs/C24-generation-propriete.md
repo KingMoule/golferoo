@@ -1,5 +1,5 @@
 # Génération de la propriété
-Statut : cadré (en attente du « go » de Guillaume)
+Statut : lots 1 à 3 livrés (#175, #176, #177) ; lot 4 à venir
 Créé : 2026-11-02 · révisé le même jour après ses réponses
 
 ## But
