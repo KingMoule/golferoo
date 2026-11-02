@@ -6,6 +6,15 @@ namespace Golferoo.Game.Sound;
 public interface ISfx
 {
     void Play(string id);
+
+    /// <summary>Joue la musique <paramref name="id"/> en fondu (null : silence).</summary>
+    void Music(string? id);
+
+    /// <summary>Boucle d'ambiance <paramref name="id"/> en fondu enchaîné (null : silence).</summary>
+    void Ambience(string? id);
+
+    /// <summary>Pause de la musique (menu pause) : fondu puis arrêt, reprise en fondu.</summary>
+    void PauseMusic(bool paused);
 }
 
 public static class Audio
@@ -13,6 +22,18 @@ public static class Audio
     private sealed class Silent : ISfx
     {
         public void Play(string id)
+        {
+        }
+
+        public void Music(string? id)
+        {
+        }
+
+        public void Ambience(string? id)
+        {
+        }
+
+        public void PauseMusic(bool paused)
         {
         }
     }
@@ -60,6 +81,8 @@ public partial class Sfx : Node, ISfx
     private readonly SfxGate _gate = new(MaxPerSecond);
     private readonly RandomNumberGenerator _rng = new();
     private readonly List<AudioStreamPlayer> _pool = [];
+    private readonly Crossfader _music = new("Musique", 1.5);
+    private readonly Crossfader _ambience = new("Ambiance", 3.0);
     private SoundBank? _bank;
 
     public override void _Ready()
@@ -72,6 +95,8 @@ public partial class Sfx : Node, ISfx
             _pool.Add(player);
         }
 
+        AddChild(_music);
+        AddChild(_ambience);
         _bank = SoundBank.LoadFile(SoundBank.Path, out var error);
         if (_bank is null)
         {
@@ -107,6 +132,12 @@ public partial class Sfx : Node, ISfx
         player.PitchScale = 1f + _rng.RandfRange(-def.PitchVariation, def.PitchVariation);
         player.Play();
     }
+
+    public void Music(string? id) => _music.Set(id, id is null ? null : _bank?.Get(id));
+
+    public void Ambience(string? id) => _ambience.Set(id, id is null ? null : _bank?.Get(id));
+
+    public void PauseMusic(bool paused) => _music.Pause(paused);
 
     private void OnNodeAdded(Node node)
     {
