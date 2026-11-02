@@ -12,6 +12,7 @@ Hors périmètre : sons 3D positionnels et atténuation par la distance (tout en
 
 ## Choix tranchés par Guillaume (2026-11-01)
 1. **Origine** : mixte. Sons d'interface, caisse et eau **synthétisés** par un script du dépôt (aucune licence) ; frappes, balle dans le trou, arbre, ambiance et musique en **CC0 déposés par Guillaume** (mon conteneur n'atteint pas Kenney, OpenGameArt ni Freesound). Tant qu'un fichier manque, le son est simplement absent : le jeu ne plante pas.
+   **Ajout (2026-11-02)** : Guillaume a déposé les packs Kenney (Impact, Interface, Casino, Digital Audio, CC0) et une boucle oiseaux-vent, et autorise, pour son usage personnel, les **sons** du pack `opensgolf-free` d'OpenSGolf (GPL-2.0-or-later ; dossiers `Golf_Sfx`, `Music`, ambiances, `Interface`, `Buy*`). Référence d'écoute dans les fichiers du projet, `c20-sons/`. Le lot 2 puise dans ces sources ; `LICENSES.md` note la licence de chaque fichier.
 2. **Musique** : une piste pour le menu, une pour la partie, avec un curseur Musique séparé des Effets.
 3. **Gestion** : oui, 4 sons : caisse (green fee), jingle d'objectif, ding du conseil du pro, alerte d'abandon.
 
