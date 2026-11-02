@@ -439,7 +439,7 @@ public partial class SmokeTest : Node
         GD.Print($"SMOKE menus : titre, nouvelle partie, pause, emplacement ({failures.Count} échec)");
         CheckOptions(game, failures);
         CheckAudio(game, failures);
-        CheckGolfSounds(game, failures);
+        CheckGolfSounds(_main!, failures); // la partie neuve (C24) n'a aucun trou ouvert : les frappes se jouent sur le parcours de démonstration
         CheckCrossfader(failures);
     }
 

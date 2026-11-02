@@ -1424,8 +1424,8 @@ public partial class Captures : Node
             Main.NewGameSeed = seed;
             Main.ClubhouseOnNewGame = true;
             var main = GD.Load<PackedScene>("res://Main.tscn").Instantiate<Main>();
-            Main.ClubhouseOnNewGame = false;
             AddChild(main);
+            Main.ClubhouseOnNewGame = false;
             main.Paused = true;
             var grid = main.World.Terrain!;
             main.Camera.SetView(45f, 400f, new Vector3((float)(grid.CellsX * grid.CellSize / 2), 0f, (float)(grid.CellsZ * grid.CellSize / 2)));
