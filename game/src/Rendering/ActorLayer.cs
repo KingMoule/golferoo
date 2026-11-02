@@ -117,6 +117,11 @@ public partial class ActorLayer : Node3D
         CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
     });
 
+    /// <summary>Le drapeau du trou de ce numéro se dessine-t-il ? Non tant que ce n'est que le repère factice d'une propriété neuve (C26). Sans fonction, tous.</summary>
+    public Func<int, bool>? IsHoleShown { get; set; }
+
+    private bool Shown(int number) => IsHoleShown?.Invoke(number) ?? true;
+
     /// <summary>Un drapeau, un repère de départ et le numéro pour chaque trou du parcours.</summary>
     private void BuildHoles(TerrainGrid grid)
     {
@@ -133,6 +138,7 @@ public partial class ActorLayer : Node3D
             var flag = new Node3D { Name = $"Flag{hole.Number}" };
             flag.AddChild(new MeshInstance3D { Name = "FlagMesh", Mesh = ProceduralMeshes.Flag() });
             AddHoleNode(flag);
+            flag.Visible = Shown(hole.Number);
             _flags.Add((flag, default));
             PlaceFlag(grid, hole);
             if (grid.Blank)
@@ -204,6 +210,8 @@ public partial class ActorLayer : Node3D
             {
                 PlaceFlag(_grid, hole);
             }
+
+            _flags[hole.Number - 1].Flag.Visible = Shown(hole.Number);
         }
 
         if (previousChanged)

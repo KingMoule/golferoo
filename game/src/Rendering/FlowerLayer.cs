@@ -21,6 +21,12 @@ public partial class FlowerLayer : Node3D
     private Mesh?[] _meshes = [];
     private bool _dirty = true;
 
+    /// <summary>Cellule (x, z) sous un bâtiment ou le pavillon : aucune fleur n'y pousse. Posé par le jeu.</summary>
+    public Func<int, int, bool>? Blocked { get; set; }
+
+    /// <summary>La cellule porte une touffe : celle de la sim (<see cref="Flowers"/>), hors de l'emprise des bâtiments.</summary>
+    public bool HasTuft(int cx, int cz) => _grid is not null && Flowers.HasTuft(_grid, cx, cz) && Blocked?.Invoke(cx, cz) != true;
+
     /// <summary>Touffes posées (0 tant que la couche est cachée ou vide).</summary>
     public int Count { get; private set; }
 
@@ -70,7 +76,7 @@ public partial class FlowerLayer : Node3D
         {
             for (var cx = 0; cx < _grid.CellsX; cx++)
             {
-                if (!Flowers.HasTuft(_grid, cx, cz))
+                if (!HasTuft(cx, cz))
                 {
                     continue;
                 }

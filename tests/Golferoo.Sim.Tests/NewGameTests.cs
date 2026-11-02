@@ -93,6 +93,7 @@ public class NewGameTests
 
         Assert.Equal(1.0, fromFile.GolferDemand);
         Assert.Equal(1.0, fromFile.MoodDrain);
+        Assert.Equal(5, fromFile.RainFreeDays);
         Assert.Equal(DifficultyParams.Facile.ObjectiveRewards, fromFile.ObjectiveRewards);
         Assert.Equal(7, fromFile.ObjectiveRewards.Count);
     }
@@ -166,5 +167,80 @@ public class NewGameTests
 
         Assert.Equal(later.Checksum(), SaveSlotStore.Read(dir, SaveSlotStore.Auto).Checksum());
         Assert.Throws<ArgumentOutOfRangeException>(() => SaveSlotStore.SavePath(dir, "slot4"));
+    }
+
+    /// <summary>C26 A4 : une nouvelle partie commence à 0 membre (seul le pro est dans la ligue) ; les 40 membres de la graine ne viennent plus que de « Le neuf » et des anciennes parties.</summary>
+    [Fact]
+    public void NewGame_StartsWithNoMember_ButTheProAndNoVisitor()
+    {
+        foreach (var seed in Sample.Take(5))
+        {
+            var world = World.NewGame(seed, PropertyGenerator.CreateWithTrees(seed));
+
+            Assert.NotNull(world.League);
+            Assert.Single(world.League.Members);
+            Assert.True(world.League.Members[0].IsPro);
+            Assert.Empty(world.Visitors.Visitors);
+            Assert.True(world.State.ObjectivesOn);
+            Assert.True(world.State.ClubActive);
+        }
+
+        // Le comportement d'avant pour les autres mondes : 40 membres de la graine.
+        Assert.True(new World(5, ClubhouseTests.LeNeuf(), league: true).League!.Members.Count > 10);
+    }
+
+    /// <summary>C26 A3 : pas de pluie pendant les jours de grâce d'une nouvelle partie, ni dans le ciel du jour ni dans la prévision ; le temps d'ensuite est celui du tirage.</summary>
+    [Fact]
+    public void NewGame_HasNoRainDuringTheFirstDays_AndTheDrawnWeatherAfter()
+    {
+        var days = DifficultyParams.Facile.RainFreeDays;
+        Assert.True(days >= 5);
+        var rainyAfter = 0;
+        foreach (var seed in Sample)
+        {
+            var world = World.NewGame(seed, PropertyGenerator.CreateWithTrees(seed));
+            var plain = new World(seed, world.Terrain);
+            for (var day = 0; day < days; day++)
+            {
+                Assert.True(world.Weather.Sky < Golferoo.Sim.Weather.Sky.Rain, $"graine {seed} jour {day} : pluie");
+                for (var ahead = 0; day + ahead < days; ahead++)
+                {
+                    Assert.True(world.Forecast(ahead) < Golferoo.Sim.Weather.Sky.Rain, $"graine {seed} jour {day} : pluie annoncée pour J+{ahead}");
+                }
+
+                Assert.Equal(0.0, world.SoilWetness);
+                world.Step(Calendar.TicksPerDay);
+                plain.Step(Calendar.TicksPerDay);
+            }
+
+            for (var day = days; day < days + 60; day++)
+            {
+                Assert.Equal(plain.Weather.Sky, world.Weather.Sky);
+                rainyAfter += world.Weather.Sky >= Golferoo.Sim.Weather.Sky.Rain ? 1 : 0;
+                world.Step(Calendar.TicksPerDay);
+                plain.Step(Calendar.TicksPerDay);
+            }
+        }
+
+        Assert.True(rainyAfter > 0, "la pluie revient après les jours de grâce");
+    }
+
+    /// <summary>C26 A1 : aucune cellule tondable sans trou ouvert (propriété neuve) ; avec un trou ouvert, l'axe départ-drapeau et ses abords, pas le reste de la carte.</summary>
+    [Fact]
+    public void MowingArea_IsEmptyWithoutOpenHole_AndHugsTheOpenHoles()
+    {
+        var world = World.NewGame(7, PropertyGenerator.CreateWithTrees(7));
+        var terrain = world.Terrain!;
+
+        Assert.DoesNotContain(true, Golferoo.Sim.Turf.MowingArea.Cells(terrain, world.IsHoleOpen));
+
+        var neuf = ClubhouseTests.LeNeuf();
+        var open = Golferoo.Sim.Turf.MowingArea.Cells(neuf, _ => true);
+        var hole = neuf.Course[1];
+        Assert.True(open[(neuf.CellZOf(hole.Tee.Z) * neuf.CellsX) + neuf.CellXOf(hole.Tee.X)]);
+        Assert.True(open[(neuf.CellZOf(hole.Hole.Z) * neuf.CellsX) + neuf.CellXOf(hole.Hole.X)]);
+        Assert.Contains(false, open);
+        Assert.DoesNotContain(true, Golferoo.Sim.Turf.MowingArea.Cells(neuf, _ => false));
+        Assert.True(Golferoo.Sim.Turf.MowingArea.Cells(neuf, n => n == 1).Count(c => c) < open.Count(c => c));
     }
 }

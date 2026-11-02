@@ -69,7 +69,7 @@ public sealed partial class World
     private Point2?[] _exitPoints = [];
     private long _exitPointVersion = -1;
 
-    public World(ulong seed, TerrainGrid? terrain = null, IShotResolver? resolver = null, bool league = false, EconomyParams? economy = null, ProgressionParams? progression = null, bool placeClubhouse = false, ArrivalParams? arrivals = null, MoodParams? mood = null, MembershipParams? membership = null, bool emptyClub = false, BuildingParams? buildings = null, DifficultyParams? difficulty = null, bool objectives = false, IReadOnlyList<Golferoo.Sim.Trees.Tree>? plantedTrees = null)
+    public World(ulong seed, TerrainGrid? terrain = null, IShotResolver? resolver = null, bool league = false, EconomyParams? economy = null, ProgressionParams? progression = null, bool placeClubhouse = false, ArrivalParams? arrivals = null, MoodParams? mood = null, MembershipParams? membership = null, bool emptyClub = false, BuildingParams? buildings = null, DifficultyParams? difficulty = null, bool objectives = false, IReadOnlyList<Golferoo.Sim.Trees.Tree>? plantedTrees = null, int rainFreeDays = 0)
     {
         Difficulty = difficulty ?? DifficultyParams.Facile;
         Seed = seed;
@@ -83,7 +83,7 @@ public sealed partial class World
         Economy = economy ?? EconomyParams.Facile;
         Progression = progression ?? ProgressionParams.Default;
         Ledger = new Ledger(Economy.StartingMoney);
-        State = new GameState(Economy.StartingMoney, objectives, clubActive: plantedTrees is not null || terrain is not { Blank: true });
+        State = new GameState(Economy.StartingMoney, objectives, clubActive: plantedTrees is not null || terrain is not { Blank: true }) { RainFreeDays = rainFreeDays };
         if (terrain is not null)
         {
             _holesOpen = [.. terrain.Course.Holes.Select(_ => !terrain.Blank)];
@@ -179,6 +179,13 @@ public sealed partial class World
 
     private readonly Climate _climate = Climate.Temperate;
 
+    /// <summary>
+    /// Nouvelle partie sur une propriété générée (C24, C26) : ligue vide (aucun membre, ils s'inscrivent après leurs parties), objectifs, arbres plantés,
+    /// et pas de pluie les <see cref="DifficultyParams.RainFreeDays"/> premiers jours.
+    /// </summary>
+    public static World NewGame(ulong seed, GeneratedProperty property, bool placeClubhouse = true, ArrivalParams? arrivals = null) =>
+        new(seed, property.Terrain, league: true, placeClubhouse: placeClubhouse, arrivals: arrivals, emptyClub: true, objectives: true, plantedTrees: property.Trees, rainFreeDays: DifficultyParams.Facile.RainFreeDays);
+
     private int _skyOverrideDay = -1;
     private Sky _skyOverride;
 
@@ -192,7 +199,7 @@ public sealed partial class World
     public Vec3 Wind => Weather.WindAt(Date.DayFraction);
 
     /// <summary>Ciel annoncé dans <paramref name="daysAhead"/> jours (parfois faux d'un cran).</summary>
-    public Sky Forecast(int daysAhead) => WeatherGenerator.Forecast(Seed, Climate, DayIndex + daysAhead);
+    public Sky Forecast(int daysAhead) => WeatherGenerator.Forecast(Seed, Climate, DayIndex + daysAhead, State.RainFreeDays);
 
     /// <summary>Debug (F9) : impose pour la journée le ciel suivant (soleil, nuages, pluie, forte pluie, puis soleil).</summary>
     public void CycleSky()
@@ -258,7 +265,7 @@ public sealed partial class World
     /// <summary>Temps du jour <paramref name="day"/>, avec le ciel imposé par <see cref="CycleSky"/>.</summary>
     private WeatherDay WeatherOn(int day)
     {
-        var w = WeatherGenerator.For(Seed, Climate, day);
+        var w = WeatherGenerator.For(Seed, Climate, day, State.RainFreeDays);
         return _skyOverrideDay == day ? w with { Sky = _skyOverride } : w;
     }
 

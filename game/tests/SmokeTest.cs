@@ -388,6 +388,27 @@ public partial class SmokeTest : Node
             failures.Add("nouvelle partie : une offre ou une leçon de tutoriel s'ouvre");
         }
 
+        // C26 : une propriété neuve n'a ni membre, ni pluie les premiers jours, ni drapeau factice, ni tondeuse.
+        if (game.World.League is not { } league || league.Members.Count != 1 || game.World.Visitors.Visitors.Count != 0)
+        {
+            failures.Add("nouvelle partie : des membres au départ");
+        }
+
+        if (game.World.Weather.Sky >= Golferoo.Sim.Weather.Sky.Rain || game.World.Forecast(1) >= Golferoo.Sim.Weather.Sky.Rain)
+        {
+            failures.Add("nouvelle partie : de la pluie dès le premier jour");
+        }
+
+        if (game.Actors.GetNodeOrNull<Node3D>("Flag1") is not { Visible: false })
+        {
+            failures.Add("nouvelle partie : le repère de trou factice est dessiné comme un drapeau");
+        }
+
+        if (game.Mowers.ActiveMowers != 0)
+        {
+            failures.Add($"nouvelle partie : {game.Mowers.ActiveMowers} tondeuse(s) sans trou ouvert");
+        }
+
         CheckGameFlow(game, failures);
         for (var i = 0; i < 40; i++)
         {
@@ -1411,6 +1432,17 @@ public partial class SmokeTest : Node
             if (springCount == 0 || !springVisible || flowers.Visible)
             {
                 failures.Add($"fleurs : {springCount} touffes au printemps (visibles {springVisible}), visibles l'été {flowers.Visible}");
+            }
+
+            // C26 : aucune touffe sous le pavillon (le jeu a donné les emprises des bâtiments à la couche).
+            if (flowers.Blocked is null)
+            {
+                failures.Add("fleurs : la couche ne connaît pas l'emprise des bâtiments");
+            }
+            else if (_main.World.Clubhouse is { } club
+                && Enumerable.Range(club.Footprint.MinX, club.Footprint.MaxX - club.Footprint.MinX + 1).Any(cx => Enumerable.Range(club.Footprint.MinZ, club.Footprint.MaxZ - club.Footprint.MinZ + 1).Any(cz => flowers.HasTuft(cx, cz))))
+            {
+                failures.Add("fleurs : une touffe pousse sous le pavillon");
             }
 
             view0.SetSeason(_main.World.Date.Season);

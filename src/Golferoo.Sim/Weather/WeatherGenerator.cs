@@ -31,8 +31,11 @@ public static class WeatherGenerator
         ForecastSide = 7,
     }
 
-    /// <summary>Temps du jour <paramref name="day"/> (jours écoulés depuis le début de la partie, décalage de debug compris).</summary>
-    public static WeatherDay For(ulong seed, Climate climate, int day)
+    /// <summary>
+    /// Temps du jour <paramref name="day"/> (jours écoulés depuis le début de la partie, décalage de debug compris).
+    /// Pendant les <paramref name="rainFreeDays"/> premiers jours (une nouvelle partie, C26) la pluie fait place aux nuages ; 0 laisse le tirage tel quel.
+    /// </summary>
+    public static WeatherDay For(ulong seed, Climate climate, int day, int rainFreeDays = 0)
     {
         var season = (int)Calendar.At((long)day * Calendar.TicksPerDay, 0).Season;
         var spell = day / SpellDays;
@@ -41,6 +44,10 @@ public static class WeatherGenerator
             : u < climate.RainChance[season] ? Sky.Rain
             : u < climate.RainChance[season] + climate.CloudChance[season] ? Sky.Clouds
             : Sky.Sun;
+        if (day < rainFreeDays && sky >= Sky.Rain)
+        {
+            sky = Sky.Clouds;
+        }
 
         // Direction : vecteur tiré par bloc, interpolé puis normalisé (ni trigonométrie ni log, pour rester déterministe partout).
         var f = (day % SpellDays) / (double)SpellDays;
@@ -58,16 +65,17 @@ public static class WeatherGenerator
     private static double Signed(ulong seed, Stream stream, int index) => (2.0 * Unit(seed, stream, index)) - 1.0;
 
     /// <summary>Ciel annoncé pour le jour <paramref name="day"/> : le vrai, ou un cran à côté une fois sur cinq.</summary>
-    public static Sky Forecast(ulong seed, Climate climate, int day)
+    public static Sky Forecast(ulong seed, Climate climate, int day, int rainFreeDays = 0)
     {
-        var sky = For(seed, climate, day).Sky;
+        var sky = For(seed, climate, day, rainFreeDays).Sky;
         if (Unit(seed, Stream.Forecast, day) >= ForecastError)
         {
             return sky;
         }
 
         var up = sky == Sky.Sun || (sky != Sky.HeavyRain && Unit(seed, Stream.ForecastSide, day) < 0.5);
-        return up ? sky + 1 : sky - 1;
+        var wrong = up ? sky + 1 : sky - 1;
+        return day < rainFreeDays && wrong >= Sky.Rain ? Sky.Clouds : wrong; // pas de pluie annoncée non plus
     }
 
     /// <summary>Uniforme dans [0, 1) tirée d'un hachage (SplitMix64) de la graine, du flux et de l'indice.</summary>

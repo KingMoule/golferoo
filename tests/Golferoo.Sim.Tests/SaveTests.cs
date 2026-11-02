@@ -509,7 +509,7 @@ public class SaveTests
     public void Load_UnknownVersion_Throws()
     {
         var bytes = Save(Build(1, "proto", "start"));
-        bytes[4] = 23;
+        bytes[4] = 24;
 
         Assert.Throws<InvalidDataException>(() => Load(bytes));
     }
@@ -1254,6 +1254,50 @@ public class SaveTests
         world.Step(3000);
         again.Step(3000);
         Assert.Equal(world.Checksum(), again.Checksum());
+    }
+
+    /// <summary>
+    /// Une vraie sauvegarde v22 produite par <c>main</c> (d8199ce, graine 3, trois jours et demi, pro shop et snack-bar posés, objectifs en cours) se charge sans jour de grâce de pluie,
+    /// la caisse, les bâtiments et les objectifs intacts, et la partie continue de la même façon que sa relecture.
+    /// </summary>
+    [Fact]
+    public void Load_RealV22Save_KeepsTheGame_WithNoRainFreeDays()
+    {
+        var dir = Path.Combine(AppContext.BaseDirectory, "Fixtures");
+        var expected = File.ReadAllLines(Path.Combine(dir, "v22-partie.txt"));
+        var world = Load(File.ReadAllBytes(Path.Combine(dir, "v22-partie.sav")));
+
+        Assert.Equal($"tick {world.Tick}", expected[0]);
+        Assert.Equal($"balance {world.Ledger.Balance}", expected[1]);
+        Assert.Equal(expected.Where(l => l.StartsWith("building ")), world.PlacedBuildings.Select(b => $"building {(int)b.Kind} {b.Footprint.MinX} {b.Footprint.MinZ} {b.Footprint.MaxX} {b.Footprint.MaxZ} {(int)b.Side}"));
+        Assert.Equal($"state {world.State.Completed} {world.State.ObjectivesOn}", expected.Single(l => l.StartsWith("state ")));
+        Assert.Equal($"advice {world.State.AdviceGiven} {world.State.Walkouts}", expected.Single(l => l.StartsWith("advice ")));
+
+        var again = Load(Save(world));
+        Assert.Equal(world.Checksum(), again.Checksum());
+        world.Step(3000);
+        again.Step(3000);
+        Assert.Equal(world.Checksum(), again.Checksum());
+    }
+
+    /// <summary>C26 (v23) : les jours sans pluie d'une nouvelle partie se sauvent, se relisent, entrent dans la somme de contrôle, et le ciel d'après le chargement reste sans pluie.</summary>
+    [Fact]
+    public void RainFreeDays_AreSavedLoadedAndChecksummed()
+    {
+        var property = PropertyGenerator.CreateWithTrees(11);
+        var with = World.NewGame(11, property);
+        var without = new World(11, property.Terrain, league: true, placeClubhouse: true, emptyClub: true, objectives: true, plantedTrees: property.Trees);
+        Assert.NotEqual(with.Checksum(), without.Checksum());
+
+        var loaded = Load(Save(with));
+        Assert.Equal(with.Checksum(), loaded.Checksum());
+        Assert.Equal(Save(with), Save(loaded));
+        for (var day = 0; day < DifficultyParams.Facile.RainFreeDays; day++)
+        {
+            Assert.True(loaded.Weather.Sky < Golferoo.Sim.Weather.Sky.Rain, $"jour {day}");
+            Assert.True(loaded.Forecast(0) < Golferoo.Sim.Weather.Sky.Rain);
+            loaded.Step(Calendar.TicksPerDay);
+        }
     }
 
     /// <summary>C15 lot 1 (v12) : le pavillon se sauve, se relit et entre dans la somme de contrôle ; un pavillon déplacé se relit à sa nouvelle place.</summary>
