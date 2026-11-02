@@ -8,6 +8,10 @@ config/name="Golferoo"
 run/main_scene="res://TitleMenu.tscn"
 config/features=PackedStringArray("4.7", "C#", "Forward Plus")
 
+[autoload]
+
+Sfx="*res://src/Audio/Sfx.cs"
+
 [dotnet]
 
 project/assembly_name="Golferoo.Game"

@@ -115,7 +115,7 @@ jobs:
       - name: Test de fumée
         run: |
           set -o pipefail
-          timeout 120 "$GODOT" --headless --path game res://tests/Smoke.tscn 2>&1 | tee smoke.log
+          timeout 120 "$GODOT" --headless --path game --audio-driver Dummy res://tests/Smoke.tscn 2>&1 | tee smoke.log
           grep -q '^HOLE source=res://data/courses/' smoke.log || { echo "::error::le JSON du parcours n'est pas lu depuis res://"; exit 1; }
           grep -qE '^COURSE OK 9 ' smoke.log || { echo "::error::la ligne COURSE OK 9 est absente"; exit 1; }
           grep '^COURSE OK' smoke.log >> "$GITHUB_STEP_SUMMARY"

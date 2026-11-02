@@ -39,12 +39,22 @@ public static class GameOptions
     /// <summary>Les conseils du pro s'affichent (bulle et pause automatique) ; la sim les évalue de toute façon (C19).</summary>
     public static bool ProAdvice { get; set; } = true;
 
+    /// <summary>Volumes de 0 à 100 % (C20) : général, puis les bus Musique, Effets et Ambiance.</summary>
+    public static int MasterVolume { get; set; } = 100;
+
+    public static int MusicVolume { get; set; } = 50;
+
+    public static int SfxVolume { get; set; } = 80;
+
+    public static int AmbienceVolume { get; set; } = 60;
+
     static GameOptions() => Load();
 
     /// <summary>Lit le fichier ; toute valeur absente ou invalide reprend sa valeur par défaut.</summary>
     public static void Load()
     {
         (Resolution, Fullscreen, UiScale, AutoPause, ProAdvice) = (Resolutions[0], false, 1f, true, true);
+        (MasterVolume, MusicVolume, SfxVolume, AmbienceVolume) = (100, 50, 80, 60);
         var file = new ConfigFile();
         if (file.Load(FilePath) != Error.Ok)
         {
@@ -66,6 +76,10 @@ public static class GameOptions
         Fullscreen = Flag(file, "fullscreen", false);
         AutoPause = Flag(file, "auto_pause", true);
         ProAdvice = Flag(file, "pro_advice", true);
+        MasterVolume = Volume(file, "master_volume", 100);
+        MusicVolume = Volume(file, "music_volume", 50);
+        SfxVolume = Volume(file, "sfx_volume", 80);
+        AmbienceVolume = Volume(file, "ambience_volume", 60);
     }
 
     public static void Save()
@@ -77,6 +91,10 @@ public static class GameOptions
         file.SetValue(Section, "ui_scale", UiScale);
         file.SetValue(Section, "auto_pause", AutoPause);
         file.SetValue(Section, "pro_advice", ProAdvice);
+        file.SetValue(Section, "master_volume", MasterVolume);
+        file.SetValue(Section, "music_volume", MusicVolume);
+        file.SetValue(Section, "sfx_volume", SfxVolume);
+        file.SetValue(Section, "ambience_volume", AmbienceVolume);
         if (file.Save(FilePath) != Error.Ok)
         {
             GD.PrintErr($"Options non écrites : {FilePath}");
@@ -93,6 +111,20 @@ public static class GameOptions
         }
 
         window.ContentScaleFactor = UiScale;
+        ApplyAudio();
+    }
+
+    /// <summary>Règle les bus Master, Musique, Effets et Ambiance (un bus absent est ignoré).</summary>
+    public static void ApplyAudio()
+    {
+        foreach (var (bus, percent) in new[] { ("Master", MasterVolume), ("Musique", MusicVolume), ("Effets", SfxVolume), ("Ambiance", AmbienceVolume) })
+        {
+            var index = AudioServer.GetBusIndex(bus);
+            if (index >= 0)
+            {
+                AudioServer.SetBusVolumeDb(index, percent == 0 ? -80f : Mathf.LinearToDb(percent / 100f));
+            }
+        }
     }
 
     /// <summary>Vrai si l'évènement est dans la liste fermée et que la pause automatique est active.</summary>
@@ -102,6 +134,12 @@ public static class GameOptions
     {
         var value = file.GetValue(Section, key, 0);
         return value.VariantType == Variant.Type.Int ? value.AsInt32() : 0;
+    }
+
+    private static int Volume(ConfigFile file, string key, int fallback)
+    {
+        var value = file.GetValue(Section, key, fallback);
+        return value.VariantType == Variant.Type.Int && value.AsInt32() is >= 0 and <= 100 ? value.AsInt32() : fallback;
     }
 
     private static bool Flag(ConfigFile file, string key, bool fallback)

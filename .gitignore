@@ -23,7 +23,8 @@ game/.godot/
 game/export/
 
 # Copie du JSON des trous faite par Golferoo.Game.csproj, version écrite par la CI
-game/data/
+game/data/*
+!game/data/audio/
 
 # Worktrees des agents Claude Code
 .claude/worktrees/
