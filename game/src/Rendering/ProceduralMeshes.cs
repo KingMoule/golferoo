@@ -16,13 +16,18 @@ public static class ProceduralMeshes
 {
     public const int GolferBudget = 300;
     public const int BallBudget = 80;
-    public const int FlagBudget = 60;
+    public const int FlagBudget = 80;
     public const int TeeMarkerBudget = 40;
     public const int TreeBudget = 400;
     public const int TreeVariants = 4;
 
     /// <summary>Rayon visuel de la balle : 0,16 m au lieu de 0,12 m, car en vue isométrique une balle de 0,24 m reste sous le pixel.</summary>
     public const float BallRadius = 0.16f;
+
+    /// <summary>Rayon visuel de la coupe (0,108 m en vrai), son nombre de côtés et sa hauteur au-dessus du sol (contre le scintillement).</summary>
+    public const float CupRadius = 0.3f;
+    public const int CupSides = 12;
+    public const float CupLift = 0.05f;
 
     /// <summary>Hauteur du mât du drapeau.</summary>
     public const float FlagHeight = 2.4f;
@@ -102,6 +107,16 @@ public static class ProceduralMeshes
         b.Raw(cloth, new Vector3(0.03f, top, 0), new Vector3(0.03f, bottom, 0), lower, Colors.White);
         b.Raw(cloth, new Vector3(0.03f, top, 0), lower, upper, Colors.White);
         b.Raw(cloth, upper, lower, tip, new Color(0.9f, 0.15f, 0.12f));
+
+        // La coupe : un disque sombre au pied du mât, juste au-dessus du green (rayon 0,3 m, comme la balle, grossi pour se lire de la vue de jeu).
+        var center = new Vector3(0f, CupLift, 0f);
+        for (var i = 0; i < CupSides; i++)
+        {
+            var a0 = Mathf.Tau * i / CupSides;
+            var a1 = Mathf.Tau * (i + 1) / CupSides;
+            b.Tri(cloth, center, center + new Vector3(Mathf.Cos(a0), 0f, Mathf.Sin(a0)) * CupRadius, center + new Vector3(Mathf.Cos(a1), 0f, Mathf.Sin(a1)) * CupRadius, center + Vector3.Down, new Color(0.04f, 0.04f, 0.04f));
+        }
+
         return b.Build();
     });
 

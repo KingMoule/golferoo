@@ -10,6 +10,7 @@ namespace Golferoo.Game.Rendering;
 /// Tondeuses du matin, au rendu seulement : pendant le premier quart de la journée, une tondeuse par zone tondue ce jour-là
 /// (<see cref="TurfGrid.IsMowedOn"/>, composantes connexes d'une même surface) la parcourt en allers-retours le long des bandes de tonte.
 /// Elle s'arrête quand un golfeur est à moins de <see cref="StopDistance"/> m. Rien de ce qu'elle fait ne revient dans la simulation.
+/// Elles ne travaillent que dans <see cref="MowingArea"/> (autour des trous ouverts) : aucune sur une propriété sans trou ouvert.
 /// Au plus <see cref="MaxMowers"/> zones servies, réparties sur les trous du parcours : chaque zone va au trou dont le drapeau est le plus proche, puis on prend à tour de rôle la plus proche de chaque trou.
 /// </summary>
 public partial class MowerLayer : Node3D
@@ -26,6 +27,7 @@ public partial class MowerLayer : Node3D
     private readonly List<Mower> _mowers = [];
     private Func<Point2, Point2?>? _depot;
     private Func<Vector2, bool>? _insideBuilding;
+    private Func<int, bool> _holeOpen = _ => true;
     private TerrainGrid? _grid;
     private int _day = -1;
     private double _last;
@@ -36,9 +38,10 @@ public partial class MowerLayer : Node3D
     public Vector3? FirstPosition => Visible && _mowers.FirstOrDefault(m => m.Node.Visible)?.Node.Position is { } p ? p : null;
 
     /// <summary><paramref name="depot"/> donne d'où part et où rentre la tondeuse d'une zone : la porte du hangar le plus proche, sinon celle du pavillon (<c>World.MowerDepot</c>).</summary>
-    public void Build(TerrainGrid grid, Func<Point2, Point2?> depot, Func<Vector2, bool>? insideBuilding = null)
+    public void Build(TerrainGrid grid, Func<Point2, Point2?> depot, Func<Vector2, bool>? insideBuilding = null, Func<int, bool>? holeOpen = null)
     {
         _grid = grid;
+        _holeOpen = holeOpen ?? _holeOpen;
         _depot = depot;
         _insideBuilding = insideBuilding;
     }
@@ -116,7 +119,7 @@ public partial class MowerLayer : Node3D
         var grid = _grid!;
         var pins = grid.Course.Holes.Select(h => new Vector2((float)h.Hole.X, (float)h.Hole.Z)).ToArray();
         var perHole = pins.Select(_ => new List<Zone>()).ToArray();
-        foreach (var zone in FindZones(grid, dayIndex))
+        foreach (var zone in FindZones(grid, dayIndex, MowingArea.Cells(grid, _holeOpen)))
         {
             var nearest = Enumerable.Range(0, pins.Length).MinBy(i => zone.Centroid.DistanceSquaredTo(pins[i]));
             perHole[nearest].Add(zone);
@@ -168,7 +171,7 @@ public partial class MowerLayer : Node3D
     }
 
     /// <summary>Composantes connexes (4 voisins) des cellules d'une même surface tondue ce jour-là.</summary>
-    private static List<Zone> FindZones(TerrainGrid grid, int dayIndex)
+    private static List<Zone> FindZones(TerrainGrid grid, int dayIndex, bool[] allowed)
     {
         var nx = grid.CellsX;
         var nz = grid.CellsZ;
@@ -180,7 +183,7 @@ public partial class MowerLayer : Node3D
         for (var start = 0; start < seen.Length; start++)
         {
             var surface = grid.GetCellSurface(start % nx, start / nx);
-            if (seen[start] || !TurfGrid.IsMowedOn(surface, dayIndex))
+            if (seen[start] || !allowed[start] || !TurfGrid.IsMowedOn(surface, dayIndex))
             {
                 continue;
             }
@@ -200,7 +203,7 @@ public partial class MowerLayer : Node3D
                 around[3] = cz < nz - 1 ? i + nx : -1;
                 foreach (var j in around)
                 {
-                    if (j >= 0 && !seen[j] && grid.GetCellSurface(j % nx, j / nx) == surface)
+                    if (j >= 0 && !seen[j] && allowed[j] && grid.GetCellSurface(j % nx, j / nx) == surface)
                     {
                         seen[j] = true;
                         stack.Push(j);

@@ -15,6 +15,9 @@ public sealed record DifficultyParams
     /// <summary>Vitesse de baisse de l'humeur (multiplicateur).</summary>
     public required double MoodDrain { get; init; }
 
+    /// <summary>Jours du début d'une nouvelle partie sans pluie (la pluie fait place aux nuages) ; 0 : aucun jour de grâce.</summary>
+    public required int RainFreeDays { get; init; }
+
     /// <summary>Récompense en cents de chaque objectif, par identifiant.</summary>
     public required Dictionary<string, long> ObjectiveRewards { get; init; }
 
@@ -35,7 +38,7 @@ public sealed record DifficultyParams
             throw new InvalidDataException($"Difficulté illisible : {e.Message}", e);
         }
 
-        if (!(p.GolferDemand >= 0) || !(p.MoodDrain >= 0) || p.ObjectiveRewards.Values.Any(v => v < 0))
+        if (!(p.GolferDemand >= 0) || !(p.MoodDrain >= 0) || p.RainFreeDays < 0 || p.ObjectiveRewards.Values.Any(v => v < 0))
         {
             throw new InvalidDataException("Difficulté incohérente : paramètres négatifs.");
         }

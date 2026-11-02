@@ -40,7 +40,7 @@ public partial class Captures : Node
     private const int ProfileViewCount = 3;
     private const int FreeViewCount = 4;
     private const int SaveViewCount = 2;
-    private const int CourseViewCount = 17;
+    private const int CourseViewCount = 19;
     private const int GalleryViewCount = 1;
     private const int FinanceViewCount = 1;
     private const int ProViewCount = 2;
@@ -827,6 +827,15 @@ public partial class Captures : Node
         main.Camera.SetFreeView(200f, 40f, 60f, new Vector3((float)pond.X, (float)grid.Sample(pond.X, pond.Z), (float)pond.Z));
         await Frames(SettleFrames);
         Save("c21-eau");
+
+        // C26 : l'eau vue à ras (A6, plus de plaques sombres carrées) et la coupe sous le drapeau (A7).
+        main.Camera.SetFreeView(200f, 6f, 45f, new Vector3((float)pond.X, (float)grid.Sample(pond.X, pond.Z), (float)pond.Z));
+        await Frames(SettleFrames);
+        Save("c26-eau-ras");
+        var pin = grid.Course[1].Hole;
+        main.Camera.SetFreeView(225f, 35f, 10f, new Vector3((float)pin.X, (float)grid.Sample(pin.X, pin.Z) + 1f, (float)pin.Z));
+        await Frames(SettleFrames);
+        Save("c26-coupe");
         main.Camera.SetMode(CameraMode.Iso, instant: true);
 
         for (var i = 0; i < 5; i++)

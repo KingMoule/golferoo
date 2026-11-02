@@ -98,6 +98,9 @@ public sealed class GameState
     /// <summary>Golfeurs qui ont abandonné depuis le début de la partie (condition du premier conseil).</summary>
     public int Walkouts { get; internal set; }
 
+    /// <summary>Jours du début de partie sans pluie (C26, <see cref="DifficultyParams.RainFreeDays"/> à une nouvelle partie, 0 ailleurs) : la météo les lit, la sauvegarde les garde.</summary>
+    public int RainFreeDays { get; internal set; }
+
     private readonly List<int> _holeIdle = [];
 
     /// <summary>Jours consécutifs où le trou (indice 0 pour le trou 1) est resté ouvert sans qu'aucune partie ne le finisse ; -1 le jour où l'on vient de le finir.</summary>
@@ -189,7 +192,7 @@ public sealed class GameState
     /// <summary>Un état que rien n'a touché ne change pas la somme de contrôle (les mondes sans partie gardent leurs empreintes).</summary>
     internal bool Untouched =>
         !ObjectivesOn && ClubActive == _clubActiveAtStart && !ThoughtRead && AdviceGiven == 0 && Walkouts == 0 && _holeIdle.All(d => d == 0) && Completed == 0 && !Bankrupt && !ContinuedAfterBankruptcy && MonthsBelow == 0 && YearStartBalance == _startingBalance
-        && YearGolfers == 0 && YearMoodTotal == 0 && YearObjectives == 0 && _reports.Count == 0 && _vouchers.All(v => v == 0);
+        && RainFreeDays == 0 && YearGolfers == 0 && YearMoodTotal == 0 && YearObjectives == 0 && _reports.Count == 0 && _vouchers.All(v => v == 0);
 
     internal void Mix(ref ulong hash)
     {
@@ -206,6 +209,7 @@ public sealed class GameState
         World.Mix(ref hash, (ulong)YearMoodTotal);
         World.Mix(ref hash, AdviceGiven);
         World.Mix(ref hash, (ulong)Walkouts);
+        World.Mix(ref hash, (ulong)RainFreeDays);
         foreach (var d in _holeIdle)
         {
             World.Mix(ref hash, (ulong)d);
@@ -241,6 +245,7 @@ public sealed class GameState
         w.ULong(AdviceGiven);
         w.Int(Walkouts);
         w.List(_holeIdle, w.Int);
+        w.Int(RainFreeDays);
     }
 
     internal static GameState Read(SaveReader r, long startingBalance, bool clubActiveAtStart)
@@ -267,6 +272,15 @@ public sealed class GameState
             if (state.Walkouts < 0 || state._holeIdle.Count > 1024 || state._holeIdle.Any(d => d < -1) || state.AdviceGiven >> AdviceCatalog.Default.Count != 0)
             {
                 throw new InvalidDataException("Sauvegarde incohérente : conseils ou jours sans partie.");
+            }
+        }
+
+        if (r.Version >= 23)
+        {
+            state.RainFreeDays = r.Int();
+            if (state.RainFreeDays < 0)
+            {
+                throw new InvalidDataException("Sauvegarde incohérente : jours sans pluie.");
             }
         }
 

@@ -316,7 +316,7 @@ public partial class Main : Node3D
             NewGameProperty = null;
             grid = property.Terrain;
             GD.Print($"NEWGAME seed={NewGameSeed}");
-            World = new World(NewGameSeed, grid, league: true, placeClubhouse: ClubhouseOnNewGame, arrivals: ArrivalsOverride, objectives: true, plantedTrees: property.Trees);
+            World = World.NewGame(NewGameSeed, property, ClubhouseOnNewGame, ArrivalsOverride);
         }
         else
         {
@@ -345,6 +345,8 @@ public partial class Main : Node3D
         TerrainView = new TerrainRenderer { Name = "TerrainView" };
         AddChild(TerrainView);
         TerrainView.Build(grid, World.Trees);
+        TerrainView.Flowers!.Blocked = InsideBuildingCell;
+        _buildingsSeen = BuildingsSignature();
         TerrainView.SetDate(World.Date);
 
         Horizon = new HorizonLayer { Name = "Horizon" };
@@ -353,6 +355,7 @@ public partial class Main : Node3D
 
         Actors = new ActorLayer { Name = "Actors" };
         AddChild(Actors);
+        Actors.IsHoleShown = number => !grid.Blank || World.IsHoleOpen(number);
         Actors.Build(grid);
 
         Clubhouse = new ClubhouseView { Name = "Clubhouse" };
@@ -367,7 +370,7 @@ public partial class Main : Node3D
 
         Mowers = new MowerLayer { Name = "Mowers" };
         AddChild(Mowers);
-        Mowers.Build(grid, World.MowerDepot, InsideBuilding);
+        Mowers.Build(grid, World.MowerDepot, InsideBuilding, World.IsHoleOpen);
 
         var width = (float)(grid.CellsX * grid.CellSize);
         var depth = (float)(grid.CellsZ * grid.CellSize);
@@ -805,8 +808,33 @@ public partial class Main : Node3D
     private bool InsideBuilding(Godot.Vector2 p)
     {
         var grid = World.Terrain!;
-        int cx = grid.CellXOf(p.X), cz = grid.CellZOf(p.Y);
-        return World.Clubhouse?.Footprint.Contains(cx, cz) == true || World.PlacedBuildings.Any(b => b.Footprint.Contains(cx, cz));
+        return InsideBuildingCell(grid.CellXOf(p.X), grid.CellZOf(p.Y));
+    }
+
+    private bool InsideBuildingCell(int cx, int cz) =>
+        World.Clubhouse?.Footprint.Contains(cx, cz) == true || World.PlacedBuildings.Any(b => b.Footprint.Contains(cx, cz));
+
+    private int _buildingsSeen = -1;
+
+    /// <summary>Les fleurs s'écartent des bâtiments : on les replace quand un bâtiment se pose, se vend ou se déplace.</summary>
+    private void RefreshFlowersAroundBuildings()
+    {
+        if (BuildingsSignature() != _buildingsSeen)
+        {
+            _buildingsSeen = BuildingsSignature();
+            TerrainView.Flowers?.Invalidate();
+        }
+    }
+
+    private int BuildingsSignature()
+    {
+        var signature = HashCode.Combine(World.Clubhouse?.Footprint);
+        foreach (var b in World.PlacedBuildings)
+        {
+            signature = HashCode.Combine(signature, b.Footprint);
+        }
+
+        return signature;
     }
 
     private bool InTutorial => World.Terrain!.Blank && !World.State.ClubActive;
@@ -1120,6 +1148,7 @@ public partial class Main : Node3D
         Actors.Update(_current, _previous, alpha, _previousChanged);
         Clubhouse.Update(World.Clubhouse);
         Structures.Update(World.PlacedBuildings);
+        RefreshFlowersAroundBuildings();
         Mowers.Update(World.DayIndex, SunDayFraction ?? World.Date.DayFraction, _current);
         _previousChanged = false;
     }

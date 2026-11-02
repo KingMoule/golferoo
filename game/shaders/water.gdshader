@@ -19,8 +19,10 @@ void vertex() {
 }
 
 void fragment() {
-	float w = sin(wpos.x * 0.9 + TIME * 0.5) * sin(wpos.z * 0.8 + TIME * 0.4);
-	ALBEDO = mix(deep_color, shallow_color, w * 0.5 + 0.5);
+	// Deux vagues obliques additionnées, contraste doux : le produit de deux sinus alignés sur x et z dessinait un damier
+	// de plaques sombres aux bords carrés, très visible à ras de l'eau (retour de la séance 1, A6).
+	float w = 0.5 * (sin(dot(wpos.xz, vec2(0.62, 0.45)) + TIME * 0.5) + sin(dot(wpos.xz, vec2(-0.38, 0.71)) + TIME * 0.4));
+	ALBEDO = mix(deep_color, shallow_color, w * 0.18 + 0.5);
 	float a = alpha;
 	if (shore_mask) {
 		int best;
