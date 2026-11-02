@@ -420,6 +420,7 @@ public partial class SmokeTest : Node
         CheckOptions(game, failures);
         CheckAudio(game, failures);
         CheckGolfSounds(game, failures);
+        CheckCrossfader(failures);
     }
 
     /// <summary>
@@ -510,6 +511,37 @@ public partial class SmokeTest : Node
                 failures.Add($"audio : {file} ne figure pas dans LICENSES.md");
             }
         }
+    }
+
+    /// <summary>Fondus du lecteur à deux pistes : pause puis reprise rapides, et A puis B puis A rapides, ne coupent pas le morceau.</summary>
+    private void CheckCrossfader(List<string> failures)
+    {
+        var bank = SoundBank.LoadFile(SoundBank.Path, out _);
+        if (bank?.Get("music_game") is not { Streams.Count: > 0 } a || bank.Get("music_menu") is not { Streams.Count: > 0 } b)
+        {
+            return;
+        }
+
+        var fader = new Crossfader("Musique", 1.5);
+        AddChild(fader);
+        fader.Set("a", a);
+        fader.Pause(true);
+        fader.Pause(false);
+        fader.Settle();
+        if (!fader.Playing(fader.Active) || fader.Db(fader.Active) < a.VolumeDb - 0.1f)
+        {
+            failures.Add("musique : une pause suivie d'une reprise rapide coupe ou assourdit le morceau");
+        }
+
+        fader.Set("b", b);
+        fader.Set("a", a);
+        fader.Settle();
+        if (!fader.Playing(fader.Active) || fader.Db(fader.Active) < a.VolumeDb - 0.1f)
+        {
+            failures.Add("musique : A puis B puis A rapides coupent le morceau relancé");
+        }
+
+        fader.QueueFree();
     }
 
     private static readonly string[] Lot1Ids = ["ui_click", "ui_select", "ui_refuse", "cash", "water", "objective", "advice", "quit"];

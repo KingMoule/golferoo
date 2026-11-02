@@ -26,6 +26,15 @@ public sealed class SoundBank
 
     public IReadOnlyCollection<SoundDef> Defs => _defs.Values;
 
+    /// <summary>Lâche les flux chargés (à la sortie, pour que le moteur ne signale pas de ressource encore utilisée).</summary>
+    public void Release()
+    {
+        foreach (var def in _defs.Values)
+        {
+            def.Streams.Clear();
+        }
+    }
+
     public SoundDef? Get(string id) => _defs.GetValueOrDefault(id);
 
     /// <summary>Lit le fichier ; rend null (avec la raison dans <paramref name="error"/>) s'il est absent ou refusé.</summary>

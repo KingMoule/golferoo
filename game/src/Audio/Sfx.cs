@@ -111,6 +111,14 @@ public partial class Sfx : Node, ISfx
     public override void _ExitTree()
     {
         GetTree().NodeAdded -= OnNodeAdded;
+        foreach (var player in _pool)
+        {
+            player.Stop();
+            player.Stream = null;
+        }
+
+        _bank?.Release();
+        _bank = null;
         if (Audio.Sfx == this)
         {
             Audio.Sfx = Audio.None;

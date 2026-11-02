@@ -44,6 +44,7 @@ jobs:
         run: |
           python3 -I tools/audio/synth.py
           git diff --exit-code -- game/assets/audio
+          test -z "$(git status --porcelain game/assets/audio)"
 
       - run: dotnet restore Golferoo.sln
 
