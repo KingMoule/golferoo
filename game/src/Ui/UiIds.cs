@@ -165,6 +165,10 @@ public static class UiIds
         public const string OptionsScale = "OptionsScale";
         public const string OptionsAutoPause = "OptionsAutoPause";
         public const string OptionsProAdvice = "OptionsProAdvice";
+        public const string OptionsMasterVolume = "OptionsMasterVolume";
+        public const string OptionsMusicVolume = "OptionsMusicVolume";
+        public const string OptionsSfxVolume = "OptionsSfxVolume";
+        public const string OptionsAmbienceVolume = "OptionsAmbienceVolume";
         public const string Quit = "MenuQuit";
         public const string Pause = "PauseMenu";
         public const string Resume = "MenuResume";

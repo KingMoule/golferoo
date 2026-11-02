@@ -121,6 +121,7 @@ public partial class BuildingTool : Node
         }
         else
         {
+            Sound.Audio.Play("ui_refuse");
             _main.ShowMessage($"{name} refusé : {UiNames.Refusal(result)}");
         }
 

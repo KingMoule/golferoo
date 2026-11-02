@@ -1,0 +1,84 @@
+{
+  "sounds": [
+    {
+      "id": "ui_click",
+      "files": [
+        "ui_click.wav"
+      ],
+      "bus": "Effets",
+      "volume_db": -8,
+      "pitch_variation": 0.04,
+      "min_gap": 0.03
+    },
+    {
+      "id": "ui_select",
+      "files": [
+        "ui_select.wav"
+      ],
+      "bus": "Effets",
+      "volume_db": -8,
+      "pitch_variation": 0.03,
+      "min_gap": 0.05
+    },
+    {
+      "id": "ui_refuse",
+      "files": [
+        "ui_refuse.wav"
+      ],
+      "bus": "Effets",
+      "volume_db": -6,
+      "pitch_variation": 0.0,
+      "min_gap": 0.4
+    },
+    {
+      "id": "cash",
+      "files": [
+        "cash.wav"
+      ],
+      "bus": "Effets",
+      "volume_db": -6,
+      "pitch_variation": 0.03,
+      "min_gap": 0.15
+    },
+    {
+      "id": "water",
+      "files": [
+        "water.wav"
+      ],
+      "bus": "Effets",
+      "volume_db": -4,
+      "pitch_variation": 0.05,
+      "min_gap": 0.2
+    },
+    {
+      "id": "objective",
+      "files": [
+        "objective.wav"
+      ],
+      "bus": "Effets",
+      "volume_db": -4,
+      "pitch_variation": 0.0,
+      "min_gap": 1.0
+    },
+    {
+      "id": "advice",
+      "files": [
+        "advice.wav"
+      ],
+      "bus": "Effets",
+      "volume_db": -6,
+      "pitch_variation": 0.0,
+      "min_gap": 1.0
+    },
+    {
+      "id": "quit",
+      "files": [
+        "quit.wav"
+      ],
+      "bus": "Effets",
+      "volume_db": -6,
+      "pitch_variation": 0.0,
+      "min_gap": 2.0
+    }
+  ]
+}
