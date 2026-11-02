@@ -27,7 +27,6 @@ public sealed class TerrainGrid
         Array.Fill(_surfaces, Surface.Rough);
         Turf = new Golferoo.Sim.Turf.TurfGrid(this);
         Soil = new SoilGrid(this);
-        Puddles = new Puddles(this);
     }
 
     /// <summary>Hauteur de l'herbe et consignes d'entretien ; le sol les lit.</summary>
@@ -35,9 +34,6 @@ public sealed class TerrainGrid
 
     /// <summary>Sol par cellule (roulement, rebond, frottement) que lit la balle ; la saison s'y règle.</summary>
     public SoilGrid Soil { get; }
-
-    /// <summary>Flaques après la pluie, selon le relief et l'humidité du sol.</summary>
-    public Puddles Puddles { get; }
 
     public HeightField Heights { get; }
 
@@ -400,7 +396,7 @@ public sealed class TerrainGrid
         return hash;
     }
 
-    /// <summary>Écrit tout l'état du terrain, gazon compris. Sol, flaques et champs de flux se recalculent : ils ne sont pas écrits.</summary>
+    /// <summary>Écrit tout l'état du terrain, gazon compris. Sol et champs de flux se recalculent : ils ne sont pas écrits.</summary>
     internal void Write(SaveWriter w)
     {
         Heights.Write(w);

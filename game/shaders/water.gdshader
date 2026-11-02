@@ -7,7 +7,7 @@ uniform vec3 shallow_color : source_color = vec3(0.25, 0.60, 0.75);
 uniform vec3 deep_color : source_color = vec3(0.12, 0.38, 0.58);
 uniform float alpha = 0.78;
 // Plans d'eau : le maillage déborde d'une cellule et le champ des surfaces trace la rive (la même que celle du terrain) ;
-// l'eau s'éclaircit sur ses premiers mètres, comme sur une rive en pente douce. Sans masque (flaques), le carré entier.
+// l'eau s'éclaircit sur ses premiers mètres, comme sur une rive en pente douce. Sans masque, le carré entier.
 uniform bool shore_mask = false;
 uniform float shallow_meters = 1.5;
 

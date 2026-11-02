@@ -17,7 +17,7 @@ namespace Golferoo.Sim;
 
 /// <summary>
 /// Sauvegarde du monde (C11) : tout l'état entre deux ticks, à n'importe quel tick. Caches non écrits, recalculés au chargement :
-/// champs de flux, cartes de jeu, sol, flaques, beauté, point de sortie. Tout nouvel état de la sim entre dans <see cref="Checksum"/> et ici.
+/// champs de flux, cartes de jeu, sol, beauté, point de sortie. Tout nouvel état de la sim entre dans <see cref="Checksum"/> et ici.
 /// </summary>
 public sealed partial class World
 {

@@ -20,7 +20,7 @@ Ce qui prouve la réussite : les captures montrent le même trou aux quatre sais
 - Vent dans `BallSimulator` (traînée relative à l'air) ; le planificateur simule avec ce vent.
 - Humidité du sol (facteur de plus dans `SoilGrid`), chutes d'arbres par tempête, pousse après la pluie.
 - Rendu de la météo : ciel couvert, pluie en particules, sol plus sombre quand il est mouillé, drapeau orienté par le vent ; HUD avec le temps du jour et la prévision.
-- Flaques : cuvettes du relief, remplies selon l'humidité ; la balle s'en dégage sans pénalité.
+- Flaques (retirées le 2026-11-02, décision de Guillaume) : cuvettes du relief, remplies selon l'humidité ; la balle s'en dégage sans pénalité.
 - Fleurs de printemps dans le rough (rendu seul).
 - Debug : F9 impose la météo suivante du cycle (commande déterministe), pour les essais et les captures.
 

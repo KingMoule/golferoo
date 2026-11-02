@@ -1171,7 +1171,6 @@ public partial class Main : Node3D
         Actors.SetWind(dir);
         WeatherView.Show(World.Weather.Sky, dir, Camera.Target, Camera.Size);
         TerrainView.SetWetness((float)World.SoilWetness);
-        TerrainView.RefreshPuddles();
         TerrainView.RefreshTurf();
     }
 
