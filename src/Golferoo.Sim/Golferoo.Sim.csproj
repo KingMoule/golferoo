@@ -23,6 +23,8 @@
     <EmbeddedResource Include="..\..\data\golfers\arrivals.json" LogicalName="arrivals.json" />
     <!-- Bâtiments et aménagements (C17) : source de vérité dans data/buildings/. -->
     <EmbeddedResource Include="..\..\data\buildings\buildings.json" LogicalName="buildings.json" />
+    <!-- Propriété générée (C24 lot 1) : source de vérité dans data/property/. -->
+    <EmbeddedResource Include="..\..\data\property\parkland.json" LogicalName="property-parkland.json" />
     <!-- Humeur (C16 lot 1) : source de vérité dans data/golfers/. -->
     <EmbeddedResource Include="..\..\data\golfers\mood.json" LogicalName="mood.json" />
     <!-- Adhésion (C16 lot 2) : source de vérité dans data/golfers/. -->

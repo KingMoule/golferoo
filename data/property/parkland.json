@@ -1,0 +1,33 @@
+// Propriété Parkland générée (C24 lot 1) : bornes du relief, de l'eau et de la clairière du pavillon.
+// Tous les paramètres sont obligatoires : un oubli, une clé inconnue ou une borne incohérente refuse le fichier.
+// Longueurs en mètres. Calé par balayage sur 100 graines (tests/Golferoo.Sim.Tests/PropertyGeneratorTests.cs).
+{
+  "reliefAmplitudeMin": 4.0,
+  "reliefAmplitudeMax": 10.0,
+  "reliefWavelength": 250.0,
+  "maxMeanSlope": 0.06,
+  "hillsMin": 1,
+  "hillsMax": 2,
+  "bumpHeightMin": 2.0,
+  "bumpHeightMax": 4.0,
+  "bumpRadiusMin": 80.0,
+  "bumpRadiusMax": 140.0,
+  "clearingRadius": 30.0,
+  "clearingBlend": 60.0,
+  "clearingDome": 0.3,
+  "pondsMin": 1,
+  "pondsMax": 2,
+  "pondRadiusMin": 20.0,
+  "pondRadiusMax": 36.0,
+  "pondDepth": 1.5,
+  "pondShore": 16.0,
+  "pondSpacing": 150.0,
+  "minWaterDistance": 40.0,
+  "streamRadius": 4.0,
+  "streamMinLength": 200.0,
+  "streamCarve": 0.6,
+  "fordSpacing": 70.0,
+  "fordHalfLength": 8.0,
+  "fordsMin": 2,
+  "playableRadius": 300.0
+}
