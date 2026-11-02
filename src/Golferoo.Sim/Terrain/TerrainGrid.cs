@@ -71,6 +71,9 @@ public sealed class TerrainGrid
     /// <summary>Terre vierge (C07) : le fichier ne donne que des repères provisoires, départ et trou sont à poser et le trou reste fermé jusqu'à ce qu'il soit valide.</summary>
     public bool Blank { get; internal set; }
 
+    /// <summary>Terre vierge de la leçon du tutoriel : elle porte les arbres du passage (<see cref="IsolatedTrees"/>), que la propriété générée (C24, vierge aussi) n'a pas. Seule la leçon démarre sans club actif.</summary>
+    public bool IsLesson => Blank && IsolatedTrees.Count > 0;
+
     /// <summary>Centre du green du trou 1, en mètres.</summary>
     public Point2 Green => Course[1].Green;
 

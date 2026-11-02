@@ -84,7 +84,7 @@ public partial class TutorialPanel : Node
         _ring.AddThemeStyleboxOverride("panel", ringStyle);
         main.Ui.AddChild(_ring);
 
-        if (main.World.Terrain!.Blank)
+        if (main.World.Terrain!.IsLesson)
         {
             // Contours du vrai coude, lus dans son fichier : on reconstruit le trou que le jeu montre d'habitude.
             _ghost = new GhostOutline { Name = "GhostOutline" };

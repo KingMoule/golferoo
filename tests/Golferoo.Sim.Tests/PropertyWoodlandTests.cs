@@ -468,12 +468,7 @@ public class PropertyWoodlandTests
         foreach (ulong seed in new ulong[] { 3, 42 })
         {
             var property = PropertyGenerator.CreateWithTrees(seed);
-            var world = new World(seed, property.Terrain);
-            world.Trees.RemoveWhere(_ => true);
-            foreach (var t in property.Trees)
-            {
-                world.Trees.Add(t.X, t.Z, t.Species, t.AgeMonths, t.Remarkable);
-            }
+            var world = new World(seed, property.Terrain, plantedTrees: property.Trees);
 
             using var stream = new MemoryStream();
             world.Save(stream);
@@ -492,12 +487,7 @@ public class PropertyWoodlandTests
         for (ulong seed = 1; seed <= 6; seed++)
         {
             var property = PropertyGenerator.CreateWithTrees(seed);
-            var world = new World(seed, property.Terrain);
-            world.Trees.RemoveWhere(_ => true);
-            foreach (var t in property.Trees)
-            {
-                world.Trees.Add(t.X, t.Z, t.Species, t.AgeMonths, t.Remarkable);
-            }
+            var world = new World(seed, property.Terrain, plantedTrees: property.Trees);
 
             world.Step(30 * Time.Calendar.TicksPerDay);
             using var stream = new MemoryStream();

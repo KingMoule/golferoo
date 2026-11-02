@@ -156,6 +156,10 @@ public static class UiIds
         public const string Title = "TitleMenu";
         public const string NewGame = "MenuNewGame";
         public const string Start = "MenuStart";
+        public const string Seed = "MenuSeed";
+        public const string Preview = "MenuPreview";
+        public const string PreviewNote = "MenuPreviewNote";
+        public const string OtherSeed = "MenuOtherSeed";
         public const string Load = "MenuLoad";
         public const string Demo = "MenuDemo";
         public const string Options = "MenuOptions";

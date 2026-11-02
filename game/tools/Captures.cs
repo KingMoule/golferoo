@@ -45,6 +45,8 @@ public partial class Captures : Node
     private const int FinanceViewCount = 1;
     private const int ProViewCount = 2;
     private const int C18ViewCount = 7;
+    private static readonly ulong[] C24Seeds = [3, 18, 77];
+    private static readonly int C24ViewCount = 2 * C24Seeds.Length;
 
     /// <summary>Lisière sud de la forêt du coude, la balle de <c>ForestExitTests.Edge</c> (tuile 18,5 / 26,5 de 8 m).</summary>
     private static readonly Point2 ForestEdge = new(18.5 * 8, 26.5 * 8);
@@ -99,8 +101,6 @@ public partial class Captures : Node
 
     private async Task<int> Run()
     {
-        Main.OfferTutorial = false;
-
         // Les vues avancent des semaines de jeu : sans pavillon, personne n'arrive (seule la vue du pavillon, à la fin, le place).
         Main.ClubhouseOnNewGame = false;
 
@@ -131,6 +131,12 @@ public partial class Captures : Node
         {
             await C18Views(); // mise au point des écrans de C18 : `-- --only c18`
             return _failures == 0 && _index == C18ViewCount ? 0 : 1;
+        }
+
+        if (Main.CommandLineOption("--only") == "c24")
+        {
+            await C24Views(); // mise au point de l'aperçu et de la propriété générée : `-- --only c24`
+            return _failures == 0 && _index == C24ViewCount ? 0 : 1;
         }
 
         var main = GD.Load<PackedScene>("res://Main.tscn").Instantiate<Main>();
@@ -340,7 +346,8 @@ public partial class Captures : Node
         await CourseViews();
         await GalleryView();
         await C18Views();
-        if (_failures == 0 && _index == expected + LeagueViewCount + TutorialViewCount + ProfileViewCount + FreeViewCount + SaveViewCount + CourseViewCount + GalleryViewCount + FinanceViewCount + ProViewCount + C18ViewCount)
+        await C24Views();
+        if (_failures == 0 && _index == expected + LeagueViewCount + TutorialViewCount + ProfileViewCount + FreeViewCount + SaveViewCount + CourseViewCount + GalleryViewCount + FinanceViewCount + ProViewCount + C18ViewCount + C24ViewCount)
         {
             GD.Print($"CAPTURES OK {_index} images");
             return 0;
@@ -1381,6 +1388,53 @@ public partial class Captures : Node
         Save("c18-charger");
         title.QueueFree();
         await Frames(1);
+    }
+
+    /// <summary>
+    /// C24 : la propriété générée sur trois graines. Pour chacune, <c>c24-apercu-n</c> (l'écran Nouvelle partie, une fois la miniature dessinée) et <c>c24-propriete-n</c> (vue d'ensemble de la partie neuve, pavillon posé).
+    /// Rapide : le monde reste en pause, la sim n'avance pas.
+    /// </summary>
+    private async Task C24Views()
+    {
+        foreach (var old in GetChildren().OfType<Main>())
+        {
+            old.QueueFree();
+        }
+
+        await Frames(2);
+        foreach (var seed in C24Seeds)
+        {
+            var title = GD.Load<PackedScene>(TitleMenu.Scene).Instantiate<TitleMenu>();
+            AddChild(title);
+            await Frames(2);
+            title.FindChild(UiIds.Menu.NewGame, true, false)!.EmitSignal(BaseButton.SignalName.Pressed);
+            ((SpinBox)title.FindChild(UiIds.Menu.Seed, true, false)!).Value = seed;
+            var note = (Label)title.FindChild(UiIds.Menu.PreviewNote, true, false)!;
+            for (var i = 0; i < 300 && !note.Text.StartsWith("Relief"); i++)
+            {
+                await Frames(1); // la propriété se génère hors du fil principal
+            }
+
+            await Frames(SettleFrames);
+            Save($"c24-apercu-{seed}");
+            title.QueueFree();
+            await Frames(2);
+
+            Main.Request = Main.GameRequest.NewGame;
+            Main.NewGameSeed = seed;
+            Main.ClubhouseOnNewGame = true;
+            var main = GD.Load<PackedScene>("res://Main.tscn").Instantiate<Main>();
+            AddChild(main);
+            Main.ClubhouseOnNewGame = false;
+            main.Paused = true;
+            var grid = main.World.Terrain!;
+            main.Camera.SetView(45f, 400f, new Vector3((float)(grid.CellsX * grid.CellSize / 2), 0f, (float)(grid.CellsZ * grid.CellSize / 2)));
+            await Frames(SettleFrames);
+            Save($"c24-propriete-{seed}");
+            GD.Print($"C24 graine={seed} arbres={main.World.Trees.Count} pavillon={main.World.Clubhouse is not null}");
+            main.QueueFree();
+            await Frames(2);
+        }
     }
 
     private async Task GalleryView()

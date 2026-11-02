@@ -69,7 +69,7 @@ public sealed partial class World
     private Point2?[] _exitPoints = [];
     private long _exitPointVersion = -1;
 
-    public World(ulong seed, TerrainGrid? terrain = null, IShotResolver? resolver = null, bool league = false, EconomyParams? economy = null, ProgressionParams? progression = null, bool placeClubhouse = false, ArrivalParams? arrivals = null, MoodParams? mood = null, MembershipParams? membership = null, bool emptyClub = false, BuildingParams? buildings = null, DifficultyParams? difficulty = null, bool objectives = false)
+    public World(ulong seed, TerrainGrid? terrain = null, IShotResolver? resolver = null, bool league = false, EconomyParams? economy = null, ProgressionParams? progression = null, bool placeClubhouse = false, ArrivalParams? arrivals = null, MoodParams? mood = null, MembershipParams? membership = null, bool emptyClub = false, BuildingParams? buildings = null, DifficultyParams? difficulty = null, bool objectives = false, IReadOnlyList<Golferoo.Sim.Trees.Tree>? plantedTrees = null)
     {
         Difficulty = difficulty ?? DifficultyParams.Facile;
         Seed = seed;
@@ -83,13 +83,13 @@ public sealed partial class World
         Economy = economy ?? EconomyParams.Facile;
         Progression = progression ?? ProgressionParams.Default;
         Ledger = new Ledger(Economy.StartingMoney);
-        State = new GameState(Economy.StartingMoney, objectives, clubActive: terrain is not { Blank: true });
+        State = new GameState(Economy.StartingMoney, objectives, clubActive: plantedTrees is not null || terrain is not { Blank: true });
         if (terrain is not null)
         {
             _holesOpen = [.. terrain.Course.Holes.Select(_ => !terrain.Blank)];
         }
 
-        if (terrain is { Blank: true })
+        if (terrain is { Blank: true } && !State.ClubActive)
         {
             ArgumentOutOfRangeException.ThrowIfEqual(league, true, nameof(league));
         }
@@ -107,12 +107,24 @@ public sealed partial class World
         if (terrain is not null)
         {
             Trees = new TreeStand(terrain.CellsX * terrain.CellSize, terrain.CellsZ * terrain.CellSize, terrain);
-            foreach (var p in terrain.IsolatedTrees)
+            if (plantedTrees is not null)
             {
-                Trees.Add(p.X, p.Z, p.Species, p.AgeMonths);
+                // Propriété générée (C24) : les arbres sont plantés, remarquables compris ; pas de replantation des cellules Trees.
+                foreach (var t in plantedTrees)
+                {
+                    Trees.Add(t.X, t.Z, t.Species, t.AgeMonths, t.Remarkable);
+                }
+            }
+            else
+            {
+                foreach (var p in terrain.IsolatedTrees)
+                {
+                    Trees.Add(p.X, p.Z, p.Species, p.AgeMonths);
+                }
+
+                WoodlandGenerator.Fill(Trees, terrain, new CellRect(0, 0, terrain.CellsX - 1, terrain.CellsZ - 1), NextWoodlandRng());
             }
 
-            WoodlandGenerator.Fill(Trees, terrain, new CellRect(0, 0, terrain.CellsX - 1, terrain.CellsZ - 1), NextWoodlandRng());
             terrain.Soil.Season = Season;
             RefreshSoil();
             if (_resolver is PhysicalShotResolver physical)
@@ -125,7 +137,7 @@ public sealed partial class World
 
             if (placeClubhouse)
             {
-                PlaceClubhouseNearTee();
+                PlaceClubhouseNear(plantedTrees is null ? terrain.Tee : new Point2(terrain.CellsX * terrain.CellSize / 2, terrain.CellsZ * terrain.CellSize / 2));
             }
         }
         else
@@ -469,7 +481,7 @@ public sealed partial class World
         foreach (var g in group.Active)
         {
             var fee = GreenFee(g);
-            if (fee > 0 && Terrain is { Blank: true } && !Ledger.HasEarned(LedgerCategory.GreenFees))
+            if (fee > 0 && Terrain is { IsLesson: true } && !Ledger.HasEarned(LedgerCategory.GreenFees))
             {
                 State.AddVoucher(BuildingKind.SnackBar); // la leçon offre le snack-bar au premier green fee (C19)
             }
