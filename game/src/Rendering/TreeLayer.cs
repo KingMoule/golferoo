@@ -321,11 +321,15 @@ public partial class TreeLayer : Node3D
                 if (!tiers.TryGetValue(near, out var nearList))
                 {
                     tiers[near] = nearList = [];
-                    tiers[far] = [];
+                }
+
+                if (!tiers.TryGetValue(far, out var farList))
+                {
+                    tiers[far] = farList = [];
                 }
 
                 nearList.Add((Place(t, _models[mature], yaw, y).Instance, LeafColour(h)));
-                tiers[far].Add((instance, LeafColour(h)));
+                farList.Add((instance, LeafColour(h)));
             }
             else
             {
