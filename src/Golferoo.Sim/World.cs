@@ -64,9 +64,6 @@ public sealed partial class World
     /// <summary>… et à celle-ci sur le côté.</summary>
     public const double WaitSide = 2.0;
 
-    /// <summary>Un golfeur qui a fini le trou (il s'éloigne du green) ne bloque le groupe suivant que s'il est à portée d'un coup : <see cref="AimReach"/> + <see cref="AimClearance"/>.</summary>
-    private const double ShotRange = AimReach + AimClearance;
-
     private readonly DeterministicRng _rng;
     private readonly IShotResolver _resolver;
     private readonly List<Group> _groups = [];
@@ -392,7 +389,7 @@ public sealed partial class World
     }
 
     /// <summary>Ajoute une paire de golfeurs à la file du départ du trou 1. Elle part quand la précédente a quitté la zone de départ et que ses balles sont loin (<see cref="DepartureGap"/>) ou sur le green.</summary>
-    public Group SpawnGroup() => HoleOpen ? AddGroup(2, null, -1) : throw new InvalidOperationException("Le trou est fermé : il manque encore quelque chose (HoleCheck).");
+    public Group SpawnGroup(int count = 2) => HoleOpen ? AddGroup(count, null, -1) : throw new InvalidOperationException("Le trou est fermé : il manque encore quelque chose (HoleCheck).");
 
     /// <summary>Partie d'entraînement : votre pro seul, hors ligue (sa carte ne compte pas pour son handicap). Exige la ligue.</summary>
     public Group StartProRound() =>
@@ -1002,6 +999,11 @@ public sealed partial class World
                 case GolferState.WaitingTurn:
                     StepAside(terrain, group, g);
                     break;
+                case GolferState.AwaitingShot when terrain.SurfaceAt(g.Ball.X, g.Ball.Z) == Surface.Green:
+                    // Une partie sauvegardée avant C28 peut attendre un putt : il part seul.
+                    g.PlannedShot = AutoPutt(hole.Hole);
+                    g.State = GolferState.Putting;
+                    break;
                 default:
                     break;
             }
@@ -1069,7 +1071,7 @@ public sealed partial class World
         {
             Waiting(group, shooter);
         }
-        else if (shooter is not null && shooter.State == GolferState.WaitingTurn)
+        else if (shooter is not null && shooter.State == GolferState.WaitingTurn && !(shooter.Strokes == 0 && Dist2(shooter.Position, shooter.Ball) > 1e-6 && IndexOf(group, shooter) > 0))
         {
             group.Started = true;
             shooter.State = terrain.SurfaceAt(shooter.Ball.X, shooter.Ball.Z) == Surface.Green ? GolferState.Putting : GolferState.Swinging;
@@ -1077,7 +1079,15 @@ public sealed partial class World
             shooter.Plan = shooter.State == GolferState.Swinging && !IsManualPro(shooter) && _resolver is PhysicalShotResolver ? new PlanJob() : null;
             if (IsManualPro(shooter) && !Gimme(terrain, hole.Hole, shooter))
             {
-                shooter.State = GolferState.AwaitingShot;
+                // Le joueur choisit ses coups hors du green ; au green, le pro putte seul selon sa compétence (C28), avec le RNG de la sim.
+                if (shooter.State == GolferState.Putting)
+                {
+                    shooter.PlannedShot = AutoPutt(hole.Hole);
+                }
+                else
+                {
+                    shooter.State = GolferState.AwaitingShot;
+                }
             }
         }
     }
@@ -1132,7 +1142,7 @@ public sealed partial class World
     /// <summary>
     /// Avant de jouer, le golfeur attend le groupe devant : tant qu'un golfeur d'un groupe d'indice plus petit, sur le même trou, n'est pas
     /// au moins <see cref="AimClearance"/> au-delà du point visé (le drapeau, ou le point à <see cref="AimReach"/> sur sa ligne), il est plus
-    /// près du point visé que cela ou derrière lui. Un green à portée est donc libre quand le groupe devant a fini le trou ; un golfeur qui s'en éloigne (il sort) ne compte plus au-delà de la portée d'un coup (<see cref="ShotRange"/>). L'ordre des groupes
+    /// près du point visé que cela ou derrière lui. Un green à portée est donc libre quand le groupe devant a fini le trou. L'ordre des groupes
     /// ne change jamais (un groupe ne dépasse pas celui qui le précède), donc deux groupes ne s'attendent jamais l'un l'autre.
     /// </summary>
     private bool MustWait(int index, CourseHole hole, Golfer shooter)
@@ -1153,18 +1163,7 @@ public sealed partial class World
             foreach (var o in ahead.Golfers)
             {
                 // Un golfeur parti n'est plus sur le parcours (le dernier trou le laisse au point de sortie).
-                if (o.State is GolferState.Done or GolferState.Leaving or GolferState.Quitting)
-                {
-                    continue;
-                }
-
-                // Il a fini le trou et s'éloigne du green : il ne gêne que s'il est à portée du coup.
-                if (o.State == GolferState.Exiting && Dist2(o.Position, shooter.Ball) > ShotRange * ShotRange)
-                {
-                    continue;
-                }
-
-                if (Math.Sqrt(Dist2(o.Position, hole.Hole)) >= limit)
+                if (o.State is not (GolferState.Done or GolferState.Leaving or GolferState.Quitting) && Math.Sqrt(Dist2(o.Position, hole.Hole)) >= limit)
                 {
                     return true;
                 }
@@ -1175,8 +1174,10 @@ public sealed partial class World
     }
 
     /// <summary>
-    /// Au départ, le partenaire (le 2e du groupe, et les suivants) qui attend recule en ligne droite de <see cref="WaitBehind"/> derrière le départ
-    /// et de <see cref="WaitSide"/> sur le côté, pour ne pas se confondre avec le joueur qui frappe. Sans champ de flux : le pas est celui d'une marche.
+    /// Au départ, tant qu'un golfeur d'indice plus petit n'a pas joué son coup de départ, les suivants attendent en retrait : chacun
+    /// <c>indice × <see cref="WaitBehind"/></c> mètres derrière le départ, et <see cref="WaitSide"/> sur le côté (de part et d'autre, tour à tour),
+    /// pour ne pas se confondre avec celui qui frappe. Quand son tour vient, il revient sur sa balle (le départ) avant de frapper.
+    /// Un point de retrait hors du départ (terrain exigu) est abandonné : il reste sur sa balle. Sans champ de flux, au pas d'une marche.
     /// </summary>
     private void StepAside(TerrainGrid terrain, Group group, Golfer g)
     {
@@ -1186,13 +1187,29 @@ public sealed partial class World
             return;
         }
 
-        var hole = terrain.Course[group.Hole];
-        var dx = hole.Hole.X - hole.Tee.X;
-        var dz = hole.Hole.Z - hole.Tee.Z;
-        var len = Math.Max(Math.Sqrt((dx * dx) + (dz * dz)), 1e-6);
-        var (ux, uz) = (dx / len, dz / len);
-        var side = i % 2 == 1 ? WaitSide : -WaitSide;
-        var spot = GridQueries.NearestWalkablePoint(terrain, new Point2(hole.Tee.X - (ux * WaitBehind) - (uz * side), hole.Tee.Z - (uz * WaitBehind) + (ux * side)));
+        var waits = false;
+        for (var j = 0; j < i && !waits; j++)
+        {
+            var o = group.Golfers[j];
+            waits = o.Strokes == 0 && !o.Quit && o.State is not (GolferState.Exiting or GolferState.Done);
+        }
+
+        var spot = g.Ball;
+        if (waits)
+        {
+            var hole = terrain.Course[group.Hole];
+            var dx = hole.Hole.X - hole.Tee.X;
+            var dz = hole.Hole.Z - hole.Tee.Z;
+            var len = Math.Max(Math.Sqrt((dx * dx) + (dz * dz)), 1e-6);
+            var (ux, uz) = (dx / len, dz / len);
+            var side = i % 2 == 1 ? WaitSide : -WaitSide;
+            var wanted = new Point2(hole.Tee.X - (ux * WaitBehind * i) - (uz * side), hole.Tee.Z - (uz * WaitBehind * i) + (ux * side));
+            if (terrain.SurfaceAt(wanted.X, wanted.Z) == Surface.Tee)
+            {
+                spot = wanted;
+            }
+        }
+
         var (ex, ez) = (spot.X - g.Position.X, spot.Z - g.Position.Z);
         var dist = Math.Sqrt((ex * ex) + (ez * ez));
         var step = FlowWalker.BaseSpeed * Arrivals.AiWalkSpeedFactor * TickSeconds;
@@ -1223,7 +1240,9 @@ public sealed partial class World
 
         var pos = g.Position;
         var (cx, cz) = (terrain.CellXOf(pos.X), terrain.CellZOf(pos.Z));
-        var result = FlowWalker.Advance(terrain, field, ref pos, target, TickSeconds, IsManualPro(g) ? 1.0 : Arrivals.AiWalkSpeedFactor * (FastForward ? Arrivals.FastWalkFactor : 1.0));
+        var aiSpeed = Arrivals.AiWalkSpeedFactor * (FastForward ? Arrivals.FastWalkFactor : 1.0);
+        var speed = !IsManualPro(g) ? aiSpeed : g.InLeague ? 1.0 : aiSpeed * ProAimParams.Default.WalkFactor; // à l'entraînement, le pro marche un peu plus vite que les golfeurs (C28)
+        var result = FlowWalker.Advance(terrain, field, ref pos, target, TickSeconds, speed);
         g.Position = pos;
         var (nx, nz) = (terrain.CellXOf(pos.X), terrain.CellZOf(pos.Z));
         if ((nx, nz) != (cx, cz))
@@ -1338,12 +1357,6 @@ public sealed partial class World
             g.Holed = result.Holed;
             g.PickedUp = !result.Holed;
             g.State = GolferState.Exiting;
-        }
-        else if (IsManualPro(g) && !g.InLeague)
-        {
-            // Entraînement (C27) : le pro est déjà sur sa balle, il ne marche pas.
-            g.Position = g.Ball;
-            g.State = GolferState.WaitingTurn;
         }
         else
         {

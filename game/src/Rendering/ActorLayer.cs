@@ -1,6 +1,7 @@
 using Godot;
 using Golferoo.Sim;
 using Golferoo.Sim.Golfers;
+using Golferoo.Sim.Pathing;
 using Golferoo.Sim.Terrain;
 
 namespace Golferoo.Game.Rendering;
@@ -92,6 +93,7 @@ public partial class ActorLayer : Node3D
 
         _tracks.Clear();
         _free.Clear();
+        _stroller = null;
         _rigs = 0;
         _model ??= GolferModel.Load();
         _golfers = NewMultiMesh(ProceduralMeshes.Golfer());
@@ -263,10 +265,58 @@ public partial class ActorLayer : Node3D
         }
 
         Prune();
+        Stroll(display);
         _golfers.VisibleInstanceCount = ns;
         _balls.VisibleInstanceCount = nb;
         VisibleGolfers = n;
         AnimatedGolfers = n - ns;
+    }
+
+    /// <summary>Centre de la flânerie du pro (devant le pavillon) tant qu'il n'a pas de partie en cours ; nul : il ne se montre pas. Présentation seule, hors sim.</summary>
+    public Point2? StrollCentre { get; set; }
+
+    private const double StrollRadius = 5.0;
+    private const double StrollSpeed = 1.0;
+    private GolferRig? _stroller;
+    private Vector3? _strollLast;
+    private double _strollPhase;
+
+    /// <summary>Le pro sans partie fait le tour du pavillon d'un pas tranquille : c'est le personnage du joueur, il se voit dehors.</summary>
+    private void Stroll(double display)
+    {
+        if (_model is null || _grid is null)
+        {
+            return;
+        }
+
+        if (StrollCentre is not { } c)
+        {
+            if (_stroller is not null)
+            {
+                _stroller.Visible = false;
+                _strollLast = null;
+            }
+
+            return;
+        }
+
+        if (_stroller is null)
+        {
+            _stroller = GolferRig.New(_model, 1000);
+            AddChild(_stroller);
+        }
+
+        var angle = display * World.TickSeconds * StrollSpeed / StrollRadius;
+        var at = GridQueries.NearestWalkablePoint(_grid, new Point2(c.X + (StrollRadius * Math.Cos(angle)), c.Z + (StrollRadius * 0.7 * Math.Sin(angle))));
+        var pos = new Vector3((float)at.X, (float)_grid.Sample(at.X, at.Z), (float)at.Z);
+        var step = _strollLast is { } last ? new Vector2(pos.X - last.X, pos.Z - last.Z) : Vector2.Zero;
+        _strollPhase += step.Length();
+        var yaw = step.LengthSquared() > 1e-8f ? Mathf.Atan2(step.X, step.Y) : _stroller.Rotation.Y;
+        _strollLast = pos;
+        var cycle = _model.WalkCycle * ProceduralMeshes.GolferScale;
+        _stroller.Visible = true;
+        _stroller.Transform = new Transform3D(new Basis(Vector3.Up, yaw).Scaled(Vector3.One * ProceduralMeshes.GolferScale), pos);
+        _stroller.Pose(GolferModel.Walk, cycle > 0 ? _strollPhase / cycle % 1.0 * _model.Length(GolferModel.Walk) : 0.0);
     }
 
     /// <summary>Les golfeurs à moins de <see cref="Range"/> du point de vue, les plus proches d'abord, au plus <see cref="PoolSize"/>.</summary>

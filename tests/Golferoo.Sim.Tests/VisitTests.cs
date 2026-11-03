@@ -360,6 +360,7 @@ public class VisitTests
         Assert.NotNull(walker);
         Assert.NotEqual(0, walker.Offered);
         var loaded = Load(Save(world));
+        loaded.BuildingRules = Sure; // les règles ne se sauvent pas : le monde chargé reprend celles du monde d'origine
         var twin = loaded.Groups.SelectMany(g => g.Golfers).Single(g => g.Id == walker.Id);
 
         Assert.Equal((walker.State, walker.VisitKind, walker.VisitDoor, walker.Resume, walker.Offered), (twin.State, twin.VisitKind, twin.VisitDoor, twin.Resume, twin.Offered));
@@ -375,15 +376,9 @@ public class VisitTests
         Assert.NotEqual(before, world.Checksum());
         walker.VisitKind = twin.VisitKind;
         Assert.Equal(before, world.Checksum());
-        // Jusqu'à l'arrivée d'un groupe après la sauvegarde : le monde chargé a les chances de visite par défaut (elles ne se sauvent pas), pas celles de Sure.
-        // Jusqu à l arrivée d un groupe après la sauvegarde : le monde chargé a les chances de visite par défaut (elles ne se sauvent pas), pas celles de Sure.
-        var known = world.Groups.Max(g => g.Id);
-        for (var i = 0; i < 2000 && world.Groups.All(g => g.Id <= known); i++)
-        {
-            world.Step();
-            loaded.Step();
-        }
 
+        world.Step(2000);
+        loaded.Step(2000);
         Assert.Equal(world.Checksum(), loaded.Checksum());
     }
 

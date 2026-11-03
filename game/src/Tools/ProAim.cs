@@ -30,6 +30,7 @@ public partial class ProAim : Node3D
     private HBoxContainer? _clubRow;
     private HBoxContainer? _shapeRow;
     private ImmediateMesh? _mesh;
+    private Point2 _click;
     private bool _dirty;
 
     public bool Active { get; private set; }
@@ -38,10 +39,11 @@ public partial class ProAim : Node3D
 
     public ShotShape Shape { get; private set; } = ShotShape.Straight;
 
+    /// <summary>Point visé : le clic, ramené à la portée réelle du pro avec ce club. L'ellipse et le cercle cyan sont centrés dessus.</summary>
     public Point2 Target { get; private set; }
 
-    /// <summary>Force du coup, donnée par le clic seul : celle qui fait retomber la balle sur la cible (1,0 au-delà de la portée, et au putter).</summary>
-    public double Force => Active && !Club.IsPutter ? _main!.World.ProForceFor(Club, Shape, Target) : 1.0;
+    /// <summary>Force du coup, donnée par le clic seul : celle qui fait retomber la balle sur la cible (1,0 à la portée maximale).</summary>
+    public double Force { get; private set; } = 1.0;
 
     /// <summary>Dernière trajectoire prévue (vide hors visée).</summary>
     public ShotResult Preview { get; private set; }
@@ -130,23 +132,19 @@ public partial class ProAim : Node3D
     public void SetClub(Club club)
     {
         Club = club;
-        if (club.IsPutter)
-        {
-            Shape = ShotShape.Straight;
-        }
-
         _dirty = true;
     }
 
     public void SetShape(ShotShape shape)
     {
-        Shape = Club.IsPutter ? ShotShape.Straight : shape;
+        Shape = shape;
         _dirty = true;
     }
 
-    public void SetTarget(Point2 target)
+    /// <summary>Pose le clic ; <see cref="Target"/> et <see cref="Force"/> suivent à la prochaine synchronisation.</summary>
+    public void SetTarget(Point2 click)
     {
-        Target = target;
+        _click = click;
         _dirty = true;
     }
 
@@ -186,6 +184,11 @@ public partial class ProAim : Node3D
             return;
         }
 
+        if (_dirty)
+        {
+            Refresh();
+        }
+
         _main!.World.PlayProShot(new ProShot(Club, Target, Shape, Force));
         _main.Paused = false;
         End();
@@ -197,17 +200,14 @@ public partial class ProAim : Node3D
         var ball = pro.Ball;
         Active = true;
         _main!.Paused = true;
-        var terrain = _main.World.Terrain!;
-        Target = _main.World.HoleOf(pro).Hole;
-        var d = Dist(ball, Target);
-        Club = terrain.SurfaceAt(ball.X, ball.Z) == Surface.Green
-            ? Clubs.Putter
-            : FullClubs.LastOrDefault(c => c.TargetRange >= d) ?? Clubs.Driver;
+        _click = _main.World.HoleOf(pro).Hole;
+        var d = Dist(ball, _click);
+        Club = FullClubs.LastOrDefault(c => c.TargetRange >= d) ?? Clubs.Driver;
         Shape = ShotShape.Straight;
 
         // Caméra derrière le pro : le haut de l'écran regarde vers le trou.
-        var yaw = Mathf.RadToDeg(Mathf.Atan2((float)(ball.X - Target.X), (float)(ball.Z - Target.Z)));
-        var mid = new Vector3((float)(ball.X + Target.X) / 2f, 0f, (float)(ball.Z + Target.Z) / 2f);
+        var yaw = Mathf.RadToDeg(Mathf.Atan2((float)(ball.X - _click.X), (float)(ball.Z - _click.Z)));
+        var mid = new Vector3((float)(ball.X + _click.X) / 2f, 0f, (float)(ball.Z + _click.Z) / 2f);
         _main.Camera.SetView(yaw, Math.Clamp((float)d * 0.9f, 40f, 250f), mid);
         _panel!.Visible = true;
         _dirty = true;
@@ -231,13 +231,9 @@ public partial class ProAim : Node3D
             return;
         }
 
-        var putting = world.Terrain!.SurfaceAt(pro.Ball.X, pro.Ball.Z) == Surface.Green;
-        if (putting != Club.IsPutter)
-        {
-            Club = putting ? Clubs.Putter : Clubs.Wedge;
-            Shape = ShotShape.Straight;
-        }
-
+        // Le clic est ramené à la portée réelle du pro (force maximale) : on ne vise pas plus loin que la balle n'ira.
+        Target = world.ProAimPoint(Club, Shape, _click);
+        Force = world.ProForceFor(Club, Shape, Target);
         var shot = new ProShot(Club, Target, Shape, Force);
         Preview = world.PreviewProShot(shot);
         for (var i = 0; i < FullClubs.Length; i++)
@@ -250,20 +246,20 @@ public partial class ProAim : Node3D
             ((Button)_shapeRow!.GetChild(i)).SetPressedNoSignal(Shapes[i] == Shape);
         }
 
-        _clubRow!.Visible = !putting;
-        _shapeRow!.Visible = !putting;
         var skills = world.Pro!;
         var general = ProSkills.OfClub(Club);
-        _label!.Text = $"Votre pro : {(putting ? "putting" : $"{ClubName(Club)}, {ShapeNames[Array.IndexOf(Shapes, Shape)].ToLowerInvariant()}")} | " +
-                       $"cible à {Dist(pro.Ball, Target):F0} m, force {shot.Force * 100.0:F0} %, balle prévue à {Dist(pro.Ball, Preview.Ball):F0} m ({OutcomeName(Preview.Outcome)})\n" +
-                       $"{SkillName(general)} : niveau {skills.Level(general)} | clic au sol : viser, la force suit le clic (maximale au-delà de la portée)\n" +
-                       ReadingNote(skills, putting, world.Progression);
-        var aim = ProSkills.AimFactor(Club, Dist(pro.Ball, Target));
-        Draw(pro.Ball, Preview, skills.DirectionFactor(Club, Shape) * aim, world.ProReadingError(shot));
+        var reach = Dist(pro.Ball, Target);
+        var limited = Dist(pro.Ball, _click) > reach + 0.5;
+        _label!.Text = $"Votre pro : {ClubName(Club)}, {ShapeNames[Array.IndexOf(Shapes, Shape)].ToLowerInvariant()} | " +
+                       $"cible à {reach:F0} m{(limited ? " (portée maximale)" : string.Empty)}, force {shot.Force * 100.0:F0} %, balle prévue à {Dist(pro.Ball, Preview.Ball):F0} m ({OutcomeName(Preview.Outcome)})\n" +
+                       $"{SkillName(general)} : niveau {skills.Level(general)} | clic au sol : viser, la force suit le clic (maximale à la portée du pro)\n" +
+                       ReadingNote(skills);
+        var (across, along) = skills.Spread(Club, Shape, reach, Force);
+        Draw(pro.Ball, Preview, across * EllipseSigmas, along * EllipseSigmas);
     }
 
-    /// <summary>Trajectoire prévue (jaune), cible au sol sous le clic (cyan) et ellipse blanche au point d'arrivée : dispersion proportionnelle à la distance visée, élargie de l'erreur de lecture.</summary>
-    private void Draw(Point2 ball, ShotResult preview, double dispersion, double readingError)
+    /// <summary>Trajectoire prévue (jaune), cible au sol sous le clic (cyan) et ellipse blanche de dispersion, centrée sur la cible : elle grandit avec la distance visée jusqu'à la portée du pro.</summary>
+    private void Draw(Point2 ball, ShotResult preview, double across, double along)
     {
         var terrain = _main!.World.Terrain!;
         _mesh!.ClearSurfaces();
@@ -279,7 +275,7 @@ public partial class ProAim : Node3D
             _mesh.SurfaceEnd();
         }
 
-        // La cible est posée au sol (hauteur du terrain sous le clic, pas celle de la balle), même sur un green en pente.
+        // Cible et ellipse sont posées au sol (hauteur du terrain sous le clic, pas celle de la balle), même sur un green en pente.
         _mesh.SurfaceBegin(Mesh.PrimitiveType.LineStrip);
         _mesh.SurfaceSetColor(Colors.Cyan);
         for (var i = 0; i <= EllipseSegments; i++)
@@ -291,48 +287,45 @@ public partial class ProAim : Node3D
 
         _mesh.SurfaceEnd();
 
-        var dist = Dist(ball, preview.Ball);
+        var dist = Dist(ball, Target);
         if (dist < 0.5)
         {
             return;
         }
 
-        var ux = (preview.Ball.X - ball.X) / dist;
-        var uz = (preview.Ball.Z - ball.Z) / dist;
-        var across = Math.Sqrt(Math.Pow(EllipseSigmas * dist * Club.DirectionSigma * dispersion, 2) + (readingError * readingError));
-        var along = Math.Sqrt(Math.Pow(EllipseSigmas * dist * Club.SpeedSigma * dispersion * 2.0, 2) + (readingError * readingError));
+        var ux = (Target.X - ball.X) / dist;
+        var uz = (Target.Z - ball.Z) / dist;
         _mesh.SurfaceBegin(Mesh.PrimitiveType.LineStrip);
         _mesh.SurfaceSetColor(Colors.White);
         for (var i = 0; i <= EllipseSegments; i++)
         {
             var a = i * Math.Tau / EllipseSegments;
             var (c, s) = (Math.Cos(a) * along, Math.Sin(a) * across);
-            var x = preview.Ball.X + (ux * c) - (uz * s);
-            var z = preview.Ball.Z + (uz * c) + (ux * s);
+            var x = Target.X + (ux * c) - (uz * s);
+            var z = Target.Z + (uz * c) + (ux * s);
             _mesh.SurfaceAddVertex(new Vector3((float)x, (float)terrain.Sample(x, z) + 0.2f, (float)z));
         }
 
         _mesh.SurfaceEnd();
     }
 
-    /// <summary>Ce que l'aperçu vaut (C25) : le vent ou la pente sont lus avec une erreur qui s'efface avec le niveau de l'habileté.</summary>
-    private static string ReadingNote(ProSkills skills, bool putting, ProgressionParams p)
+    /// <summary>Ce que l'aperçu vaut (C25) : le vent est lu avec une erreur qui s'efface avec le niveau de l'habileté ; la trajectoire jaune en tient compte, le centre de l'ellipse non.</summary>
+    private string ReadingNote(ProSkills skills)
     {
-        var skill = putting ? ProSkill.GreenReading : ProSkill.Wind;
-        var level = skills.Level(skill);
+        var p = _main!.World.Progression;
+        var level = skills.Level(ProSkill.Wind);
         if (level >= ProSkills.MaxLevel)
         {
-            return $"{ProEffects.Name(skill)} : niveau {level}, l'aperçu est juste";
+            return $"{ProEffects.Name(ProSkill.Wind)} : niveau {level}, l'aperçu est juste";
         }
 
         var amplitude = ProSkills.BiasAmplitude(level);
-        var degrees = amplitude * (putting ? p.SlopeBiasAngle : p.WindBiasAngle) * 180.0 / Math.PI;
-        var share = amplitude * (putting ? p.SlopeBiasScale : p.WindBiasForce) * 100.0;
-        var error = putting ? $"pente lue à ±{share:F0} % et ±{degrees:F0}°" : $"vent lu à ±{share:F0} % de force et ±{degrees:F0}°";
-        return $"{ProEffects.Name(skill)} : niveau {level}, écart possible de l'aperçu : {error}";
+        var degrees = amplitude * p.WindBiasAngle * 180.0 / Math.PI;
+        var share = amplitude * p.WindBiasForce * 100.0;
+        return $"{ProEffects.Name(ProSkill.Wind)} : niveau {level}, écart possible de la trajectoire prévue : vent lu à ±{share:F0} % de force et ±{degrees:F0}°";
     }
 
-    private static string ClubName(Club club) => club.IsPutter ? "Putter" : ClubNames[Array.IndexOf(FullClubs, club)];
+    private static string ClubName(Club club) => ClubNames[Array.IndexOf(FullClubs, club)];
 
     private static string SkillName(ProSkill skill) => skill switch
     {

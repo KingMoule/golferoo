@@ -40,9 +40,13 @@ public sealed partial class World
     /// <summary>Groupes de visiteurs qui attendent leur départ devant la porte.</summary>
     public int QueueLength => _groups.Count(g => g.FromArrivals && !g.Released);
 
-    /// <summary>Un groupe de visiteurs peut partir : le parcours n'est pas déjà plein de groupes.</summary>
+    /// <summary>Un groupe de visiteurs peut partir : le parcours n'est pas déjà plein de groupes qui n'ont pas atteint le green.</summary>
     private bool CanStartArrival(TerrainGrid terrain) =>
-        _groups.Count(g => g.Released && !g.Finished && !g.Leaving) < Arrivals.MaxGroupsPerHole * terrain.Course.Count;
+        _groups.Count(g => g.Released && !g.Finished && !g.Leaving && !AtGreen(terrain, g)) < Arrivals.MaxGroupsPerHole * terrain.Course.Count;
+
+    /// <summary>Tous les golfeurs du groupe sont sur le green ou ont fini le trou : il ne compte plus parmi les groupes du parcours (l'écart de sécurité reste celui du départ et du tir).</summary>
+    private static bool AtGreen(TerrainGrid terrain, Group group) =>
+        group.Golfers.All(o => o.State is GolferState.Exiting or GolferState.Done or GolferState.Leaving or GolferState.Quitting || terrain.SurfaceAt(o.Position.X, o.Position.Z) == Surface.Green);
 
     /// <summary>Attrait du club à cet instant (0 sans trou ouvert).</summary>
     public double Attraction => Arrivals.Attraction(_holesOpen.Count(o => o), Reputation, Weather.Sky);

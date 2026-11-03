@@ -179,21 +179,42 @@ public sealed class ProSkills
     public static double AimFactor(Club club, double distance) =>
         club.IsPutter ? 1.0 : Math.Clamp(distance / club.TargetRange, ProAimParams.Default.AimFloor, 1.0);
 
+    /// <summary>Écart type, en mètres, de la dispersion d'un coup à <paramref name="distance"/> mètres (C27) : <c>Across</c> en travers, <c>Along</c> en longueur (la portée varie comme le carré de la vitesse). Croît avec la distance, jusqu'à la portée du club.</summary>
+    public (double Across, double Along) Spread(Club club, ShotShape shape, double distance, double force)
+    {
+        var aim = AimFactor(club, distance);
+        return (distance * club.DirectionSigma * DirectionFactor(club, shape) * aim, 2.0 * distance * club.SpeedSigma * ForceFactor(club, force, shape) * aim);
+    }
+
+    /// <summary>Distance à laquelle le coup retombe depuis <paramref name="ball"/> vers <paramref name="target"/> à la force <paramref name="force"/>, sans hasard ni biais.</summary>
+    internal double Reach(PhysicalShotResolver resolver, TerrainGrid terrain, Point2 ball, Club club, ShotShape shape, Point2 target, Point2 pin, double force)
+    {
+        var end = Execute(resolver, terrain, ball, new ProShot(club, target, shape, force), null, pin).Ball;
+        return Math.Sqrt(((end.X - ball.X) * (end.X - ball.X)) + ((end.Z - ball.Z) * (end.Z - ball.Z)));
+    }
+
+    /// <summary>Le point visé ramené à la portée réelle du pro (force 1,0, son niveau de Distance et son lie compris) : on ne vise pas plus loin que la balle n'ira (C28).</summary>
+    internal Point2 AimPoint(PhysicalShotResolver resolver, TerrainGrid terrain, Point2 ball, Club club, ShotShape shape, Point2 click, Point2 pin)
+    {
+        var wanted = Math.Sqrt(((click.X - ball.X) * (click.X - ball.X)) + ((click.Z - ball.Z) * (click.Z - ball.Z)));
+        if (club.IsPutter || wanted < 1e-9)
+        {
+            return click;
+        }
+
+        var reach = Reach(resolver, terrain, ball, club, shape, click, pin, 1.0);
+        return wanted <= reach ? click : new Point2(ball.X + ((click.X - ball.X) * reach / wanted), ball.Z + ((click.Z - ball.Z) * reach / wanted));
+    }
+
     /// <summary>
     /// Force qui fait retomber la balle sur la cible (C27) : sans hasard ni biais, dichotomie sur la force, dont la distance d'arrivée croît avec elle.
-    /// 1,0 si même la force maximale n'y arrive pas (clic au-delà de la portée) ; 1,0 aussi pour un putt (sa vitesse vient de la distance).
+    /// 1,0 si même la force maximale n'y arrive pas ; 1,0 aussi pour un putt (sa vitesse vient de la distance).
     /// Le vent est celui du <paramref name="resolver"/> : l'appelant le met à zéro pour une force qui ne dépend que de la géométrie.
     /// </summary>
     internal double ForceFor(PhysicalShotResolver resolver, TerrainGrid terrain, Point2 ball, Club club, ShotShape shape, Point2 target, Point2 pin)
     {
-        double Reach(double force)
-        {
-            var end = Execute(resolver, terrain, ball, new ProShot(club, target, shape, force), null, pin).Ball;
-            return Math.Sqrt(((end.X - ball.X) * (end.X - ball.X)) + ((end.Z - ball.Z) * (end.Z - ball.Z)));
-        }
-
         var wanted = Math.Sqrt(((target.X - ball.X) * (target.X - ball.X)) + ((target.Z - ball.Z) * (target.Z - ball.Z)));
-        if (club.IsPutter || Reach(1.0) <= wanted)
+        if (club.IsPutter || Reach(resolver, terrain, ball, club, shape, target, pin, 1.0) <= wanted)
         {
             return 1.0;
         }
@@ -202,7 +223,7 @@ public sealed class ProSkills
         for (var i = 0; i < 14; i++)
         {
             var mid = (low + high) / 2.0;
-            if (Reach(mid) < wanted)
+            if (Reach(resolver, terrain, ball, club, shape, target, pin, mid) < wanted)
             {
                 low = mid;
             }

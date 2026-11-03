@@ -2698,18 +2698,17 @@ public partial class SmokeTest : Node
             return;
         }
 
-        // C27 : la force vient du clic seul (maximale au-delà de la portée, moindre en deçà), sans curseur.
+        // C27/C28 : la force vient du clic seul ; au-delà de la portée réelle du pro, le point visé est ramené à cette portée (force maximale).
         var club = _main.ProAim.Club;
-        if (!club.IsPutter)
+        _main.ProAim.SetTarget(new Point2(pro.Ball.X + (club.TargetRange * 1.5), pro.Ball.Z));
+        _main.ProAim.Sync();
+        var (far, farDistance) = (_main.ProAim.Force, Math.Abs(_main.ProAim.Target.X - pro.Ball.X));
+        _main.ProAim.SetTarget(new Point2(pro.Ball.X + (club.TargetRange * 0.3), pro.Ball.Z));
+        _main.ProAim.Sync();
+        var half = _main.ProAim.Force;
+        if (far < 0.99 || half >= 1.0 || half < 0.1 || farDistance >= club.TargetRange)
         {
-            _main.ProAim.SetTarget(new Point2(pro.Ball.X + (club.TargetRange * 1.5), pro.Ball.Z));
-            var far = _main.ProAim.Force;
-            _main.ProAim.SetTarget(new Point2(pro.Ball.X + (club.TargetRange * 0.5), pro.Ball.Z));
-            var half = _main.ProAim.Force;
-            if (far < 1.0 || half >= 1.0 || half < 0.2)
-            {
-                failures.Add($"force au clic : au-delà de la portée {far:F2}, à mi-portée {half:F2}");
-            }
+            failures.Add($"force au clic : au-delà de la portée {far:F2} (cible à {farDistance:F0} m), à 30 % de la portée {half:F2}");
         }
 
         _main.ProAim.Play();
