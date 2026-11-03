@@ -6,7 +6,8 @@ namespace Golferoo.Sim.Pro;
 /// <summary>Réglages de la visée du pro (C27), lus depuis <c>data/pro/aim.json</c>, embarqué à la compilation.</summary>
 /// <param name="AimFloor">Part plancher de la dispersion du club, atteinte par un clic tout près de la balle.</param>
 /// <param name="CurveScale">Multiplicateur de la courbure du draw et du fade du pro.</param>
-public sealed record ProAimParams(double AimFloor, double CurveScale)
+/// <param name="WalkFactor">Multiplicateur de la vitesse de marche des golfeurs que le pro prend à l'entraînement (C28).</param>
+public sealed record ProAimParams(double AimFloor, double CurveScale, double WalkFactor)
 {
     private static readonly JsonSerializerOptions JsonOptions = new()
     {

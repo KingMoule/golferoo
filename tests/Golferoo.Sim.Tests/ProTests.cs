@@ -65,28 +65,107 @@ public class ProTests(ITestOutputHelper output)
     }
 
     [Fact]
-    public void ManualPro_InTraining_IsOnHisBallAfterEachShot_WithoutWalking()
+    public void ManualPro_InTraining_WalksToHisBall_AndTheNextShotIsOfferedOnlyOnceThere()
     {
         var w = ManualWorld(6);
         w.StartProRound();
         var shots = 0;
+        var walked = 0;
         for (var i = 0; i < 60_000 && shots < 3; i++)
         {
             if (w.AwaitingPro is { } pro)
             {
-                if (shots > 0)
-                {
-                    Assert.Equal(pro.Ball, pro.Position);
-                }
-
+                Assert.Equal(pro.Ball, pro.Position);
                 w.PlayProShot(Simple(w, pro));
                 shots++;
             }
 
             w.Step();
+            if (shots > 0 && w.Groups.SelectMany(g => g.Golfers).Any(g => g.State == GolferState.WalkingToBall))
+            {
+                walked++;
+            }
         }
 
         Assert.Equal(3, shots);
+        Assert.True(walked > 0, "le pro ne marche pas jusqu'à sa balle");
+    }
+
+    [Fact]
+    public void ManualPro_InTraining_WalksAtTheAiSpeedTimesWalkFactor()
+    {
+        var w = ManualWorld(6);
+        var group = w.StartProRound();
+        var pro = group.Golfers[0];
+        var expected = Pathing.FlowWalker.BaseSpeed * w.Arrivals.AiWalkSpeedFactor * ProAimParams.Default.WalkFactor * World.TickSeconds;
+        var checkedSteps = 0;
+        var previous = pro.Position;
+        for (var i = 0; i < 20_000 && checkedSteps < 20; i++)
+        {
+            if (w.AwaitingPro is { } waiting)
+            {
+                w.PlayProShot(Simple(w, waiting));
+            }
+
+            var walking = pro.State == GolferState.WalkingToBall;
+            w.Step();
+            var moved = Math.Sqrt(Math.Pow(pro.Position.X - previous.X, 2) + Math.Pow(pro.Position.Z - previous.Z, 2));
+            if (walking && pro.State == GolferState.WalkingToBall && moved > 0.0)
+            {
+                var cost = SurfaceTable.Get(w.Terrain!.SurfaceAt(previous.X, previous.Z)).WalkCost;
+                Assert.InRange(moved * cost, expected * 0.7, expected * 1.01);
+                checkedSteps++;
+            }
+
+            previous = pro.Position;
+        }
+
+        Assert.True(checkedSteps >= 20, "le pro n'a pas marché assez longtemps pour mesurer sa vitesse");
+    }
+
+    [Fact]
+    public void ManualPro_PuttsByHimself_NeverAwaitsOnTheGreen_AndPlaysTheRound()
+    {
+        var w = ManualWorld(1);
+        var group = w.StartProRound();
+        var puttsPlayed = 0;
+        for (var i = 0; i < 60_000 && !group.Finished; i++)
+        {
+            if (w.AwaitingPro is { } pro)
+            {
+                Assert.NotEqual(Surface.Green, w.Terrain!.SurfaceAt(pro.Ball.X, pro.Ball.Z));
+                w.PlayProShot(Simple(w, pro));
+            }
+
+            var onGreen = group.Golfers[0].State == GolferState.Putting && w.Terrain!.SurfaceAt(group.Golfers[0].Ball.X, group.Golfers[0].Ball.Z) == Surface.Green;
+            w.Step();
+            puttsPlayed += onGreen && group.Golfers[0].State == GolferState.BallInFlight ? 1 : 0;
+        }
+
+        Assert.True(group.Finished);
+        Assert.True(puttsPlayed > 0 || group.Golfers[0].Holed, "aucun putt joué seul");
+    }
+
+    [Fact]
+    public void ManualPro_LoadedWhileAwaitingAPuttOnTheGreen_PuttsByHimself()
+    {
+        // Une sauvegarde d'avant C28 peut contenir un pro qui attend son putt : il le joue seul.
+        var w = ManualWorld(4);
+        w.StartProRound();
+        for (var i = 0; i < 5_000 && w.AwaitingPro is null; i++)
+        {
+            w.Step();
+        }
+
+        var pro = Assert.IsType<Golfer>(w.AwaitingPro);
+        var hole = w.Terrain!.Hole;
+        var spot = Enumerable.Range(0, 360).Select(a => new Point2(hole.X + (6.0 * Math.Cos(a * Math.PI / 180.0)), hole.Z + (6.0 * Math.Sin(a * Math.PI / 180.0))))
+            .First(p => w.Terrain.SurfaceAt(p.X, p.Z) == Surface.Green);
+        (pro.Ball, pro.Position) = (spot, spot);
+        var strokes = pro.Strokes;
+        w.Step(3_000);
+        Assert.NotEqual(GolferState.AwaitingShot, pro.State);
+        Assert.True(pro.Strokes > strokes || pro.Holed);
     }
 
     [Fact]

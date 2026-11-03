@@ -47,11 +47,51 @@ public class ProAimTests(ITestOutputHelper output)
         }
     }
 
+    /// <summary>C28 : le curseur de visée est ramené à la portée réelle du pro, et non à <c>TargetRange</c> (le niveau 0 n'en atteint que 74 à 85 %).</summary>
+    [Fact]
+    public void AimPoint_BeyondTheRealReach_IsPulledBackToIt_AndTheBallLandsThereWithinTwoPercent()
+    {
+        var pro = new ProSkills();
+        var resolver = new PhysicalShotResolver();
+        foreach (var club in Clubs.Full)
+        {
+            var click = new Point2(Start.X + (club.TargetRange * 1.5), Start.Z);
+            var aim = pro.AimPoint(resolver, Fairway, Start, club, ShotShape.Straight, click, Pin);
+            var force = pro.ForceFor(resolver, Fairway, Start, club, ShotShape.Straight, aim, Pin);
+            var landed = pro.Execute(resolver, Fairway, Start, new ProShot(club, aim, ShotShape.Straight, force), null, Pin).Ball;
+            output.WriteLine($"{club.Name} : portée visée {club.TargetRange:F0} m, portée réelle {Dist(Start, aim):F1} m, force {force:F3}, balle à {Dist(Start, landed):F1} m");
+            Assert.True(Dist(Start, aim) < club.TargetRange);
+            Assert.InRange(Dist(Start, landed), Dist(Start, aim) * 0.98, Dist(Start, aim) * 1.02);
+            var near = new Point2(Start.X + 10, Start.Z);
+            Assert.Equal(near, pro.AimPoint(resolver, Fairway, Start, club, ShotShape.Straight, near, Pin));
+        }
+    }
+
+    [Fact]
+    public void Spread_GrowsWithTheClickedDistance_UpToTheRealReach()
+    {
+        var pro = new ProSkills();
+        var resolver = new PhysicalShotResolver();
+        foreach (var club in Clubs.Full)
+        {
+            var reach = Dist(Start, pro.AimPoint(resolver, Fairway, Start, club, ShotShape.Straight, new Point2(Start.X + club.TargetRange, Start.Z), Pin));
+            var (previousAcross, previousAlong) = (0.0, 0.0);
+            for (var d = 1.0; d <= reach; d += 1.0)
+            {
+                var target = new Point2(Start.X + d, Start.Z);
+                var force = pro.ForceFor(resolver, Fairway, Start, club, ShotShape.Straight, target, Pin);
+                var (across, along) = pro.Spread(club, ShotShape.Straight, d, force);
+                Assert.True(across >= previousAcross && along >= previousAlong, $"{club.Name} à {d} m : dispersion {across:F2}/{along:F2} après {previousAcross:F2}/{previousAlong:F2}");
+                (previousAcross, previousAlong) = (across, along);
+            }
+        }
+    }
+
     [Fact]
     public void AimJson_IsReadStrictly_UnknownKeyAndMissingFieldAreRefused()
     {
-        Assert.Equal(0.2, ProAimParams.Parse("""{ "aimFloor": 0.2, "curveScale": 2 }""").AimFloor);
-        Assert.Throws<System.Text.Json.JsonException>(() => ProAimParams.Parse("""{ "aimFloor": 0.2, "curveScale": 2, "inconnu": 1 }"""));
+        Assert.Equal(0.2, ProAimParams.Parse("""{ "aimFloor": 0.2, "curveScale": 2, "walkFactor": 1.2 }""").AimFloor);
+        Assert.Throws<System.Text.Json.JsonException>(() => ProAimParams.Parse("""{ "aimFloor": 0.2, "curveScale": 2, "walkFactor": 1.2, "inconnu": 1 }"""));
         Assert.Throws<System.Text.Json.JsonException>(() => ProAimParams.Parse("""{ "aimFloor": 0.2 }"""));
     }
 
@@ -98,6 +138,64 @@ public class ProAimTests(ITestOutputHelper output)
         output.WriteLine($"écart latéral relatif : pleine portée {full:F4}, mi-portée {half:F4}, tout près {near:F4}");
         Assert.InRange(half / full, 0.4, 0.62);
         Assert.True(near > 0.0);
+    }
+
+    // ---- Putt automatique (C28) ----------------------------------------------------------------------------------------------
+
+    /// <summary>Part de putts rentrés à <paramref name="distance"/> mètres autour du trou, sur les neuf greens de « Le neuf » (pentes comprises), par le putt du résolveur que joue le pro (C28).</summary>
+    private static double MakeRate(int level, double distance)
+    {
+        var course = CourseLoader.Load(Path.Combine(Path.GetDirectoryName(TerrainTests.HolePath())!, "..", "courses", "le-neuf.json"), 2);
+        var skill = ProSkills.Factor(level);
+        var resolver = new PhysicalShotResolver();
+        var rng = new DeterministicRng(7);
+        var (made, total) = (0, 0);
+        for (var hole = 1; hole <= course.Course.Count; hole++)
+        {
+            var pin = course.Course[hole].Hole;
+            for (var angle = 0; angle < 360; angle += 45)
+            {
+                var ball = new Point2(pin.X + (distance * Math.Cos(angle * Math.PI / 180.0)), pin.Z + (distance * Math.Sin(angle * Math.PI / 180.0)));
+                if (course.SurfaceAt(ball.X, ball.Z) != Surface.Green)
+                {
+                    continue;
+                }
+
+                for (var k = 0; k < 4; k++)
+                {
+                    made += resolver.Resolve(new ShotRequest(ball, pin, 1, skill), course, rng).Holed ? 1 : 0;
+                    total++;
+                }
+            }
+        }
+
+        Assert.True(total >= 100, $"trop peu de positions sur le green : {total}");
+        return (double)made / total;
+    }
+
+    [Fact]
+    public void AutoPutt_OnLeNeuf_HolesMoreWithBetterSkill_AndMostPuttsFromThreeMetersAtMaxLevel()
+    {
+        var (rookie, mid, master) = (MakeRate(0, 3.0), MakeRate(25, 3.0), MakeRate(50, 3.0));
+        output.WriteLine($"3 m, Le neuf : niveau 0 {rookie:P0}, niveau 25 {mid:P0}, niveau 50 {master:P0}");
+        Assert.True(rookie < mid && mid < master);
+        Assert.True(rookie >= 0.30);
+        Assert.True(master >= 0.70);
+    }
+
+    /// <summary>NB1 (audit C28) : à la force pleine, le facteur de force passe du « dosé » au « non dosé » ; si Dosage est moins bon que le club, la dispersion en longueur saute vers le bas au seuil. Le test en fixe l'ampleur.</summary>
+    [Fact]
+    public void Spread_AtTheFullForceThreshold_JumpsByABoundedShare_WhenDosageDiffersFromTheClub()
+    {
+        var pro = new ProSkills();
+        pro.SetLevel(ProSkill.Wedge, 40);
+        pro.SetLevel(ProSkill.Dosage, 0);
+        var club = Clubs.Wedge;
+        var below = pro.Spread(club, ShotShape.Straight, 50.0, 0.89).Along;
+        var full = pro.Spread(club, ShotShape.Straight, 50.0, 1.0).Along;
+        output.WriteLine($"Dosage 0, wedge 40 : longueur {below:F2} m à 89 % de force, {full:F2} m à pleine force (saut {1.0 - (full / below):P0})");
+        Assert.True(full <= below);
+        Assert.True(full > below * 0.4);
     }
 
     // ---- Courbure --------------------------------------------------------------------------------------------------------------

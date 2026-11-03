@@ -990,6 +990,11 @@ public sealed partial class World
                     }
 
                     break;
+                case GolferState.AwaitingShot when terrain.SurfaceAt(g.Ball.X, g.Ball.Z) == Surface.Green:
+                    // Une partie sauvegardée avant C28 peut attendre un putt : il part seul.
+                    g.PlannedShot = AutoPutt(hole.Hole);
+                    g.State = GolferState.Putting;
+                    break;
                 default:
                     break;
             }
@@ -1065,7 +1070,15 @@ public sealed partial class World
             shooter.Plan = shooter.State == GolferState.Swinging && !IsManualPro(shooter) && _resolver is PhysicalShotResolver ? new PlanJob() : null;
             if (IsManualPro(shooter) && !Gimme(terrain, hole.Hole, shooter))
             {
-                shooter.State = GolferState.AwaitingShot;
+                // Le joueur choisit ses coups hors du green ; au green, le pro putte seul selon sa compétence (C28), avec le RNG de la sim.
+                if (shooter.State == GolferState.Putting)
+                {
+                    shooter.PlannedShot = AutoPutt(hole.Hole);
+                }
+                else
+                {
+                    shooter.State = GolferState.AwaitingShot;
+                }
             }
         }
     }
@@ -1162,7 +1175,9 @@ public sealed partial class World
 
         var pos = g.Position;
         var (cx, cz) = (terrain.CellXOf(pos.X), terrain.CellZOf(pos.Z));
-        var result = FlowWalker.Advance(terrain, field, ref pos, target, TickSeconds, IsManualPro(g) ? 1.0 : Arrivals.AiWalkSpeedFactor * (FastForward ? Arrivals.FastWalkFactor : 1.0));
+        var aiSpeed = Arrivals.AiWalkSpeedFactor * (FastForward ? Arrivals.FastWalkFactor : 1.0);
+        var speed = !IsManualPro(g) ? aiSpeed : g.InLeague ? 1.0 : aiSpeed * ProAimParams.Default.WalkFactor; // à l'entraînement, le pro marche un peu plus vite que les golfeurs (C28)
+        var result = FlowWalker.Advance(terrain, field, ref pos, target, TickSeconds, speed);
         g.Position = pos;
         var (nx, nz) = (terrain.CellXOf(pos.X), terrain.CellZOf(pos.Z));
         if ((nx, nz) != (cx, cz))
@@ -1277,12 +1292,6 @@ public sealed partial class World
             g.Holed = result.Holed;
             g.PickedUp = !result.Holed;
             g.State = GolferState.Exiting;
-        }
-        else if (IsManualPro(g) && !g.InLeague)
-        {
-            // Entraînement (C27) : le pro est déjà sur sa balle, il ne marche pas.
-            g.Position = g.Ball;
-            g.State = GolferState.WaitingTurn;
         }
         else
         {

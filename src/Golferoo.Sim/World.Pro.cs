@@ -80,26 +80,19 @@ public sealed partial class World
 
     /// <summary>Coup prévu, sans hasard ni arbres : ce que le mode visée dessine. Le vent du moment est compris, lu avec le biais de Jeu dans le vent, et la pente d'un putt avec
     /// celui de Lecture du green (<see cref="ProSkills.BiasFor"/>). Ne touche ni au RNG ni à l'état du monde.</summary>
-    public ShotResult PreviewProShot(ProShot shot) => Preview(shot, read: true);
+    public ShotResult PreviewProShot(ProShot shot) => Preview(shot);
 
-    /// <summary>Écart en mètres entre le coup prévu tel que le pro le lit (vent et pente faussés, C25) et le coup prévu sans erreur de lecture : ce que l'ellipse du mode visée ajoute (C27).</summary>
-    public double ProReadingError(ProShot shot)
-    {
-        var (read, exact) = (Preview(shot, read: true).Ball, Preview(shot, read: false).Ball);
-        return Math.Sqrt(((read.X - exact.X) * (read.X - exact.X)) + ((read.Z - exact.Z) * (read.Z - exact.Z)));
-    }
-
-    private ShotResult Preview(ProShot shot, bool read)
+    private ShotResult Preview(ProShot shot)
     {
         var terrain = RequireTerrain();
         var golfer = AwaitingPro ?? throw new InvalidOperationException("Le pro n'attend pas de coup.");
         var resolver = (PhysicalShotResolver)_resolver;
-        var bias = read ? Pro!.BiasFor(Tick, golfer.Strokes, Wind) : new ProBias(Wind, 0.0, 1.0);
+        var bias = Pro!.BiasFor(Tick, golfer.Strokes, Wind);
         var trueWind = resolver.Wind;
         resolver.Wind = bias.Wind;
         try
         {
-            return Pro!.Execute(resolver, terrain, golfer.Ball, shot, null, PinOf(terrain, golfer), bias);
+            return Pro.Execute(resolver, terrain, golfer.Ball, shot, null, PinOf(terrain, golfer), bias);
         }
         finally
         {
@@ -107,8 +100,13 @@ public sealed partial class World
         }
     }
 
-    /// <summary>Force du coup du pro qui fait retomber la balle sur <paramref name="target"/> depuis sa balle, sans vent ni hasard ; 1,0 au-delà de la portée du club (C27).</summary>
-    public double ProForceFor(Club club, ShotShape shape, Point2 target)
+    /// <summary>Le clic ramené à la portée réelle du pro avec ce club (force maximale, sans vent) : le mode visée ne vise pas plus loin que la balle n'ira (C28).</summary>
+    public Point2 ProAimPoint(Club club, ShotShape shape, Point2 click) => Calm((terrain, golfer, resolver) => Pro!.AimPoint(resolver, terrain, golfer.Ball, club, shape, click, PinOf(terrain, golfer)));
+
+    /// <summary>Force du coup du pro qui fait retomber la balle sur <paramref name="target"/> depuis sa balle, sans vent ni hasard ; 1,0 au-delà de sa portée (C27).</summary>
+    public double ProForceFor(Club club, ShotShape shape, Point2 target) => Calm((terrain, golfer, resolver) => Pro!.ForceFor(resolver, terrain, golfer.Ball, club, shape, target, PinOf(terrain, golfer)));
+
+    private T Calm<T>(Func<TerrainGrid, Golfer, PhysicalShotResolver, T> compute)
     {
         var terrain = RequireTerrain();
         var golfer = AwaitingPro ?? throw new InvalidOperationException("Le pro n'attend pas de coup.");
@@ -117,7 +115,7 @@ public sealed partial class World
         resolver.Wind = default;
         try
         {
-            return Pro!.ForceFor(resolver, terrain, golfer.Ball, club, shape, target, PinOf(terrain, golfer));
+            return compute(terrain, golfer, resolver);
         }
         finally
         {
@@ -127,6 +125,9 @@ public sealed partial class World
 
     /// <summary>Distance au trou sous laquelle le putt du pro est donné (« gimme ») : un coup, balle au trou.</summary>
     public const double GimmeDistance = 2.0;
+
+    /// <summary>Le putt du pro, joué seul (C28) : droit sur le trou, à la vitesse qui l'y amène ; sa compétence de putt règle la dispersion de direction et de vitesse.</summary>
+    private static ProShot AutoPutt(Point2 pin) => new(Clubs.Putter, pin, ShotShape.Straight, 1.0);
 
     private bool IsManualPro(Golfer g) => _manualPro && g.MemberId == _proMemberId;
 
@@ -160,8 +161,11 @@ public sealed partial class World
         }
     }
 
+    /// <summary>Le putt automatique passe par le putt du résolveur (lecture de la pente, dépassement du trou) avec le niveau de putt du pro comme compétence (C28).</summary>
     private ShotResult ExecuteProShot(TerrainGrid terrain, Golfer g, ProShot shot, Point2 pin) =>
-        Execute((PhysicalShotResolver)_resolver, terrain, g.Ball, shot, _rng, pin);
+        shot.Club.IsPutter
+            ? _resolver.Resolve(new ShotRequest(g.Ball, pin, g.Strokes, ProSkills.Factor(Pro!.Level(ProSkill.Putter))), terrain, _rng)
+            : Execute((PhysicalShotResolver)_resolver, terrain, g.Ball, shot, _rng, pin);
 
     /// <summary>Drapeau du trou que joue le groupe de ce golfeur.</summary>
     private Point2 PinOf(TerrainGrid terrain, Golfer g) =>
