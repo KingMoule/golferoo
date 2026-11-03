@@ -172,6 +172,49 @@ public sealed class ProSkills
         _ => 0.0,
     };
 
+    /// <summary>Plus petite force proposée par <see cref="ForceFor"/>.</summary>
+    public const double MinForce = 0.05;
+
+    /// <summary>Part de la dispersion du club pour une cible à <paramref name="distance"/> mètres (C27) : proportionnelle à la distance sur la portée du club, entre le plancher et 1 ; 1 pour un putt (son modèle).</summary>
+    public static double AimFactor(Club club, double distance) =>
+        club.IsPutter ? 1.0 : Math.Clamp(distance / club.TargetRange, ProAimParams.Default.AimFloor, 1.0);
+
+    /// <summary>
+    /// Force qui fait retomber la balle sur la cible (C27) : sans hasard ni biais, dichotomie sur la force, dont la distance d'arrivée croît avec elle.
+    /// 1,0 si même la force maximale n'y arrive pas (clic au-delà de la portée) ; 1,0 aussi pour un putt (sa vitesse vient de la distance).
+    /// Le vent est celui du <paramref name="resolver"/> : l'appelant le met à zéro pour une force qui ne dépend que de la géométrie.
+    /// </summary>
+    internal double ForceFor(PhysicalShotResolver resolver, TerrainGrid terrain, Point2 ball, Club club, ShotShape shape, Point2 target, Point2 pin)
+    {
+        double Reach(double force)
+        {
+            var end = Execute(resolver, terrain, ball, new ProShot(club, target, shape, force), null, pin).Ball;
+            return Math.Sqrt(((end.X - ball.X) * (end.X - ball.X)) + ((end.Z - ball.Z) * (end.Z - ball.Z)));
+        }
+
+        var wanted = Math.Sqrt(((target.X - ball.X) * (target.X - ball.X)) + ((target.Z - ball.Z) * (target.Z - ball.Z)));
+        if (club.IsPutter || Reach(1.0) <= wanted)
+        {
+            return 1.0;
+        }
+
+        var (low, high) = (MinForce, 1.0);
+        for (var i = 0; i < 14; i++)
+        {
+            var mid = (low + high) / 2.0;
+            if (Reach(mid) < wanted)
+            {
+                low = mid;
+            }
+            else
+            {
+                high = mid;
+            }
+        }
+
+        return high;
+    }
+
     /// <summary>
     /// Joue le coup <paramref name="shot"/> avec les niveaux du pro. Le résolveur n'a qu'un facteur de dispersion pour la direction et la
     /// vitesse : on lui donne le plus petit et l'écart à l'autre s'ajoute ici en quadrature (somme de deux lois normales). Sans
@@ -181,11 +224,12 @@ public sealed class ProSkills
     {
         var club = shot.Club;
         var lie = club.IsPutter ? LieEffect.None : LieOf(terrain.SurfaceAt(ball.X, ball.Z));
-        var direction = DirectionFactor(club, shot.Shape) * lie.Sigma;
-        var force = ForceFactor(club, shot.Force, shot.Shape) * lie.Sigma;
         var dx = shot.Target.X - ball.X;
         var dz = shot.Target.Z - ball.Z;
         var d = Math.Sqrt((dx * dx) + (dz * dz));
+        var aim = AimFactor(club, d);
+        var direction = DirectionFactor(club, shot.Shape) * lie.Sigma * aim;
+        var force = ForceFactor(club, shot.Force, shot.Shape) * lie.Sigma * aim;
         var (ux, uz) = d < 1e-9 ? (1.0, 0.0) : (dx / d, dz / d);
         var common = Math.Min(direction, force);
         var speed = shot.Force * SpeedFactor * lie.Speed;
@@ -215,7 +259,7 @@ public sealed class ProSkills
             return resolver.PuttTo(ball, new Point2(ball.X + (ux * aimed), ball.Z + (uz * aimed)), terrain, rng, common, pin, bias?.SlopeAngle ?? 0.0, bias?.SlopeScale ?? 1.0);
         }
 
-        return resolver.ExecuteShaped(ball, club, ux, uz, speed, shot.Shape, terrain, rng, common, 1.0, ShapeSigma(shot.Shape), pin, lie);
+        return resolver.ExecuteShaped(ball, club, ux, uz, speed, shot.Shape, terrain, rng, common, 1.0, ShapeSigma(shot.Shape), pin, lie, ProAimParams.Default.CurveScale);
     }
 
     /// <summary>

@@ -33,9 +33,9 @@ public static class ShotShapes
 
     /// <summary>
     /// Vitesse de départ, effet et spin d'un coup <paramref name="shape"/> joué avec <paramref name="club"/> vers (dirX, dirZ).
-    /// <paramref name="amount"/> multiplie l'effet voulu (1 : exécuté comme voulu) : courbure du draw et du fade, abaissement du chip.
+    /// <paramref name="amount"/> multiplie l'effet voulu (1 : exécuté comme voulu) : courbure du draw et du fade, abaissement du chip. <paramref name="curveScale"/> multiplie seulement la courbure (le pro, C27).
     /// </summary>
-    public static (Vec3 Velocity, double Curve, double Backspin) Launch(Club club, double dirX, double dirZ, double speed, ShotShape shape, double amount = 1.0)
+    public static (Vec3 Velocity, double Curve, double Backspin) Launch(Club club, double dirX, double dirZ, double speed, ShotShape shape, double amount = 1.0, double curveScale = 1.0)
     {
         var cos = club.LaunchCos;
         var sin = club.LaunchSin;
@@ -48,7 +48,7 @@ public static class ShotShapes
         }
 
         var velocity = new Vec3(dirX * cos * speed, sin * speed, dirZ * cos * speed);
-        var curve = CurveRate * amount * club.Speed / Clubs.Driver.Speed;
+        var curve = CurveRate * amount * club.Speed / Clubs.Driver.Speed * curveScale;
         return shape switch
         {
             ShotShape.Draw => (velocity, curve, club.Backspin * DrawSpin),

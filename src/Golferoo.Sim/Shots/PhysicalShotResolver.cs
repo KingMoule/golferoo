@@ -195,7 +195,7 @@ public sealed class PhysicalShotResolver : IShotResolver
     /// les écarts types du club ; sans <paramref name="rng"/>, le coup est exécuté sans hasard ni arbres (trajectoire prévue).
     /// <paramref name="amount"/> multiplie l'effet voulu (1 : exécuté comme voulu), à un écart type <paramref name="amountSigma"/> près.
     /// </summary>
-    public ShotResult ExecuteShaped(Point2 ball, Club club, double dirX, double dirZ, double force, ShotShape shape, TerrainGrid terrain, DeterministicRng? rng, double dispersion = 1.0, double amount = 1.0, double amountSigma = 0.0, Point2? pin = null, LieEffect? lie = null)
+    public ShotResult ExecuteShaped(Point2 ball, Club club, double dirX, double dirZ, double force, ShotShape shape, TerrainGrid terrain, DeterministicRng? rng, double dispersion = 1.0, double amount = 1.0, double amountSigma = 0.0, Point2? pin = null, LieEffect? lie = null, double curveScale = 1.0)
     {
         // Seul le backspin vient de lie : la vitesse et la dispersion du lie sont déjà dans les arguments de l'appelant (le pro).
         var backspinShare = (lie ?? LieEffect.None).Backspin;
@@ -207,7 +207,7 @@ public sealed class PhysicalShotResolver : IShotResolver
         }
 
         Rotate(dirX, dirZ, eps, 1.0 - (eps * eps / 2.0), out var ux, out var uz);
-        var (velocity, curve, backspin) = ShotShapes.Launch(club, ux, uz, speed, shape, amount);
+        var (velocity, curve, backspin) = ShotShapes.Launch(club, ux, uz, speed, shape, amount, curveScale);
         return BallSimulator.Run(terrain, ball, velocity, rolling: false, _drag, recordPath: true, trees: rng is null ? null : Trees, season: Season, rng: rng, wind: Wind, curve: curve, backspin: backspin * backspinShare, pin: pin).Shot;
     }
 
