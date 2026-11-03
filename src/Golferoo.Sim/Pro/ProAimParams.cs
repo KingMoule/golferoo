@@ -15,6 +15,7 @@ public sealed record ProAimParams(double AimFloor, double CurveScale)
         AllowTrailingCommas = true,
         UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow,
         NumberHandling = JsonNumberHandling.Strict,
+        RespectRequiredConstructorParameters = true,
     };
 
     /// <summary>Réglages du jeu.</summary>

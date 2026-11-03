@@ -136,15 +136,16 @@ public class ProProgressionTests(ITestOutputHelper output)
 
         var pro = w.AwaitingPro!;
         w.PlayProShot(new ProShot(Clubs.Driver, new Point2(250, 236), ShotShape.Straight, 1.0));
-        for (var i = 0; i < 5_000 && pro.State != GolferState.WalkingToBall; i++)
+        for (var i = 0; i < 5_000 && !(pro.Strokes > 0 && pro.State == GolferState.AwaitingShot); i++)
         {
             w.Step();
         }
 
-        Assert.Equal(GolferState.WalkingToBall, pro.State);
+        Assert.Equal(GolferState.AwaitingShot, pro.State);
 
-        // La balle (vue par le monde à l'arrêt) est à 1 m du trou sur le green : à son tour, le putt est donné.
+        // Entraînement : le pro est déjà sur sa balle. La balle est à 1 m du trou sur le green : à son tour, le putt est donné.
         pro.Ball = new Point2(w.Terrain!.Hole.X - 1.0, w.Terrain.Hole.Z);
+        pro.State = GolferState.WaitingTurn;
         Assert.Equal(Surface.Green, w.Terrain.SurfaceAt(pro.Ball.X, pro.Ball.Z));
         var before = Enum.GetValues<ProSkill>().Select(sk => w.Pro!.Experience(sk)).ToArray();
         var strokes = pro.Strokes;

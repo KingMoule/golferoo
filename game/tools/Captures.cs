@@ -43,7 +43,7 @@ public partial class Captures : Node
     private const int CourseViewCount = 19;
     private const int GalleryViewCount = 1;
     private const int FinanceViewCount = 1;
-    private const int ProViewCount = 2;
+    private const int ProViewCount = 4;
     private const int C18ViewCount = 7;
     private static readonly ulong[] C24Seeds = [3, 18, 77];
     private static readonly int C24ViewCount = 2 * C24Seeds.Length;
@@ -463,7 +463,6 @@ public partial class Captures : Node
         main.ProAim.SetClub(Clubs.Driver);
         main.ProAim.SetShape(ShotShape.Draw);
         main.ProAim.SetTarget(new Point2(tee.X + 215.0, tee.Z + 15.0));
-        main.ProAim.SetForce(1.0);
         main.ProAim.Sync();
         main.SunDayFraction = 0.5;
         await Frames(SettleFrames);
@@ -473,14 +472,21 @@ public partial class Captures : Node
         // C25 : l'aperçu faussé, un fer long avec la note de lecture du vent (niveau 0 : l'aperçu peut se tromper de la moitié de la force du vent).
         main.ProAim.SetClub(Clubs.Iron5);
         main.ProAim.SetShape(ShotShape.Straight);
-        main.ProAim.SetForce(0.8);
         main.ProAim.Sync();
         await Frames(SettleFrames);
         GD.Print($"APERCU club={main.ProAim.Club} prevue={main.ProAim.Preview.Ball} vent={world.Wind}");
         Save("c25-apercu");
+
+        // C27 : la force vient du clic seul ; un fer 7 visé à mi-portée, cible cyan au sol, ellipse proportionnelle à la distance.
+        main.ProAim.SetClub(Clubs.Iron7);
+        main.ProAim.SetShape(ShotShape.Draw);
+        main.ProAim.SetTarget(new Point2(tee.X + 75.0, tee.Z + 5.0));
+        main.ProAim.Sync();
+        await Frames(SettleFrames);
+        GD.Print($"C27 force={main.ProAim.Force:F3} prevue={main.ProAim.Preview.Ball}");
+        Save("c27-visee");
         main.ProAim.SetClub(Clubs.Driver);
         main.ProAim.SetShape(ShotShape.Draw);
-        main.ProAim.SetForce(1.0);
         main.ProAim.Sync();
 
         // Le coup joué, la fiche du pro avec sa première expérience.
@@ -495,6 +501,39 @@ public partial class Captures : Node
         await Frames(SettleFrames);
         GD.Print($"PRO driver={world.Pro!.Experience(Golferoo.Sim.Pro.ProSkill.Driver)} draw={world.Pro.Experience(Golferoo.Sim.Pro.ProSkill.Draw)}");
         Save("pro-sheet");
+        main.ProPanel!.Toggle();
+
+        // C27 : sur le green, la cible cyan est au sol sous le clic (le coup suivant est un putt).
+        for (var shots = 0; shots < 8; shots++)
+        {
+            main.ProAim.Sync();
+            if (main.ProAim.Active && main.ProAim.Club.IsPutter)
+            {
+                break;
+            }
+
+            if (main.ProAim.Active)
+            {
+                main.ProAim.Play();
+            }
+
+            for (var i = 0; i < 4_000 && world.AwaitingPro is null; i++)
+            {
+                main.StepTicks(1);
+            }
+        }
+
+        main.ProAim.Sync();
+        if (world.AwaitingPro is { } waiting)
+        {
+            var hole = world.HoleOf(waiting).Hole;
+            main.ProAim.SetTarget(new Point2(hole.X + 1.5, hole.Z + 2.0));
+            main.ProAim.Sync();
+        }
+
+        await Frames(SettleFrames);
+        GD.Print($"C27GREEN actif={main.ProAim.Active} putter={main.ProAim.Club.IsPutter} prevue={main.ProAim.Preview.Ball}");
+        Save("c27-green");
         return main;
     }
 

@@ -65,6 +65,31 @@ public class ProTests(ITestOutputHelper output)
     }
 
     [Fact]
+    public void ManualPro_InTraining_IsOnHisBallAfterEachShot_WithoutWalking()
+    {
+        var w = ManualWorld(6);
+        w.StartProRound();
+        var shots = 0;
+        for (var i = 0; i < 60_000 && shots < 3; i++)
+        {
+            if (w.AwaitingPro is { } pro)
+            {
+                if (shots > 0)
+                {
+                    Assert.Equal(pro.Ball, pro.Position);
+                }
+
+                w.PlayProShot(Simple(w, pro));
+                shots++;
+            }
+
+            w.Step();
+        }
+
+        Assert.Equal(3, shots);
+    }
+
+    [Fact]
     public void ManualPro_PlaysARoundByCommands_AndGainsClubExperience()
     {
         var w = ManualWorld(5);

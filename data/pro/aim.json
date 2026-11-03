@@ -2,6 +2,6 @@
   // Visée du pro à la souris (C27). Seul le pro est concerné : les autres golfeurs gardent leurs coups (C06, C09).
   // Dispersion du coup du pro = celle du club x max(aimFloor, distance visée / portée du club), au plus 1.
   "aimFloor": 0.15,
-  // Multiplicateur de la courbure d'un draw ou d'un fade du pro (style arcade) : driver plein ~45 m à 220 m, fer 7 ~21 m.
-  "curveScale": 3.0
+  // Multiplicateur de la courbure d'un draw ou d'un fade du pro (style arcade) : draw plein visé à 220 m, ses vrais facteurs : driver 49 m, fer 7 20,5 m.
+  "curveScale": 2.8
 }
