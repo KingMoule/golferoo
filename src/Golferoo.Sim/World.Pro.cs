@@ -161,8 +161,11 @@ public sealed partial class World
         }
     }
 
+    /// <summary>Le putt automatique passe par le putt du résolveur (lecture de la pente, dépassement du trou) avec le niveau de putt du pro comme compétence (C28).</summary>
     private ShotResult ExecuteProShot(TerrainGrid terrain, Golfer g, ProShot shot, Point2 pin) =>
-        Execute((PhysicalShotResolver)_resolver, terrain, g.Ball, shot, _rng, pin);
+        shot.Club.IsPutter
+            ? _resolver.Resolve(new ShotRequest(g.Ball, pin, g.Strokes, ProSkills.Factor(Pro!.Level(ProSkill.Putter))), terrain, _rng)
+            : Execute((PhysicalShotResolver)_resolver, terrain, g.Ball, shot, _rng, pin);
 
     /// <summary>Drapeau du trou que joue le groupe de ce golfeur.</summary>
     private Point2 PinOf(TerrainGrid terrain, Golfer g) =>

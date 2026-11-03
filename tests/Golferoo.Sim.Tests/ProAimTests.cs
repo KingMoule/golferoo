@@ -142,36 +142,60 @@ public class ProAimTests(ITestOutputHelper output)
 
     // ---- Putt automatique (C28) ----------------------------------------------------------------------------------------------
 
-    /// <summary>Le putt automatique : droit sur le trou, force 1,0. Rend la part de putts rentrés (RNG de la sim, graine fixe) pour une compétence de putt donnée.</summary>
+    /// <summary>Part de putts rentrés à <paramref name="distance"/> mètres autour du trou, sur les neuf greens de « Le neuf » (pentes comprises), par le putt du résolveur que joue le pro (C28).</summary>
     private static double MakeRate(int level, double distance)
     {
-        var pro = new ProSkills();
-        pro.SetLevel(ProSkill.Putter, level);
-        pro.SetLevel(ProSkill.Dosage, level);
-        var green = ShotTests.Uniform(Surface.Green, cells: 120);
-        var hole = new Point2(Start.X + distance, Start.Z);
-        var shot = new ProShot(Clubs.Putter, hole, ShotShape.Straight, 1.0);
+        var course = CourseLoader.Load(Path.Combine(Path.GetDirectoryName(TerrainTests.HolePath())!, "..", "courses", "le-neuf.json"), 2);
+        var skill = ProSkills.Factor(level);
         var resolver = new PhysicalShotResolver();
-        Assert.True(pro.Execute(resolver, green, Start, shot, null, hole).Holed, "sans hasard, le putt droit doit tomber");
         var rng = new DeterministicRng(7);
-        var made = 0;
-        for (var i = 0; i < 300; i++)
+        var (made, total) = (0, 0);
+        for (var hole = 1; hole <= course.Course.Count; hole++)
         {
-            made += pro.Execute(resolver, green, Start, shot, rng, hole).Holed ? 1 : 0;
+            var pin = course.Course[hole].Hole;
+            for (var angle = 0; angle < 360; angle += 45)
+            {
+                var ball = new Point2(pin.X + (distance * Math.Cos(angle * Math.PI / 180.0)), pin.Z + (distance * Math.Sin(angle * Math.PI / 180.0)));
+                if (course.SurfaceAt(ball.X, ball.Z) != Surface.Green)
+                {
+                    continue;
+                }
+
+                for (var k = 0; k < 4; k++)
+                {
+                    made += resolver.Resolve(new ShotRequest(ball, pin, 1, skill), course, rng).Holed ? 1 : 0;
+                    total++;
+                }
+            }
         }
 
-        return made / 300.0;
+        Assert.True(total >= 100, $"trop peu de positions sur le green : {total}");
+        return (double)made / total;
     }
 
     [Fact]
-    public void AutoPutt_BetterPuttingSkill_HolesMore_AndAnExactPuttAlwaysDrops()
+    public void AutoPutt_OnLeNeuf_HolesMoreWithBetterSkill_AndMostPuttsFromThreeMetersAtMaxLevel()
     {
-        foreach (var distance in new[] { 1.0, 3.0, 6.0 })
-        {
-            var (rookie, mid, master) = (MakeRate(0, distance), MakeRate(25, distance), MakeRate(50, distance));
-            output.WriteLine($"{distance} m : niveau 0 {rookie:P0}, niveau 25 {mid:P0}, niveau 50 {master:P0}");
-            Assert.True(rookie < mid && mid < master);
-        }
+        var (rookie, mid, master) = (MakeRate(0, 3.0), MakeRate(25, 3.0), MakeRate(50, 3.0));
+        output.WriteLine($"3 m, Le neuf : niveau 0 {rookie:P0}, niveau 25 {mid:P0}, niveau 50 {master:P0}");
+        Assert.True(rookie < mid && mid < master);
+        Assert.True(rookie >= 0.30);
+        Assert.True(master >= 0.70);
+    }
+
+    /// <summary>NB1 (audit C28) : à la force pleine, le facteur de force passe du « dosé » au « non dosé » ; si Dosage est moins bon que le club, la dispersion en longueur saute vers le bas au seuil. Le test en fixe l'ampleur.</summary>
+    [Fact]
+    public void Spread_AtTheFullForceThreshold_JumpsByABoundedShare_WhenDosageDiffersFromTheClub()
+    {
+        var pro = new ProSkills();
+        pro.SetLevel(ProSkill.Wedge, 40);
+        pro.SetLevel(ProSkill.Dosage, 0);
+        var club = Clubs.Wedge;
+        var below = pro.Spread(club, ShotShape.Straight, 50.0, 0.89).Along;
+        var full = pro.Spread(club, ShotShape.Straight, 50.0, 1.0).Along;
+        output.WriteLine($"Dosage 0, wedge 40 : longueur {below:F2} m à 89 % de force, {full:F2} m à pleine force (saut {1.0 - (full / below):P0})");
+        Assert.True(full <= below);
+        Assert.True(full > below * 0.4);
     }
 
     // ---- Courbure --------------------------------------------------------------------------------------------------------------
