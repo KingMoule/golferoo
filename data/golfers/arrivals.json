@@ -15,6 +15,9 @@
   // Facteur sur la marche des golfeurs IA (le vol de balle et le pro joué par le joueur gardent leur vitesse) : la marche fait environ la moitié de leur temps
   "aiWalkSpeedFactor": 3.0,
 
+  // Facteur de marche en plus des golfeurs IA quand le jeu tourne à ×4 ou plus (les golfeurs marchent plus vite que les coups) ; ×1 et ×2 ne changent pas
+  "fastWalkFactor": 2.0,
+
   // Cadence de lecture du vol de balle des golfeurs IA (au moins 1) : la trajectoire ne change pas, la balle la parcourt plus vite
   "aiFlightSpeedFactor": 1.5,
 

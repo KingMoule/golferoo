@@ -535,6 +535,9 @@ public sealed partial class World
         }
     }
 
+    /// <summary>Réglage de vue posé par le jeu (vitesse ×4 et plus), pas un état de la partie : ni sauvé ni dans la somme de contrôle. Les golfeurs IA marchent alors <see cref="ArrivalParams.FastWalkFactor"/> fois plus vite.</summary>
+    public bool FastForward { get; set; }
+
     public void Step()
     {
         // Le tirage garde l'état du RNG lié au temps : la somme de contrôle prouve le déterminisme même à vide.
@@ -1159,7 +1162,7 @@ public sealed partial class World
 
         var pos = g.Position;
         var (cx, cz) = (terrain.CellXOf(pos.X), terrain.CellZOf(pos.Z));
-        var result = FlowWalker.Advance(terrain, field, ref pos, target, TickSeconds, IsManualPro(g) ? 1.0 : Arrivals.AiWalkSpeedFactor);
+        var result = FlowWalker.Advance(terrain, field, ref pos, target, TickSeconds, IsManualPro(g) ? 1.0 : Arrivals.AiWalkSpeedFactor * (FastForward ? Arrivals.FastWalkFactor : 1.0));
         g.Position = pos;
         var (nx, nz) = (terrain.CellXOf(pos.X), terrain.CellZOf(pos.Z));
         if ((nx, nz) != (cx, cz))
