@@ -1365,6 +1365,11 @@ public partial class SmokeTest : Node
                 failures.Add($"{TreeLayer.ExternalTreePath} présent mais non chargé");
             }
 
+            if (trees.MatureModelCount != 3)
+            {
+                failures.Add($"{trees.MatureModelCount} arbres matures chargés sur 3");
+            }
+
             if (trees.TotalCount != simTrees)
             {
                 failures.Add($"TreeLayer affiche {trees.TreeCount} arbres, la simulation en compte {simTrees}");
@@ -2873,6 +2878,9 @@ public partial class SmokeTest : Node
         }
     }
 
+    /// <summary>Budget d'un arbre mature texturé (C24 lot 4) : 7 500 à 7 998 triangles livrés, 8 000 au plus.</summary>
+    private const int MatureTreeBudget = 8000;
+
     /// <summary>Budget de triangles de chaque famille de <c>res://assets/</c> (docs/guide-ia-assets-3d.md).</summary>
     private static readonly Dictionary<string, int> FamilyBudgets = new()
     {
@@ -2924,9 +2932,11 @@ public partial class SmokeTest : Node
                     var mesh = meshes[0].Mesh;
                     var triangles = mesh.GetFaces().Length / 3;
                     var aabb = mesh.GetAabb();
-                    if (triangles < 1 || triangles > budget)
+                    // Arbres matures de C24 lot 4 (_mature_atlas_8000) : 8 000 triangles, vus de près seulement (TreeLayer.MatureRangeMeters).
+                    var fileBudget = file.Contains("_mature_", StringComparison.Ordinal) ? MatureTreeBudget : budget;
+                    if (triangles < 1 || triangles > fileBudget)
                     {
-                        failures.Add($"{path} : {triangles} triangles, budget {budget}");
+                        failures.Add($"{path} : {triangles} triangles, budget {fileBudget}");
                     }
 
                     if (Mathf.Abs(aabb.Position.Y) > 0.01f)

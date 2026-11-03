@@ -46,7 +46,7 @@ public partial class Captures : Node
     private const int ProViewCount = 4;
     private const int C18ViewCount = 7;
     private static readonly ulong[] C24Seeds = [3, 18, 77];
-    private static readonly int C24ViewCount = 2 * C24Seeds.Length;
+    private static readonly int C24ViewCount = (2 * C24Seeds.Length) + 2;
 
     /// <summary>Lisière sud de la forêt du coude, la balle de <c>ForestExitTests.Edge</c> (tuile 18,5 / 26,5 de 8 m).</summary>
     private static readonly Point2 ForestEdge = new(18.5 * 8, 26.5 * 8);
@@ -1480,6 +1480,21 @@ public partial class Captures : Node
             await Frames(SettleFrames);
             Save($"c24-propriete-{seed}");
             GD.Print($"C24 graine={seed} arbres={main.World.Trees.Count} pavillon={main.World.Clubhouse is not null}");
+            if (seed == C24Seeds[0])
+            {
+                // Arbres matures (lot 4) : un grand arbre, le plus proche du pavillon, de près (modèle texturé) puis de loin (modèle simple).
+                var centre = new Vector3((float)(grid.CellsX * grid.CellSize / 2), 0f, (float)(grid.CellsZ * grid.CellSize / 2));
+                var tall = main.World.Trees.Trees.Where(t => t.Height() >= 14.0)
+                    .OrderBy(t => Math.Pow(t.X - centre.X, 2) + Math.Pow(t.Z - centre.Z, 2)).First();
+                var foot = new Vector3((float)tall.X, (float)grid.Sample(tall.X, tall.Z) + 6f, (float)tall.Z);
+                main.Camera.SetView(30f, 30f, foot);
+                await Frames(SettleFrames);
+                Save("c24-arbres-matures-pres");
+                main.Camera.SetView(30f, 220f, foot);
+                await Frames(SettleFrames);
+                Save("c24-arbres-matures-loin");
+            }
+
             main.QueueFree();
             await Frames(2);
         }

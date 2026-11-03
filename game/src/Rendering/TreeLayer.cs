@@ -32,6 +32,18 @@ public partial class TreeLayer : Node3D
     /// <summary>Durée de la chute d'un arbre, en secondes.</summary>
     public const float FallSeconds = 1.5f;
 
+    /// <summary>
+    /// Arbres matures texturés (C24 lot 4, ~8 000 triangles) : un par essence, adulte au feuillage complet seulement (le pack n'en fournit pas
+    /// de nus ni d'automne). Au-delà de <see cref="MatureRangeMeters"/> on affiche le modèle de 800 triangles de l'essence.
+    /// </summary>
+    private static readonly string[] MaturePaths = [.. new[] { "oak", "birch", "conifer" }.Select(n => $"res://assets/trees/{n}_mature_atlas_8000.glb")];
+
+    /// <summary>Distance en mètres sous laquelle l'arbre mature remplace le modèle simple (par cellule de <see cref="LodCellMeters"/>).</summary>
+    public const float MatureRangeMeters = 90f;
+
+    /// <summary>Côté des groupes d'arbres matures qui changent de modèle ensemble, en mètres.</summary>
+    public const float LodCellMeters = 32f;
+
     /// <summary>Variantes par essence et par stade.</summary>
     public const int VariantsPerStage = 3;
 
@@ -66,6 +78,7 @@ public partial class TreeLayer : Node3D
     private const string WindParameter = "tree_wind";
     private static bool _globalsDeclared;
     private static Shader? _shader;
+    private static Shader? _matureShader;
 
     private readonly record struct Model(Mesh Mesh, Vector3 Offset, float Height, float Width, Vector3 Size);
 
@@ -78,6 +91,7 @@ public partial class TreeLayer : Node3D
     private TreeStand? _stand;
     private Model[] _models = [];
     private int[] _lookup = [];
+    private readonly Dictionary<int, int> _matureOf = [];
     private int _fallbackCount = 1;
     private int[] _logLookup = [-1, -1, -1];
     private int[] _stumpLookup = [-1, -1, -1];
@@ -118,6 +132,9 @@ public partial class TreeLayer : Node3D
 
     /// <summary>Surfaces de feuillage dont la couleur suit la date (feuillus adultes).</summary>
     public int SeasonalSurfaceCount { get; private set; }
+
+    /// <summary>Arbres matures texturés chargés (sur 3).</summary>
+    public int MatureModelCount => _matureOf.Values.Distinct().Count();
 
     /// <summary>Nombre de modèles par essence et stade effectivement chargés (sur 3 essences x 5 stades x 3 variantes).</summary>
     public int SpeciesModelCount { get; private set; }
@@ -273,6 +290,8 @@ public partial class TreeLayer : Node3D
             lists[key] = new List<(Transform3D, float)>[_models.Length];
         }
 
+        var tiers = new Dictionary<(int Bx, int Bz, int Cx, int Cz, int Model), List<(Transform3D, float)>>();
+
         foreach (var t in _stand!.Trees)
         {
             var key = ((int)(t.X / _blockMeters), (int)(t.Z / _blockMeters));
@@ -291,12 +310,32 @@ public partial class TreeLayer : Node3D
             var variant = ModelIndex(t, h);
             var model = _models[variant];
             var yaw = (((h >> 8) & 0xFF) / 255f) * Mathf.Tau;
-            var sy = (float)t.Height() / model.Height;
-            var sxz = (float)t.CrownDiameter() / model.Width;
-            var basis = Basis.FromEuler(new Vector3(0, yaw, 0)) * Basis.FromScale(new Vector3(sxz, sy, sxz));
             var y = (float)grid.Sample(t.X, t.Z);
-            var place = new Transform3D(basis, new Vector3((float)t.X, y, (float)t.Z));
-            (perVariant[variant] ??= []).Add((place * new Transform3D(Basis.Identity, model.Offset), LeafColour(h)));
+            var (instance, basis) = Place(t, model, yaw, y);
+            if (_matureOf.TryGetValue(variant, out var mature))
+            {
+                // Deux niveaux de détail par cellule de LodCellMeters : mature de près, modèle simple au-delà (plages de visibilité).
+                var (cx, cz) = ((int)(t.X / LodCellMeters), (int)(t.Z / LodCellMeters));
+                var near = (key.Item1, key.Item2, cx, cz, mature);
+                var far = (key.Item1, key.Item2, cx, cz, variant);
+                if (!tiers.TryGetValue(near, out var nearList))
+                {
+                    tiers[near] = nearList = [];
+                }
+
+                if (!tiers.TryGetValue(far, out var farList))
+                {
+                    tiers[far] = farList = [];
+                }
+
+                nearList.Add((Place(t, _models[mature], yaw, y).Instance, LeafColour(h)));
+                farList.Add((instance, LeafColour(h)));
+            }
+            else
+            {
+                (perVariant[variant] ??= []).Add((instance, LeafColour(h)));
+            }
+
             _blockCounts[key]++;
             var sums = _blockSums[key];
             _blockSums[key] = (sums.Height + (basis.Y.Length() * model.Height), sums.Crown + (basis.X.Length() * model.Width));
@@ -311,6 +350,21 @@ public partial class TreeLayer : Node3D
                 {
                     block.AddChild(MakeInstance($"Trees{v}", _models[v].Mesh, transforms));
                 }
+            }
+
+            foreach (var (tier, transforms) in tiers.Where(e => (e.Key.Bx, e.Key.Bz) == key))
+            {
+                var node = MakeInstance($"Lod{tier.Cx}_{tier.Cz}_{tier.Model}", _models[tier.Model].Mesh, transforms);
+                if (_matureOf.ContainsValue(tier.Model))
+                {
+                    node.VisibilityRangeEnd = MatureRangeMeters;
+                }
+                else
+                {
+                    node.VisibilityRangeBegin = MatureRangeMeters;
+                }
+
+                block.AddChild(node);
             }
 
             AddChild(block);
@@ -440,6 +494,16 @@ public partial class TreeLayer : Node3D
         return (int)(hash % (uint)_fallbackCount);
     }
 
+    /// <summary>Transformation de l'instance (pied au sol, mise à l'échelle de l'arbre) pour <paramref name="model"/>, et sa base.</summary>
+    private static (Transform3D Instance, Basis Basis) Place(Golferoo.Sim.Trees.Tree t, Model model, float yaw, float y)
+    {
+        var sy = (float)t.Height() / model.Height;
+        var sxz = (float)t.CrownDiameter() / model.Width;
+        var basis = Basis.FromEuler(new Vector3(0, yaw, 0)) * Basis.FromScale(new Vector3(sxz, sy, sxz));
+        var place = new Transform3D(basis, new Vector3((float)t.X, y, (float)t.Z));
+        return (place * new Transform3D(Basis.Identity, model.Offset), basis);
+    }
+
     /// <summary>Couleur du feuillage de l'arbre, ramenée à [0, 1) pour <c>INSTANCE_CUSTOM.r</c> de <c>tree.gdshader</c>.</summary>
     private float LeafColour(uint hash) => (float)(Foliage.Colour(FoliageOf(hash)) / Foliage.ColourCycle);
 
@@ -514,6 +578,21 @@ public partial class TreeLayer : Node3D
             for (var v = 0; v < VariantsPerStage; v++)
             {
                 ApplyPalettes(models, species, v);
+            }
+        }
+
+        _matureOf.Clear();
+        for (var species = 0; species < MaturePaths.Length; species++)
+        {
+            if (LoadExternalMesh(MaturePaths[species]) is not { } mature)
+            {
+                continue;
+            }
+
+            models.Add(Describe(mature, true));
+            for (var v = 0; v < VariantsPerStage; v++)
+            {
+                _matureOf[_lookup[(((species * StageInfixes.Length) + 1) * VariantsPerStage) + v]] = models.Count - 1;
             }
         }
 
@@ -595,9 +674,10 @@ public partial class TreeLayer : Node3D
     }
 
     /// <summary>Mesure le modèle (AABB) et remplace ses matériaux par le shader des arbres, à couleur égale.</summary>
-    private static Model Describe(Mesh mesh)
+    private static Model Describe(Mesh mesh, bool mature = false)
     {
         _shader ??= GD.Load<Shader>("res://shaders/tree.gdshader");
+        _matureShader ??= GD.Load<Shader>("res://shaders/tree_mature.gdshader");
         for (var s = 0; s < mesh.GetSurfaceCount(); s++)
         {
             if (mesh is not ArrayMesh array || mesh.SurfaceGetMaterial(s) is ShaderMaterial)
@@ -606,7 +686,12 @@ public partial class TreeLayer : Node3D
             }
 
             var std = mesh.SurfaceGetMaterial(s) as BaseMaterial3D;
-            var material = new ShaderMaterial { Shader = _shader, ResourceName = std?.ResourceName ?? "" };
+            var material = new ShaderMaterial { Shader = mature ? _matureShader : _shader, ResourceName = std?.ResourceName ?? "" };
+            if (mature && std is not null)
+            {
+                SetTextures(material, std);
+            }
+
             material.SetShaderParameter("albedo", std?.AlbedoColor ?? new Color(0.25f, 0.5f, 0.25f));
             material.SetShaderParameter("use_vertex_color", std?.VertexColorUseAsAlbedo ?? false);
             material.SetShaderParameter("roughness_value", std?.Roughness ?? 1f);
@@ -616,6 +701,24 @@ public partial class TreeLayer : Node3D
         var aabb = mesh.GetAabb();
         var center = aabb.GetCenter();
         return new Model(mesh, new Vector3(-center.X, -aabb.Position.Y, -center.Z), aabb.Size.Y, Math.Max(Math.Max(aabb.Size.X, aabb.Size.Z), 0.01f), aabb.Size);
+    }
+
+    /// <summary>Reporte textures, normales et seuil alpha du matériau glTF sur <c>tree_mature.gdshader</c>.</summary>
+    private static void SetTextures(ShaderMaterial material, BaseMaterial3D std)
+    {
+        if (std.AlbedoTexture is { } albedo)
+        {
+            material.SetShaderParameter("use_texture", true);
+            material.SetShaderParameter("albedo_texture", albedo);
+        }
+
+        if (std.NormalEnabled && std.NormalTexture is { } normal)
+        {
+            material.SetShaderParameter("use_normal", true);
+            material.SetShaderParameter("normal_texture", normal);
+        }
+
+        material.SetShaderParameter("alpha_cut", std.Transparency == BaseMaterial3D.TransparencyEnum.AlphaScissor ? std.AlphaScissorThreshold : 0f);
     }
 
     /// <summary>Maillage du .glb, ou null s'il manque, est illisible, plat, ou ne contient pas exactement un MeshInstance3D.</summary>
