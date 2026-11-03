@@ -58,6 +58,15 @@ public sealed partial class World
     /// <summary>Un golfeur attend tant que le groupe devant n'est pas au moins à cette distance (mètres) au-delà du point visé.</summary>
     public const double AimClearance = 30.0;
 
+    /// <summary>Au départ, le partenaire qui attend se tient à cette distance (mètres) derrière le départ…</summary>
+    public const double WaitBehind = 3.0;
+
+    /// <summary>… et à celle-ci sur le côté.</summary>
+    public const double WaitSide = 2.0;
+
+    /// <summary>Un golfeur qui a fini le trou (il s'éloigne du green) ne bloque le groupe suivant que s'il est à portée d'un coup : <see cref="AimReach"/> + <see cref="AimClearance"/>.</summary>
+    private const double ShotRange = AimReach + AimClearance;
+
     private readonly DeterministicRng _rng;
     private readonly IShotResolver _resolver;
     private readonly List<Group> _groups = [];
@@ -990,6 +999,9 @@ public sealed partial class World
                     }
 
                     break;
+                case GolferState.WaitingTurn:
+                    StepAside(terrain, group, g);
+                    break;
                 default:
                     break;
             }
@@ -1120,7 +1132,7 @@ public sealed partial class World
     /// <summary>
     /// Avant de jouer, le golfeur attend le groupe devant : tant qu'un golfeur d'un groupe d'indice plus petit, sur le même trou, n'est pas
     /// au moins <see cref="AimClearance"/> au-delà du point visé (le drapeau, ou le point à <see cref="AimReach"/> sur sa ligne), il est plus
-    /// près du point visé que cela ou derrière lui. Un green à portée est donc libre quand le groupe devant a fini le trou. L'ordre des groupes
+    /// près du point visé que cela ou derrière lui. Un green à portée est donc libre quand le groupe devant a fini le trou ; un golfeur qui s'en éloigne (il sort) ne compte plus au-delà de la portée d'un coup (<see cref="ShotRange"/>). L'ordre des groupes
     /// ne change jamais (un groupe ne dépasse pas celui qui le précède), donc deux groupes ne s'attendent jamais l'un l'autre.
     /// </summary>
     private bool MustWait(int index, CourseHole hole, Golfer shooter)
@@ -1141,7 +1153,18 @@ public sealed partial class World
             foreach (var o in ahead.Golfers)
             {
                 // Un golfeur parti n'est plus sur le parcours (le dernier trou le laisse au point de sortie).
-                if (o.State is not (GolferState.Done or GolferState.Leaving or GolferState.Quitting) && Math.Sqrt(Dist2(o.Position, hole.Hole)) >= limit)
+                if (o.State is GolferState.Done or GolferState.Leaving or GolferState.Quitting)
+                {
+                    continue;
+                }
+
+                // Il a fini le trou et s'éloigne du green : il ne gêne que s'il est à portée du coup.
+                if (o.State == GolferState.Exiting && Dist2(o.Position, shooter.Ball) > ShotRange * ShotRange)
+                {
+                    continue;
+                }
+
+                if (Math.Sqrt(Dist2(o.Position, hole.Hole)) >= limit)
                 {
                     return true;
                 }
@@ -1149,6 +1172,44 @@ public sealed partial class World
         }
 
         return false;
+    }
+
+    /// <summary>
+    /// Au départ, le partenaire (le 2e du groupe, et les suivants) qui attend recule en ligne droite de <see cref="WaitBehind"/> derrière le départ
+    /// et de <see cref="WaitSide"/> sur le côté, pour ne pas se confondre avec le joueur qui frappe. Sans champ de flux : le pas est celui d'une marche.
+    /// </summary>
+    private void StepAside(TerrainGrid terrain, Group group, Golfer g)
+    {
+        var i = IndexOf(group, g);
+        if (i == 0 || g.Strokes > 0)
+        {
+            return;
+        }
+
+        var hole = terrain.Course[group.Hole];
+        var dx = hole.Hole.X - hole.Tee.X;
+        var dz = hole.Hole.Z - hole.Tee.Z;
+        var len = Math.Max(Math.Sqrt((dx * dx) + (dz * dz)), 1e-6);
+        var (ux, uz) = (dx / len, dz / len);
+        var side = i % 2 == 1 ? WaitSide : -WaitSide;
+        var spot = GridQueries.NearestWalkablePoint(terrain, new Point2(hole.Tee.X - (ux * WaitBehind) - (uz * side), hole.Tee.Z - (uz * WaitBehind) + (ux * side)));
+        var (ex, ez) = (spot.X - g.Position.X, spot.Z - g.Position.Z);
+        var dist = Math.Sqrt((ex * ex) + (ez * ez));
+        var step = FlowWalker.BaseSpeed * Arrivals.AiWalkSpeedFactor * TickSeconds;
+        g.Position = dist <= step ? spot : new Point2(g.Position.X + (ex / dist * step), g.Position.Z + (ez / dist * step));
+    }
+
+    private static int IndexOf(Group group, Golfer g)
+    {
+        for (var i = 0; i < group.Golfers.Count; i++)
+        {
+            if (group.Golfers[i] == g)
+            {
+                return i;
+            }
+        }
+
+        return 0;
     }
 
     private static double Dist2(Point2 a, Point2 b) => ((a.X - b.X) * (a.X - b.X)) + ((a.Z - b.Z) * (a.Z - b.Z));

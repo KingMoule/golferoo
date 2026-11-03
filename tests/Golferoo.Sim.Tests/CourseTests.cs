@@ -34,12 +34,14 @@ public class CourseTests
     // (champs complets), les neuf cas redonnent exactement leurs sommes d'avant.
     // C15 / le neuf (retour à ×3) : les six sommes de coups changent, cause unique = aiWalkSpeedFactor revenu de 2,25 à 3,0 (décision de Guillaume, C15 décision 17) ;
     // les trois de « blank-coude », sans coup, non. Contrôle (vérifié) : avec aiWalkSpeedFactor = 2,25, les six cas redonnent exactement leurs sommes d'avant.
-    [InlineData("proto-par4", 1UL, 3711037144600937672UL)]
-    [InlineData("proto-par4", 2UL, 10179664884702043587UL)]
-    [InlineData("proto-par4", 3UL, 10182433686970319879UL)]
-    [InlineData("dogleg-par4", 1UL, 1780475286739419122UL)]
-    [InlineData("dogleg-par4", 2UL, 12697855671636058638UL)]
-    [InlineData("dogleg-par4", 3UL, 15100248235214984295UL)]
+    // C28 lot C : les six sommes de coups changent, cause unique = le partenaire attend en retrait du départ (WaitBehind/WaitSide, sa position change) ;
+    // les trois de « blank-coude », sans coup, non. Contrôle (vérifié) : avec WaitBehind = WaitSide = 0, les six redonnent exactement leurs sommes d'avant.
+    [InlineData("proto-par4", 1UL, 4400120744817470924UL)]
+    [InlineData("proto-par4", 2UL, 568605190873992956UL)]
+    [InlineData("proto-par4", 3UL, 1409835806769125862UL)]
+    [InlineData("dogleg-par4", 1UL, 3991692879125659813UL)]
+    [InlineData("dogleg-par4", 2UL, 17097555536809286909UL)]
+    [InlineData("dogleg-par4", 3UL, 1525142554367966134UL)]
     [InlineData("blank-coude", 1UL, 14396232534195343460UL)]
     [InlineData("blank-coude", 2UL, 7501799876684053930UL)]
     [InlineData("blank-coude", 3UL, 7192084681290619108UL)]

@@ -133,6 +133,26 @@ public class CoursePlayTests
         Assert.True(second.Released);
     }
 
+    [Fact]
+    public void Partner_WaitsApartFromTheTee()
+    {
+        var world = new World(2, CourseTests.ThreeHoles());
+        var group = world.SpawnGroup();
+        var partner = group.Golfers[1];
+        for (var i = 0; i < MaxTicks && !(partner.State == GolferState.WaitingTurn && group.Released); i++)
+        {
+            world.Step();
+        }
+
+        for (var i = 0; i < 100 && partner.State == GolferState.WaitingTurn && partner.Strokes == 0; i++)
+        {
+            world.Step(); // il recule pendant que le premier joue
+        }
+
+        var d = Math.Sqrt(Dist2(partner.Position, world.Terrain!.Course[1].Tee));
+        Assert.True(d > World.WaitBehind, $"le partenaire attend à {d:0.0} m du départ");
+    }
+
     private static double Dist2(Point2 a, Point2 b) => ((a.X - b.X) * (a.X - b.X)) + ((a.Z - b.Z) * (a.Z - b.Z));
 
     /// <summary>Plays <paramref name="games"/> games of two close groups ; checks every ball that comes to rest and every idle stretch.</summary>
