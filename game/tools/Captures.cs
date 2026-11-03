@@ -46,7 +46,7 @@ public partial class Captures : Node
     private const int ProViewCount = 4;
     private const int C18ViewCount = 7;
     private static readonly ulong[] C24Seeds = [3, 18, 77];
-    private static readonly int C24ViewCount = (2 * C24Seeds.Length) + 2;
+    private static readonly int C24ViewCount = (2 * C24Seeds.Length) + 4; // + arbres matures près et loin, puis c28-arbres et c28-pro-depart
 
     /// <summary>Lisière sud de la forêt du coude, la balle de <c>ForestExitTests.Edge</c> (tuile 18,5 / 26,5 de 8 m).</summary>
     private static readonly Point2 ForestEdge = new(18.5 * 8, 26.5 * 8);
@@ -1493,6 +1493,15 @@ public partial class Captures : Node
                 main.Camera.SetView(30f, 220f, foot);
                 await Frames(SettleFrames);
                 Save("c24-arbres-matures-loin");
+
+                // C28 : à 150 m les arbres adultes restent détaillés ; le pro flâne devant le pavillon avant tout trou.
+                main.Camera.SetView(30f, 150f, foot);
+                await Frames(SettleFrames);
+                Save("c28-arbres");
+                var door = main.World.Clubhouse!.DoorPosition(grid.CellSize);
+                main.Camera.SetView(30f, 22f, new Vector3((float)door.X, (float)grid.Sample(door.X, door.Z), (float)door.Z));
+                await Frames(SettleFrames);
+                Save("c28-pro-depart");
             }
 
             main.QueueFree();

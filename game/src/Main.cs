@@ -1142,10 +1142,22 @@ public partial class Main : Node3D
         _previousChanged = true;
     }
 
+    /// <summary>Centre de la flânerie du pro : 5 m devant la porte du pavillon, du côté opposé au bâtiment.</summary>
+    private Point2 StrollCentreOf(Golferoo.Sim.Buildings.Building club)
+    {
+        var size = World.Terrain!.CellSize;
+        var door = club.DoorPosition(size);
+        var middle = club.Position(size);
+        var (dx, dz) = (door.X - middle.X, door.Z - middle.Z);
+        var length = Math.Max(Math.Sqrt((dx * dx) + (dz * dz)), 1e-6);
+        return new Point2(door.X + (dx / length * 5.0), door.Z + (dz / length * 5.0));
+    }
+
     private void Render()
     {
         var alpha = (float)Math.Clamp(_accumulator / World.TickSeconds, 0.0, 1.0);
         FlushTerrainEdits();
+        Actors.StrollCentre = World.Clubhouse is { } club && World.League is not null && !World.ProPlaying ? StrollCentreOf(club) : null;
         Actors.Update(_current, _previous, alpha, _previousChanged);
         Clubhouse.Update(World.Clubhouse);
         Structures.Update(World.PlacedBuildings);

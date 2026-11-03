@@ -39,7 +39,7 @@ public partial class TreeLayer : Node3D
     private static readonly string[] MaturePaths = [.. new[] { "oak", "birch", "conifer" }.Select(n => $"res://assets/trees/{n}_mature_atlas_8000.glb")];
 
     /// <summary>Distance en mètres sous laquelle l'arbre mature remplace le modèle simple (par cellule de <see cref="LodCellMeters"/>).</summary>
-    public const float MatureRangeMeters = 90f;
+    public const float MatureRangeMeters = 180f;
 
     /// <summary>Côté des groupes d'arbres matures qui changent de modèle ensemble, en mètres.</summary>
     public const float LodCellMeters = 32f;
