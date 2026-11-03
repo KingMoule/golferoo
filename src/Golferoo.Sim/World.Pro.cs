@@ -98,6 +98,24 @@ public sealed partial class World
         }
     }
 
+    /// <summary>Force du coup du pro qui fait retomber la balle sur <paramref name="target"/> depuis sa balle, sans vent ni hasard ; 1,0 au-delà de la portée du club (C27).</summary>
+    public double ProForceFor(Club club, ShotShape shape, Point2 target)
+    {
+        var terrain = RequireTerrain();
+        var golfer = AwaitingPro ?? throw new InvalidOperationException("Le pro n'attend pas de coup.");
+        var resolver = (PhysicalShotResolver)_resolver;
+        var trueWind = resolver.Wind;
+        resolver.Wind = default;
+        try
+        {
+            return Pro!.ForceFor(resolver, terrain, golfer.Ball, club, shape, target, PinOf(terrain, golfer));
+        }
+        finally
+        {
+            resolver.Wind = trueWind;
+        }
+    }
+
     /// <summary>Distance au trou sous laquelle le putt du pro est donné (« gimme ») : un coup, balle au trou.</summary>
     public const double GimmeDistance = 2.0;
 
