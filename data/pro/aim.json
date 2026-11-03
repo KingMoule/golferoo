@@ -3,5 +3,7 @@
   // Dispersion du coup du pro = celle du club x max(aimFloor, distance visée / portée du club), au plus 1.
   "aimFloor": 0.15,
   // Multiplicateur de la courbure d'un draw ou d'un fade du pro (style arcade) : draw plein visé à 220 m, ses vrais facteurs : driver 49 m, fer 7 20,5 m.
-  "curveScale": 2.8
+  "curveScale": 2.8,
+  // Marche du pro à l'entraînement (C28) : un peu plus vite que les golfeurs (leur facteur de marche x ce multiplicateur). En ligue, il marche à vitesse normale.
+  "walkFactor": 1.3
 }

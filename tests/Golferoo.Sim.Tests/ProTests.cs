@@ -65,28 +65,30 @@ public class ProTests(ITestOutputHelper output)
     }
 
     [Fact]
-    public void ManualPro_InTraining_IsOnHisBallAfterEachShot_WithoutWalking()
+    public void ManualPro_InTraining_WalksToHisBall_AndTheNextShotIsOfferedOnlyOnceThere()
     {
         var w = ManualWorld(6);
         w.StartProRound();
         var shots = 0;
+        var walked = 0;
         for (var i = 0; i < 60_000 && shots < 3; i++)
         {
             if (w.AwaitingPro is { } pro)
             {
-                if (shots > 0)
-                {
-                    Assert.Equal(pro.Ball, pro.Position);
-                }
-
+                Assert.Equal(pro.Ball, pro.Position);
                 w.PlayProShot(Simple(w, pro));
                 shots++;
             }
 
             w.Step();
+            if (shots > 0 && w.Groups.SelectMany(g => g.Golfers).Any(g => g.State == GolferState.WalkingToBall))
+            {
+                walked++;
+            }
         }
 
         Assert.Equal(3, shots);
+        Assert.True(walked > 0, "le pro ne marche pas jusqu'à sa balle");
     }
 
     [Fact]

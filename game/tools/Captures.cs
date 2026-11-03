@@ -503,11 +503,11 @@ public partial class Captures : Node
         Save("pro-sheet");
         main.ProPanel!.Toggle();
 
-        // C27 : sur le green, la cible cyan est au sol sous le clic (le coup suivant est un putt).
+        // C27 : sur le green, la cible cyan est au sol sous le clic ; le putt est automatique (C28), on vise donc le green d'un coup d'approche.
         for (var shots = 0; shots < 8; shots++)
         {
             main.ProAim.Sync();
-            if (main.ProAim.Active && main.ProAim.Club.IsPutter)
+            if (main.ProAim.Active && Math.Sqrt(Math.Pow(world.AwaitingPro!.Ball.X - world.HoleOf(world.AwaitingPro).Hole.X, 2) + Math.Pow(world.AwaitingPro.Ball.Z - world.HoleOf(world.AwaitingPro).Hole.Z, 2)) < 100.0)
             {
                 break;
             }
@@ -532,7 +532,7 @@ public partial class Captures : Node
         }
 
         await Frames(SettleFrames);
-        GD.Print($"C27GREEN actif={main.ProAim.Active} putter={main.ProAim.Club.IsPutter} prevue={main.ProAim.Preview.Ball}");
+        GD.Print($"C27GREEN actif={main.ProAim.Active} club={main.ProAim.Club.Name} cible={main.ProAim.Target} prevue={main.ProAim.Preview.Ball}");
         Save("c27-green");
         return main;
     }
