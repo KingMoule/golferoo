@@ -2693,6 +2693,20 @@ public partial class SmokeTest : Node
             return;
         }
 
+        // C27 : la force vient du clic seul (maximale au-delà de la portée, moindre en deçà), sans curseur.
+        var club = _main.ProAim.Club;
+        if (!club.IsPutter)
+        {
+            _main.ProAim.SetTarget(new Point2(pro.Ball.X + (club.TargetRange * 1.5), pro.Ball.Z));
+            var far = _main.ProAim.Force;
+            _main.ProAim.SetTarget(new Point2(pro.Ball.X + (club.TargetRange * 0.5), pro.Ball.Z));
+            var half = _main.ProAim.Force;
+            if (far < 1.0 || half >= 1.0 || half < 0.2)
+            {
+                failures.Add($"force au clic : au-delà de la portée {far:F2}, à mi-portée {half:F2}");
+            }
+        }
+
         _main.ProAim.Play();
         _main.ProAim.Sync();
         if (_main.ProAim.Active || _main.Paused)

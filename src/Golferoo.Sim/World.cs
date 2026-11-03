@@ -1275,6 +1275,12 @@ public sealed partial class World
             g.PickedUp = !result.Holed;
             g.State = GolferState.Exiting;
         }
+        else if (IsManualPro(g) && !g.InLeague)
+        {
+            // Entraînement (C27) : le pro est déjà sur sa balle, il ne marche pas.
+            g.Position = g.Ball;
+            g.State = GolferState.WaitingTurn;
+        }
         else
         {
             g.State = GolferState.WalkingToBall;

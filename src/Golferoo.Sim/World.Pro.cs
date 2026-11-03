@@ -80,17 +80,26 @@ public sealed partial class World
 
     /// <summary>Coup prévu, sans hasard ni arbres : ce que le mode visée dessine. Le vent du moment est compris, lu avec le biais de Jeu dans le vent, et la pente d'un putt avec
     /// celui de Lecture du green (<see cref="ProSkills.BiasFor"/>). Ne touche ni au RNG ni à l'état du monde.</summary>
-    public ShotResult PreviewProShot(ProShot shot)
+    public ShotResult PreviewProShot(ProShot shot) => Preview(shot, read: true);
+
+    /// <summary>Écart en mètres entre le coup prévu tel que le pro le lit (vent et pente faussés, C25) et le coup prévu sans erreur de lecture : ce que l'ellipse du mode visée ajoute (C27).</summary>
+    public double ProReadingError(ProShot shot)
+    {
+        var (read, exact) = (Preview(shot, read: true).Ball, Preview(shot, read: false).Ball);
+        return Math.Sqrt(((read.X - exact.X) * (read.X - exact.X)) + ((read.Z - exact.Z) * (read.Z - exact.Z)));
+    }
+
+    private ShotResult Preview(ProShot shot, bool read)
     {
         var terrain = RequireTerrain();
         var golfer = AwaitingPro ?? throw new InvalidOperationException("Le pro n'attend pas de coup.");
         var resolver = (PhysicalShotResolver)_resolver;
-        var bias = Pro!.BiasFor(Tick, golfer.Strokes, Wind);
+        var bias = read ? Pro!.BiasFor(Tick, golfer.Strokes, Wind) : new ProBias(Wind, 0.0, 1.0);
         var trueWind = resolver.Wind;
         resolver.Wind = bias.Wind;
         try
         {
-            return Pro.Execute(resolver, terrain, golfer.Ball, shot, null, PinOf(terrain, golfer), bias);
+            return Pro!.Execute(resolver, terrain, golfer.Ball, shot, null, PinOf(terrain, golfer), bias);
         }
         finally
         {

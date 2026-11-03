@@ -47,6 +47,14 @@ public class ProAimTests(ITestOutputHelper output)
         }
     }
 
+    [Fact]
+    public void AimJson_IsReadStrictly_UnknownKeyAndMissingFieldAreRefused()
+    {
+        Assert.Equal(0.2, ProAimParams.Parse("""{ "aimFloor": 0.2, "curveScale": 2 }""").AimFloor);
+        Assert.Throws<System.Text.Json.JsonException>(() => ProAimParams.Parse("""{ "aimFloor": 0.2, "curveScale": 2, "inconnu": 1 }"""));
+        Assert.Throws<System.Text.Json.JsonException>(() => ProAimParams.Parse("""{ "aimFloor": 0.2 }"""));
+    }
+
     // ---- Dispersion ------------------------------------------------------------------------------------------------------------
 
     [Fact]
@@ -94,18 +102,20 @@ public class ProAimTests(ITestOutputHelper output)
 
     // ---- Courbure --------------------------------------------------------------------------------------------------------------
 
-    private static double Curve(Club club, double scale)
+    /// <summary>Courbure d'un draw plein du pro (ses vrais facteurs) visé à 220 m : écart latéral de la balle à l'arrêt.</summary>
+    private static double Curve(Club club)
     {
-        var (v, curve, spin) = ShotShapes.Launch(club, 1, 0, club.Speed, ShotShape.Draw, 1.0, scale);
-        return Start.Z - BallSimulator.Run(Fairway, Start, v, rolling: false, BallSimulator.DefaultDrag, recordPath: false, curve: curve, backspin: spin).FirstLanding.Z;
+        var target = new Point2(Start.X + 220, Start.Z);
+        var end = new ProSkills().Execute(new PhysicalShotResolver(), Fairway, Start, new ProShot(club, target, ShotShape.Draw, 1.0), null, Pin).Ball;
+        return Start.Z - end.Z;
     }
 
     [Fact]
     public void ProCurve_DriverDrawBendsFortyToFiftyMeters_AndAnIron7TwentyToTwentyEight()
     {
         var scale = ProAimParams.Default.CurveScale;
-        var driver = Curve(Clubs.Driver, scale);
-        var iron = Curve(Clubs.Iron7, scale);
+        var driver = Curve(Clubs.Driver);
+        var iron = Curve(Clubs.Iron7);
         output.WriteLine($"ProCurveScale {scale} : driver {driver:F1} m, fer 7 {iron:F1} m");
         Assert.InRange(driver, 40.0, 50.0);
         Assert.InRange(iron, 20.0, 28.0);

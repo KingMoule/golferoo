@@ -137,7 +137,7 @@ public class SaveTests
             {
                 if (world.AwaitingPro is { } pro)
                 {
-                    world.PlayProShot(ProShotFor(terrain, pro.Ball));
+                    world.PlayProShot(ProShotFor(world, terrain, pro));
                 }
 
                 world.Step();
@@ -167,16 +167,21 @@ public class SaveTests
         return world;
     }
 
-    private static ProShot ProShotFor(TerrainGrid t, Point2 ball)
+    private static ProShot ProShotFor(World world, TerrainGrid t, Golfer pro)
     {
+        var ball = pro.Ball;
         if (t.SurfaceAt(ball.X, ball.Z) == Surface.Green)
         {
             return new ProShot(Clubs.Putter, t.Hole, ShotShape.Straight, 1.0);
         }
 
+        // Vise 8 m avant le trou : un coup qui finit à moins de 2 m est donné (« gimme ») et ne ferait pas jouer de putt.
         var d = Math.Sqrt(Math.Pow(t.Hole.X - ball.X, 2) + Math.Pow(t.Hole.Z - ball.Z, 2));
+        // Un coup sur trois dévie de 20 m sur le côté : la balle ne reste pas bloquée derrière le même obstacle.
+        var side = ((pro.Strokes % 3) - 1) * 20.0;
+        var aim = d > 20.0 ? new Point2(t.Hole.X + ((ball.X - t.Hole.X) * 8.0 / d) - ((t.Hole.Z - ball.Z) / d * side), t.Hole.Z + ((ball.Z - t.Hole.Z) * 8.0 / d) + ((t.Hole.X - ball.X) / d * side)) : t.Hole;
         var club = Clubs.Full.LastOrDefault(c => c.TargetRange >= d) ?? Clubs.Driver;
-        return new ProShot(club, t.Hole, ShotShape.Straight, Math.Min(1.0, Math.Sqrt(d / club.TargetRange)));
+        return new ProShot(club, aim, ShotShape.Straight, world.ProForceFor(club, ShotShape.Straight, aim));
     }
 
     /// <summary>L'état de ligue que ni <c>League.MixInto</c> ni <c>MixPro</c> ne couvrent : cartes et points des journées, classement, champion de la saison, avis des membres.</summary>
