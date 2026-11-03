@@ -46,7 +46,7 @@ public partial class Captures : Node
     private const int ProViewCount = 4;
     private const int C18ViewCount = 7;
     private static readonly ulong[] C24Seeds = [3, 18, 77];
-    private static readonly int C24ViewCount = (2 * C24Seeds.Length) + 2;
+    private static readonly int C24ViewCount = (2 * C24Seeds.Length) + 4; // + arbres matures près et loin, puis c28-arbres et c28-pro-depart
 
     /// <summary>Lisière sud de la forêt du coude, la balle de <c>ForestExitTests.Edge</c> (tuile 18,5 / 26,5 de 8 m).</summary>
     private static readonly Point2 ForestEdge = new(18.5 * 8, 26.5 * 8);
