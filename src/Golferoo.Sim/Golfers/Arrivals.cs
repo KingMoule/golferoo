@@ -24,6 +24,9 @@ public sealed record ArrivalParams
     /// <summary>Facteur sur la vitesse de marche des golfeurs IA (pas le vol de balle, ni le pro joué par le joueur).</summary>
     public required double AiWalkSpeedFactor { get; init; }
 
+    /// <summary>Facteur de marche en plus des golfeurs IA quand le jeu tourne vite (<see cref="World.FastForward"/>, ×4 et plus) : ils marchent plus vite que les coups. Sans effet à ×1 et ×2.</summary>
+    public required double FastWalkFactor { get; init; }
+
     /// <summary>Cadence de lecture du vol de balle des golfeurs IA (trajectoire et point de chute inchangés ; pas le pro joué par le joueur).</summary>
     public required double AiFlightSpeedFactor { get; init; }
 
@@ -128,7 +131,7 @@ public sealed record ArrivalParams
             throw new InvalidDataException($"arrivals.json illisible : {e.Message}", e);
         }
 
-        return p.AiWalkSpeedFactor > 0 && p.AiFlightSpeedFactor >= 1 && p.GroupsPerDay >= 0
+        return p.AiWalkSpeedFactor > 0 && p.FastWalkFactor >= 1 && p.AiFlightSpeedFactor >= 1 && p.GroupsPerDay >= 0
             && p.GroupSizeWeights.Length == 4 && p.GroupSizeWeights.All(w => w >= 0) && p.GroupSizeWeights.Sum() > 0
             && p.WeatherFactors.Length == 4 && p.FirstNames.Length > 0 && p.QueueCapacity > 0 && p.MaxGroupsPerHole > 0 && p.HolesReference > 0 && p.HolesCap > 0
             && p.HandicapMax >= p.HandicapMin

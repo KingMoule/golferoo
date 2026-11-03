@@ -508,6 +508,7 @@ public partial class Main : Node3D
             _accumulator += Math.Min(delta, 0.25) * Speed;
         }
 
+        World.FastForward = Speed >= 4;
         var steps = 0;
         while (_accumulator >= World.TickSeconds && steps < MaxTicksPerFrame)
         {

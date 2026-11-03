@@ -11,9 +11,9 @@ public class RhythmTests(ITestOutputHelper output)
     private static bool Walks(GolferState s) => s is GolferState.Arriving or GolferState.WalkingToBall or GolferState.ToNextTee or GolferState.Exiting or GolferState.Leaving;
 
     /// <summary>Part du temps passée à marcher par un groupe de 2 seul sur « Le neuf » (graine 1, résolveur physique).</summary>
-    internal static (double Walk, double Flight, int Ticks) WalkShare(ArrivalParams? arrivals = null)
+    internal static (double Walk, double Flight, int Ticks) WalkShare(ArrivalParams? arrivals = null, bool fast = false)
     {
-        var world = new World(1, ClubhouseTests.LeNeuf(), league: false, arrivals: arrivals);
+        var world = new World(1, ClubhouseTests.LeNeuf(), league: false, arrivals: arrivals) { FastForward = fast };
         var group = world.SpawnGroup();
         int walk = 0, flight = 0, total = 0;
         while (!group.Finished && total < 20 * Day)
@@ -46,6 +46,22 @@ public class RhythmTests(ITestOutputHelper output)
         output.WriteLine($"facteur 1 : marche {before.Walk:P0}, vol {before.Flight:P0}, {before.Ticks} ticks ; facteur {ArrivalParams.Default.AiWalkSpeedFactor} : marche {after.Walk:P0}, vol {after.Flight:P0}, {after.Ticks} ticks");
 
         Assert.InRange(after.Walk, 0.33, 0.55);
+    }
+
+    [Fact]
+    public void FastForward_SpeedsUpWalkingOnly()
+    {
+        var p = ArrivalParams.Default with { AiFlightSpeedFactor = 1.0 };
+        var (slow, fast) = (WalkShare(p), WalkShare(p, fast: true));
+        var walkSlow = slow.Walk * slow.Ticks;
+        var walkFast = fast.Walk * fast.Ticks;
+        output.WriteLine($"marche {walkSlow:F0} ticks à ×1, {walkFast:F0} à ×4 et plus (facteur {p.FastWalkFactor})");
+        // Au plus 1/facteur (le temps où tout le groupe marche fond davantage : les golfeurs se synchronisent moins longtemps), et sans que la marche disparaisse.
+        Assert.InRange(walkFast / walkSlow, 0.1, 1.1 / p.FastWalkFactor);
+        Assert.True(fast.Ticks < slow.Ticks);
+
+        // À ×1 et ×2, rien ne change : même durée de tour qu'avec FastForward jamais posé.
+        Assert.Equal(WalkShare(p).Ticks, slow.Ticks);
     }
 
     /// <summary>« Le neuf » ouvert, graine 1, 30 jours de printemps et d'été : départs de visiteurs par jour, part de refus, réputation finale.</summary>
