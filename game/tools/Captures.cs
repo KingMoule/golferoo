@@ -1493,6 +1493,15 @@ public partial class Captures : Node
                 main.Camera.SetView(30f, 220f, foot);
                 await Frames(SettleFrames);
                 Save("c24-arbres-matures-loin");
+
+                // C28 : à 150 m les arbres adultes restent détaillés ; le pro flâne devant le pavillon avant tout trou.
+                main.Camera.SetView(30f, 150f, foot);
+                await Frames(SettleFrames);
+                Save("c28-arbres");
+                var door = main.World.Clubhouse!.DoorPosition(grid.CellSize);
+                main.Camera.SetView(30f, 22f, new Vector3((float)door.X, (float)grid.Sample(door.X, door.Z), (float)door.Z));
+                await Frames(SettleFrames);
+                Save("c28-pro-depart");
             }
 
             main.QueueFree();

@@ -31,7 +31,9 @@ public sealed partial class World
 
     private bool IsPro(Golfer g) => g.MemberId >= 0 && g.MemberId == _proMemberId;
 
-    /// <summary>Le pro fait partie d'un groupe (partie d'entraînement, journée de ligue ou groupe de la file).</summary>
+    /// <summary>Le pro fait partie d'un groupe (partie d'entraînement, journée de ligue ou groupe de la file) : lecture seule, pour l'affichage.</summary>
+    public bool ProPlaying => ProPlays;
+
     private bool ProPlays => _groups.Any(g => g.Golfers.Any(IsPro));
 
     /// <summary>
