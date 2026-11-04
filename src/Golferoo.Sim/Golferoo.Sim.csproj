@@ -3,6 +3,9 @@
   <!-- Simulation pure : aucune référence à Godot ici (ADR 0001, critère 4 de C01). -->
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
+    <!-- Optimisée même en Debug : sans cela la simulation tourne 2,6 fois plus lentement dans les tests lancés sans -c Release,
+         dans le jeu lancé depuis Godot et dans les captures de la CI. Les résultats sont identiques (même arithmétique IEEE). -->
+    <Optimize>true</Optimize>
   </PropertyGroup>
 
   <ItemGroup>

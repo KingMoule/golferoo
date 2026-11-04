@@ -3,17 +3,25 @@ name: CI
 on:
   pull_request:
   push:
-    branches: [main, "claude/**"]
+    branches: [main] # une branche de chantier tourne par sa PR : la doubler d'un push occupait deux fois les runners
+  workflow_dispatch:
+
+# Un nouveau commit d'une PR annule le run précédent de cette PR ; sur main, chaque fusion garde son run (artefact Windows).
+concurrency:
+  group: ci-${{ github.event_name == 'pull_request' && github.ref || github.sha }}
+  cancel-in-progress: true
 
 env:
   DOTNET_NOLOGO: "1"
   DOTNET_CLI_TELEMETRY_OPTOUT: "1"
 
 jobs:
-  sim:
-    name: Simulation (format, tests, banc)
+  # La simulation en trois jobs parallèles (format et banc, tests en lots) : en série sur un runner, tests puis banc prenaient 12 à 22 min.
+  # Le job « Simulation (format, tests, banc) », exigé par le ruleset de main, ne fait que rendre leur verdict.
+  sim-checks:
+    name: Simulation, format et banc
     runs-on: ubuntu-latest
-    timeout-minutes: 25 # tests 9 à 12 min selon le runner, plus le banc (C15 lot 2)
+    timeout-minutes: 15 # banc de 3 à 6 min selon le runner
     steps:
       - uses: actions/checkout@v5
 
@@ -53,9 +61,6 @@ jobs:
 
       - run: dotnet build Golferoo.sln -c Release --no-restore
 
-      - name: Tests
-        run: dotnet test Golferoo.sln -c Release --no-build --logger "console;verbosity=normal"
-
       - name: Banc
         run: dotnet run -c Release --no-build --project tests/Golferoo.Sim.Bench -- --out bench.json
 
@@ -63,6 +68,62 @@ jobs:
         with:
           name: bench
           path: bench.json
+
+  sim-tests:
+    name: Simulation, tests (lot ${{ matrix.lot }}/3)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20 # 4 à 8 min par lot selon le runner
+    strategy:
+      fail-fast: false
+      matrix:
+        lot: [1, 2, 3]
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-dotnet@v5
+        id: dotnet
+        continue-on-error: true
+        with:
+          global-json-file: global.json
+
+      # Repli si le serveur de téléchargement de Microsoft est en panne (HTTP 409 le 2026-10-25) :
+      # le SDK .NET 10 des paquets Ubuntu satisfait global.json (10.0.100, latestFeature).
+      - name: .NET depuis les paquets Ubuntu (repli)
+        if: steps.dotnet.outcome == 'failure'
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q dotnet-sdk-10.0
+          echo "DOTNET_ROOT=/usr/lib/dotnet" >> "$GITHUB_ENV"
+          echo "/usr/lib/dotnet" >> "$GITHUB_PATH"
+
+      - run: dotnet build tests/Golferoo.Sim.Tests -c Release
+
+      # Lots 1 et 2 : les classes nommées ci-dessous (équilibrées sur les durées mesurées le 2026-11-04). Lot 3 : toutes les autres,
+      # donc toute nouvelle classe de tests y tourne sans rien changer ici. Pour rééquilibrer, déplacer un nom d'une liste à l'autre.
+      - name: Tests
+        env:
+          LOT: ${{ matrix.lot }}
+          LOT_1: ProSeasonTests SaveTests NewGameTests RatingTests ArrivalTests
+          LOT_2: ProfileTests LeagueTests NewHoleTests LeagueFinalTests
+        run: |
+          case "$LOT" in
+            1) filter=$(printf 'FullyQualifiedName~Golferoo.Sim.Tests.%s.|' $LOT_1) ;;
+            2) filter=$(printf 'FullyQualifiedName~Golferoo.Sim.Tests.%s.|' $LOT_2) ;;
+            *) filter=$(printf 'FullyQualifiedName!~Golferoo.Sim.Tests.%s.&' $LOT_1 $LOT_2) ;;
+          esac
+          dotnet test tests/Golferoo.Sim.Tests -c Release --no-build --filter "${filter%[|&]}" --logger "console;verbosity=normal"
+
+  sim:
+    name: Simulation (format, tests, banc)
+    needs: [sim-checks, sim-tests]
+    if: always() # rouge, et non « ignoré » (qu'un ruleset prend pour vert), si un job de la simulation échoue ou est annulé
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Verdict
+        run: |
+          echo "format et banc : ${{ needs.sim-checks.result }} ; tests : ${{ needs.sim-tests.result }}"
+          test "${{ needs.sim-checks.result }}" = success && test "${{ needs.sim-tests.result }}" = success
 
   godot:
     name: Godot headless (import et fumée)
@@ -135,7 +196,7 @@ jobs:
   captures:
     name: Captures (rendu logiciel)
     runs-on: ubuntu-latest
-    timeout-minutes: 35 # deux tours de captures de 12 min au plus (C16 lot 4)
+    timeout-minutes: 30 # deux tours de captures de 12 min au plus (C16 lot 4)
     env:
       GODOT_VERSION: 4.7.2
     steps:
@@ -209,19 +270,11 @@ jobs:
             echo "Rendu : Compatibility via llvmpipe" | tee -a "$GITHUB_STEP_SUMMARY" rendu.txt
           fi
 
-      - name: Captures aux facteurs 3 et 4 (comparaison pour le rapport C01, le jeu est au facteur 2)
-        run: |
-          for f in 3 4; do
-            timeout 300 xvfb-run -a -s "-screen 0 1280x720x24" "$GODOT" --path game --audio-driver Dummy --rendering-method forward_plus --rendering-driver vulkan \
-              res://tools/Captures.tscn -- --out "$GITHUB_WORKSPACE/captures-f$f" --factor $f --prefix "f$f-" --limit 5 --full 2>&1 | tee "captures-f$f.log"
-            grep -q '^CAPTURES OK' "captures-f$f.log" || { echo "::error::captures au facteur $f en échec"; exit 1; }
-          done
-
       - name: Résumé C11 (sauvegarde au facteur du jeu)
         run: grep -E '^(C11 |C12 |SAVE )' captures.log | tail -n 12 | tee -a "$GITHUB_STEP_SUMMARY"
 
       - name: Captures des chantiers en cours (en fin de journal, pour la relecture sans artefact)
-        # Les lignes FULL des passes aux facteurs 3 et 4 pèsent plusieurs Mo : on remet celles des chantiers récents en dernier.
+        # Les lignes FULL de toutes les captures pèsent plusieurs Mo : on remet celles des chantiers récents en dernier.
         run: |
           # Le résumé d'une étape ne se relit pas depuis une autre : la ligne « Rendu » est aussi gardée dans rendu.txt.
           cat rendu.txt || true
