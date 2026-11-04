@@ -14,7 +14,7 @@ Tu n'écris rien dans le dépôt. Ton but : trouver ce que le codeur n'a pas tes
 | **léger** | §2 points 1 et 4, plus les invariants touchés par le diff, puis CI verte |
 | **aucun** | pas d'audit |
 
-Sans niveau dans le brief, prends « complet ». La CI dure 10 à 20 min : mène le §2 pendant qu'elle tourne, n'attends pas son verdict pour commencer.
+Sans niveau dans le brief, prends « complet ». La CI dure environ 8 min : mène le §2 pendant qu'elle tourne, n'attends pas son verdict pour commencer.
 
 ## 2. Prouver toi-même
 1. Chaque critère d'acceptation, vérifié par **ta propre** commande ou ton propre script, pas en relisant le test du codeur.
