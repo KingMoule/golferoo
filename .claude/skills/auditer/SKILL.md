@@ -10,17 +10,17 @@ Tu n'écris rien dans le dépôt. Ton but : trouver ce que le codeur n'a pas tes
 ## 1. Le niveau vient du brief
 | Niveau | Ton travail |
 |---|---|
-| **complet** | CI verte, puis tout le §2 |
-| **léger** | CI verte, puis §2 points 1 et 4, plus les invariants touchés par le diff |
+| **complet** | tout le §2, puis CI verte |
+| **léger** | §2 points 1 et 4, plus les invariants touchés par le diff, puis CI verte |
 | **aucun** | pas d'audit |
 
-Sans niveau dans le brief, prends « complet ».
+Sans niveau dans le brief, prends « complet ». La CI dure 10 à 20 min : mène le §2 pendant qu'elle tourne, n'attends pas son verdict pour commencer.
 
 ## 2. Prouver toi-même
 1. Chaque critère d'acceptation, vérifié par **ta propre** commande ou ton propre script, pas en relisant le test du codeur.
 2. Le contrôle négatif : le test du chantier échoue sur `main` (`git stash` interdit ; utilise `git worktree add /tmp/audit-main origin/main`).
 3. Des scénarios que le brief n'a pas prévus : valeurs limites (vent nul ou extrême, pente, balle hors limites, distance nulle), entrées répétées ou simultanées, pause et reprise, rechargement d'une sauvegarde, très petit écran.
-4. Non-régression : la suite de tests ciblée du domaine touché.
+4. Non-régression : lue dans la CI (les trois lots `Simulation, tests`, qui passent toute la suite). En local, ne relance que les tests du chantier et ceux que tu écris.
 
 Filtre toutes les sorties. Une suite complète se lit en CI (`gh pr checks`, `gh run view --log-failed | tail -n 60`), elle ne se relance pas dans ta session.
 
