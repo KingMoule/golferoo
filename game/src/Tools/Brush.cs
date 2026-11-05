@@ -296,7 +296,7 @@ public partial class Brush : Node3D
 
         if (ReliefMode)
         {
-            if (!_main.Finances.Allow(ReliefPrice(world, center, _stroke == MouseButton.Left ? ReliefStepMeters : -ReliefStepMeters)))
+            if (!_main.Finances.Allow(world.QuoteRaise(center, Radius, _stroke == MouseButton.Left ? ReliefStepMeters : -ReliefStepMeters)))
             {
                 return false;
             }
@@ -306,9 +306,7 @@ public partial class Brush : Node3D
             return true;
         }
 
-        if (!_main.Finances.Allow(BulldozerMode
-            ? PaintPrice(world, center, Surface.Rough) + TreeTool.RazePrice(world, center, Radius, keepRemarkable: false)
-            : PaintPrice(world, center, PaintedSurface)))
+        if (!_main.Finances.Allow(BulldozerMode ? world.QuoteBulldoze(center, Radius) : world.QuotePaint(center, Radius, PaintedSurface)))
         {
             return false;
         }
@@ -316,8 +314,7 @@ public partial class Brush : Node3D
         BeginStroke(world);
         if (BulldozerMode)
         {
-            world.PaintSurface(center, Radius, Surface.Rough);
-            world.RazeArea(center, Radius, keepRemarkable: false);
+            world.Bulldoze(center, Radius); // un seul geste, annulable comme une peinture
             return true;
         }
 
@@ -335,15 +332,6 @@ public partial class Brush : Node3D
             world.BeginStroke();
         }
     }
-
-    /// <summary>Ce que coûterait la peinture, au centime près comme la sim (cellules qui changent réellement).</summary>
-    private long PaintPrice(World world, Point2 center, Surface surface)
-    {
-        var grid = world.Terrain!;
-        return grid.CountPaint(center, Radius, surface) * (long)Math.Round(grid.CellSize * grid.CellSize * world.Economy.PaintCost(surface));
-    }
-
-    private long ReliefPrice(World world, Point2 center, double delta) => (long)Math.Round(Math.Abs(world.Terrain!.RaiseVolume(center, Radius, delta)) * world.Economy.ReliefPerM3);
 
     private void DrawRing(Vector3 center)
     {

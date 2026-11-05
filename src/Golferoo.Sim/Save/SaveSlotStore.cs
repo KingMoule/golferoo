@@ -35,9 +35,17 @@ public static class SaveSlotStore
 
     private static string MetaPath(string dir, string slot) => Path.Combine(dir, Check(slot) + ".json");
 
-    /// <summary>Écrit l'emplacement : sauvegarde, métadonnées, puis vignette si elle existe (chacune par fichier temporaire).</summary>
+    /// <summary>
+    /// Écrit l'emplacement : sauvegarde, métadonnées, puis vignette si elle existe (chacune par fichier temporaire vidé sur le disque).
+    /// La sauvegarde est d'abord relue : si elle ne se recharge pas, <see cref="InvalidDataException"/> est levée et l'emplacement garde son contenu.
+    /// </summary>
     public static void Write(string dir, string slot, byte[] save, SlotMeta meta, byte[]? thumbnail)
     {
+        using (var check = new MemoryStream(save, writable: false))
+        {
+            _ = World.Load(check);
+        }
+
         Directory.CreateDirectory(dir);
         WriteAtomic(SavePath(dir, slot), save);
         WriteAtomic(MetaPath(dir, slot), JsonSerializer.SerializeToUtf8Bytes(meta));
@@ -75,7 +83,12 @@ public static class SaveSlotStore
     private static void WriteAtomic(string path, byte[] bytes)
     {
         var temp = path + ".tmp";
-        File.WriteAllBytes(temp, bytes);
+        using (var file = new FileStream(temp, FileMode.Create, FileAccess.Write, FileShare.None))
+        {
+            file.Write(bytes);
+            file.Flush(flushToDisk: true); // une coupure après le renommage ne laisse pas un fichier vide
+        }
+
         File.Move(temp, path, overwrite: true);
     }
 }

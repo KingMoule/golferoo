@@ -53,7 +53,6 @@ public sealed class Reactions
     }
 
     /// <summary>Rien n'a été compté, ni ce mois-ci ni le précédent.</summary>
-    internal bool Untouched => _current.All(c => c == 0) && _previous.All(c => c == 0);
 
     internal void Write(SaveWriter w)
     {
@@ -73,13 +72,6 @@ public sealed class Reactions
     {
         var reactions = new Reactions();
         var (current, previous) = (r.List(r.Int), r.List(r.Int));
-        if (r.Version < 18)
-        {
-            // Avant C17 lot 2, un événement de moins par trou : on refait la disposition des compteurs.
-            current = Widen(current);
-            previous = Widen(previous);
-        }
-
         if (current.Count != reactions._current.Length || previous.Count != reactions._previous.Length || current.Concat(previous).Any(c => c < 0))
         {
             throw new InvalidDataException("Sauvegarde incohérente : compteurs de réactions.");
@@ -87,36 +79,14 @@ public sealed class Reactions
 
         current.CopyTo(reactions._current);
         previous.CopyTo(reactions._previous);
-        if (r.Version >= 16)
+        var spots = r.List(() => new ReactionSpot(r.Int(), r.Int(), (MoodEvent)r.Byte()));
+        if (spots.Count > MaxSpots || spots.Any(s => !Enum.IsDefined(s.Event)))
         {
-            var spots = r.List(() => new ReactionSpot(r.Int(), r.Int(), (MoodEvent)r.Byte()));
-            if (spots.Count > MaxSpots || spots.Any(s => !Enum.IsDefined(s.Event)))
-            {
-                throw new InvalidDataException("Sauvegarde incohérente : position des réactions.");
-            }
-
-            reactions._spots.AddRange(spots);
+            throw new InvalidDataException("Sauvegarde incohérente : position des réactions.");
         }
 
+        reactions._spots.AddRange(spots);
         return reactions;
-    }
-
-    private static List<int> Widen(List<int> old)
-    {
-        var before = Events - 1;
-        if (old.Count != before * Course.MaxHoles)
-        {
-            return old;
-        }
-
-        var wide = new List<int>(Events * Course.MaxHoles);
-        for (var hole = 0; hole < Course.MaxHoles; hole++)
-        {
-            wide.AddRange(old.GetRange(hole * before, before));
-            wide.Add(0);
-        }
-
-        return wide;
     }
 
     internal void Mix(ref ulong hash)

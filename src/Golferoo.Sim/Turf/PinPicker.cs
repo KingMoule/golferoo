@@ -3,34 +3,32 @@ using Golferoo.Sim.Terrain;
 namespace Golferoo.Sim.Turf;
 
 /// <summary>
-/// Position du drapeau du jour du trou 1 : une cellule du green de ce trou (seulement le sien, pas ceux des autres trous du parcours)
-/// à au moins <see cref="EdgeMeters"/> du bord, tirée du flux de la graine et du jour.
+/// Position du drapeau du jour d'un trou (C05, décision 3 : répartir l'usure du green) : une cellule du green où se trouve son drapeau
+/// (seulement celui-là, pas les greens des autres trous) à au moins <see cref="EdgeMeters"/> du bord, tirée de la graine, du jour et du numéro du trou.
 /// </summary>
 public static class PinPicker
 {
     public const double EdgeMeters = 3.0;
 
-    /// <summary>Centre de la cellule tirée, ou <c>null</c> si aucun green n'a de cellule à 3 m du bord.</summary>
-    public static Point2? Pick(TerrainGrid terrain, ulong seed, int day)
+    /// <summary>Centre de la cellule tirée pour le trou <paramref name="hole"/>, ou <c>null</c> si son green n'a aucune cellule à 3 m du bord.</summary>
+    public static Point2? Pick(TerrainGrid terrain, CourseHole hole, ulong seed, int day)
     {
-        var surfaces = terrain.Surfaces;
+        ArgumentNullException.ThrowIfNull(hole);
         var reach = (int)Math.Ceiling(EdgeMeters / terrain.CellSize) + 1;
-        var candidates = new List<int>();
-        var green = GreenOf(terrain, terrain.Course[1].Green);
-        for (var i = 0; i < surfaces.Length; i++)
+        var green = GreenOf(terrain, hole.Hole);
+        if (green.Count == 0)
         {
-            if (green.Contains(i) && InsideGreen(terrain, i % terrain.CellsX, i / terrain.CellsX, reach))
-            {
-                candidates.Add(i);
-            }
+            green = GreenOf(terrain, hole.Green); // drapeau sur une cellule repeinte : le green d'origine du trou
         }
 
+        var candidates = green.Where(i => InsideGreen(terrain, i % terrain.CellsX, i / terrain.CellsX, reach)).Order().ToList();
         if (candidates.Count == 0)
         {
             return null;
         }
 
-        var rng = new DeterministicRng(seed ^ (0x9E3779B97F4A7C15UL * (ulong)(uint)(day + 1)));
+        // Le trou 1 garde le tirage d'avant les parcours de plusieurs trous ; les suivants mêlent leur numéro.
+        var rng = new DeterministicRng(seed ^ (0x9E3779B97F4A7C15UL * (ulong)(uint)(day + 1)) ^ (0xD1B54A32D192ED03UL * (ulong)(uint)(hole.Number - 1)));
         var pick = candidates[(int)(rng.NextUInt64() % (ulong)candidates.Count)];
         return terrain.CellCenter(pick % terrain.CellsX, pick / terrain.CellsX);
     }

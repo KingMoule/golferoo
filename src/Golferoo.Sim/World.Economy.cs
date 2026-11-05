@@ -79,18 +79,8 @@ public sealed partial class World
 
     private long CurrentMonth => Calendar.MonthIndex(Tick, _dayOffset);
 
-    /// <summary>
-    /// Un monde Facile dont la caisse n'a jamais bougé mélange 0, comme l'ancien total des travaux d'arbres à cette place :
-    /// les sommes de contrôle relevées avant C14 restent valables.
-    /// </summary>
     private void MixEconomy(ref ulong hash)
     {
-        if (Ledger.Untouched && Economy == EconomyParams.Facile)
-        {
-            Mix(ref hash, 0UL);
-            return;
-        }
-
         foreach (var v in Economy.Values())
         {
             Mix(ref hash, (ulong)v);

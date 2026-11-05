@@ -33,7 +33,13 @@ Less is more. You see elegance in simplicity. You favour concise, clean solution
 - La session principale fusionne elle-même une PR prête (`merge_pull_request`, méthode *merge*, avec `expectedHeadSha`) : les quatre jobs de CI verts sur ce commit, audit prévu par la spec sans bloquant, aucun commentaire de revue ouvert. Exception : une PR qui touche le workflow (`CLAUDE.md`, `.claude/`, `docs/workflow.md`) attend Guillaume.
 - Une tâche n'est finie que si sa vérification a tourné : montre la commande et son résultat, pas une affirmation.
 - Corrige la cause, jamais le symptôme : pas de test désactivé, pas de règle de lint coupée pour passer.
-- Tout nouvel état de la sim entre dans `World.Checksum` et dans `World.Save`, avec un cas `SaveTests` qui échoue si on l'oublie.
+- Tout nouvel état de la sim entre dans `World.Checksum` et dans `World.Save`, avec un cas `SaveTests` qui échoue si on l'oublie (et dans `CodeReviewTests.EveryWorldField_IsAKnownStateOrCache`).
+- Lignes directrices du code review (C30) :
+  - le jeu change la sim par une commande en file, jamais par un setter ; un prix affiché vient d'un devis de la sim (`Quote…`), jamais d'un calcul du jeu ;
+  - la somme mêle tout l'état sans condition : pas de « la somme d'avant reste valable », on ré-épingle les tests ;
+  - une règle (où un arbre tient, qui chevauche qui) vit en une seule fonction, appelée par la pose, le déplacement et le chargement ;
+  - la sauvegarde relit la version courante et la précédente ; chaque montée archive une fixture produite par `main` ;
+  - pas de seuil de temps mur dans les tests unitaires : le banc les mesure.
 
 ## Économie de tokens
 - Lis le moins possible : cherche (`Grep`, `Glob`) avant de lire, lis des plages plutôt que des fichiers entiers.

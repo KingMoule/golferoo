@@ -25,7 +25,7 @@ public class NewHoleTests
 
     private static void PlayOut(World world)
     {
-        for (var i = 0; i < 120_000 && !(world.Groups.Count > 0 && world.Groups.All(g => g.Finished)); i++)
+        for (var i = 0; i < 120_000 && world.Groups.Any(g => !g.Finished); i++)
         {
             world.Step();
         }
@@ -74,9 +74,9 @@ public class NewHoleTests
     public void FourthHole_IsPlayedByAGroup_ThenRemoved()
     {
         var world = WithFourthHole(1);
-        world.SpawnGroup();
+        var group = world.SpawnGroup();
         PlayOut(world);
-        Assert.All(world.Groups[0].Golfers, g =>
+        Assert.All(group.Golfers, g =>
         {
             Assert.Equal(4, g.Card!.HoleCount);
             Assert.True(g.Card.IsComplete);

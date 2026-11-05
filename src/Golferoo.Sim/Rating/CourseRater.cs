@@ -10,6 +10,9 @@ public static class CourseRater
 {
     public const int DefaultGames = 50;
 
+    /// <summary>Copie du terrain et de son parcours, à prendre sur le fil du monde avant de lancer <see cref="Rate"/> sur un autre (une retouche pendant le calcul ne la touche pas).</summary>
+    public static TerrainGrid Snapshot(TerrainGrid terrain) => Copy(terrain, SnapshotHoles(terrain));
+
     /// <summary>
     /// Fonction pure : même terrain, même graine, même saison, même note. Sans vent, sol sec et gazon de référence, avec les
     /// arbres <paramref name="worldTrees"/> (copie des arbres du monde, debout seulement ; par défaut les arbres isolés du terrain). Le terrain passé n'est jamais modifié : le calcul joue sur une copie (hauteurs, surfaces, repères),

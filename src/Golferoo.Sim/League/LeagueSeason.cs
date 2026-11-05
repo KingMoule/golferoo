@@ -485,15 +485,11 @@ public sealed class LeagueSeason
 
     private static LeagueChampion ReadChampion(SaveReader r) => new(r.Int(), r.Int(), r.Int());
 
-    /// <summary>
-    /// Saison relue. Depuis la v15 le fichier porte la liste des membres ; avant, ils sont ceux de la graine (40 et votre pro) et
-    /// <see cref="World"/> en fait des visiteurs du vivier. L'état qui change (année, journées, divisions, classements) vient du fichier.
-    /// </summary>
+    /// <summary>Saison relue : membres, année, journées, divisions, classements.</summary>
     internal static LeagueSeason Read(SaveReader r, ulong seed)
     {
-        var legacy = r.Version < 15;
         var (year, next, due, adjusted) = (r.Int(), r.Int(), r.Int(), r.Bool());
-        var members = legacy ? GenerateMembers(seed) : r.List(() => Member.ReadRoster(r));
+        var members = r.List(() => Member.ReadRoster(r));
         if (members.Count(m => m.IsPro) != 1 || members.Select(m => m.Id).Distinct().Count() != members.Count)
         {
             throw new InvalidDataException("Sauvegarde incohérente : membres de la ligue.");
@@ -502,7 +498,7 @@ public sealed class LeagueSeason
         var season = new LeagueSeason(seed, members) { Year = year, _next = next, _due = due, _adjusted = adjusted };
         foreach (var m in season.Members)
         {
-            m.ReadState(r, legacy);
+            m.ReadState(r);
         }
 
         List<Member> Group(List<int> ids) => [.. ids.Select(id => season._byId[id])];

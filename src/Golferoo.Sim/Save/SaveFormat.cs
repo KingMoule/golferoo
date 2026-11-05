@@ -10,10 +10,10 @@ namespace Golferoo.Sim.Save;
 /// </summary>
 internal static class SaveFormat
 {
-    internal const int Version = 23;
+    internal const int Version = 24;
 
-    /// <summary>La v11 se relit encore (pavillon placé au chargement), la v12 aussi (sans vivier ni file), la v13 aussi (sans humeur ni réactions), la v14 aussi (ligue de la graine, sans adhésion) ; avant, plus.</summary>
-    internal const int OldestReadable = 11;
+    /// <summary>Seules la version courante et la précédente se relisent (C30) : chaque branche de lecture d'une version plus vieille part avec elle.</summary>
+    internal const int OldestReadable = 23;
 
     /// <summary>Plafond du corps, compressé comme décompressé, à la lecture.</summary>
     internal const int MaxBodyBytes = 64 * 1024 * 1024;

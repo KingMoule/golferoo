@@ -34,15 +34,16 @@ public class CourseTests
     // (champs complets), les neuf cas redonnent exactement leurs sommes d'avant.
     // C15 / le neuf (retour à ×3) : les six sommes de coups changent, cause unique = aiWalkSpeedFactor revenu de 2,25 à 3,0 (décision de Guillaume, C15 décision 17) ;
     // les trois de « blank-coude », sans coup, non. Contrôle (vérifié) : avec aiWalkSpeedFactor = 2,25, les six cas redonnent exactement leurs sommes d'avant.
-    [InlineData("proto-par4", 1UL, 3711037144600937672UL)]
-    [InlineData("proto-par4", 2UL, 10179664884702043587UL)]
-    [InlineData("proto-par4", 3UL, 10182433686970319879UL)]
-    [InlineData("dogleg-par4", 1UL, 1780475286739419122UL)]
-    [InlineData("dogleg-par4", 2UL, 12697855671636058638UL)]
-    [InlineData("dogleg-par4", 3UL, 15100248235214984295UL)]
-    [InlineData("blank-coude", 1UL, 14396232534195343460UL)]
-    [InlineData("blank-coude", 2UL, 7501799876684053930UL)]
-    [InlineData("blank-coude", 3UL, 7192084681290619108UL)]
+    // C30 : les neuf sommes changent, cause unique = la somme mêle désormais tout l'état sans condition (identifiants, points de passage, champs en cache, cartes, groupes, climat).
+    [InlineData("proto-par4", 1UL, 15867487919222624959UL)]
+    [InlineData("proto-par4", 2UL, 11394419667954730232UL)]
+    [InlineData("proto-par4", 3UL, 6071857472907593473UL)]
+    [InlineData("dogleg-par4", 1UL, 6914444821307349037UL)]
+    [InlineData("dogleg-par4", 2UL, 9166563175101418450UL)]
+    [InlineData("dogleg-par4", 3UL, 12694754146728932475UL)]
+    [InlineData("blank-coude", 1UL, 5280810134721405401UL)]
+    [InlineData("blank-coude", 2UL, 1253445882585647932UL)]
+    [InlineData("blank-coude", 3UL, 5506356485139150733UL)]
     public void SingleHoleChecksumIsUnchanged(string hole, ulong seed, ulong expected)
     {
         var terrain = CourseLoader.Load(Path.Combine(HoleDir(), hole + ".json"), 2);

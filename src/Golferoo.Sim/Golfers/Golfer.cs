@@ -223,55 +223,32 @@ public sealed class Golfer
         golfer.InLeague = r.Bool();
         golfer.WaypointIndex = r.Int();
         golfer.Card = r.Bool() ? ScoreCard.Read(r) : null;
-        if (r.Version >= 13)
+        golfer.VisitorId = r.Int();
+        golfer.Mood = r.Int();
+        golfer.Quit = r.Bool();
+        var occurrences = r.List(r.Int);
+        golfer.WaitTicks = r.Int();
+        if (occurrences.Count != MoodParams.EventCount || golfer.Mood is < MoodParams.Min or > MoodParams.Max || occurrences.Any(o => o < 0) || golfer.WaitTicks < 0)
         {
-            golfer.VisitorId = r.Int();
+            throw new InvalidDataException("Sauvegarde incohérente : humeur d'un golfeur.");
         }
 
-        if (r.Version >= 14)
+        occurrences.CopyTo(golfer.Occurrences);
+        golfer.LikedHoles = r.Int();
+        golfer.LikedThisHole = r.Bool();
+        if (golfer.LikedHoles < 0)
         {
-            golfer.Mood = r.Int();
-            golfer.Quit = r.Bool();
-            var occurrences = r.List(r.Int);
-            golfer.WaitTicks = r.Int();
-            if (r.Version < 18 && occurrences.Count == MoodParams.EventCount - 1)
-            {
-                occurrences.Add(0); // sauvegarde d'avant C17 lot 2 : l'événement « service visité » n'existait pas
-            }
-
-            if (occurrences.Count != MoodParams.EventCount || golfer.Mood is < MoodParams.Min or > MoodParams.Max || occurrences.Any(o => o < 0) || golfer.WaitTicks < 0)
-            {
-                throw new InvalidDataException("Sauvegarde incohérente : humeur d'un golfeur.");
-            }
-
-            occurrences.CopyTo(golfer.Occurrences);
+            throw new InvalidDataException("Sauvegarde incohérente : trous aimés d'un golfeur.");
         }
 
-        if (r.Version >= 15)
+        golfer.Offered = r.Byte();
+        golfer.VisitKind = (Buildings.BuildingKind)r.Byte();
+        golfer.VisitDoor = r.Point();
+        golfer.Resume = (GolferState)r.Byte();
+        if (!Enum.IsDefined(golfer.VisitKind) || !Enum.IsDefined(golfer.Resume) || golfer.Resume == GolferState.Visiting
+            || (golfer.State == GolferState.Visiting && golfer.VisitKind is not (Buildings.BuildingKind.SnackBar or Buildings.BuildingKind.ProShop)))
         {
-            golfer.LikedHoles = r.Int();
-            golfer.LikedThisHole = r.Bool();
-            if (golfer.LikedHoles < 0)
-            {
-                throw new InvalidDataException("Sauvegarde incohérente : trous aimés d'un golfeur.");
-            }
-        }
-        else if (r.Version < 14 && golfer.VisitorId >= 0)
-        {
-            golfer.Mood = MoodParams.Default.Start; // sauvegarde v13 : les visiteurs en jeu repartent avec l'humeur de départ
-        }
-
-        if (r.Version >= 18)
-        {
-            golfer.Offered = r.Byte();
-            golfer.VisitKind = (Buildings.BuildingKind)r.Byte();
-            golfer.VisitDoor = r.Point();
-            golfer.Resume = (GolferState)r.Byte();
-            if (!Enum.IsDefined(golfer.VisitKind) || !Enum.IsDefined(golfer.Resume) || golfer.Resume == GolferState.Visiting
-                || (golfer.State == GolferState.Visiting && golfer.VisitKind is not (Buildings.BuildingKind.SnackBar or Buildings.BuildingKind.ProShop)))
-            {
-                throw new InvalidDataException("Sauvegarde incohérente : visite d'un golfeur.");
-            }
+            throw new InvalidDataException("Sauvegarde incohérente : visite d'un golfeur.");
         }
 
         return golfer;
