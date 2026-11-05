@@ -3,6 +3,7 @@ using Golferoo.Sim.League;
 using Golferoo.Sim.Rating;
 using Golferoo.Sim.Shots;
 using Golferoo.Sim.Terrain;
+using Golferoo.Sim.Time;
 
 namespace Golferoo.Sim.Tests;
 
@@ -131,6 +132,63 @@ public class CoursePlayTests
         }
 
         Assert.True(second.Released);
+    }
+
+    [Fact]
+    public void Partners_WaitApartAtTheTee_AndTheShooterHitsFromTheBall()
+    {
+        var world = new World(2, CourseTests.ThreeHoles());
+        var group = world.SpawnGroup(4);
+        var waited = new int[4];
+        var previous = group.Golfers.Select(g => g.State).ToArray();
+        var minGap = double.MaxValue;
+        for (var t = 0; t < MaxTicks && group.Golfers.Any(g => g.Strokes == 0); t++)
+        {
+            world.Step();
+            for (var i = 0; i < 4; i++)
+            {
+                var g = group.Golfers[i];
+                waited[i] = g.State == GolferState.WaitingTurn && g.Strokes == 0 ? waited[i] + 1 : 0;
+                if (g.State == GolferState.Swinging && previous[i] != GolferState.Swinging)
+                {
+                    Assert.True(Dist2(g.Position, g.Ball) < 1e-6, $"le golfeur {i} frappe à {Math.Sqrt(Dist2(g.Position, g.Ball)):0.0} m de sa balle");
+                }
+
+                previous[i] = g.State;
+            }
+
+            for (var i = 0; i < 4; i++)
+            {
+                for (var j = i + 1; j < 4; j++)
+                {
+                    if (waited[i] > 40 && waited[j] > 40)
+                    {
+                        minGap = Math.Min(minGap, Math.Sqrt(Dist2(group.Golfers[i].Position, group.Golfers[j].Position)));
+                    }
+                }
+            }
+        }
+
+        Assert.NotEqual(double.MaxValue, minGap);
+        Assert.True(minGap >= 1.5, $"deux golfeurs en attente à {minGap:0.00} m");
+    }
+
+    /// <summary>Un seul trou, des visiteurs en rafale : le plafond de groupes sur le parcours ne retient plus le suivant tant que celui de devant n'a pas fini le trou, il le libère dès qu'il est sur le green.</summary>
+    [Fact]
+    public void ArrivalsGroup_LeavesOnceTheOneAheadIsOnTheGreen_NotOnceItHasFinishedTheHole()
+    {
+        var terrain = CourseLoader.Load(Path.Combine(Path.GetDirectoryName(TerrainTests.HolePath())!, "proto-par4.json"), 2);
+        var world = new World(1, terrain, new StubShotResolver(), league: false, placeClubhouse: true, arrivals: ArrivalParams.Default with { GroupsPerDay = 400 });
+        var onCourse = 0;
+        var freed = 0; // ticks où plus de groupes que le plafond à l'ancienne sont sur le parcours
+        for (var t = 0; t < 3 * Calendar.TicksPerDay; t++)
+        {
+            world.Step();
+            onCourse = world.Groups.Count(g => g.Released && !g.Finished && !g.Leaving);
+            freed += onCourse > world.Arrivals.MaxGroupsPerHole ? 1 : 0;
+        }
+
+        Assert.True(freed > 0, "jamais plus de groupes que le plafond sur le parcours : la règle ne libère rien");
     }
 
     private static double Dist2(Point2 a, Point2 b) => ((a.X - b.X) * (a.X - b.X)) + ((a.Z - b.Z) * (a.Z - b.Z));

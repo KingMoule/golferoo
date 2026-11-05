@@ -360,6 +360,7 @@ public class VisitTests
         Assert.NotNull(walker);
         Assert.NotEqual(0, walker.Offered);
         var loaded = Load(Save(world));
+        loaded.BuildingRules = Sure; // les règles ne se sauvent pas : le monde chargé reprend celles du monde d'origine
         var twin = loaded.Groups.SelectMany(g => g.Golfers).Single(g => g.Id == walker.Id);
 
         Assert.Equal((walker.State, walker.VisitKind, walker.VisitDoor, walker.Resume, walker.Offered), (twin.State, twin.VisitKind, twin.VisitDoor, twin.Resume, twin.Offered));

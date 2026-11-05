@@ -44,7 +44,7 @@ public sealed partial class World
     private readonly List<Building> _placed = [];
 
     /// <summary>Taille, prix et déblocage des genres (<c>data/buildings/buildings.json</c>).</summary>
-    public BuildingParams BuildingRules { get; private set; } = BuildingParams.Default;
+    public BuildingParams BuildingRules { get; internal set; } = BuildingParams.Default;
 
     /// <summary>Bâtiments et bancs posés, dans l'ordre de pose (le pavillon n'y est pas).</summary>
     public IReadOnlyList<Building> PlacedBuildings => _placed;
