@@ -189,21 +189,11 @@ public sealed class GameState
         YearObjectives = 0;
     }
 
-    /// <summary>Un état que rien n'a touché ne change pas la somme de contrôle (les mondes sans partie gardent leurs empreintes).</summary>
-    internal bool Untouched =>
-        !ObjectivesOn && ClubActive == _clubActiveAtStart && !ThoughtRead && AdviceGiven == 0 && Walkouts == 0 && _holeIdle.All(d => d == 0) && Completed == 0 && !Bankrupt && !ContinuedAfterBankruptcy && MonthsBelow == 0 && YearStartBalance == _startingBalance
-        && RainFreeDays == 0 && YearGolfers == 0 && YearMoodTotal == 0 && YearObjectives == 0 && _reports.Count == 0 && _vouchers.All(v => v == 0);
-
     internal void Mix(ref ulong hash)
     {
-        if (Untouched)
-        {
-            return;
-        }
-
         World.Mix(ref hash, 0x47414D45UL);
         World.Mix(ref hash, Completed);
-        World.Mix(ref hash, (ObjectivesOn ? 1UL : 0UL) | (Bankrupt ? 2UL : 0UL) | (ContinuedAfterBankruptcy ? 4UL : 0UL) | (ClubActive != _clubActiveAtStart ? 8UL : 0UL) | (ThoughtRead ? 16UL : 0UL) | ((ulong)(uint)MonthsBelow << 8));
+        World.Mix(ref hash, (ObjectivesOn ? 1UL : 0UL) | (Bankrupt ? 2UL : 0UL) | (ContinuedAfterBankruptcy ? 4UL : 0UL) | (ClubActive ? 8UL : 0UL) | (ThoughtRead ? 16UL : 0UL) | ((ulong)(uint)MonthsBelow << 8));
         World.Mix(ref hash, (ulong)YearStartBalance);
         World.Mix(ref hash, ((ulong)(uint)YearGolfers << 32) | (uint)YearObjectives);
         World.Mix(ref hash, (ulong)YearMoodTotal);
@@ -260,28 +250,18 @@ public sealed class GameState
 
         vouchers.CopyTo(state._vouchers);
         state._reports.AddRange(r.List(() => YearReport.Read(r)));
-        if (r.Version >= 21)
+        (state.ClubActive, state.ThoughtRead) = (r.Bool(), r.Bool());
+        (state.AdviceGiven, state.Walkouts) = (r.ULong(), r.Int());
+        state._holeIdle.AddRange(r.List(r.Int));
+        if (state.Walkouts < 0 || state._holeIdle.Count > 1024 || state._holeIdle.Any(d => d < -1) || state.AdviceGiven >> AdviceCatalog.Default.Count != 0)
         {
-            (state.ClubActive, state.ThoughtRead) = (r.Bool(), r.Bool());
+            throw new InvalidDataException("Sauvegarde incohérente : conseils ou jours sans partie.");
         }
 
-        if (r.Version >= 22)
+        state.RainFreeDays = r.Int();
+        if (state.RainFreeDays < 0)
         {
-            (state.AdviceGiven, state.Walkouts) = (r.ULong(), r.Int());
-            state._holeIdle.AddRange(r.List(r.Int));
-            if (state.Walkouts < 0 || state._holeIdle.Count > 1024 || state._holeIdle.Any(d => d < -1) || state.AdviceGiven >> AdviceCatalog.Default.Count != 0)
-            {
-                throw new InvalidDataException("Sauvegarde incohérente : conseils ou jours sans partie.");
-            }
-        }
-
-        if (r.Version >= 23)
-        {
-            state.RainFreeDays = r.Int();
-            if (state.RainFreeDays < 0)
-            {
-                throw new InvalidDataException("Sauvegarde incohérente : jours sans pluie.");
-            }
+            throw new InvalidDataException("Sauvegarde incohérente : jours sans pluie.");
         }
 
         return state;

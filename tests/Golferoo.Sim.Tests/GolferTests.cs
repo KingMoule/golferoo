@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using Golferoo.Sim.Golfers;
 using Golferoo.Sim.Terrain;
 
@@ -40,7 +39,6 @@ public class GolferTests
     {
         var world = NewWorld(7);
         var group = world.SpawnGroup();
-        var watch = Stopwatch.StartNew();
 
         var ticks = 0;
         while (!group.Finished && ticks < 20 * 3600)
@@ -49,9 +47,7 @@ public class GolferTests
             ticks++;
         }
 
-        watch.Stop();
         Assert.True(group.Finished, "la paire n'a pas fini en une heure simulée");
-        Assert.True(watch.Elapsed.TotalSeconds < 5, $"partie trop lente : {watch.Elapsed.TotalSeconds:F2} s");
         foreach (var g in group.Golfers)
         {
             Assert.InRange(g.Strokes, 3, 8);

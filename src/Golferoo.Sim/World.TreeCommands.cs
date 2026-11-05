@@ -141,11 +141,14 @@ public sealed partial class World
         return true;
     }
 
-    private bool ApplyRazeArea(TerrainGrid terrain, Point2 center, double radius, bool keepRemarkable)
+    /// <summary>Ce que coûterait maintenant <see cref="RazeArea"/> sur ce disque (arbres, troncs couchés et sous-bois), en cents : le devis que montre l'outil.</summary>
+    public long QuoteRazeArea(Point2 center, double radius, bool keepRemarkable) => RazeAreaCost(RequireTerrain(), center, radius, keepRemarkable, out _);
+
+    private long RazeAreaCost(TerrainGrid terrain, Point2 center, double radius, bool keepRemarkable, out HashSet<int> doomed)
     {
         var near = new List<Tree>();
         Trees.Query(center.X, center.Z, radius, near);
-        var doomed = new HashSet<int>();
+        doomed = [];
         var cost = 0L;
         foreach (var t in near)
         {
@@ -155,16 +158,15 @@ public sealed partial class World
             }
 
             doomed.Add(t.Id);
-            cost += t.State switch
-            {
-                TreeState.Standing => Economy.RazeCost(t),
-                TreeState.Fallen => Economy.TreeClearFallen,
-                _ => 0,
-            };
+            cost += TreeRemovalCost(t);
         }
 
-        var cells = terrain.CountPaint(center, radius, Surface.Rough, Surface.Trees);
-        if (!TrySpend(LedgerCategory.Trees, cost + PerCell(terrain, cells, Economy.TreeClearPerM2)))
+        return cost + PerCell(terrain, terrain.CountPaint(center, radius, Surface.Rough, Surface.Trees), Economy.TreeClearPerM2);
+    }
+
+    private bool ApplyRazeArea(TerrainGrid terrain, Point2 center, double radius, bool keepRemarkable)
+    {
+        if (!TrySpend(LedgerCategory.Trees, RazeAreaCost(terrain, center, radius, keepRemarkable, out var doomed)))
         {
             return false;
         }
@@ -199,7 +201,7 @@ public sealed partial class World
             return false;
         }
 
-        if (terrain.SurfaceAt(c.X, c.Z) is Surface.Water or Surface.Green or Surface.Tee or Surface.Bunker or Surface.Trees or Surface.Path)
+        if (!CanPlantOn(terrain.SurfaceAt(c.X, c.Z)))
         {
             return false;
         }
@@ -255,6 +257,23 @@ public sealed partial class World
         NotifyTrees(terrain, c.X, c.Z, c.X, c.Z);
         return true;
     }
+
+    /// <summary>
+    /// Surfaces où un arbre peut se tenir, la seule règle : la plantation, la peinture et le bulldozer la lisent. Ni l'eau, ni le green, le départ, le bunker
+    /// ou le chemin ; le sous-bois porte les arbres qu'il fait pousser.
+    /// </summary>
+    public static bool CanStand(Surface surface) => surface is Surface.Fairway or Surface.Rough or Surface.Trees;
+
+    /// <summary>Surfaces où l'on plante : celles où un arbre tient (<see cref="CanStand"/>), sauf le sous-bois, qui se remplit seul.</summary>
+    public static bool CanPlantOn(Surface surface) => CanStand(surface) && surface != Surface.Trees;
+
+    /// <summary>Prix d'abattage d'un arbre (C14) : debout au tarif de son essence (remarquable ×2), tronc couché au dégagement, souche gratuite.</summary>
+    private long TreeRemovalCost(Tree t) => t.State switch
+    {
+        TreeState.Standing => Economy.RazeCost(t),
+        TreeState.Fallen => Economy.TreeClearFallen,
+        _ => 0,
+    };
 
     /// <summary>Distance minimale d'une plantation à une souche, en mètres.</summary>
     private const double StumpClearance = 1.5;

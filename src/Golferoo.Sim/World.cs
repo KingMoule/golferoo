@@ -385,9 +385,13 @@ public sealed partial class World
     /// <summary>Ajoute une paire de golfeurs à la file du départ du trou 1. Elle part quand la précédente a quitté la zone de départ et que ses balles sont loin (<see cref="DepartureGap"/>) ou sur le green.</summary>
     public Group SpawnGroup() => HoleOpen ? AddGroup(2, null, -1) : throw new InvalidOperationException("Le trou est fermé : il manque encore quelque chose (HoleCheck).");
 
-    /// <summary>Partie d'entraînement : votre pro seul, hors ligue (sa carte ne compte pas pour son handicap). Exige la ligue.</summary>
-    public Group StartProRound() =>
-        AddGroup(1, [(League ?? throw new InvalidOperationException("Pas de ligue, donc pas de pro.")).Members.First(m => m.IsPro)], -1);
+    /// <summary>Vrai si une partie d'entraînement peut partir : une ligue (donc un pro) et un pro qui ne joue dans aucun groupe.</summary>
+    public bool CanStartProRound => League is not null && Terrain is not null && !ProPlays;
+
+    /// <summary>Partie d'entraînement : votre pro seul, hors ligue (sa carte ne compte pas pour son handicap). Exige <see cref="CanStartProRound"/>.</summary>
+    public Group StartProRound() => CanStartProRound
+        ? AddGroup(1, [League!.Members.First(m => m.IsPro)], -1)
+        : throw new InvalidOperationException("Pas de ligue, ou le pro joue déjà.");
 
     /// <summary>Groupe de <paramref name="count"/> golfeurs ; ceux d'une journée de ligue portent leur membre et son niveau.</summary>
     private Group AddGroup(int count, Member[]? members, int leagueRound)
@@ -535,8 +539,16 @@ public sealed partial class World
         }
     }
 
-    /// <summary>Réglage de vue posé par le jeu (vitesse ×4 et plus), pas un état de la partie : ni sauvé ni dans la somme de contrôle. Les golfeurs IA marchent alors <see cref="ArrivalParams.FastWalkFactor"/> fois plus vite.</summary>
-    public bool FastForward { get; set; }
+    /// <summary>
+    /// Avance rapide (vitesse ×4 et plus) : les golfeurs IA marchent <see cref="ArrivalParams.FastWalkFactor"/> fois plus vite. Elle change la partie,
+    /// donc elle se pose par commande (<see cref="SetFastForward"/>) au début du tick suivant, et entre dans la sauvegarde et la somme de contrôle.
+    /// </summary>
+    public bool FastForward { get; private set; }
+
+    private bool? _fastForwardCommand;
+
+    /// <summary>Met en file le passage en avance rapide ou son retour ; sans effet si rien ne change.</summary>
+    public void SetFastForward(bool on) => _fastForwardCommand = on == FastForward ? null : on;
 
     public void Step()
     {
@@ -548,6 +560,12 @@ public sealed partial class World
         ApplyTurfCommands();
         ApplyProShots();
         ApplyJoins();
+        if (_fastForwardCommand is { } fast)
+        {
+            FastForward = fast;
+            _fastForwardCommand = null;
+        }
+
         while (_ratingCommands.Count > 0)
         {
             ApplyRating(_ratingCommands.Dequeue());
@@ -567,11 +585,9 @@ public sealed partial class World
                 UpdateGroup(Terrain, i);
             }
 
-            if (_groupLeft)
-            {
-                _groups.RemoveAll(g => g.Left);
-                _groupLeft = false;
-            }
+            // Un groupe venu du pavillon part quand il l'a rejoint ; les autres (ligue, entraînement du pro, groupe de test) dès que tous sont au point de sortie,
+            // leurs cartes déjà rendues. Aucun groupe fini ne reste dans le monde.
+            _groups.RemoveAll(static g => g.Left || (!g.FromArrivals && g.Finished));
 
             AdvancePlans(Terrain);
 
@@ -588,14 +604,21 @@ public sealed partial class World
         {
             EndOfDay(day);
             Terrain?.Turf.NextDay(Season, WeatherOn(day).Sky >= Sky.Rain, DayIndex);
-            if (Terrain is not null && PinPicker.Pick(Terrain, Seed, DayIndex) is { } pin)
+            if (Terrain is not null)
             {
-                Terrain.Course[1].MovePin(pin);
+                foreach (var hole in Terrain.Course.Holes)
+                {
+                    if (PinPicker.Pick(Terrain, hole, Seed, DayIndex) is { } pin)
+                    {
+                        hole.MovePin(pin);
+                    }
+                }
             }
 
             RefreshSoil();
             EvaluateObjectives();
             EvaluateAdvice();
+            EnforceLeagueDeadline();
             if (League?.OnNewDay(DayIndex, WeatherOn(DayIndex).Sky == Sky.HeavyRain, Tick) is { } round)
             {
                 for (var n = 0; n < round.Pairs.Count; n++)
@@ -679,21 +702,37 @@ public sealed partial class World
         Mix(ref hash, (ulong)_dayOffset);
         Mix(ref hash, ((ulong)(uint)_skyOverrideDay << 16) ^ ((ulong)_skyOverride << 8) ^ (ulong)_rainyDays);
         Mix(ref hash, _rng.StateHash());
+        foreach (var table in new[] { _climate.RainChance, _climate.HeavyRainChance, _climate.CloudChance, _climate.WindMean, _climate.WindSpread })
+        {
+            foreach (var v in table)
+            {
+                Mix(ref hash, (ulong)BitConverter.DoubleToInt64Bits(v));
+            }
+        }
         if (Terrain is not null)
         {
             Mix(ref hash, Terrain.Checksum());
             Mix(ref hash, Terrain.Turf.Checksum());
         }
 
-        if (Flow is { Pending.Count: > 0 })
+        Mix(ref hash, (ulong)_woodlandDraws);
+        Mix(ref hash, (ulong)_nextGolferId);
+        Mix(ref hash, (ulong)_waypoints.Count);
+        foreach (var w in _waypoints)
         {
-            Mix(ref hash, (ulong)Flow.Pending.Count);
-            foreach (var (key, origin) in Flow.Pending)
+            Mix(ref hash, (ulong)BitConverter.DoubleToInt64Bits(w.X));
+            Mix(ref hash, (ulong)BitConverter.DoubleToInt64Bits(w.Z));
+        }
+
+        if (Flow is not null)
+        {
+            // Les champs en attente et en cache décident de qui marche ce tick-là (un champ borné : son origine décide de sa couverture).
+            foreach (var list in new[] { Flow.Pending, Flow.Cached.ToList() })
             {
-                Mix(ref hash, (ulong)key);
-                if (origin >= 0)
+                Mix(ref hash, (ulong)list.Count);
+                foreach (var (key, origin) in list)
                 {
-                    Mix(ref hash, (uint)origin | (1UL << 63)); // un champ borné : son origine décide de sa couverture
+                    Mix(ref hash, ((ulong)(uint)key << 32) | (uint)origin);
                 }
             }
         }
@@ -714,17 +753,21 @@ public sealed partial class World
             Mix(ref hash, (byte)c.GreenSpeed | ((ulong)(byte)c.FairwayFirmness << 8) | ((ulong)(byte)c.RoughLength << 16));
         }
 
+        Mix(ref hash, CourseRating is null ? 0UL : 1UL);
         if (CourseRating is { } rating)
         {
             MixRating(ref hash, rating);
         }
 
+        Mix(ref hash, (uint)TreeCommandsRefused | ((ulong)(uint)TreesPlanted << 32));
+        Mix(ref hash, League is null ? 0UL : 1UL);
         League?.MixInto(ref hash);
         MixPro(ref hash);
+        Mix(ref hash, (FastForward ? 1UL : 0UL) | (_fastForwardCommand switch { null => 0UL, false => 2UL, true => 4UL }));
 
+        Mix(ref hash, (ulong)_ratingCommands.Count);
         foreach (var c in _ratingCommands)
         {
-            Mix(ref hash, 1UL);
             MixRating(ref hash, c);
         }
 
@@ -735,7 +778,7 @@ public sealed partial class World
             Mix(ref hash, (ulong)BitConverter.DoubleToInt64Bits(b.Z));
         }
 
-        Mix(ref hash, (ulong)Trees.Count);
+        Mix(ref hash, (uint)Trees.Count | ((ulong)(uint)Trees.NextId << 32));
         foreach (var t in Trees.Trees)
         {
             Mix(ref hash, (ulong)t.Id);
@@ -748,17 +791,11 @@ public sealed partial class World
         Mix(ref hash, (ulong)_groups.Count);
         foreach (var group in _groups)
         {
-            Mix(ref hash, group.Started ? 1UL : 0UL);
-            if (group.Hole > 1 || !group.Released)
-            {
-                // Un trou seul, groupe parti : rien à ajouter, la somme reste celle d'avant le parcours.
-                Mix(ref hash, ((ulong)group.Hole << 1) | (group.Released ? 1UL : 0UL));
-            }
-
-            if (group.FromArrivals)
-            {
-                Mix(ref hash, (ulong)group.ArrivedTick);
-            }
+            Mix(ref hash, (ulong)(uint)group.Id | ((ulong)(uint)group.LeagueRound << 32));
+            Mix(ref hash, (group.Started ? 1UL : 0UL) | (group.Released ? 2UL : 0UL) | ((ulong)(uint)group.Hole << 8));
+            Mix(ref hash, (ulong)group.ReleaseTick);
+            Mix(ref hash, (ulong)group.ArrivedTick);
+            Mix(ref hash, (ulong)group.Golfers.Count);
 
             foreach (var g in group.Golfers)
             {
@@ -778,34 +815,17 @@ public sealed partial class World
     private static void MixGolfer(ref ulong hash, Golfer g)
     {
         Mix(ref hash, (ulong)g.Id);
-        if (g.MemberId >= 0)
+        Mix(ref hash, (ulong)(uint)g.MemberId | ((ulong)(uint)g.VisitorId << 32));
+        Mix(ref hash, g.Offered | ((ulong)g.VisitKind << 8) | ((ulong)g.Resume << 16) | (g.InLeague ? 1UL << 24 : 0UL));
+        Mix(ref hash, (ulong)BitConverter.DoubleToInt64Bits(g.VisitDoor.X));
+        Mix(ref hash, (ulong)BitConverter.DoubleToInt64Bits(g.VisitDoor.Z));
+        Mix(ref hash, (ulong)(uint)(g.Mood - MoodParams.Min) | (g.Quit ? 1UL << 8 : 0UL) | ((ulong)(uint)g.WaitTicks << 16));
+        foreach (var o in g.Occurrences)
         {
-            Mix(ref hash, (ulong)g.MemberId);
+            Mix(ref hash, (ulong)o);
         }
 
-        if (g.VisitorId >= 0)
-        {
-            Mix(ref hash, (ulong)g.VisitorId);
-        }
-
-        if (g.Offered != 0 || g.State == GolferState.Visiting)
-        {
-            Mix(ref hash, g.Offered | ((ulong)g.VisitKind << 8) | ((ulong)g.Resume << 16));
-        }
-
-        if (g.VisitorId >= 0)
-        {
-            Mix(ref hash, (ulong)(uint)(g.Mood - MoodParams.Min) | (g.Quit ? 1UL << 8 : 0UL) | ((ulong)(uint)g.WaitTicks << 16));
-            foreach (var o in g.Occurrences)
-            {
-                Mix(ref hash, (ulong)o);
-            }
-
-            if (g.LikedHoles != 0 || g.LikedThisHole)
-            {
-                Mix(ref hash, (ulong)(uint)g.LikedHoles | (g.LikedThisHole ? 1UL << 32 : 0UL));
-            }
-        }
+        Mix(ref hash, (ulong)(uint)g.LikedHoles | (g.LikedThisHole ? 1UL << 32 : 0UL));
 
         Mix(ref hash, (ulong)g.Profile);
         Mix(ref hash, (ulong)g.State);
@@ -834,12 +854,19 @@ public sealed partial class World
         Mix(ref hash, (ulong)BitConverter.DoubleToInt64Bits(g.Position.Z));
         Mix(ref hash, (ulong)BitConverter.DoubleToInt64Bits(g.Ball.X));
         Mix(ref hash, (ulong)BitConverter.DoubleToInt64Bits(g.Ball.Z));
-        if (g.Card is { HoleCount: > 1 } card)
+        Mix(ref hash, g.Card is null ? 0UL : 1UL);
+        if (g.Card is { } card)
         {
-            for (var h = 0; h < card.HoleCount; h++)
-            {
-                Mix(ref hash, (ulong)card.Strokes(h));
-            }
+            MixCard(ref hash, card);
+        }
+    }
+
+    private static void MixCard(ref ulong hash, ScoreCard card)
+    {
+        Mix(ref hash, (ulong)card.HoleCount);
+        for (var h = 0; h < card.HoleCount; h++)
+        {
+            Mix(ref hash, (uint)card.Par(h) | ((ulong)(uint)card.Strokes(h) << 8));
         }
     }
 

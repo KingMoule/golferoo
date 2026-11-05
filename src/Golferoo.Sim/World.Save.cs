@@ -47,7 +47,7 @@ public sealed partial class World
             throw new InvalidDataException("Sauvegarde illisible.", e);
         }
 
-        // Une v11 n'a ni pavillon, ni catégorie Buildings, ni clubhouseMove : sa somme de contrôle ne se refait plus (l'empreinte du corps garde l'intégrité).
+        // La somme d'une version précédente ne se refait plus (elle mêle depuis tout l'état) : l'empreinte du corps garde l'intégrité.
         return older || world.Checksum() == expected ? world : throw new InvalidDataException("Somme de contrôle fausse : la sauvegarde est corrompue.");
     }
 
@@ -154,6 +154,8 @@ public sealed partial class World
         w.List(_joinCommands, w.Int);
         w.List(_placed, b => b.Write(w));
         State.Write(w);
+        w.Bool(FastForward);
+        w.Byte(_fastForwardCommand switch { null => 0, false => 1, true => 2 });
     }
 
     /// <summary>Destination d'un champ de flux et origine de sa borne : la couverture d'un champ change qui attend son tour, elle se refait à l'identique.</summary>
@@ -163,7 +165,7 @@ public sealed partial class World
         w.Int(p.Origin);
     }
 
-    private static (int Key, int Origin) ReadFlowKey(SaveReader r) => (r.Int(), r.Version >= 19 ? r.Int() : -1);
+    private static (int Key, int Origin) ReadFlowKey(SaveReader r) => (r.Int(), r.Int());
 
     private static void WriteRating(SaveWriter w, CourseRating r)
     {
@@ -200,7 +202,7 @@ public sealed partial class World
         _nextGolferId = r.Int();
         _holesOpen = [.. r.List(r.Bool)];
         _holeCheckedVersion = r.Long();
-        Economy = EconomyParams.Parse(r.String(), olderSave: r.Version < 12);
+        Economy = EconomyParams.Parse(r.String());
         Progression = ProgressionParams.Parse(r.String());
         Ledger = Ledger.Read(r);
         TreeCommandsRefused = r.Int();
@@ -211,12 +213,12 @@ public sealed partial class World
         _waypoints.AddRange(r.List(r.Point));
         Terrain = r.Bool() ? TerrainGrid.Read(r) : null;
         Trees = Terrain is null ? TreeStand.Read(r, 1.0, 1.0, null) : TreeStand.Read(r, Terrain.CellsX * Terrain.CellSize, Terrain.CellsZ * Terrain.CellSize, Terrain);
-        _groups.AddRange(r.List(() => Group.Read(r, Tick)));
+        _groups.AddRange(r.List(() => Group.Read(r)));
         _roamers.AddRange(r.List(() => Golfer.Read(r)));
 
         foreach (var e in r.List(() => new TerrainEdit(r.Point(), r.Double(), (Surface)r.Byte(), r.Double(), (EditKind)r.Byte())))
         {
-            _edits.Enqueue(e.Kind <= EditKind.UndoStroke ? e : throw new InvalidDataException("Sauvegarde incohérente : retouche de genre inconnu."));
+            _edits.Enqueue(e.Kind <= EditKind.Bulldoze ? e : throw new InvalidDataException("Sauvegarde incohérente : retouche de genre inconnu."));
         }
 
         ReadStroke(r);
@@ -276,7 +278,6 @@ public sealed partial class World
             _proMemberId = League.Members.First(m => m.IsPro).Id;
         }
 
-        // Avant la v19, tous les champs étaient complets (origine -1).
         var pendingFlow = r.List(() => ReadFlowKey(r));
         var cachedFlow = r.List(() => ReadFlowKey(r));
         _manualPro = r.Bool();
@@ -285,7 +286,7 @@ public sealed partial class World
             throw new InvalidDataException("Pro joué à la main sans ligue.");
         }
 
-        if (r.Version >= 12 && r.Bool())
+        if (r.Bool())
         {
             Clubhouse = Building.Read(r);
             if (Terrain is null || Clubhouse.Footprint.MinX < 0 || Clubhouse.Footprint.MinZ < 0 || Clubhouse.Footprint.MaxX >= Terrain.CellsX || Clubhouse.Footprint.MaxZ >= Terrain.CellsZ)
@@ -297,59 +298,41 @@ public sealed partial class World
         Arrivals = ArrivalParams.Default;
         Moods = MoodParams.Default;
         Memberships = MembershipParams.Default;
-        if (r.Version >= 13)
-        {
-            _arrivalRng = DeterministicRng.Read(r);
-            Reputation = r.Double();
-            Visitors = VisitorPool.Read(r);
-            _nextGroupId = r.Int();
-        }
-        else
-        {
-            _arrivalRng = new DeterministicRng(Seed ^ ArrivalSeedMask);
-            Reputation = Arrivals.ReputationStart;
-            Visitors = new VisitorPool();
-            _nextGroupId = _groups.Count;
-        }
+        _arrivalRng = DeterministicRng.Read(r);
+        Reputation = r.Double();
+        Visitors = VisitorPool.Read(r);
+        _nextGroupId = r.Int();
 
         if (!double.IsFinite(Reputation) || Reputation is < 0.0 or > 1.0 || _groups.Any(g => g.Golfers.Any(o => o.VisitorId >= Visitors.Next)))
         {
             throw new InvalidDataException("Sauvegarde incohérente : réputation ou visiteur hors du vivier.");
         }
 
-        if (r.Version >= 14)
+        Reactions = Reactions.Read(r);
+        foreach (var id in r.List(r.Int))
         {
-            Reactions = Reactions.Read(r);
+            _joinCommands.Enqueue(id);
         }
 
-        if (r.Version >= 15)
+        _placed.AddRange(r.List(() => Building.Read(r)));
+        var all = _placed.Concat(Clubhouse is { } club ? [club] : []).ToList();
+        if (_placed.Any(b => b.Kind == BuildingKind.Clubhouse || Terrain is null || b.Footprint.MinX < 0 || b.Footprint.MinZ < 0 || b.Footprint.MaxX >= Terrain.CellsX || b.Footprint.MaxZ >= Terrain.CellsZ)
+            || all.Where((b, i) => Collides(b, all.Skip(i + 1))).Any())
         {
-            foreach (var id in r.List(r.Int))
+            throw new InvalidDataException("Sauvegarde incohérente : bâtiment hors de la carte ou superposé.");
+        }
+
+        State = GameState.Read(r, Economy.StartingMoney, Terrain is not { IsLesson: true });
+        if (r.Version >= 24)
+        {
+            FastForward = r.Bool();
+            _fastForwardCommand = r.Byte() switch
             {
-                _joinCommands.Enqueue(id);
-            }
-        }
-        else if (League is not null)
-        {
-            AdoptClub(); // avant la v15, les membres de la ligue n'étaient pas des visiteurs : les 40 de la graine le deviennent, mêmes handicap et division
-        }
-
-        if (r.Version >= 17)
-        {
-            _placed.AddRange(r.List(() => Building.Read(r)));
-            var all = _placed.Select(b => b.Footprint).Concat(Clubhouse is { } club ? [club.Footprint] : []).ToList();
-            if (_placed.Any(b => b.Kind == BuildingKind.Clubhouse || Terrain is null || b.Footprint.MinX < 0 || b.Footprint.MinZ < 0 || b.Footprint.MaxX >= Terrain.CellsX || b.Footprint.MaxZ >= Terrain.CellsZ)
-                || all.Where((a, i) => all.Skip(i + 1).Any(o => Overlaps(a, o))).Any())
-            {
-                throw new InvalidDataException("Sauvegarde incohérente : bâtiment hors de la carte ou superposé.");
-            }
-        }
-
-        var clubActive = Terrain is not { IsLesson: true };
-        State = r.Version >= 20 ? GameState.Read(r, Economy.StartingMoney, clubActive) : new GameState(Economy.StartingMoney, false, clubActive);
-        if (r.Version < 21 && !clubActive && HoleOpen)
-        {
-            State.ClubActive = true; // une leçon d'avant la v21 qui avait déjà son trou valide
+                0 => null,
+                1 => false,
+                2 => true,
+                _ => throw new InvalidDataException("Sauvegarde incohérente : commande d'avance rapide."),
+            };
         }
 
         if (State.Completed >> ObjectiveCatalog.Default.Count != 0)
@@ -377,11 +360,6 @@ public sealed partial class World
             }
 
             RefreshBenchBeauty();
-
-            if (r.Version < 12 && !Terrain.Blank)
-            {
-                PlaceClubhouseNearTee(); // sauvegarde v11 : le pavillon se place comme à une nouvelle partie
-            }
         }
     }
 }

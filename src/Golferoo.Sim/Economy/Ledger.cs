@@ -116,6 +116,26 @@ public sealed class Ledger
         return true;
     }
 
+    /// <summary>Comme <see cref="TrySpend(LedgerCategory, long, long?)"/>, pour un achat qui se répartit sur deux catégories : débitées ensemble ou pas du tout.</summary>
+    internal bool TrySpend(LedgerCategory first, long firstCost, LedgerCategory second, long secondCost, long? floor)
+    {
+        var cost = firstCost + secondCost;
+        if (cost > 0 && floor is { } f && Balance - cost < f)
+        {
+            Refused++;
+            PurchaseRefused?.Invoke(first, cost);
+            return false;
+        }
+
+        Post(first, -firstCost);
+        if (secondCost != 0)
+        {
+            Post(second, -secondCost);
+        }
+
+        return true;
+    }
+
     /// <summary>Clôt le mois <paramref name="month"/> : ses totaux passent dans l'historique et le mois en cours repart de zéro.</summary>
     internal LedgerMonth CloseMonth(long month)
     {
@@ -130,9 +150,6 @@ public sealed class Ledger
         MonthClosed?.Invoke(line);
         return line;
     }
-
-    /// <summary>Vrai tant que rien n'a bougé depuis le solde de départ.</summary>
-    internal bool Untouched => Balance == _start && Refused == 0 && _months.Count == 0 && _current.All(v => v == 0);
 
     internal void Mix(ref ulong hash)
     {
@@ -152,12 +169,6 @@ public sealed class Ledger
     {
         for (var i = 0; i < totals.Count; i++)
         {
-            // Objectives (v20) n'entre dans le hash que s'il est non nul : un club sans objectif garde son Checksum d'avant.
-            if (i == (int)LedgerCategory.Objectives && totals[i] == 0)
-            {
-                continue;
-            }
-
             World.Mix(ref hash, (ulong)totals[i]);
         }
     }
@@ -199,7 +210,7 @@ public sealed class Ledger
     private static long[] ReadTotals(SaveReader r)
     {
         var totals = new long[CategoryCount];
-        for (var i = 0; i < (r.Version < 12 ? CategoryCount - 2 : r.Version < 20 ? CategoryCount - 1 : CategoryCount); i++) // v11 : sans la catégorie Buildings, avant la v20 : sans Objectives
+        for (var i = 0; i < CategoryCount; i++)
         {
             totals[i] = r.Long();
         }

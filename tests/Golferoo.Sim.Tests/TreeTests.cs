@@ -218,7 +218,7 @@ public class TreeTests
         Assert.NotEqual(c0, c1);
         world.Trees.Remove(tree.Id);
         Assert.NotEqual(c1, world.Checksum());
-        Assert.Equal(c0, world.Checksum()); // mêmes arbres qu'au départ, même somme
+        Assert.NotEqual(c0, world.Checksum()); // mêmes arbres qu'au départ, mais le prochain identifiant a changé (C30)
     }
 
     [Fact]

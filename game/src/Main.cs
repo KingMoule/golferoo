@@ -89,6 +89,7 @@ public partial class Main : Node3D
     private bool _turfOverlay;
     private RatingJob? _ratingJob;
     private int _ratedHoles;
+    private bool _hadRating;
     private LeaguePanel? _league;
     private (long Version, string Text) _stimp = (-1, string.Empty);
     private string _message = string.Empty;
@@ -493,7 +494,7 @@ public partial class Main : Node3D
             _carryMessage = null;
         }
 
-        if (OS.GetCmdlineUserArgs().Contains("--pro") && World.League is not null)
+        if (OS.GetCmdlineUserArgs().Contains("--pro") && World.CanStartProRound)
         {
             // Test du pro : une partie d'entraînement part tout de suite.
             World.StartProRound();
@@ -508,7 +509,7 @@ public partial class Main : Node3D
             _accumulator += Math.Min(delta, 0.25) * Speed;
         }
 
-        World.FastForward = Speed >= 4;
+        World.SetFastForward(Speed >= 4);
         var steps = 0;
         while (_accumulator >= World.TickSeconds && steps < MaxTicksPerFrame)
         {
@@ -522,11 +523,13 @@ public partial class Main : Node3D
             _accumulator = 0;
         }
 
-        if (World.Terrain is { } rated && rated.Course.Count != _ratedHoles)
+        if ((World.Terrain is { } rated && rated.Course.Count != _ratedHoles) || (_hadRating && World.CourseRating is null))
         {
-            _ratedHoles = rated.Course.Count; // trou ajouté ou retiré : la sim a invalidé la note, on la refait
+            _ratedHoles = World.Terrain?.Course.Count ?? 0; // trou ajouté, retiré, départ ou drapeau déplacé : la sim a invalidé la note, on la refait
             _ratingJob?.Touch();
         }
+
+        _hadRating = World.CourseRating is not null;
 
         if (_ratingJob is null && !FpsBench.Active && World.League is not null && World.HoleOpen && World.Terrain is { Blank: true } blank)
         {
@@ -770,7 +773,7 @@ public partial class Main : Node3D
             case Key.G when _hud!.Visible:
                 SpawnGroup(); // débogage seulement : les groupes arrivent d'eux-mêmes par le pavillon
                 break;
-            case Key.L:
+            case Key.L when _hud!.Visible:
                 ToggleLoadMode();
                 break;
             case Key.J:
@@ -779,10 +782,10 @@ public partial class Main : Node3D
             case Key.O:
                 ProPanel?.Toggle();
                 break;
-            case Key.F10:
+            case Key.F10 when _hud!.Visible: // débogage, comme G
                 SkipToNextMonth();
                 break;
-            case Key.F9:
+            case Key.F9 when _hud!.Visible:
                 World.CycleSky();
                 break;
             default:
@@ -915,6 +918,12 @@ public partial class Main : Node3D
             GD.Print($"SAVE {slot} serialisation={ms:F2} ms tick={World.Tick}");
             Birdie.Post(Birdie.Club, "Partie sauvegardée. Le registre du club est à jour.", "#sauvegarde");
             return true;
+        }
+        catch (InvalidDataException e)
+        {
+            GD.PrintErr($"Sauvegarde {slot} refusée : {e.Message}");
+            Birdie.Post(Birdie.Club, $"Sauvegarde refusée : elle ne se relirait pas ({e.Message}). L'ancienne est gardée.", "#sauvegarde");
+            return false;
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException)
         {

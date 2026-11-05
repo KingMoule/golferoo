@@ -36,6 +36,37 @@ public sealed partial class World
     }
 
     /// <summary>
+    /// Met en file un coup de bulldozer : le disque repeint en rough et tous ses arbres abattus, remarquables compris, au prix de la peinture et de l'abattage.
+    /// Une seule retouche, annulable avec le reste du coup de pinceau comme une peinture (les arbres reviennent).
+    /// </summary>
+    public void Bulldoze(Point2 center, double radius)
+    {
+        RequireTerrain();
+        if (!double.IsFinite(radius) || radius <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(radius), radius, "Le rayon doit être fini et positif.");
+        }
+
+        _edits.Enqueue(new TerrainEdit(center, radius, Surface.Rough, 0.0, EditKind.Bulldoze));
+    }
+
+    /// <summary>Ce que coûterait maintenant la peinture de <paramref name="surface"/> sur ce disque, abattage des arbres retirés compris, en cents (le devis que montre l'outil).</summary>
+    public long QuotePaint(Point2 center, double radius, Surface surface) => Quote(center, radius, surface, bulldoze: false);
+
+    /// <summary>Ce que coûterait maintenant un coup de bulldozer sur ce disque, en cents.</summary>
+    public long QuoteBulldoze(Point2 center, double radius) => Quote(center, radius, Surface.Rough, bulldoze: true);
+
+    /// <summary>Ce que coûterait maintenant <see cref="RaiseTerrain"/> sur ce disque, en cents.</summary>
+    public long QuoteRaise(Point2 center, double radius, double deltaMeters) => ReliefPrice(RequireTerrain().RaiseVolume(center, radius, deltaMeters));
+
+    private long Quote(Point2 center, double radius, Surface surface, bool bulldoze)
+    {
+        var terrain = RequireTerrain();
+        return PerCell(terrain, terrain.CountPaint(center, radius, surface), Economy.PaintCost(surface))
+            + TreesLostToPaint(terrain, center, radius, surface, bulldoze).Sum(TreeRemovalCost);
+    }
+
+    /// <summary>
     /// Met en file une montée (ou baisse si négatif) du relief, profil en cosinus dans le rayon. Delta borné par appel
     /// (<see cref="TerrainGrid.MaxRaiseDelta"/>), hauteur bornée (<see cref="TerrainGrid.MinHeight"/> à <see cref="TerrainGrid.MaxHeight"/>).
     /// Appliquée au début du tick suivant, débitée selon le volume réellement déplacé (<see cref="TerrainGrid.RaiseVolume"/>) ou refusée entière
@@ -79,35 +110,42 @@ public sealed partial class World
             {
                 rect = UndoStrokeNow(terrain);
             }
-            else if (e.Kind == EditKind.Paint)
+            else if (e.Kind is EditKind.Paint or EditKind.Bulldoze)
             {
                 if (TouchesBuildings(terrain, e.Center, e.Radius))
                 {
                     continue; // l'emprise du pavillon ne se repeint pas
                 }
 
-                // Prix : cellules qui changent réellement, au tarif de la surface d'arrivée. Refusée par la limite de découvert, rien ne change.
+                // Prix : cellules qui changent réellement, au tarif de la surface d'arrivée, plus l'abattage des arbres que la peinture retire.
+                // Refusée par la limite de découvert, rien ne change.
+                var bulldoze = e.Kind == EditKind.Bulldoze;
+                var lost = TreesLostToPaint(terrain, e.Center, e.Radius, e.Surface, bulldoze);
                 var cost = PerCell(terrain, terrain.CountPaint(e.Center, e.Radius, e.Surface), Economy.PaintCost(e.Surface));
-                if (!terrain.KeepsWalkableCell(e.Center, e.Radius, e.Surface) || !TrySpend(LedgerCategory.Surfaces, cost))
+                var treesCost = lost.Sum(TreeRemovalCost);
+                if (!terrain.KeepsWalkableCell(e.Center, e.Radius, e.Surface) || !Ledger.TrySpend(LedgerCategory.Surfaces, cost, LedgerCategory.Trees, treesCost, OverdraftFloor))
                 {
                     continue;
                 }
 
                 _strokeSurfacesCost += cost;
-
-                // Arbres posés sur du sous-bois dans la zone : ceux qui perdent leur sous-bois sont retirés.
-                var onUnderbrush = e.Surface == Surface.Trees ? null : TreesOnUnderbrush(terrain, e.Center, e.Radius);
-                rect = terrain.PaintDisc(e.Center, e.Radius, e.Surface, _strokeSurfaces);
-                if (rect is { } painted)
+                _strokeTreesCost += treesCost;
+                foreach (var t in lost)
                 {
-                    if (e.Surface == Surface.Trees)
-                    {
-                        WoodlandGenerator.Fill(Trees, terrain, painted, NextWoodlandRng(), e.Center, e.Radius);
-                    }
-                    else if (onUnderbrush is { Count: > 0 })
-                    {
-                        Trees.RemoveWhere(t => onUnderbrush.Contains(t.Id) && terrain.SurfaceAt(t.X, t.Z) != Surface.Trees);
-                    }
+                    _strokeTrees.Add((t, terrain.SurfaceAt(t.X, t.Z)));
+                }
+
+                rect = terrain.PaintDisc(e.Center, e.Radius, e.Surface, _strokeSurfaces);
+                if (lost.Count > 0)
+                {
+                    var ids = lost.Select(t => t.Id).ToHashSet();
+                    Trees.RemoveWhere(t => ids.Contains(t.Id));
+                    NotifyTrees(terrain, e.Center.X - e.Radius, e.Center.Z - e.Radius, e.Center.X + e.Radius, e.Center.Z + e.Radius);
+                }
+
+                if (rect is { } painted && e.Surface == Surface.Trees)
+                {
+                    WoodlandGenerator.Fill(Trees, terrain, painted, NextWoodlandRng(), e.Center, e.Radius);
                 }
             }
             else
@@ -145,20 +183,30 @@ public sealed partial class World
 
     }
 
-    private HashSet<int> TreesOnUnderbrush(TerrainGrid terrain, Point2 center, double radius)
+    /// <summary>
+    /// Arbres que la peinture de <paramref name="surface"/> sur ce disque retire, par identifiant : ceux dont la cellule change et qui n'y tiennent plus
+    /// (<see cref="CanStand"/>), ou qui perdent le sous-bois qui les portait. Le bulldozer (<paramref name="all"/>) retire en plus tous ceux du disque.
+    /// </summary>
+    private List<Tree> TreesLostToPaint(TerrainGrid terrain, Point2 center, double radius, Surface surface, bool all)
     {
         var near = new List<Tree>();
         Trees.Query(center.X, center.Z, radius + terrain.CellSize, near);
-        var ids = new HashSet<int>();
+        var r2 = radius * radius;
+        var lost = new List<Tree>();
         foreach (var t in near)
         {
-            if (terrain.SurfaceAt(t.X, t.Z) == Surface.Trees)
+            var (cx, cz) = (terrain.CellXOf(t.X), terrain.CellZOf(t.Z));
+            var c = terrain.CellCenter(cx, cz);
+            var before = terrain.GetCellSurface(cx, cz);
+            var repainted = before != surface && Dist2(c.X, c.Z, center.X, center.Z) <= r2;
+            if ((all && Dist2(t.X, t.Z, center.X, center.Z) <= r2) || (repainted && (before == Surface.Trees || !CanStand(surface))))
             {
-                ids.Add(t.Id);
+                lost.Add(t);
             }
         }
 
-        return ids;
+        lost.Sort((a, b) => a.Id.CompareTo(b.Id));
+        return lost;
     }
 
     /// <summary>
@@ -226,5 +274,6 @@ public sealed partial class World
         Paint,
         BeginStroke,
         UndoStroke,
+        Bulldoze,
     }
 }

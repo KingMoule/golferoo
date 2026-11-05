@@ -41,16 +41,13 @@ public sealed class Course
         ? _holes[number - 1]
         : throw new ArgumentOutOfRangeException(nameof(number), number, $"Trou inexistant (1 à {_holes.Count}).");
 
-    /// <summary>Le trou 1 comme avant : départ, green et drapeau d'abord. Les trous suivants s'ajoutent avec leur numéro et leur par, ce qui laisse la somme d'un trou seul inchangée.</summary>
     internal void MixInto(ref ulong hash)
     {
+        TerrainGrid.Mix(ref hash, (ulong)_holes.Count);
         foreach (var h in _holes)
         {
-            if (h.Number > 1)
-            {
-                TerrainGrid.Mix(ref hash, (ulong)h.Number);
-                TerrainGrid.Mix(ref hash, (ulong)h.Par);
-            }
+            TerrainGrid.Mix(ref hash, (ulong)h.Number);
+            TerrainGrid.Mix(ref hash, (ulong)h.Par);
 
             foreach (var p in new[] { h.Tee, h.Green, h.Hole })
             {

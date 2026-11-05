@@ -64,16 +64,13 @@ public sealed class Visitor
     internal static Visitor Read(SaveReader r)
     {
         var v = new Visitor(r.Int(), r.String(), r.Double(), (Archetype)r.Byte(), r.Double()) { LastVisitDay = r.Int(), InPlay = r.Bool() };
-        if (r.Version >= 15)
+        (v.Points, v.Level, v.Resigned) = (r.Int(), (MemberLevel)r.Byte(), r.Bool());
+        if (v.Points < 0 || !Enum.IsDefined(v.Level) || (v.Resigned && v.Level != MemberLevel.Visitor))
         {
-            (v.Points, v.Level, v.Resigned) = (r.Int(), (MemberLevel)r.Byte(), r.Bool());
-            if (v.Points < 0 || !Enum.IsDefined(v.Level) || (v.Resigned && v.Level != MemberLevel.Visitor))
-            {
-                throw new InvalidDataException("Sauvegarde incohérente : adhésion d'un visiteur.");
-            }
+            throw new InvalidDataException("Sauvegarde incohérente : adhésion d'un visiteur.");
         }
 
-        if (r.Version >= 16 && (v.Games = r.Int()) < 0)
+        if ((v.Games = r.Int()) < 0)
         {
             throw new InvalidDataException("Sauvegarde incohérente : parties jouées d'un visiteur.");
         }

@@ -376,7 +376,7 @@ public class BallTreeTests
     [Fact]
     public void World_TreesAndSeasonChangeTheGame()
     {
-        static List<GolferView> Play(bool lattice, int skips)
+        static List<(Point2 Ball, int Strokes, GolferState State)> Play(bool lattice, int skips)
         {
             var terrain = HoleLoader.Load(TerrainTests.HolePath(), 2);
             var world = new World(seed: 9, terrain);
@@ -401,9 +401,9 @@ public class BallTreeTests
                 }
             }
 
-            world.SpawnGroup();
+            var group = world.SpawnGroup(); // gardé : un groupe fini quitte la liste du monde
             world.Step(2400);
-            return [.. world.Snapshot().Golfers];
+            return [.. group.Golfers.Select(g => (g.Ball, g.Strokes, g.State))];
         }
 
         const int ToJune = 2;

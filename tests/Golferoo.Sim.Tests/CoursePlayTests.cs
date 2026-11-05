@@ -15,7 +15,7 @@ public class CoursePlayTests
 
     private static void PlayOut(World world, Action? each = null)
     {
-        for (var i = 0; i < MaxTicks && !(world.Groups.Count > 0 && AllFinished(world)); i++)
+        for (var i = 0; i < MaxTicks && !AllFinished(world); i++)
         {
             world.Step();
             each?.Invoke();
@@ -95,18 +95,18 @@ public class CoursePlayTests
         Assert.False(world.IsHoleOpen(2));
         Assert.True(world.IsHoleOpen(3));
 
-        world.SpawnGroup();
+        var group = world.SpawnGroup();
         var seen = new List<int> { 1 };
         PlayOut(world, () =>
         {
-            if (world.Groups[0].Hole != seen[^1])
+            if (group.Hole != seen[^1])
             {
-                seen.Add(world.Groups[0].Hole);
+                seen.Add(group.Hole);
             }
         });
 
         Assert.Equal([1, 3], seen);
-        foreach (var g in world.Groups[0].Golfers)
+        foreach (var g in group.Golfers)
         {
             Assert.True(g.Card!.Strokes(0) > 0);
             Assert.Equal(0, g.Card.Strokes(1));

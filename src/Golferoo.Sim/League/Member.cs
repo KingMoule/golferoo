@@ -77,13 +77,8 @@ public sealed class Member
     }
 
     /// <summary>Relit l'état changeant. <paramref name="legacy"/> : avant la v15, il commence par l'opinion fixe de C06, qui n'existe plus.</summary>
-    internal void ReadState(SaveReader r, bool legacy)
+    internal void ReadState(SaveReader r)
     {
-        if (legacy)
-        {
-            _ = r.Int();
-        }
-
         SeasonPoints = r.Double();
         _cards.Clear();
         _cards.AddRange(r.List(() =>

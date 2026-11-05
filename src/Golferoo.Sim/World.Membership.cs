@@ -34,7 +34,7 @@ public sealed partial class World
     /// <summary>Le pro fait partie d'un groupe (partie d'entraînement, journée de ligue ou groupe de la file) : lecture seule, pour l'affichage.</summary>
     public bool ProPlaying => ProPlays;
 
-    private bool ProPlays => _groups.Any(g => g.Golfers.Any(IsPro));
+    private bool ProPlays => _groups.Any(g => !g.Finished && g.Golfers.Any(IsPro));
 
     /// <summary>
     /// Garde-fou : le groupe de ligue <paramref name="index"/> attend tant qu'un de ses golfeurs (membre ou pro) joue encore dans un groupe devant lui,

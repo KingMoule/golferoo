@@ -2092,7 +2092,7 @@ public partial class SmokeTest : Node
         main.StepTicks(1);
         world.PlantTree(p.X, p.Z, TreeSpeciesId.Oak, TreePlantStage.Mound);
         main.StepTicks(1);
-        var razePrice = TreeTool.RazePrice(world, p, 6.0, keepRemarkable: false);
+        var razePrice = world.QuoteRazeArea(p, 6.0, keepRemarkable: false);
         var beforeRaze = ledger.Balance;
         world.RazeArea(p, 6.0, keepRemarkable: false);
         main.StepTicks(1);

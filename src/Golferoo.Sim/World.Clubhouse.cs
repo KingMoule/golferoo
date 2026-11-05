@@ -42,6 +42,7 @@ public sealed partial class World
             return false;
         }
 
+        ForgetStroke(); // l'annulation du dernier coup repeindrait sous le pavillon
         flow.ChangeObstacle(Clubhouse?.Footprint, target.Footprint);
         Clubhouse = target;
         _ = ClubhouseField; // le champ vers la nouvelle porte est mis en cache
@@ -50,7 +51,8 @@ public sealed partial class World
 
     /// <summary>
     /// Vrai si <paramref name="b"/> tient sur le terrain : emprise et porte dans la carte, sur du fairway, du rough ou un chemin (la porte sur toute surface franchissable),
-    /// sol de dénivelé au plus <see cref="ClubhouseMaxRelief"/>, ni arbre ni golfeur sur l'emprise, et un chemin de la porte au départ du trou 1.
+    /// sol de dénivelé au plus <see cref="ClubhouseMaxRelief"/>, ni arbre ni golfeur sur l'emprise, aucun bâtiment posé chevauché (ni sa porte),
+    /// et un chemin du départ du trou 1 à sa porte et à celle de chaque bâtiment posé.
     /// </summary>
     public bool CanPlaceClubhouse(Building b)
     {
@@ -61,7 +63,7 @@ public sealed partial class World
 
         var rect = b.Footprint;
         var (dx, dz) = b.DoorCell;
-        if (rect.MinX < 0 || rect.MinZ < 0 || rect.MaxX >= terrain.CellsX || rect.MaxZ >= terrain.CellsZ || !terrain.IsWalkable(dx, dz))
+        if (rect.MinX < 0 || rect.MinZ < 0 || rect.MaxX >= terrain.CellsX || rect.MaxZ >= terrain.CellsZ || !terrain.IsWalkable(dx, dz) || Collides(b, _placed))
         {
             return false;
         }
@@ -103,9 +105,9 @@ public sealed partial class World
             return false;
         }
 
-        // Un chemin de la porte au départ du trou 1, l'emprise comprise.
-        var field = FlowField.Build(terrain, flow.CostsWith(Clubhouse?.Footprint, rect), dx, dz);
-        return field.IsReachable(terrain.CellXOf(terrain.Tee.X), terrain.CellZOf(terrain.Tee.Z));
+        // Un chemin du départ du trou 1 à la porte et à celles des bâtiments posés, la nouvelle emprise comprise et l'ancienne libérée.
+        var fromTee = FlowField.Build(terrain, flow.CostsWith(Clubhouse?.Footprint, rect), terrain.CellXOf(terrain.Tee.X), terrain.CellZOf(terrain.Tee.Z));
+        return fromTee.IsReachable(dx, dz) && _placed.All(o => o.Kind == BuildingKind.Bench || fromTee.IsReachable(o.DoorCell.X, o.DoorCell.Z));
     }
 
     private bool PlaceClubhouseNearTee() => Terrain is { } terrain && PlaceClubhouseNear(terrain.Tee);

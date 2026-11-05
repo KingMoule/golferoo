@@ -61,6 +61,18 @@ public sealed class TreeStand
         return tree;
     }
 
+    /// <summary>Remet un arbre retiré, avec son identifiant et son état (annulation d'un coup de pinceau). L'identifiant ne doit pas être pris.</summary>
+    internal void Restore(Tree tree)
+    {
+        if (_byId.ContainsKey(tree.Id) || tree.Id >= _nextId)
+        {
+            throw new InvalidOperationException($"Arbre {tree.Id} : identifiant déjà pris ou jamais donné.");
+        }
+
+        Insert(tree);
+        Version++;
+    }
+
     private void Insert(Tree tree)
     {
         _trees.Add(tree);
@@ -75,25 +87,30 @@ public sealed class TreeStand
     {
         w.Int(_nextId);
         w.Long(Version);
-        w.List(_trees, t =>
-        {
-            w.Int(t.Id);
-            w.Double(t.X);
-            w.Double(t.Z);
-            w.Byte((byte)t.Species);
-            w.Int(t.AgeMonths);
-            w.Byte((byte)t.State);
-            w.Bool(t.Remarkable);
-            w.Float(t.FallYaw);
-        });
+        w.List(_trees, t => WriteTree(w, t));
     }
+
+    /// <summary>Un arbre dans la sauvegarde : identifiant, position, essence, âge, état, remarquable, direction de chute.</summary>
+    internal static void WriteTree(SaveWriter w, Tree t)
+    {
+        w.Int(t.Id);
+        w.Double(t.X);
+        w.Double(t.Z);
+        w.Byte((byte)t.Species);
+        w.Int(t.AgeMonths);
+        w.Byte((byte)t.State);
+        w.Bool(t.Remarkable);
+        w.Float(t.FallYaw);
+    }
+
+    internal static Tree ReadTree(SaveReader r) => new(r.Int(), r.Double(), r.Double(), (TreeSpeciesId)r.Byte(), r.Int(), (TreeState)r.Byte(), r.Bool(), r.Float());
 
     /// <summary>Relit les arbres dans leur ordre ; l'index spatial et les altitudes de cime se reconstruisent (le relief doit déjà être relu).</summary>
     internal static TreeStand Read(SaveReader r, double widthMeters, double depthMeters, TerrainGrid? terrain)
     {
         var stand = new TreeStand(widthMeters, depthMeters, terrain);
         var (nextId, version) = (r.Int(), r.Long());
-        foreach (var t in r.List(() => new Tree(r.Int(), r.Double(), r.Double(), (TreeSpeciesId)r.Byte(), r.Int(), (TreeState)r.Byte(), r.Bool(), r.Float())))
+        foreach (var t in r.List(() => ReadTree(r)))
         {
             stand.Insert(t);
         }

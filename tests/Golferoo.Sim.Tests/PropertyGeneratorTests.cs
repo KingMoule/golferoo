@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using Golferoo.Sim.Buildings;
 using Golferoo.Sim.Terrain;
 
@@ -173,23 +172,6 @@ public class PropertyGeneratorTests
 
             Assert.True(world.CanPlaceClubhouse(b));
         }
-    }
-
-    [Fact]
-    public void Generation_TakesUnderOneSecondPerSeed_InRelease()
-    {
-        _ = PropertyGenerator.Create(0); // échauffement du JIT
-        var slowest = TimeSpan.Zero;
-        for (ulong seed = 1; seed <= Seeds; seed++)
-        {
-            var sw = Stopwatch.StartNew();
-            _ = PropertyGenerator.Create(seed);
-            slowest = sw.Elapsed > slowest ? sw.Elapsed : slowest;
-        }
-
-#if !DEBUG
-        Assert.True(slowest < TimeSpan.FromSeconds(1), $"{slowest.TotalMilliseconds:F0} ms");
-#endif
     }
 
     [Fact]

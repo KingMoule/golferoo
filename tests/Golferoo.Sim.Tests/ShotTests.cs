@@ -285,13 +285,13 @@ public class ShotTests
     }
 
     // Critère 6
-    private static (ulong Checksum, Vec3 Ball) RunTwoGroups(ulong seed)
+    private static (ulong Checksum, Point2 Ball) RunTwoGroups(ulong seed)
     {
         var world = new World(seed, Proto());
-        world.SpawnGroup();
+        var first = world.SpawnGroup();
         world.SpawnGroup();
         world.Step(3000);
-        return (world.Checksum(), world.Snapshot().Golfers[0].Ball3D);
+        return (world.Checksum(), first.Golfers[0].Ball);
     }
 
     [Fact]

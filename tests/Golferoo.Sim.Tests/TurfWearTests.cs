@@ -139,8 +139,8 @@ public class PinTests
         var moved = new HashSet<Point2>();
         for (var day = 1; day <= 40; day++)
         {
-            var a = PinPicker.Pick(terrain, 7, day)!.Value;
-            Assert.Equal(a, PinPicker.Pick(terrain, 7, day)!.Value);
+            var a = PinPicker.Pick(terrain, terrain.Course[1], 7, day)!.Value;
+            Assert.Equal(a, PinPicker.Pick(terrain, terrain.Course[1], 7, day)!.Value);
             Assert.InRange(a.X, (50 * 4) + 3, (70 * 4) - 3);
             Assert.InRange(a.Z, (50 * 4) + 3, (70 * 4) - 3);
             moved.Add(a);
