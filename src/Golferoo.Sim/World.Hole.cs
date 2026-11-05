@@ -1,7 +1,9 @@
 using Golferoo.Sim.Economy;
+using Golferoo.Sim.Golfers;
 using Golferoo.Sim.Rating;
 using Golferoo.Sim.Scoring;
 using Golferoo.Sim.Terrain;
+using Golferoo.Sim.Time;
 
 namespace Golferoo.Sim;
 
@@ -37,20 +39,61 @@ public sealed partial class World
             return;
         }
 
+        ReleaseHeldCards();
+    }
+
+    /// <summary>Délai (jours) au-delà duquel la ligue n'attend plus : une paire encore en jeu rend sa carte, des cartes gardées reviennent sans note.</summary>
+    public const int LeagueDeadlineDays = 3;
+
+    private void ReleaseHeldCards()
+    {
         _ratingStale = false;
         foreach (var (round, cards, tick) in _heldCards)
         {
-            League!.GroupFinished(round, cards, rating, tick);
+            League!.GroupFinished(round, cards, CourseRating, tick);
         }
 
         _heldCards.Clear();
     }
 
+    /// <summary>
+    /// C30 M7 : au changement de jour, une paire de ligue partie depuis plus de <see cref="LeagueDeadlineDays"/> jours finit d'office (trous restants ramassés)
+    /// et des cartes gardées depuis aussi longtemps reviennent sans note, pour que la journée se close même si une paire est bloquée ou si la note n'arrive pas.
+    /// </summary>
+    private void EnforceLeagueDeadline()
+    {
+        var deadline = Tick - ((long)LeagueDeadlineDays * Calendar.TicksPerDay);
+        foreach (var group in _groups.Where(g => g.LeagueRound >= 0 && g.Released && !g.Finished && g.ReleaseTick < deadline))
+        {
+            foreach (var g in group.Golfers)
+            {
+                for (var h = Math.Max(group.Hole - 1, 0); h < g.Card!.HoleCount; h++)
+                {
+                    if (g.Card.Strokes(h) == 0)
+                    {
+                        g.Card.PickUp(h);
+                    }
+                }
+
+                g.State = GolferState.Done;
+            }
+
+            ReturnLeagueCards(group);
+        }
+
+        if (_ratingStale && _heldCards.Count > 0 && _heldCards[0].Tick < deadline)
+        {
+            ReleaseHeldCards();
+        }
+    }
+
     private void MixHeldCards(ref ulong hash)
     {
-        if (_ratingStale || HoleCommandsRefused > 0)
+        Mix(ref hash, (_ratingStale ? 1UL : 0UL) | ((ulong)(uint)HoleCommandsRefused << 8) | ((ulong)_heldCards.Count << 40));
+        Mix(ref hash, (ulong)_holeCheckedVersion);
+        foreach (var open in _holesOpen)
         {
-            Mix(ref hash, (_ratingStale ? 5UL : 6UL) | ((ulong)HoleCommandsRefused << 8) | ((ulong)_heldCards.Count << 40));
+            Mix(ref hash, open ? 1UL : 0UL);
         }
 
         foreach (var (round, cards, tick) in _heldCards)
@@ -59,7 +102,7 @@ public sealed partial class World
             foreach (var (id, card) in cards)
             {
                 Mix(ref hash, (ulong)id);
-                Mix(ref hash, (ulong)card.Gross);
+                MixCard(ref hash, card);
             }
         }
     }
@@ -192,16 +235,29 @@ public sealed partial class World
                 continue;
             }
 
+            var hole = terrain.Course[number];
             if (isTee && terrain.SurfaceAt(point.X, point.Z) == Surface.Tee)
             {
-                terrain.Course[number].MoveTee(point);
-                _holeCheckedVersion = -1;
+                hole.MoveTee(point);
             }
             else if (!isTee && terrain.SurfaceAt(point.X, point.Z) == Surface.Green)
             {
-                terrain.Course[number].MovePin(point);
-                _holeCheckedVersion = -1;
+                hole.MovePin(point);
             }
+            else
+            {
+                continue;
+            }
+
+            // Un trou du joueur garde le par de sa longueur ; la note d'avant ne vaut plus, le jeu la refait.
+            if (terrain.Blank)
+            {
+                hole.Par = TerrainGrid.DeducedPar(hole.Tee, hole.Hole);
+            }
+
+            _holeCheckedVersion = -1;
+            _ratingStale = League is not null;
+            CourseRating = null;
         }
 
         if (terrain.Blank && _holeCheckedVersion != terrain.Version)

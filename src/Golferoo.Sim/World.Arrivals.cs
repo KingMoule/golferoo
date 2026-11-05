@@ -17,7 +17,6 @@ public sealed partial class World
     private const ulong ArrivalSeedMask = 0x41525249564C5321UL;
 
     private readonly DeterministicRng _arrivalRng;
-    private bool _groupLeft;
 
     /// <summary>Réglages des arrivées (<c>data/golfers/arrivals.json</c> par défaut ; non sauvés, comme les données embarquées).</summary>
     public ArrivalParams Arrivals { get; }
@@ -196,7 +195,6 @@ public sealed partial class World
         State.RecordExit(visitors.Count, group.Golfers.Where(HasMood).Sum(g => (long)g.Mood));
         Reputation += (ExitScore(group) - Reputation) * Arrivals.ReputationWeight;
         group.Left = true;
-        _groupLeft = true;
         GroupLeft?.Invoke(visitors);
     }
 
@@ -210,11 +208,6 @@ public sealed partial class World
 
     private void MixArrivals(ref ulong hash)
     {
-        if (Clubhouse is null)
-        {
-            return;
-        }
-
         Mix(ref hash, _arrivalRng.StateHash());
         Mix(ref hash, (ulong)BitConverter.DoubleToInt64Bits(Reputation));
         Mix(ref hash, (ulong)_nextGroupId);

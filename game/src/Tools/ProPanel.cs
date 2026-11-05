@@ -21,6 +21,7 @@ public partial class ProPanel : Node
     private UiPanel _panel = null!;
     private Label _level = null!;
     private ScrollContainer _scroll = null!;
+    private Button _training = null!;
     private readonly Control[] _rows = new Control[Skills.Length];
     private readonly Label[] _levels = new Label[Skills.Length];
     private readonly ProgressBar[] _bars = new ProgressBar[Skills.Length];
@@ -53,9 +54,15 @@ public partial class ProPanel : Node
             TooltipText = $"Chaque coup nourrit les habiletés sollicitées selon sa qualité (ligue ×2, entraînement {_skills.TrainingCap / 100} XP par an au plus).",
         };
         top.AddChild(_level);
-        var training = new Button { Name = "ProTraining", Text = "Partie d'entraînement", FocusMode = Control.FocusModeEnum.None };
-        training.Pressed += () => _main.World.StartProRound();
-        top.AddChild(training);
+        _training = new Button { Name = "ProTraining", Text = "Partie d'entraînement", FocusMode = Control.FocusModeEnum.None };
+        _training.Pressed += () =>
+        {
+            if (_main.World.CanStartProRound)
+            {
+                _main.World.StartProRound();
+            }
+        };
+        top.AddChild(_training);
         content.AddChild(top);
 
         // La liste défile quand l'écran logique est bas (150 % : 720 px), pour que le panneau ne passe pas sous la barre.
@@ -115,6 +122,7 @@ public partial class ProPanel : Node
 
     public override void _Process(double delta)
     {
+        _training.Disabled = !_main.World.CanStartProRound; // le pro joue déjà : pas de seconde partie
         for (var i = 0; i < Skills.Length; i++)
         {
             var level = _skills.Level(Skills[i]);

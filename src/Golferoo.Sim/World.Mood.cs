@@ -349,10 +349,6 @@ public sealed partial class World
 
     private void MixMood(ref ulong hash)
     {
-        if (!Reactions.Untouched)
-        {
-            Mix(ref hash, 0x4D4F4F44UL);
-            Reactions.Mix(ref hash);
-        }
+        Reactions.Mix(ref hash);
     }
 }

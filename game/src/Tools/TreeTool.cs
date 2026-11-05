@@ -204,42 +204,16 @@ public partial class TreeTool : Node3D
     {
         var world = _main!.World;
         var radius = _main.Brush.Radius;
-        if (_main.Finances.Allow(RazePrice(world, center, radius, KeepRemarkable)))
+        if (_main.Finances.Allow(world.QuoteRazeArea(center, radius, KeepRemarkable)))
         {
             world.RazeArea(center, radius, KeepRemarkable);
         }
     }
 
-    /// <summary>Ce que débiterait <see cref="World.RazeArea"/> : arbres debout et troncs sous le pinceau, plus le sous-bois, comme la sim.</summary>
-    public static long RazePrice(World world, Point2 center, double radius, bool keepRemarkable)
-    {
-        var economy = world.Economy;
-        var near = new List<Tree>();
-        world.Trees.Query(center.X, center.Z, radius, near);
-        var cost = 0L;
-        foreach (var t in near)
-        {
-            if (keepRemarkable && t.Remarkable)
-            {
-                continue;
-            }
-
-            cost += t.State switch
-            {
-                TreeState.Standing => economy.RazeCost(t),
-                TreeState.Fallen => economy.TreeClearFallen,
-                _ => 0,
-            };
-        }
-
-        var grid = world.Terrain!;
-        return cost + (grid.CountPaint(center, radius, Surface.Rough, Surface.Trees) * (long)Math.Round(grid.CellSize * grid.CellSize * economy.TreeClearPerM2));
-    }
-
     public void PlantAt(Point2 position, TreePlantStage stage)
     {
         // Une cellule où la sim refuserait la plantation ne demande pas de confirmation (l'écart minimum entre arbres reste jugé par la sim).
-        if (_main!.World.Terrain!.SurfaceAt(position.X, position.Z) is Surface.Water or Surface.Green or Surface.Tee or Surface.Bunker or Surface.Trees)
+        if (!World.CanPlantOn(_main!.World.Terrain!.SurfaceAt(position.X, position.Z)))
         {
             _main.World.PlantTree(position.X, position.Z, Species, stage);
             return;

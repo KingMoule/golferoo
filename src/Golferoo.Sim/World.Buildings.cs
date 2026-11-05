@@ -72,6 +72,7 @@ public sealed partial class World
             return BuildingPlacement.Funds;
         }
 
+        ForgetStroke(); // une autre commande de terrain : le dernier coup de pinceau ne s'annule plus (il repeindrait sous le bâtiment)
         if (voucher)
         {
             State.UseVoucher(kind);
@@ -112,6 +113,7 @@ public sealed partial class World
         }
 
         var building = _placed[index];
+        ForgetStroke();
         _placed.RemoveAt(index);
         Ledger.Post(LedgerCategory.Buildings, BuildingRules.Spec(building.Kind)!.Cost / 2);
         flow.ChangeObstacle(building.Footprint, null);
@@ -149,7 +151,7 @@ public sealed partial class World
         }
 
         var others = _placed.Concat(Clubhouse is { } club ? [club] : []).ToList();
-        if (others.Any(o => Overlaps(o.Footprint, rect) || (o.Kind != BuildingKind.Bench && rect.Contains(o.DoorCell.X, o.DoorCell.Z)) || (hasDoor && o.Footprint.Contains(dx, dz))))
+        if (Collides(building, others))
         {
             return BuildingPlacement.Occupied;
         }
@@ -183,6 +185,19 @@ public sealed partial class World
 
     private static bool Overlaps(CellRect a, CellRect b) => a.MinX <= b.MaxX && b.MinX <= a.MaxX && a.MinZ <= b.MaxZ && b.MinZ <= a.MaxZ;
 
+    /// <summary>
+    /// Règle d'emprise entre bâtiments, la seule : <paramref name="b"/> chevauche un des <paramref name="others"/>, recouvre sa porte, ou pose sa porte sur lui.
+    /// La pose (<see cref="CheckBuilding(BuildingKind, int, int, DoorSide)"/>), le déplacement du pavillon et le chargement l'appellent tous.
+    /// </summary>
+    private static bool Collides(Building b, IEnumerable<Building> others)
+    {
+        var (dx, dz) = b.DoorCell;
+        var hasDoor = b.Kind != BuildingKind.Bench;
+        return others.Any(o => Overlaps(o.Footprint, b.Footprint)
+            || (o.Kind != BuildingKind.Bench && b.Footprint.Contains(o.DoorCell.X, o.DoorCell.Z))
+            || (hasDoor && o.Footprint.Contains(dx, dz)));
+    }
+
     /// <summary>Arbres de l'emprise (abattus aux tarifs de C14) et cellules de sous-bois (facturées au mètre carré) ; <paramref name="clearCost"/> est le défrichage total.</summary>
     private List<(int X, int Z)> ClearFootprint(TerrainGrid terrain, CellRect rect, out HashSet<int> doomed, out long clearCost, out bool undergrowth)
     {
@@ -195,12 +210,7 @@ public sealed partial class World
         foreach (var t in near.Where(t => rect.Contains(terrain.CellXOf(t.X), terrain.CellZOf(t.Z))).OrderBy(t => t.Id))
         {
             doomed.Add(t.Id);
-            clearCost += t.State switch
-            {
-                TreeState.Standing => Economy.RazeCost(t),
-                TreeState.Fallen => Economy.TreeClearFallen,
-                _ => 0,
-            };
+            clearCost += TreeRemovalCost(t);
         }
 
         var cells = new List<(int X, int Z)>();
@@ -239,11 +249,6 @@ public sealed partial class World
 
     private void MixBuildings(ref ulong hash)
     {
-        if (_placed.Count == 0)
-        {
-            return;
-        }
-
         Mix(ref hash, (ulong)_placed.Count);
         foreach (var b in _placed)
         {

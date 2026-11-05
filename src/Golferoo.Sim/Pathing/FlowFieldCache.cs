@@ -261,9 +261,16 @@ public sealed class FlowFieldCache
             return;
         }
 
-        // Les champs en cache passent en attente, dans leur ordre d'insertion ; les coûts, eux, se refont une fois pour toutes.
+        // Une retouche qui ne change aucun coût de marche (bunker repeint en sable, fairway en rough) garde les champs.
+        // Sinon les champs en cache passent en attente, dans leur ordre d'insertion ; les coûts, eux, se refont une fois pour toutes.
         _version = _terrain.SurfaceVersion;
-        _costs = FlowField.BuildCosts(_terrain, _obstacles);
+        var costs = FlowField.BuildCosts(_terrain, _obstacles);
+        if (costs.AsSpan().SequenceEqual(_costs))
+        {
+            return;
+        }
+
+        _costs = costs;
         foreach (var key in _order)
         {
             _pending.Add((key, _fields[key].Origin));

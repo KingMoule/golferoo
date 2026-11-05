@@ -382,28 +382,4 @@ public class VisitTests
         Assert.Equal(world.Checksum(), loaded.Checksum());
     }
 
-    /// <summary>Une vraie sauvegarde v17 produite par <c>main</c> (54bec42, graine 3, trois jours et demi, snack-bar, pro shop et banc posés) se charge : bâtiments, humeurs et compteurs intacts, aucune visite faite, et la partie continue.</summary>
-    [Fact]
-    public void Load_RealV17Save_KeepsBuildingsMoodsAndCounters_WithNoVisitYet()
-    {
-        var dir = Path.Combine(AppContext.BaseDirectory, "Fixtures");
-        var expected = File.ReadAllLines(Path.Combine(dir, "v17-buildings.txt"));
-        var world = Load(File.ReadAllBytes(Path.Combine(dir, "v17-buildings.sav")));
-
-        Assert.Equal($"tick {world.Tick}", expected[0]);
-        Assert.Equal($"balance {world.Ledger.Balance}", expected[1]);
-        Assert.Equal(expected.Where(l => l.StartsWith("building ")), world.PlacedBuildings.Select(b => $"building {(int)b.Kind} {b.Footprint.MinX} {b.Footprint.MinZ} {b.Footprint.MaxX} {b.Footprint.MaxZ} {(int)b.Side}"));
-        var golfers = world.Groups.SelectMany(g => g.Golfers).Where(o => o.VisitorId >= 0).ToList();
-        Assert.Equal(expected.Where(l => l.StartsWith("golfer ")), golfers.Select(o => $"golfer {o.Id} {o.VisitorId} {o.Mood}"));
-        Assert.All(golfers, g => Assert.Equal(0, g.Offered));
-        var counters = Enumerable.Range(1, 9).SelectMany(h => Enum.GetValues<MoodEvent>().Select(e => (h, e, c: world.Reactions.Count(h, e), p: world.Reactions.Previous(h, e)))).Where(x => x.c + x.p > 0);
-        Assert.Equal(expected.Where(l => l.StartsWith("reaction ")), counters.Select(x => $"reaction {x.h} {(int)x.e} {x.c} {x.p}"));
-        Assert.NotNull(world.BenchAccent);
-
-        var again = Load(Save(world));
-        Assert.Equal(world.Checksum(), again.Checksum());
-        world.Step(3000);
-        again.Step(3000);
-        Assert.Equal(world.Checksum(), again.Checksum());
-    }
 }

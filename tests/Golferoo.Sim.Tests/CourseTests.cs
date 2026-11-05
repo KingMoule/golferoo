@@ -34,17 +34,18 @@ public class CourseTests
     // (champs complets), les neuf cas redonnent exactement leurs sommes d'avant.
     // C15 / le neuf (retour à ×3) : les six sommes de coups changent, cause unique = aiWalkSpeedFactor revenu de 2,25 à 3,0 (décision de Guillaume, C15 décision 17) ;
     // les trois de « blank-coude », sans coup, non. Contrôle (vérifié) : avec aiWalkSpeedFactor = 2,25, les six cas redonnent exactement leurs sommes d'avant.
+    // C30 : les neuf sommes changent, cause unique = la somme mêle désormais tout l'état sans condition (identifiants, points de passage, champs en cache, cartes, groupes, climat).
     // C28 lot C : les six sommes de coups changent, cause unique = le partenaire attend en retrait du départ (WaitBehind/WaitSide, sa position change) ;
     // les trois de « blank-coude », sans coup, non. Contrôle (vérifié) : avec WaitBehind = WaitSide = 0, les neuf redonnent exactement leurs sommes d'avant.
-    [InlineData("proto-par4", 1UL, 4324739337328670334UL)]
-    [InlineData("proto-par4", 2UL, 16571299819819181752UL)]
-    [InlineData("proto-par4", 3UL, 15269336771244792594UL)]
-    [InlineData("dogleg-par4", 1UL, 12153329364143114400UL)]
-    [InlineData("dogleg-par4", 2UL, 10095530576188573202UL)]
-    [InlineData("dogleg-par4", 3UL, 4859186473150352559UL)]
-    [InlineData("blank-coude", 1UL, 14396232534195343460UL)]
-    [InlineData("blank-coude", 2UL, 7501799876684053930UL)]
-    [InlineData("blank-coude", 3UL, 7192084681290619108UL)]
+    [InlineData("proto-par4", 1UL, 17942962967280366474UL)]
+    [InlineData("proto-par4", 2UL, 2919241108083924788UL)]
+    [InlineData("proto-par4", 3UL, 4342280428609029791UL)]
+    [InlineData("dogleg-par4", 1UL, 15552581782839274405UL)]
+    [InlineData("dogleg-par4", 2UL, 3597511676447853015UL)]
+    [InlineData("dogleg-par4", 3UL, 13802671863181249879UL)]
+    [InlineData("blank-coude", 1UL, 5280810134721405401UL)]
+    [InlineData("blank-coude", 2UL, 1253445882585647932UL)]
+    [InlineData("blank-coude", 3UL, 5506356485139150733UL)]
     public void SingleHoleChecksumIsUnchanged(string hole, ulong seed, ulong expected)
     {
         var terrain = CourseLoader.Load(Path.Combine(HoleDir(), hole + ".json"), 2);

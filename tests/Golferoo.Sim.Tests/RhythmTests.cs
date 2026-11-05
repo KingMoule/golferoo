@@ -13,7 +13,8 @@ public class RhythmTests(ITestOutputHelper output)
     /// <summary>Part du temps passée à marcher par un groupe de 2 seul sur « Le neuf » (graine 1, résolveur physique).</summary>
     internal static (double Walk, double Flight, int Ticks) WalkShare(ArrivalParams? arrivals = null, bool fast = false)
     {
-        var world = new World(1, ClubhouseTests.LeNeuf(), league: false, arrivals: arrivals) { FastForward = fast };
+        var world = new World(1, ClubhouseTests.LeNeuf(), league: false, arrivals: arrivals);
+        world.SetFastForward(fast);
         var group = world.SpawnGroup();
         int walk = 0, flight = 0, total = 0;
         while (!group.Finished && total < 20 * Day)

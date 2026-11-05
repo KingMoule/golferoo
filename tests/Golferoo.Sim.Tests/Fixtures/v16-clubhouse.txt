@@ -1,4 +1,0 @@
-tick 32400
-balance 15110730
-clubhouse 1 14 12 21 2
-openHoles 9

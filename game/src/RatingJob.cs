@@ -74,9 +74,9 @@ public sealed class RatingJob
             {
                 _taskGeneration = _generation;
                 var s = _season;
-                var holes = CourseRater.SnapshotHoles(_terrain);   // idem pour le parcours : un trou peut s'ajouter pendant le calcul
-                var trees = _stand.Trees.ToArray();   // copie sur le fil principal : les arbres bougent pendant le calcul
-                _task = Task.Run(() => CourseRater.Rate(_terrain, _seed, season: s, worldTrees: trees, holes: holes));
+                var terrain = CourseRater.Snapshot(_terrain); // copies sur le fil principal : terrain, parcours et arbres bougent pendant le calcul
+                var trees = _stand.Trees.ToArray();
+                _task = Task.Run(() => CourseRater.Rate(terrain, _seed, season: s, worldTrees: trees));
             }
         }
     }

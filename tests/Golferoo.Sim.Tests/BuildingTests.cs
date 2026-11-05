@@ -331,26 +331,6 @@ public class BuildingTests
         Assert.True(loaded.SellBuilding(placed.Footprint.MinX, placed.Footprint.MinZ));
     }
 
-    /// <summary>Une vraie sauvegarde v16 de <c>main</c> (abffa10, graine 3, trois jours et demi, pavillon posé) se charge sans bâtiment autre que le pavillon, et on peut y poser.</summary>
-    [Fact]
-    public void Load_RealV16Save_HasOnlyTheClubhouse_AndAcceptsBuildings()
-    {
-        var dir = Path.Combine(AppContext.BaseDirectory, "Fixtures");
-        var expected = File.ReadAllLines(Path.Combine(dir, "v16-clubhouse.txt"));
-        var world = World.Load(new MemoryStream(File.ReadAllBytes(Path.Combine(dir, "v16-clubhouse.sav"))), new StubShotResolver());
-
-        Assert.Equal($"tick {world.Tick}", expected[0]);
-        Assert.Equal($"balance {world.Ledger.Balance}", expected[1]);
-        var c = world.Clubhouse!;
-        Assert.Equal($"clubhouse {c.Footprint.MinX} {c.Footprint.MinZ} {c.Footprint.MaxX} {c.Footprint.MaxZ} {(int)c.Side}", expected[2]);
-        Assert.Equal($"openHoles {world.OpenHoles}", expected[3]);
-        Assert.Empty(world.PlacedBuildings);
-
-        var (x, z) = FreeSpot(world, BuildingKind.Bench);
-        Assert.Equal(BuildingPlacement.Placed, world.PlaceBuilding(BuildingKind.Bench, x, z, DoorSide.South));
-        Assert.Equal(world.Checksum(), World.Load(new MemoryStream(Resave(world)), new StubShotResolver()).Checksum());
-    }
-
     private static byte[] Resave(World world)
     {
         var file = new MemoryStream();

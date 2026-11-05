@@ -301,121 +301,6 @@ public class SaveTests
         return [.. all[..at], .. with, .. all[(at + what.Length)..]];
     }
 
-    /// <summary>
-    /// Ramène le corps v15 de <paramref name="raw"/> (monde à club vide : seulement le pro dans la ligue, vivier sans membre) à la disposition de la v14 ou de la v13 :
-    /// sans commandes du pro, sans trous aimés, sans adhésion des visiteurs, ligue des 40 membres de la graine et leur opinion fixe ; pour la v13, sans humeur, sans heure d'arrivée des groupes, sans réactions.
-    /// </summary>
-    private static byte[] LegacyBody(World world, byte[] raw, int version)
-    {
-        var league = world.League;
-        Assert.True(league is null || league.Members.Count == 1);
-        raw = raw[..^Bytes(w => world.State.Write(w)).Length]; // ni état de partie (v20)
-        raw = ReplaceOnce(raw, Bytes(w => world.Ledger.Write(w)), LedgerBeforeV20(world)); // ni catégorie Objectives (v20)
-        raw = raw[..^4]; // ni bâtiments posés (v17)
-        raw = raw[..^4]; // ni commandes du pro (v15)
-        if (world.Flow is { } flow && (flow.Pending.Count > 0 || flow.Count > 0))
-        {
-            var cached = flow.Cached.ToList();
-            var keys = Bytes(w =>
-            {
-                w.List(flow.Pending, p => { w.Int(p.Key); w.Int(p.Origin); });
-                w.List(cached, p => { w.Int(p.Key); w.Int(p.Origin); });
-            });
-            raw = ReplaceOnce(raw, keys, Bytes(w =>
-            {
-                w.List(flow.Pending.Select(p => p.Key).ToList(), w.Int);
-                w.List(flow.CachedKeys, w.Int);
-            })); // champs sans origine de borne (v19) : relus complets
-        }
-
-        if (version == 13)
-        {
-            raw = raw[..^Bytes(w => world.Reactions.Write(w)).Length]; // ni réactions (v14)
-        }
-        else
-        {
-            raw = raw[..^Bytes(w => world.Reactions.Write(w)).Length]; // les réactions sans leurs cellules (v16), au dernier événement près (v18)
-            raw = [.. raw, .. Bytes(w =>
-            {
-                var events = Enum.GetValues<Golferoo.Sim.Golfers.MoodEvent>().Where(e => e != Golferoo.Sim.Golfers.MoodEvent.ServiceVisited).ToList();
-                w.List(Enumerable.Range(1, 18).SelectMany(h => events.Select(e => world.Reactions.Count(h, e))).ToList(), w.Int);
-                w.List(Enumerable.Range(1, 18).SelectMany(h => events.Select(e => world.Reactions.Previous(h, e))).ToList(), w.Int);
-            })];
-        }
-
-        foreach (var group in world.Groups)
-        {
-            var bytes = Bytes(w => group.Write(w));
-            var legacy = bytes;
-            foreach (var golfer in group.Golfers)
-            {
-                var g = Bytes(w => golfer.Write(w));
-                var cut = 5 + (version == 13 ? 4 + 1 + 4 + (4 * MoodParams.EventCount) + 4 : 0); // trous aimés (v15), puis humeur, abandon, compteurs et attente (v14)
-                var older = g[..^(19 + cut)]; // ni visite (v18)
-                if (version != 13)
-                {
-                    // les compteurs d'événements n'avaient pas le dernier (v18) : on le retire, avec 4 octets de moins dans leur longueur
-                    var count = older.Length - 4 - (4 * MoodParams.EventCount) - 4;
-                    older = [.. older[..count], .. BitConverter.GetBytes(MoodParams.EventCount - 1), .. older[(count + 4)..^8], .. older[^4..]];
-                }
-
-                legacy = ReplaceOnce(legacy, g, older);
-            }
-
-            raw = ReplaceOnce(raw, bytes, version == 13 ? legacy[..^8] : legacy); // l'heure d'arrivée du groupe (v14) est la dernière chose écrite
-        }
-
-        var pool = Bytes(w => world.Visitors.Write(w));
-        var visitors = world.Visitors.Visitors;
-        var legacyPool = Bytes(w => w.Int(visitors.Count)).Concat(visitors.SelectMany(v => Bytes(w => v.Write(w))[..^10])).ToArray(); // ni points, ni niveau, ni démission (v15), ni parties jouées (v16)
-        raw = ReplaceOnce(raw, pool, legacyPool);
-
-        if (league is not null)
-        {
-            var bytes = Bytes(w => league.Write(w));
-            var roster = Bytes(w => w.List(league.Members, m => m.WriteRoster(w)));
-            var states = Bytes(w => league.Members.ToList().ForEach(m => m.Write(w)));
-            var divisions = Bytes(w => w.List(league.Divisions, d => w.List(d, m => w.Int(m.Id))));
-            var rest = bytes[(13 + roster.Length + states.Length + divisions.Length)..];
-            var club = new Golferoo.Sim.League.LeagueSeason(world.Seed, Golferoo.Sim.League.LeagueSeason.GenerateMembers(world.Seed));
-            var legacyLeague = bytes[..13]
-                .Concat(Bytes(w => club.Members.ToList().ForEach(m =>
-                {
-                    w.Int(50); // l'opinion fixe de C06
-                    m.Write(w);
-                })))
-                .Concat(Bytes(w => w.List(club.Divisions, d => w.List(d, m => w.Int(m.Id)))))
-                .Concat(rest).ToArray();
-            raw = ReplaceOnce(raw, bytes, legacyLeague);
-        }
-
-        return raw;
-    }
-
-    /// <summary>Le grand livre tel que la v19 l'écrivait : une catégorie de moins (Objectives) dans le mois en cours et dans chaque mois clos.</summary>
-    private static byte[] LedgerBeforeV20(World world)
-    {
-        var full = Bytes(w => world.Ledger.Write(w));
-        var n = Enum.GetValues<LedgerCategory>().Length;
-        var result = new List<byte>(full[..(20 + (8 * (n - 1)))]);
-        var at = 20 + (8 * n);
-        result.AddRange(full[at..(at + 4)]);
-        for (int i = 0, months = BitConverter.ToInt32(full, at); i < months; i++)
-        {
-            var start = at + 4 + (i * (8 + (8 * n)));
-            result.AddRange(full[start..(start + 8 + (8 * (n - 1)))]);
-        }
-
-        return [.. result];
-    }
-
-    private static byte[] LegacyFile(byte[] file, byte[] raw, int version)
-    {
-        var forged = (byte[])file.Clone();
-        forged[4] = (byte)version;
-        return Pack(forged, raw, Golferoo.Sim.Save.SaveFormat.Hash(raw));
-    }
-
     private static bool Throws(Action load)
     {
         try
@@ -514,7 +399,7 @@ public class SaveTests
     public void Load_UnknownVersion_Throws()
     {
         var bytes = Save(Build(1, "proto", "start"));
-        bytes[4] = 24;
+        bytes[4] = 25;
 
         Assert.Throws<InvalidDataException>(() => Load(bytes));
     }
@@ -529,6 +414,8 @@ public class SaveTests
     [InlineData(8)] // C21 lot 3 : journée de 9 min, durées en ticks
     [InlineData(9)] // C25 lot 3 : seuils de Jeu dans le vent et de Lecture du green, biais des aperçus
     [InlineData(10)] // C25 lot 4 : écart type de l'abaissement du chip
+    [InlineData(11)]
+    [InlineData(22)] // C30 : seules la version courante et la précédente se relisent
     public void Load_OlderVersion_SaysItIsAnOlderVersion(byte version)
     {
         var bytes = Save(Build(1, "proto", "start"));
@@ -1183,100 +1070,23 @@ public class SaveTests
     }
 
     /// <summary>
-    /// Une vraie sauvegarde v19 produite par <c>main</c> (9f3b0f7, graine 3, trois jours et demi, pro shop et snack-bar posés) se charge avec un état de partie vierge,
-    /// la caisse et les bâtiments intacts, et la partie continue de la même façon que sa relecture.
+    /// C30 : une vraie sauvegarde v23 produite par <c>main</c> (1ff1cdb : la sauvegarde v22 de la graine 3, relue et avancée de 3000 ticks) se charge,
+    /// caisse, bâtiments, objectifs, groupes et arbres intacts, et la partie continue de la même façon que sa relecture.
     /// </summary>
     [Fact]
-    public void Load_RealV19Save_KeepsTheClub_WithAFreshGameState()
+    public void Load_RealV23Save_KeepsTheGame()
     {
         var dir = Path.Combine(AppContext.BaseDirectory, "Fixtures");
-        var expected = File.ReadAllLines(Path.Combine(dir, "v19-partie.txt"));
-        var world = Load(File.ReadAllBytes(Path.Combine(dir, "v19-partie.sav")));
-
-        Assert.Equal($"tick {world.Tick}", expected[0]);
-        Assert.Equal($"balance {world.Ledger.Balance}", expected[1]);
-        Assert.Equal(expected.Where(l => l.StartsWith("building ")), world.PlacedBuildings.Select(b => $"building {(int)b.Kind} {b.Footprint.MinX} {b.Footprint.MinZ} {b.Footprint.MaxX} {b.Footprint.MaxZ} {(int)b.Side}"));
-        Assert.False(world.State.ObjectivesOn);
-        Assert.Equal(0UL, world.State.Completed);
-        Assert.Empty(world.State.Reports);
-        Assert.Equal(world.Economy.StartingMoney, world.State.YearStartBalance);
-
-        var again = Load(Save(world));
-        Assert.Equal(world.Checksum(), again.Checksum());
-        world.Step(3000);
-        again.Step(3000);
-        Assert.Equal(world.Checksum(), again.Checksum());
-    }
-
-    /// <summary>
-    /// Une vraie sauvegarde v20 produite par <c>main</c> (cbbd92e, graine 3, trois jours et demi, pro shop et snack-bar posés, objectifs en cours) se charge avec le club actif
-    /// et aucune pensée lue, la caisse, les bâtiments et les objectifs intacts, et la partie continue de la même façon que sa relecture.
-    /// </summary>
-    [Fact]
-    public void Load_RealV20Save_KeepsTheGame_WithAnActiveClubAndNoThoughtRead()
-    {
-        var dir = Path.Combine(AppContext.BaseDirectory, "Fixtures");
-        var expected = File.ReadAllLines(Path.Combine(dir, "v20-partie.txt"));
-        var world = Load(File.ReadAllBytes(Path.Combine(dir, "v20-partie.sav")));
-
-        Assert.Equal($"tick {world.Tick}", expected[0]);
-        Assert.Equal($"balance {world.Ledger.Balance}", expected[1]);
-        Assert.Equal(expected.Where(l => l.StartsWith("building ")), world.PlacedBuildings.Select(b => $"building {(int)b.Kind} {b.Footprint.MinX} {b.Footprint.MinZ} {b.Footprint.MaxX} {b.Footprint.MaxZ} {(int)b.Side}"));
-        Assert.Equal($"state {world.State.Completed} {world.State.ObjectivesOn}", expected.Single(l => l.StartsWith("state ")));
-        Assert.True(world.State.ClubActive);
-        Assert.False(world.State.ThoughtRead);
-        Assert.NotNull(world.Clubhouse);
-
-        var again = Load(Save(world));
-        Assert.Equal(world.Checksum(), again.Checksum());
-        world.Step(3000);
-        again.Step(3000);
-        Assert.Equal(world.Checksum(), again.Checksum());
-    }
-
-    /// <summary>
-    /// Une vraie sauvegarde v21 produite par <c>main</c> (559ac19, graine 3, trois jours et demi, pro shop et snack-bar posés, objectifs en cours) se charge sans conseil donné,
-    /// sans abandon compté ni jour sans partie, la caisse, les bâtiments et les objectifs intacts, et la partie continue de la même façon que sa relecture.
-    /// </summary>
-    [Fact]
-    public void Load_RealV21Save_KeepsTheGame_WithNoAdviceGivenYet()
-    {
-        var dir = Path.Combine(AppContext.BaseDirectory, "Fixtures");
-        var expected = File.ReadAllLines(Path.Combine(dir, "v21-partie.txt"));
-        var world = Load(File.ReadAllBytes(Path.Combine(dir, "v21-partie.sav")));
-
-        Assert.Equal($"tick {world.Tick}", expected[0]);
-        Assert.Equal($"balance {world.Ledger.Balance}", expected[1]);
-        Assert.Equal(expected.Where(l => l.StartsWith("building ")), world.PlacedBuildings.Select(b => $"building {(int)b.Kind} {b.Footprint.MinX} {b.Footprint.MinZ} {b.Footprint.MaxX} {b.Footprint.MaxZ} {(int)b.Side}"));
-        Assert.Equal($"state {world.State.Completed} {world.State.ObjectivesOn}", expected.Single(l => l.StartsWith("state ")));
-        Assert.Equal($"active {world.State.ClubActive} {world.State.ThoughtRead}", expected.Single(l => l.StartsWith("active ")));
-        Assert.Equal(0UL, world.State.AdviceGiven);
-        Assert.Equal(0, world.State.Walkouts);
-        Assert.Equal(0, world.State.HoleIdle(0));
-
-        var again = Load(Save(world));
-        Assert.Equal(world.Checksum(), again.Checksum());
-        world.Step(3000);
-        again.Step(3000);
-        Assert.Equal(world.Checksum(), again.Checksum());
-    }
-
-    /// <summary>
-    /// Une vraie sauvegarde v22 produite par <c>main</c> (d8199ce, graine 3, trois jours et demi, pro shop et snack-bar posés, objectifs en cours) se charge sans jour de grâce de pluie,
-    /// la caisse, les bâtiments et les objectifs intacts, et la partie continue de la même façon que sa relecture.
-    /// </summary>
-    [Fact]
-    public void Load_RealV22Save_KeepsTheGame_WithNoRainFreeDays()
-    {
-        var dir = Path.Combine(AppContext.BaseDirectory, "Fixtures");
-        var expected = File.ReadAllLines(Path.Combine(dir, "v22-partie.txt"));
-        var world = Load(File.ReadAllBytes(Path.Combine(dir, "v22-partie.sav")));
+        var expected = File.ReadAllLines(Path.Combine(dir, "v23-partie.txt"));
+        var world = Load(File.ReadAllBytes(Path.Combine(dir, "v23-partie.sav")));
 
         Assert.Equal($"tick {world.Tick}", expected[0]);
         Assert.Equal($"balance {world.Ledger.Balance}", expected[1]);
         Assert.Equal(expected.Where(l => l.StartsWith("building ")), world.PlacedBuildings.Select(b => $"building {(int)b.Kind} {b.Footprint.MinX} {b.Footprint.MinZ} {b.Footprint.MaxX} {b.Footprint.MaxZ} {(int)b.Side}"));
         Assert.Equal($"state {world.State.Completed} {world.State.ObjectivesOn}", expected.Single(l => l.StartsWith("state ")));
         Assert.Equal($"advice {world.State.AdviceGiven} {world.State.Walkouts}", expected.Single(l => l.StartsWith("advice ")));
+        Assert.Equal($"groups {world.Groups.Count}", expected.Single(l => l.StartsWith("groups ")));
+        Assert.Equal($"trees {world.Trees.Count}", expected.Single(l => l.StartsWith("trees ")));
 
         var again = Load(Save(world));
         Assert.Equal(world.Checksum(), again.Checksum());
@@ -1334,55 +1144,6 @@ public class SaveTests
         Assert.Equal(world.Checksum(), reloaded.Checksum());
     }
 
-    /// <summary>
-    /// Une sauvegarde v11 (sans pavillon, sans vivier, 8 catégories au grand livre, sans clubhouseMove) se charge, avec un pavillon placé automatiquement.
-    /// Le fichier v11 est fabriqué en retirant ces trois ajouts d'une sauvegarde v12 de monde frais.
-    /// </summary>
-    [Fact]
-    public void Load_V11_PlacesTheClubhouseAutomatically()
-    {
-        var world = new World(5, ClubhouseTests.LeNeuf(), league: true, emptyClub: true);
-        var v12 = Save(world);
-        var raw = LegacyBody(world, Unpack(v12), 13);
-
-        byte[] Bytes(Action<Golferoo.Sim.Save.SaveWriter> write)
-        {
-            var w = new Golferoo.Sim.Save.SaveWriter();
-            write(w);
-            return w.Written.ToArray();
-        }
-
-        byte[] Replace(byte[] all, byte[] what, byte[] with)
-        {
-            var at = all.AsSpan().IndexOf(what);
-            Assert.True(at >= 0, "section introuvable dans le corps");
-            return [.. all[..at], .. with, .. all[(at + what.Length)..]];
-        }
-
-        var legacyJson = System.Text.Json.Nodes.JsonNode.Parse(world.Economy.ToJson())!.AsObject();
-        Assert.True(legacyJson.Remove("clubhouseMove"));
-        raw = Replace(raw, Bytes(w => w.String(world.Economy.ToJson())), Bytes(w => w.String(legacyJson.ToJsonString())));
-
-        var ledger = LedgerBeforeV20(world);
-        var categories = Enum.GetValues<LedgerCategory>().Length - 1;
-        var legacyLedger = ledger[..(20 + (8 * (categories - 1)))].Concat(ledger[(20 + (8 * categories))..]).ToArray();
-        raw = Replace(raw, ledger, legacyLedger);
-
-        raw = raw[..^Bytes(world.WriteArrivals).Length]; // ni vivier, ni réputation (v13)
-        Assert.Equal(0, raw[^1]); // pas de pavillon
-        raw = raw[..^1];
-
-        var file = (byte[])v12.Clone();
-        file[4] = 11;
-        var loaded = Load(Pack(file, raw, Golferoo.Sim.Save.SaveFormat.Hash(raw)));
-
-        Assert.NotNull(loaded.Clubhouse);
-        Assert.Equal(world.Economy.ClubhouseMove, loaded.Economy.ClubhouseMove);
-        Assert.Equal(world.Ledger.Balance, loaded.Ledger.Balance);
-        Assert.NotNull(loaded.ClubhouseField);
-        Assert.Equal(new World(5, ClubhouseTests.LeNeuf(), league: true, placeClubhouse: true).Clubhouse, loaded.Clubhouse);
-    }
-
     /// <summary>C15 lot 2 (v13) : le vivier, la file, les groupes en sortie, la réputation et le générateur des arrivées se sauvent, se relisent et entrent dans la somme de contrôle.</summary>
     [Fact]
     public void Arrivals_AreSavedLoadedAndChecksummed()
@@ -1420,21 +1181,6 @@ public class SaveTests
         world.Step(2000);
         loaded.Step(2000);
         Assert.Equal(world.Checksum(), loaded.Checksum());
-    }
-
-    /// <summary>Une sauvegarde v12 (pavillon, sans vivier ni réputation) se charge avec un vivier vide et la réputation de départ.</summary>
-    [Fact]
-    public void Load_V12_StartsWithAnEmptyPool()
-    {
-        var world = new World(5, ClubhouseTests.LeNeuf(), league: true, placeClubhouse: true, emptyClub: true);
-        var file = Save(world);
-        var raw = LegacyBody(world, Unpack(file), 13);
-        raw = raw[..^Bytes(world.WriteArrivals).Length];
-        var loaded = Load(LegacyFile(file, raw, 12));
-
-        Assert.Equal(world.Clubhouse, loaded.Clubhouse);
-        Assert.Equal(40, loaded.Visitors.Visitors.Count); // les 40 membres de la graine deviennent des membres du vivier
-        Assert.Equal(loaded.Arrivals.ReputationStart, loaded.Reputation);
     }
 
     /// <summary>C16 lot 1 (v14) : humeur, abandon, compteurs d'événements, attente, arrivée du groupe et réactions se sauvent, se relisent et entrent dans la somme de contrôle.</summary>
@@ -1515,44 +1261,6 @@ public class SaveTests
         Assert.Equal(Golferoo.Sim.Golfers.Reactions.MaxSpots + 9, reactions.Spots[^1].X);
     }
 
-    /// <summary>
-    /// Une vraie sauvegarde v15 produite par <c>main</c> (c4df5d2, graine 3, 12 h par pas, groupes en jeu, humeurs variées, membres promus, réactions comptées) :
-    /// le niveau, l'humeur, les divisions, le solde et les compteurs survivent au chargement v16, avec zéro partie jouée et aucune cellule de réaction.
-    /// </summary>
-    [Fact]
-    public void Load_RealV15Save_KeepsMoodMembersCountersAndStartsWithoutGamesOrSpots()
-    {
-        var dir = Path.Combine(AppContext.BaseDirectory, "Fixtures");
-        var expected = File.ReadAllLines(Path.Combine(dir, "v15-groups.txt"));
-        var world = Load(File.ReadAllBytes(Path.Combine(dir, "v15-groups.sav")));
-
-        Assert.Equal($"tick {world.Tick}", expected[0]);
-        Assert.Equal($"balance {world.Ledger.Balance}", expected[1]);
-        Assert.Equal($"members {world.League!.Members.Count}", expected[2]);
-        Assert.Equal("divisions " + string.Join(";", world.League.Divisions.Select(d => string.Join(",", d.Select(m => m.Id)))), expected[3]);
-        var golfers = world.Groups.SelectMany(g => g.Golfers).Where(o => o.VisitorId >= 0).Select(o => $"golfer {o.Id} {o.VisitorId} {o.Mood}").ToList();
-        Assert.Equal(expected.Where(l => l.StartsWith("golfer ")), golfers);
-        Assert.True(golfers.Select(x => x.Split(' ')[3]).Distinct().Count() > 3, "la fixture doit avoir des humeurs variées");
-        Assert.Equal(expected.Where(l => l.StartsWith("visitor ")), world.Visitors.Visitors.Where(v => v.Points > 0).Select(v => $"visitor {v.Id} {(int)v.Level} {v.Points}"));
-        var counters = Enumerable.Range(1, 9).SelectMany(h => Enum.GetValues<Golferoo.Sim.Golfers.MoodEvent>().Select(e => (h, e, c: world.Reactions.Count(h, e), p: world.Reactions.Previous(h, e)))).Where(x => x.c + x.p > 0);
-        Assert.Equal(expected.Where(l => l.StartsWith("reaction ")), counters.Select(x => $"reaction {x.h} {(int)x.e} {x.c} {x.p}"));
-        Assert.All(world.Visitors.Visitors, v => Assert.Equal(0, v.Games));
-        Assert.Empty(world.Reactions.Spots);
-        Assert.Equal(world.Checksum(), Load(Save(world)).Checksum());
-    }
-
-    /// <summary>Une sauvegarde v13 (sans compteurs de réactions) se charge avec des compteurs vides et l'humeur de départ des visiteurs.</summary>
-    [Fact]
-    public void Load_V13_StartsWithEmptyReactions()
-    {
-        var world = ArrivalTests.NewWorld(3);
-        var file = Save(world);
-        var loaded = Load(LegacyFile(file, LegacyBody(world, Unpack(file), 13), 13));
-
-        Assert.True(loaded.Reactions.Untouched);
-        Assert.Equal(world.Visitors.Visitors.Count, loaded.Visitors.Visitors.Count);
-    }
-
     /// <summary>« Le neuf » à club vide avec son pavillon et sa ligue (fermée), résolveur de substitution : des groupes en file et en jeu, des visiteurs au vivier.</summary>
     private static World EmptyClubWithGroups(ulong seed = 3)
     {
@@ -1619,47 +1327,4 @@ public class SaveTests
         Assert.Contains(joinQueued.Golfers, g => g.MemberId == world.League.Members.First(m => m.IsPro).Id); // la commande s'est appliquée au tick suivant
     }
 
-    /// <summary>
-    /// C16 lot 2, critère 1 : une sauvegarde v13 ou v14 qui a des groupes en jeu se charge, et ses 40 membres de la graine deviennent des membres du vivier
-    /// (même handicap, même division). Le fichier est fabriqué en ramenant le corps d'un monde à club vide à la disposition d'avant la v15.
-    /// </summary>
-    [Theory]
-    [InlineData(13)]
-    [InlineData(14)]
-    public void Load_BeforeV15_WithGroupsInPlay_MakesTheSeedMembersVisitors(int version)
-    {
-        var world = EmptyClubWithGroups();
-        var file = Save(world);
-        var loaded = Load(LegacyFile(file, LegacyBody(world, Unpack(file), version), version));
-
-        var before = world.Visitors.Visitors.Count;
-        var club = new Golferoo.Sim.League.LeagueSeason(world.Seed, Golferoo.Sim.League.LeagueSeason.GenerateMembers(world.Seed));
-        Assert.Equal(before + 40, loaded.Visitors.Visitors.Count);
-        Assert.Equal(club.Members.Count, loaded.League!.Members.Count);
-        Assert.Equal(club.Divisions.Select(d => d.Select(m => m.Id)), loaded.League.Divisions.Select(d => d.Select(m => m.Id)));
-        foreach (var m in club.Members.Where(m => !m.IsPro))
-        {
-            var member = loaded.League.Members[m.Id];
-            var visitor = loaded.Visitors.Visitors[member.VisitorId];
-            Assert.Equal((m.Name, m.StartHandicap, m.Profile), (member.Name, member.StartHandicap, member.Profile));
-            Assert.Equal((m.Name, m.StartHandicap, m.Profile, MemberLevel.Member, false), (visitor.Name, visitor.Handicap, visitor.Profile, visitor.Level, visitor.Resigned));
-            Assert.True(member.VisitorId >= before);
-        }
-
-        // Les groupes en jeu sont intacts (ceux de la v13 n'avaient pas d'humeur : ils repartent de l'humeur de départ).
-        Assert.Equal(world.Groups.Select(g => (g.Id, g.Hole, g.Released)), loaded.Groups.Select(g => (g.Id, g.Hole, g.Released)));
-        Assert.Equal(world.Groups.SelectMany(g => g.Golfers).Select(g => (g.Id, g.VisitorId, g.Position)), loaded.Groups.SelectMany(g => g.Golfers).Select(g => (g.Id, g.VisitorId, g.Position)));
-        if (version == 14)
-        {
-            Assert.Equal(world.Groups.SelectMany(g => g.Golfers).Select(g => g.Mood), loaded.Groups.SelectMany(g => g.Golfers).Select(g => g.Mood));
-        }
-
-        // Le monde chargé joue, se resauve à l'identique, et ses membres paient leur cotisation.
-        var again = Load(Save(loaded));
-        Assert.Equal(loaded.Checksum(), again.Checksum());
-        loaded.Step(4000);
-        again.Step(4000);
-        Assert.Equal(loaded.Checksum(), again.Checksum());
-        Assert.Equal(40, loaded.Visitors.Visitors.Count(v => v.Level == MemberLevel.Member));
-    }
 }
